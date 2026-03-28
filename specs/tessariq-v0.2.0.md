@@ -24,7 +24,7 @@ v0.2.0 inherits all v0.1.0 behavior unless this document changes it explicitly. 
 - `promote` still creates exactly one commit or fails cleanly
 - evidence JSON artifacts remain parseable under the same compatibility rules
 
-This document only specifies the additions and changed guarantees for multi-workspace operation and resume. Read it together with [tessariq-v0.1.0.md](/media/felix/data/code/tessariq/specs/tessariq-v0.1.0.md).
+This document focuses on the additions and changed guarantees for multi-workspace operation and resume, but it also includes the implementation notes needed to read the file on its own.
 
 ## Scope
 
@@ -211,3 +211,100 @@ Rules:
 - resuming a live run fails cleanly
 - resuming a run with missing reconstruction inputs fails cleanly
 - all workspace-specific warnings and evidence fields are present
+
+## Implementation Notes (Informative)
+
+This section is informative. It describes the current implementation shape for v0.2.0, and the normative sections above take precedence if there is any conflict.
+
+### Generated storage layout
+
+```text
+<repo>/
+  specs/
+  .tessariq/
+    runs/
+      index.jsonl
+      <run_id>/
+        manifest.json
+        status.json
+        adapter.json
+        task.md
+        run.log
+        runner.log
+        diff.patch
+        diffstat.txt
+        egress.compiled.yaml
+        egress.events.jsonl
+        squid.log
+        timeout.flag
+        bootstrap.sh
+        runner.sh
+        workspace.json
+```
+
+```text
+~/.tessariq/
+  worktrees/
+    <repo_id>/
+      <run_id>/
+```
+
+### Derived identifiers
+
+- `run_id` is a ULID
+- `repo_root = realpath(git rev-parse --show-toplevel)`
+- `repo_id = slug(basename(repo_root)) + "-" + shortHash(repo_root)`
+- `shortHash` is the first 8 hex chars of `sha256(repo_root)`
+
+### Shared runtime sketch
+
+The current implementation direction shared across workspace modes is:
+
+- keep one evidence folder per run under `.tessariq/runs/<run_id>/`
+- keep detached worktrees under `~/.tessariq/worktrees/<repo_id>/<run_id>/` when the workspace mode needs them
+- use the same proxy topology as v0.1.0 for `proxy` egress:
+  - create a per-run internal `run_net`
+  - start a per-run Squid proxy container connected to `run_net` and a non-internal egress network
+  - run the agent container only on `run_net`
+  - configure `HTTP_PROXY` and `HTTPS_PROXY` for the agent
+
+### Workspace-specific implementation notes
+
+`worktree`:
+
+- continue using a detached host worktree mounted read-write at `/work`
+- resume by reading the previous worktree `HEAD` and creating a fresh detached worktree from that point
+
+`copy+patch`:
+
+- construct `/work` from a deterministic checkout at `base_sha`
+- generate `diff.patch` and `diffstat.txt` from the in-container working copy
+- resume by re-checking out the original `base_sha` and applying the prior `diff.patch`
+- promote by applying `diff.patch` to a fresh detached worktree before branching and committing
+
+`repo-rw`:
+
+- mount the repository working tree directly at `/work`
+- record the unsafe workspace choice in evidence
+- resume from the repository's current working directory state rather than a reconstructable isolated snapshot
+
+### Runner responsibilities
+
+Runner, as PID1, is expected to:
+
+- start the `tmux` session
+- enforce timeout
+- write `timeout.flag` before escalation on timeout
+- ensure `status.json` exists even if bootstrap fails
+- write `runner.log`
+
+### Bootstrap responsibilities
+
+Bootstrap is expected to:
+
+- run `pre` commands
+- run the selected adapter
+- run `verify` commands
+- trap `EXIT`
+- generate diff artifacts best-effort
+- write the final `status.json`

@@ -23,8 +23,6 @@ Tessariq v0.1.0 provides a Git-native, sandboxed way to run coding agents agains
 - evidence is durable, repo-local, and stable enough for later automation
 - promotion produces exactly one reviewable Git commit or fails cleanly
 
-Implementation detail that is useful for building Tessariq but not needed to understand release scope lives in [runtime-design-notes.md](/media/felix/data/code/tessariq/specs/runtime-design-notes.md).
-
 ## Goals
 
 1. Excellent local developer UX.
@@ -349,3 +347,77 @@ Minimum `index.jsonl` entry shape:
 - `promote` creates no branch and no commit for a zero-diff run
 - `promote` fails cleanly if required evidence is missing
 - `proxy` mode enforces destination allowlists and records the compiled configuration
+
+## Implementation Notes (Informative)
+
+This section is informative. It describes the current implementation shape for v0.1.0, and the normative sections above take precedence if there is any conflict.
+
+### Generated storage layout
+
+```text
+<repo>/
+  specs/
+  .tessariq/
+    runs/
+      index.jsonl
+      <run_id>/
+        manifest.json
+        status.json
+        adapter.json
+        task.md
+        run.log
+        runner.log
+        diff.patch
+        diffstat.txt
+        egress.compiled.yaml
+        egress.events.jsonl
+        squid.log
+        timeout.flag
+        bootstrap.sh
+        runner.sh
+        workspace.json
+```
+
+```text
+~/.tessariq/
+  worktrees/
+    <repo_id>/
+      <run_id>/
+```
+
+### Derived identifiers
+
+- `run_id` is a ULID
+- `repo_root = realpath(git rev-parse --show-toplevel)`
+- `repo_id = slug(basename(repo_root)) + "-" + shortHash(repo_root)`
+- `shortHash` is the first 8 hex chars of `sha256(repo_root)`
+
+### Proxy mode runtime sketch
+
+The current implementation direction for `proxy` is:
+
+- create a per-run internal `run_net`
+- start a per-run Squid proxy container connected to `run_net` and a non-internal egress network
+- run the agent container only on `run_net`
+- configure `HTTP_PROXY` and `HTTPS_PROXY` for the agent
+
+### Runner responsibilities
+
+Runner, as PID1, is expected to:
+
+- start the `tmux` session
+- enforce timeout
+- write `timeout.flag` before escalation on timeout
+- ensure `status.json` exists even if bootstrap fails
+- write `runner.log`
+
+### Bootstrap responsibilities
+
+Bootstrap is expected to:
+
+- run `pre` commands
+- run the selected adapter
+- run `verify` commands
+- trap `EXIT`
+- generate diff artifacts best-effort
+- write the final `status.json`
