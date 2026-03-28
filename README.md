@@ -1,5 +1,9 @@
 # Tessariq
 
+[![CI](https://github.com/tessariq/tessariq/actions/workflows/ci.yml/badge.svg)](https://github.com/tessariq/tessariq/actions/workflows/ci.yml)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/tessariq/tessariq)](https://github.com/tessariq/tessariq/blob/main/go.mod)
+[![License](https://img.shields.io/github/license/tessariq/tessariq)](https://github.com/tessariq/tessariq/blob/main/LICENSE)
+
 Tessariq is a Git-native, sandboxed way to run coding agents against a repository.
 
 The product is designed around a simple local workflow:
