@@ -2,7 +2,7 @@
 Guidance for coding agents working in the Tessariq repository.
 
 ## Scope and intent
-- This is a Go CLI repository: `github.com/fmueller/tessariq`.
+- This is a Go CLI repository: `github.com/tessariq/tessariq`.
 - Main executable: `./cmd/tessariq`.
 - Internal packages: `./internal/...`.
 - Product specs: `./specs/...`.
@@ -91,7 +91,7 @@ Follow existing conventions and keep CLI UX stable.
 ### Imports
 - Let `gofmt` handle import order.
 - Keep stdlib imports separated from non-stdlib imports.
-- Prefer module-local imports (`github.com/fmueller/tessariq/internal/...`) for internal reuse.
+- Prefer module-local imports (`github.com/tessariq/tessariq/internal/...`) for internal reuse.
 
 ### Types and API shape
 - Exported names: `PascalCase`; unexported names: `camelCase`.

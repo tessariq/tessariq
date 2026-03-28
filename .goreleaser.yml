@@ -20,9 +20,9 @@ builds:
       - arm64
     ldflags:
       - -s -w
-      - -X github.com/fmueller/tessariq/internal/version.Version={{ .Version }}
-      - -X github.com/fmueller/tessariq/internal/version.Commit={{ .Commit }}
-      - -X github.com/fmueller/tessariq/internal/version.Date={{ .Date }}
+      - -X github.com/tessariq/tessariq/internal/version.Version={{ .Version }}
+      - -X github.com/tessariq/tessariq/internal/version.Commit={{ .Commit }}
+      - -X github.com/tessariq/tessariq/internal/version.Date={{ .Date }}
 
 archives:
   - id: tessariq

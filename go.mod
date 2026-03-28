@@ -1,4 +1,4 @@
-module github.com/fmueller/tessariq
+module github.com/tessariq/tessariq
 
 go 1.26
 
