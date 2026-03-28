@@ -1,0 +1,44 @@
+version: 2
+
+project_name: tessariq
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: tessariq
+    main: ./cmd/tessariq
+    binary: tessariq
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/fmueller/tessariq/internal/version.Version={{ .Version }}
+      - -X github.com/fmueller/tessariq/internal/version.Commit={{ .Commit }}
+      - -X github.com/fmueller/tessariq/internal/version.Date={{ .Date }}
+
+archives:
+  - id: tessariq
+    ids:
+      - tessariq
+    formats:
+      - tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - src: LICENSE
+        dst: LICENSE
+      - src: README.md
+        dst: README.md
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  disable: true

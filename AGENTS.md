@@ -1,0 +1,191 @@
+# AGENTS.md
+Guidance for coding agents working in the Tessariq repository.
+
+## Scope and intent
+- This is a Go CLI repository: `github.com/fmueller/tessariq`.
+- Main executable: `./cmd/tessariq`.
+- Internal packages: `./internal/...`.
+- Product specs: `./specs/...`.
+- Keep changes small and behavior-preserving unless explicitly requested.
+- Runtime state lives under `.tessariq/` and is never committed.
+
+## Source-of-truth files
+- Product specifications: `specs/tessariq-v0.1.0.md` and `specs/tessariq-v0.2.0.md`.
+- Spec reading order and versioning policy: `specs/README.md`.
+- Commands and local workflows: `Taskfile.yml`.
+- CI checks and required validations: `.github/workflows/ci.yml`.
+- Release pipeline: `.goreleaser.yml`.
+- Product overview: `README.md`.
+
+## Toolchain and environment
+- Go version: `1.26` (`go.mod`).
+- `task` is optional convenience; Go commands are the source of truth.
+- Prefer commands that mirror CI.
+- Docker is a runtime dependency for `tessariq run`; it is not needed for building or testing the CLI itself.
+
+## Build, lint, and test commands
+Use these defaults unless a task requires otherwise.
+
+### Build
+- Build CLI binary: `go build ./cmd/tessariq`
+- Task wrapper: `task build`
+
+### Formatting and static checks
+- Check formatting (CI): `gofmt -l .`
+- Apply formatting: `gofmt -w .`
+- Vet: `go vet ./...`
+
+### Unit tests
+- Run all unit tests: `go test ./...`
+- Task wrapper: `task test`
+
+### Integration tests
+- Run integration-tag tests: `go test -tags=integration ./...`
+- Task wrapper: `task test:integration`
+
+### End-to-end tests
+- Run e2e-tag tests: `go test -tags=e2e ./...`
+- Task wrapper: `task test:e2e`
+
+### Run a single test
+- Single test in one package:
+  `go test ./internal/cli -run '^TestRootCommandShowsHelp$'`
+- Single test by pattern:
+  `go test ./internal/cli -run '^TestRootCommand'`
+- Single integration test:
+  `go test -tags=integration ./internal/workspace -run '^TestWorktreeCreation$'`
+- Single test with verbose output:
+  `go test -v ./cmd/tessariq -run '^TestHelpOutput$'`
+
+### Helpful test variants
+- Disable cache while iterating:
+  `go test ./internal/cli -run '^TestName$' -count=1`
+- Run one package only:
+  `go test ./internal/workspace`
+
+### CLI smoke checks used in CI
+- `go run ./cmd/tessariq --help`
+
+### Mutation tests
+- Run mutation testing: `gremlins unleash`
+- Task wrapper: `task test:mutate`
+- With quality gate (used in CI): `gremlins unleash --threshold-efficacy 0.25`
+- Install gremlins: `go install github.com/go-gremlins/gremlins/cmd/gremlins@v0.6.0`
+
+### License compliance check used in CI
+- Check allowed licenses: `go-licenses check ./cmd/tessariq --allowed_licenses=Apache-2.0,MIT,BSD-3-Clause,ISC,AGPL-3.0`
+- Install go-licenses: `go install github.com/google/go-licenses/v2@v2.0.1`
+
+### Release-related commands
+- Validate GoReleaser config: `goreleaser check` (or `task release:check`)
+- Dry snapshot release: `goreleaser release --snapshot --clean`
+
+## Coding style guidelines
+Follow existing conventions and keep CLI UX stable.
+
+### Formatting and structure
+- Always run `gofmt` on changed Go files.
+- Keep functions focused and prefer early returns for error paths.
+- Avoid unnecessary abstractions; match current package boundaries.
+
+### Imports
+- Let `gofmt` handle import order.
+- Keep stdlib imports separated from non-stdlib imports.
+- Prefer module-local imports (`github.com/fmueller/tessariq/internal/...`) for internal reuse.
+
+### Types and API shape
+- Exported names: `PascalCase`; unexported names: `camelCase`.
+- Sentinel errors should use `ErrXxx` naming (for example `ErrDirtyRepo`).
+- Exported constructors should use `NewXxx`.
+- Use explicit config structs (for example `run.Config`, `workspace.Options`).
+- Prefer typed structs for core flows instead of `map[string]any`.
+
+### Naming conventions
+- Package names are short, lowercase, and noun-like.
+- CLI command builders use `newXCmd` for unexported command constructors.
+- Booleans should read clearly (`unsafeEgress`, `noTrailers`, `attachMode`).
+- Error text should be lowercase and not end with punctuation.
+
+### Error handling
+- Return errors instead of panicking.
+- Wrap underlying errors with context using `%w`.
+  Example: `fmt.Errorf("create worktree for run %s: %w", runID, err)`
+- Use `errors.Is` and `errors.As` for known error branches.
+- Keep errors actionable for CLI users.
+
+### Context and I/O
+- Pass `context.Context` as the first parameter when operations are cancelable.
+- Use `exec.CommandContext` and context-bound HTTP requests.
+- Prefer `filepath` (not `path`) for filesystem operations.
+- Normalize user-provided paths with `filepath.Clean` when appropriate.
+
+### Logging and user output
+- Use structured logging with `zap` for diagnostics.
+- Write user-facing command output via command writers (`cmd.OutOrStdout()` / stderr).
+- Log Docker and git operations at debug level; surface failures at error level.
+- Evidence-path and run-id output should go to stdout for scripting.
+
+### Testing conventions
+- Use standard `testing` + `github.com/stretchr/testify/require`.
+- Use `t.Parallel()` for unit tests when safe.
+- Mark integration tests with `//go:build integration`.
+- Mark end-to-end tests with `//go:build e2e`.
+- Use `t.TempDir()` for temporary filesystem fixtures.
+- Keep tests deterministic; avoid live Docker or network unless integration-scoped.
+- Test evidence artifacts by verifying file existence, structure, and required fields.
+
+### Dependency and platform practices
+- Prefer the standard library first; add dependencies only when justified.
+- Keep Linux/macOS differences explicit and runtime-guarded.
+- Shell out to `git` and `docker` via `exec.CommandContext`; do not embed git libraries.
+- Squid proxy configuration should be generated, not templated from embedded files.
+
+## Domain-specific guidance
+
+### Docker and containers
+- Each run creates an isolated container; use deterministic container names (`tessariq-<run_id>`).
+- Prefer `docker create` + `docker start` over `docker run` for lifecycle control.
+- Always clean up containers and networks on error paths.
+
+### Git worktrees
+- Worktrees live under `~/.tessariq/worktrees/<repo_id>/<run_id>`.
+- Use `git worktree add --detach` to avoid branch-name conflicts.
+- Always `git worktree remove` during cleanup.
+
+### Networking and Squid proxy
+- Proxy mode creates a per-run Docker network and Squid container.
+- Allowlists are enforced at `host:port` granularity; default port is 443.
+- Record compiled egress rules in `egress.compiled.yaml` for auditability.
+
+### Evidence artifacts
+- Every run must emit the required evidence files per the spec.
+- Evidence paths are deterministic: `<repo>/.tessariq/runs/<run_id>/`.
+- Status, manifest, and workspace JSON must be valid even when a run fails.
+
+## Change checklist for agents
+- Run `gofmt -w` on edited Go files.
+- Run `go vet ./...` for non-trivial changes.
+- Run targeted tests for touched packages.
+- Run full `go test ./...` before handing off broad changes.
+- If integration paths changed, run `go test -tags=integration ./...`.
+- Update `README.md` when CLI flags/commands/behavior change.
+- Update `CHANGELOG.md` for user-visible behavior changes; keep entries user-facing and skip internal-only maintenance noise.
+- Verify evidence file contracts are maintained when changing run or promote logic.
+- Update specs in `specs/` only when explicitly requested; specs are normative.
+
+## Agent do/don'ts (PR + commits)
+- Do keep branches and PRs focused on one logical change.
+- Do include a clear PR summary with why, what changed, and test evidence.
+- Do keep commits small and descriptive, using imperative commit subjects.
+- Do use conventional commit messages.
+- Do mention user-visible CLI changes in the PR body.
+- Don't mix unrelated refactors or formatting-only churn into feature/fix PRs.
+- Don't rewrite the shared branch history unless explicitly requested.
+- Don't bypass CI-equivalent checks before asking for review.
+- Don't modify spec files unless the change is explicitly about spec updates.
+
+## Notes on repository behavior
+- Default CLI flow is `run -> attach if needed -> promote`.
+- Tessariq refuses to start a run on a dirty repository.
+- Evidence artifacts are written even when a run fails.
+- Runtime state under `.tessariq/` is never committed.
