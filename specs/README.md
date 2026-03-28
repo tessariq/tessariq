@@ -1,17 +1,19 @@
 # Tessariq Specs
 
-This folder contains the versioned product and technical specs for Tessariq.
+This folder contains the versioned product specs and supporting technical notes for Tessariq.
 
 ## Reading order
 
 1. Read `tessariq-v0.1.0.md` for the first shippable release.
 2. Read `tessariq-v0.2.0.md` for the next release that expands the workspace model.
+3. Read `runtime-design-notes.md` for informative implementation detail that supports, but does not replace, the versioned specs.
 
 ## Why the specs are versioned
 
 - Each version has a clear release intent, so the team can verify whether the release actually taught us what it was supposed to teach.
 - Versioned specs force scope discipline. Power-user and operator features should not blur the learning goals of the first release.
 - Later versions inherit earlier invariants unless a spec explicitly changes them.
+- Technical notes may describe likely implementation shape, but only the versioned specs define release behavior.
 
 ## Versions
 
@@ -59,4 +61,6 @@ Planned later scope:
 
 - Each versioned spec must include a `Release intent` section.
 - Specs should state both what is in scope and what is intentionally deferred.
+- Versioned specs should optimize for user-visible contracts, guarantees, and acceptance scenarios rather than runtime internals.
+- Implementation-heavy detail belongs in a separate technical note unless it is part of the release contract.
 - Repo-tracked Markdown belongs in `specs/`; generated runtime state belongs in `.tessariq/`.

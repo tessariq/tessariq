@@ -54,7 +54,7 @@ README.md
 specs/
 ```
 
-- `specs/` is the canonical home for the versioned product and technical specs.
+- `specs/` is the canonical home for the versioned product specs and supporting technical notes.
 - `.tessariq/` is expected to be generated runtime state once the implementation exists; it is not the home for repo-authored specs.
 
 ## Read next
@@ -63,7 +63,8 @@ Start here:
 
 1. `specs/tessariq-v0.1.0.md`
 2. `specs/tessariq-v0.2.0.md`
-3. `specs/README.md`
+3. `specs/runtime-design-notes.md`
+4. `specs/README.md`
 
 ## Notes
 

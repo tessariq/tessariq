@@ -16,21 +16,21 @@ Tessariq v0.1.0 is intended to verify:
 
 ## Product intent
 
-Tessariq v0.1.0 provides a Git-native, sandboxed, reproducible way to run coding agents against a repository. It prioritizes:
+Tessariq v0.1.0 provides a Git-native, sandboxed way to run coding agents against a repository. The release is centered on four user-visible contracts:
 
-- detached-by-default runs
-- optional attach to a `tmux` session inside the container
-- a two-phase workflow:
-  - `run`: create workspace, execute the task, persist evidence
-  - `promote`: create exactly one commit suitable for further review or PR work
-- evidence-first execution: every run emits a durable evidence set
+- runs are detached by default, with optional attach to a live `tmux` session
+- the default workspace is isolated from the repository working tree
+- evidence is durable, repo-local, and stable enough for later automation
+- promotion produces exactly one reviewable Git commit or fails cleanly
+
+Implementation detail that is useful for building Tessariq but not needed to understand release scope lives in [runtime-design-notes.md](/media/felix/data/code/tessariq/specs/runtime-design-notes.md).
 
 ## Goals
 
 1. Excellent local developer UX.
-2. Deterministic run identity, artifact layout, and lifecycle.
-3. Controlled network egress with explicit unsafe opt-in for `open`.
-4. Evidence contracts that are stable enough for later automation.
+2. Stable run identity, lifecycle, and evidence layout.
+3. Safe-by-default networking, with explicit unsafe opt-in for `open`.
+4. Evidence contracts that later automation can parse without guessing.
 
 ## Non-goals
 
@@ -43,152 +43,58 @@ Tessariq v0.1.0 provides a Git-native, sandboxed, reproducible way to run coding
 - web UI or database
 - automatic push or PR creation
 
-## Core concepts
+## Core workflow
 
 ### Run
 
 A run is identified by a ULID `run_id` and produces:
 
-- a detached worktree workspace
-- evidence under `<repo>/.tessariq/runs/<run_id>/`
-- a container lifecycle
-- a final state: `success|failed|timeout|killed|interrupted`
+- one isolated workspace
+- one evidence folder under `<repo>/.tessariq/runs/<run_id>/`
+- one terminal lifecycle
+- one final state: `success|failed|timeout|killed|interrupted`
 
 ### Promote
 
 `promote` converts a run output into:
 
-- a branch
+- one branch
 - exactly one commit containing code changes
-- default commit trailers linking the commit back to the run
+- commit trailers linking the commit back to the run by default
+
+Promotion is the normal path from isolated workspace output into ordinary Git review flow.
 
 ## Repository model
 
-### User-authored files
+### User-authored inputs
 
-User-authored task/spec Markdown is repo-tracked and lives at explicit paths inside the repository. Examples:
-
-- `specs/fix-timeout-handling.md`
-- `specs/release/tessariq-v0.1.0.md`
-
-`tessariq run <task-path>` MUST accept a path inside the current repository.
+- `tessariq run <task-path>` accepts a Markdown file inside the current repository
+- Tessariq copies the exact task file into evidence as `task.md`
+- the first Markdown H1, if present, becomes `task_title`
+- if no H1 exists, `task_title` falls back to the task file basename without extension
 
 ### Generated runtime state
 
-Runtime state is generated under `<repo>/.tessariq/` and is not user-authored product input.
+- runtime state is generated under `<repo>/.tessariq/`
+- `tessariq init` MUST add `.tessariq/` to `.gitignore`
+- repo-tracked config files are out of scope for v0.1.0; behavior is driven by CLI flags
 
-`tessariq init` MUST add `.tessariq/` to `.gitignore`.
-
-### Storage layout
-
-```text
-<repo>/
-  specs/
-  .tessariq/
-    runs/
-      index.jsonl
-      <run_id>/
-        manifest.json
-        status.json
-        adapter.json
-        task.md
-        run.log
-        runner.log
-        diff.patch
-        diffstat.txt
-        egress.compiled.yaml      # only in proxy mode
-        egress.events.jsonl       # only in proxy mode
-        squid.log                 # optional, capped
-        timeout.flag              # internal marker
-        bootstrap.sh              # generated
-        runner.sh                 # generated
-        workspace.json
-```
-
-```text
-~/.tessariq/
-  worktrees/
-    <repo_id>/
-      <run_id>/
-```
-
-Repo-local config files are out of scope for v0.1.0. Behavior is driven by CLI flags.
-
-## Identifiers and run selection
-
-### `run_id`
-
-- MUST be a ULID.
-
-### `repo_id`
-
-- `repo_root = realpath(git rev-parse --show-toplevel)`
-- `repo_id = slug(basename(repo_root)) + "-" + shortHash(repo_root)`
-- `shortHash` is the first 8 hex chars of `sha256(repo_root)`
-
-### Run references
-
-Commands that accept `<run-ref>` MUST support:
-
-- explicit `run_id`
-- `last`
-- `last-N`
-
-Resolution order:
-
-1. Resolve against `<repo>/.tessariq/runs/index.jsonl`.
-2. Error if the run cannot be found.
-
-## Prerequisites
-
-### Host
-
-- `git`
-- `docker`
-- permission to create containers and networks
-
-### Agent image
-
-The agent image MUST include:
-
-- `/bin/sh`
-- `tmux`
-
-It SHOULD include:
-
-- `date`
-- `sleep`
-- `kill`
-
-## Task input contract
-
-- `tessariq run <task-path>` requires a Markdown file inside the current repository.
-- Tessariq MUST copy the exact task file into evidence as `task.md`.
-- The first Markdown H1, if present, becomes `task_title`.
-- If no H1 exists, `task_title` falls back to the task file basename without extension.
-
-## Workspace model
+## Workspace guarantees
 
 v0.1.0 supports exactly one workspace mode: `worktree`.
 
-### `worktree`
+| Workspace | Host repo mutated during `run` | Reproducibility | Unsafe opt-in required | Promote path |
+| --- | --- | --- | --- | --- |
+| `worktree` | No | Strong, from `base_sha` on a clean repo | No | Commit from isolated workspace output |
 
-- Tessariq creates a detached worktree at `~/.tessariq/worktrees/<repo_id>/<run_id>`.
-- The container mounts that worktree read-write at `/work`.
-- Evidence is mounted separately at `/tessariq-run`.
-- `workspace.json` MUST record:
-  - `workspace_mode = "worktree"`
-  - `base_sha`
-  - `worktree_path`
-  - `repo_mount_mode = "rw"`
-  - `repo_clean = true`
+Required `worktree` behavior:
 
-## Base state policy
-
-- `base_sha` is the current `HEAD` commit of the repository at run start.
-- Tessariq MUST refuse to start a run if the repository has staged, unstaged, or untracked non-ignored files.
-- The failure MUST happen before creating the container.
-- The error message MUST tell the user to commit, stash, or clean the repository first.
+- Tessariq creates a detached worktree for the run
+- the container mounts that worktree read-write at `/work`
+- evidence is mounted separately from `/work`
+- `base_sha` is the repository `HEAD` at run start
+- Tessariq MUST refuse to start a run if the repository has staged, unstaged, or untracked non-ignored files
+- dirty-repo failure MUST happen before container start and tell the user to commit, stash, or clean the repository first
 
 ## CLI
 
@@ -230,7 +136,7 @@ Supported flags:
 Required printed output:
 
 - `run_id`
-- worktree path
+- workspace path
 - evidence path
 - container name or id
 - attach command
@@ -238,15 +144,15 @@ Required printed output:
 
 ### `tessariq attach <run-ref>`
 
-- Attaches the user terminal to the run's `tmux` session.
-- It MUST fail cleanly if the run is not live.
-- The error MUST include the evidence path.
+- attaches the user terminal to the run's `tmux` session
+- MUST fail cleanly if the run is not live
+- failure output MUST include the evidence path
 
 ### `tessariq promote <run-ref>`
 
-- MUST create a branch.
-- MUST create exactly one commit.
-- MUST use `git add -A`.
+- MUST create a branch
+- MUST create exactly one commit
+- MUST use `git add -A`
 - MUST include these commit trailers by default:
   - `Tessariq-Run: <run_id>`
   - `Tessariq-Base: <base_sha>`
@@ -268,6 +174,22 @@ Zero-diff behavior:
 
 - if the run has no code changes, `promote` MUST fail without creating a branch or commit
 
+## Lifecycle rules
+
+| Action | Valid source state | Success result | Required failure behavior |
+| --- | --- | --- | --- |
+| `run` | clean repository | new run with evidence and a final state | fail before container start if repo is dirty or task path is invalid |
+| `attach` | live run only | terminal attached to live `tmux` session | fail if run is finished or unknown; include evidence path when known |
+| `promote` | finished run with code changes | one branch and exactly one commit | fail if run is unknown, unfinished, missing required evidence, or has zero diff |
+
+`run-ref` resolution MUST support:
+
+- explicit `run_id`
+- `last`
+- `last-N`
+
+Resolution is against the current repository's run index. Commands MUST fail if the referenced run cannot be found in that repository.
+
 ## Adapter contract
 
 v0.1.0 supports exactly these first-party adapters:
@@ -278,13 +200,14 @@ v0.1.0 supports exactly these first-party adapters:
 Common rules:
 
 - each adapter MUST write `adapter.json`
-- `adapter.json` MUST record the requested adapter options
+- `adapter.json` MUST record requested adapter options
 - if an option such as `--model` or `--yolo` cannot be applied exactly, the adapter MUST record that it was requested but not applied
 
 Minimum `adapter.json` shape:
 
 ```json
 {
+  "schema_version": 1,
   "adapter": "claude-code",
   "image": "example/image:tag",
   "requested": {
@@ -312,34 +235,24 @@ Modes:
 - for `claude-code` and `opencode`, `auto` MUST resolve to `proxy`
 - the resolved mode MUST be written into `manifest.json`
 
-### `proxy`
+User-visible `proxy` contract:
 
-The CLI MUST:
-
-- create a per-run internal `run_net`
-- start a per-run Squid proxy container connected to `run_net` and a non-internal egress network
-- run the agent container only on `run_net`
-- configure `HTTP_PROXY` and `HTTPS_PROXY`
-
-Artifacts in proxy mode:
-
-- `egress.compiled.yaml`
-- `egress.events.jsonl`
-- optional `squid.log`
-
-Rules:
-
+- the agent only receives network egress through an allowlisted proxy path
 - allowlists are enforced at destination `host:port`
 - default port is TCP `443`
 - HTTPS and WSS use CONNECT tunneling
-- URL-path filtering is out of scope
+- URL-path filtering is out of scope for v0.1.0
 
-### `open`
+`open` contract:
 
 - MUST require explicit opt-in
 - MUST be recorded in `manifest.json`
 
+Low-level proxy topology and process details are implementation notes, not part of the release contract.
+
 ## Evidence contract
+
+### Required artifacts
 
 The following files MUST exist for every run unless marked otherwise:
 
@@ -352,16 +265,26 @@ The following files MUST exist for every run unless marked otherwise:
 - `workspace.json`
 - `diff.patch` when there are changes
 - `diffstat.txt` when there are changes
+- `egress.compiled.yaml` only in proxy mode
+- `egress.events.jsonl` only in proxy mode
+- `squid.log` optional and capped
 
 Logs MUST be capped and MUST include a truncation marker if truncated.
+
+### Compatibility rules
+
+- every emitted JSON artifact defined by this spec MUST include `schema_version`
+- v0.1.0 defines `schema_version: 1` for `manifest.json`, `status.json`, `adapter.json`, and `workspace.json`
+- required fields in the minimum shapes below MUST always be present
+- implementations MAY add extra fields without changing `schema_version` if they do not change the meaning of existing fields
+- `index.jsonl` is append-only; each line represents one run and MUST not be rewritten in place for another run
 
 Minimum `manifest.json` shape:
 
 ```json
 {
+  "schema_version": 1,
   "run_id": "01J...",
-  "repo_id": "tessariq-1234abcd",
-  "repo_root": "/abs/path/to/repo",
   "task_path": "specs/example.md",
   "task_title": "Example task",
   "adapter": "claude-code",
@@ -378,6 +301,7 @@ Minimum `status.json` shape:
 
 ```json
 {
+  "schema_version": 1,
   "state": "success",
   "started_at": "2026-01-27T12:00:00Z",
   "finished_at": "2026-01-27T12:10:00Z",
@@ -390,11 +314,13 @@ Minimum `workspace.json` shape:
 
 ```json
 {
+  "schema_version": 1,
   "workspace_mode": "worktree",
   "base_sha": "abc123",
-  "worktree_path": "/home/user/.tessariq/worktrees/tessariq-1234abcd/01J...",
+  "workspace_path": "/home/user/.tessariq/worktrees/example/01J...",
   "repo_mount_mode": "rw",
-  "repo_clean": true
+  "repo_clean": true,
+  "reproducibility": "strong"
 }
 ```
 
@@ -413,35 +339,13 @@ Minimum `index.jsonl` entry shape:
 }
 ```
 
-## Runtime model
+## Acceptance scenarios
 
-### Runner
-
-Runner, as PID1, MUST:
-
-- start the `tmux` session
-- enforce timeout
-- write `timeout.flag` before termination escalation on timeout
-- ensure `status.json` exists even if bootstrap fails
-- write `runner.log`
-
-### Bootstrap
-
-Bootstrap MUST:
-
-- run `pre` commands
-- run the selected adapter
-- run `verify` commands
-- trap `EXIT`
-- generate diff artifacts best-effort
-- write the final `status.json`
-
-## Acceptance criteria
-
-- `init` creates the expected local skeleton and `.gitignore` entry.
-- `run` succeeds on a clean repo and creates the required evidence files.
-- `run` fails early on a dirty repo before container start.
-- `attach` works for a live run and fails cleanly for a finished run.
-- `promote` creates exactly one commit from a changed run.
-- `promote` creates no branch and no commit for a zero-diff run.
-- `proxy` mode enforces destination allowlists and records the compiled configuration.
+- `init` creates the expected local skeleton and `.gitignore` entry
+- `run` succeeds on a clean repo and creates the required evidence files
+- `run` fails early on a dirty repo before container start
+- `attach` works for a live run and fails cleanly for a finished run
+- `promote` creates exactly one commit from a finished run with code changes
+- `promote` creates no branch and no commit for a zero-diff run
+- `promote` fails cleanly if required evidence is missing
+- `proxy` mode enforces destination allowlists and records the compiled configuration
