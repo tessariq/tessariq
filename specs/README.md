@@ -62,4 +62,4 @@ Planned later scope:
 - Versioned specs should optimize for user-visible contracts, guarantees, and acceptance scenarios rather than runtime internals.
 - Each versioned spec may include an `Implementation Notes (Informative)` section for version-specific runtime detail.
 - Informative sections describe likely implementation shape, but the normative sections in the same file define release behavior.
-- Repo-tracked Markdown belongs in `specs/`; generated runtime state belongs in `.tessariq/`.
+- Repo-tracked Markdown belongs in `specs/` at the repository root; generated runtime state belongs in `<repo>/.tessariq/`.

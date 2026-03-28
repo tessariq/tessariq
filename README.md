@@ -50,12 +50,14 @@ The second release extends the core model with:
 ## Repository layout
 
 ```text
-README.md
-specs/
+<repo>/
+  README.md
+  specs/
+  .tessariq/
 ```
 
-- `specs/` is the canonical home for the versioned product specs.
-- `.tessariq/` is expected to be generated runtime state once the implementation exists; it is not the home for repo-authored specs.
+- `specs/` is the canonical home for the versioned product specs at the repository root.
+- `.tessariq/` is expected to be generated runtime state at the repository root once the implementation exists; it is not the home for repo-authored specs.
 
 ## Read next
 

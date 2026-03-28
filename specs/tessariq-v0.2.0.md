@@ -218,6 +218,8 @@ This section is informative. It describes the current implementation shape for v
 
 ### Generated storage layout
 
+Repo-local generated state lives at the repository root under `<repo>/.tessariq/`, alongside `specs/`.
+
 ```text
 <repo>/
   specs/
@@ -242,6 +244,8 @@ This section is informative. It describes the current implementation shape for v
         workspace.json
 ```
 
+Detached worktrees, when needed, live outside the repository under the user's home directory:
+
 ```text
 ~/.tessariq/
   worktrees/
@@ -260,7 +264,7 @@ This section is informative. It describes the current implementation shape for v
 
 The current implementation direction shared across workspace modes is:
 
-- keep one evidence folder per run under `.tessariq/runs/<run_id>/`
+- keep one evidence folder per run under `<repo>/.tessariq/runs/<run_id>/` at the repository root
 - keep detached worktrees under `~/.tessariq/worktrees/<repo_id>/<run_id>/` when the workspace mode needs them
 - use the same proxy topology as v0.1.0 for `proxy` egress:
   - create a per-run internal `run_net`

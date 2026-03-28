@@ -73,7 +73,7 @@ Promotion is the normal path from isolated workspace output into ordinary Git re
 
 ### Generated runtime state
 
-- runtime state is generated under `<repo>/.tessariq/`
+- runtime state is generated under `<repo>/.tessariq/` at the repository root, as a sibling of `specs/`
 - `tessariq init` MUST add `.tessariq/` to `.gitignore`
 - repo-tracked config files are out of scope for v0.1.0; behavior is driven by CLI flags
 
@@ -98,10 +98,12 @@ Required `worktree` behavior:
 
 ### `tessariq init`
 
-Creates the local skeleton:
+Creates the following top-level repository skeleton:
 
 - `specs/`
 - `.tessariq/runs/`
+
+Here `.tessariq/` is a top-level repository directory, not a child of `specs/`.
 
 It MUST add `.tessariq/` to `.gitignore`.
 
@@ -354,6 +356,8 @@ This section is informative. It describes the current implementation shape for v
 
 ### Generated storage layout
 
+Repo-local generated state lives at the repository root under `<repo>/.tessariq/`, alongside `specs/`.
+
 ```text
 <repo>/
   specs/
@@ -377,6 +381,8 @@ This section is informative. It describes the current implementation shape for v
         runner.sh
         workspace.json
 ```
+
+Detached worktrees, when needed, live outside the repository under the user's home directory:
 
 ```text
 ~/.tessariq/
