@@ -119,6 +119,7 @@ Defaults:
 - `--grace=30s`
 - `--agent=claude-code`
 - `--egress=auto`
+- `--interactive=false`
 - `--attach=false`
 
 Supported flags:
@@ -126,14 +127,20 @@ Supported flags:
 - `--agent claude-code|opencode`
 - `--image <image>`
 - `--model <string>`
-- `--yolo`
+- `--interactive`
 - `--egress none|proxy|open|auto`
 - `--unsafe-egress` as an alias for `--egress open`
 - `--egress-allow <host[:port]>` repeatable
-- `--egress-allow-reset`
+- `--egress-no-defaults`
 - `--pre "<cmd>"` repeatable
 - `--verify "<cmd>"` repeatable
 - `--attach`
+
+Default tool-permission mode:
+
+- by default the agent runs autonomously inside the container sandbox without requiring human approval for tool use
+- `--interactive` opts in to human-in-the-loop approval; this is intended for use with `--attach` where a human is present to approve each tool invocation
+- `--interactive` without `--attach` is valid but will cause the agent to block waiting for approval with no terminal attached
 
 Required printed output:
 
@@ -203,7 +210,7 @@ Common rules:
 
 - each adapter MUST write `adapter.json`
 - `adapter.json` MUST record requested adapter options
-- if an option such as `--model` or `--yolo` cannot be applied exactly, the adapter MUST record that it was requested but not applied
+- if an option such as `--model` or `--interactive` cannot be applied exactly, the adapter MUST record that it was requested but not applied
 
 Minimum `adapter.json` shape:
 
@@ -214,11 +221,11 @@ Minimum `adapter.json` shape:
   "image": "example/image:tag",
   "requested": {
     "model": "gpt-5.4",
-    "yolo": true
+    "interactive": true
   },
   "applied": {
     "model": false,
-    "yolo": true
+    "interactive": true
   }
 }
 ```
@@ -243,7 +250,7 @@ User-level config:
 - user-level config MAY define a replacement default allowlist for `proxy` and `auto`
 - repo-tracked project config remains out of scope for v0.1.0
 - CLI `--egress-allow` entries MUST override user-level config for that run
-- `--egress-allow-reset` MUST discard any built-in or user-configured default allowlist before later `--egress-allow` entries are applied
+- `--egress-no-defaults` MUST discard any built-in or user-configured default allowlist before later `--egress-allow` entries are applied
 
 Allowlist precedence:
 
@@ -483,3 +490,29 @@ Bootstrap is expected to:
 - trap `EXIT`
 - generate diff artifacts best-effort
 - write the final `status.json`
+
+## Specification changelog
+
+### 2026-03-29: Replace `--yolo` with `--interactive`, rename `--egress-allow-reset`
+
+**Changes:**
+
+1. **`--yolo` replaced by `--interactive` (inverted default)**
+   - Old: `--yolo` (default `false`) opted in to autonomous tool use
+   - New: `--interactive` (default `false`) opts in to human-in-the-loop tool approval
+   - Default behavior is now autonomous: the agent runs tools without human approval inside the container sandbox
+   - Rationale: tessariq's core workflow is detached-by-default. A detached agent with no human terminal cannot receive tool-approval prompts and would hang until timeout. The container is the safety boundary; requiring per-tool approval inside an isolated container with controlled egress is redundant. `--interactive` is reserved for `--attach` workflows where a human is present.
+
+2. **`--egress-allow-reset` renamed to `--egress-no-defaults`**
+   - Old: `--egress-allow-reset` with description "discard built-in and user-configured allowlist"
+   - New: `--egress-no-defaults` with description "ignore default allowlists; only --egress-allow entries apply"
+   - Rationale: the old name implied destructive mutation ("reset"). The new name describes the declarative intent: do not include any built-in or user-configured defaults in the resolved allowlist. This also clarifies the distinction from `--egress none` (which disables all network access).
+
+3. **`--interactive=false` added to documented defaults**
+   - The defaults section now explicitly lists `--interactive=false` alongside `--timeout=30m`, `--grace=30s`, etc.
+   - Rationale: making the autonomous default explicit in the spec removes ambiguity for implementers and users.
+
+4. **`adapter.json` example updated**
+   - The minimum `adapter.json` shape now uses `interactive` instead of `yolo` in the `requested` and `applied` fields.
+
+**Tasks affected:** TASK-002 (done, code update tracked in TASK-018), TASK-009, TASK-010 (updated `--yolo` references to `--interactive`), TASK-011 (updated `--egress-allow-reset` references to `--egress-no-defaults`). New tasks created: TASK-018 (v0.1.0, code changes), TASK-019 (v0.2.0, `--prompt` backlog).

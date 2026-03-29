@@ -10,7 +10,7 @@ spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#adapter-contract
     - specs/tessariq-v0.1.0.md#evidence-contract
-updated_at: "2026-03-29T12:06:20Z"
+updated_at: "2026-03-29T17:30:00Z"
 areas:
     - adapters
     - opencode
@@ -49,7 +49,7 @@ Implement the first-party `opencode` adapter on top of the shared adapter contra
 
 - `adapter.json` records `adapter=opencode` and the resolved image value used for the run.
 - Requested adapter options are forwarded when supported.
-- Unsupported exact application is recorded in `adapter.json`, including partial application of `--model` and `--yolo`.
+- Unsupported exact application is recorded in `adapter.json`, including partial application of `--model` and `--interactive`.
 - The adapter integrates cleanly with the run lifecycle.
 
 ## Test Expectations
