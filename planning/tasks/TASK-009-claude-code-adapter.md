@@ -10,7 +10,7 @@ spec_version: v0.1.0
 spec_refs:
   - specs/tessariq-v0.1.0.md#adapter-contract
   - specs/tessariq-v0.1.0.md#evidence-contract
-updated_at: 2026-03-29T00:00:00Z
+updated_at: 2026-03-29T12:06:20Z
 areas:
   - adapters
   - claude-code
@@ -43,8 +43,9 @@ Implement the first-party `claude-code` adapter on top of the shared adapter con
 
 ## Acceptance Criteria
 
+- `adapter.json` records `adapter=claude-code` and the resolved image value used for the run.
 - Requested adapter options are forwarded when supported.
-- Unsupported exact application is recorded in `adapter.json`.
+- Unsupported exact application is recorded in `adapter.json`, including partial application of `--model` and `--yolo`.
 - The adapter integrates cleanly with the run lifecycle.
 
 ## Test Expectations

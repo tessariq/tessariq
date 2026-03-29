@@ -13,7 +13,7 @@ spec_refs:
   - specs/tessariq-v0.1.0.md#lifecycle-rules
   - specs/tessariq-v0.1.0.md#acceptance-scenarios
   - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: 2026-03-29T00:00:00Z
+updated_at: 2026-03-29T12:06:20Z
 areas:
   - tmux
   - cli
@@ -46,9 +46,9 @@ Implement `tessariq attach <run-ref>` on top of the shared repository-scoped run
 
 ## Acceptance Criteria
 
+- Attach accepts explicit `run_id`, `last`, and `last-N` via the shared repository-scoped run-ref resolver.
 - Attach works only for live runs.
-- Unknown or finished runs fail cleanly.
-- Failure output includes the evidence path when it is known.
+- Unknown or finished runs fail cleanly without attaching, tell the user the run is not live, and include the evidence path when it is known.
 
 ## Test Expectations
 

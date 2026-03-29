@@ -9,9 +9,10 @@ spec_version: v0.1.0
 spec_refs:
   - specs/tessariq-v0.1.0.md#release-intent
   - specs/tessariq-v0.1.0.md#repository-model
+  - specs/tessariq-v0.1.0.md#generated-runtime-state
   - specs/tessariq-v0.1.0.md#tessariq-init
   - specs/tessariq-v0.1.0.md#acceptance-scenarios
-updated_at: 2026-03-29T00:00:00Z
+updated_at: 2026-03-29T12:06:20Z
 areas:
   - cli
   - repository
@@ -44,8 +45,8 @@ Create `tessariq init` behavior for the repo skeleton and `.gitignore` update.
 
 ## Acceptance Criteria
 
-- `specs/` and `.tessariq/runs/` are created when missing.
-- `.tessariq/` is added to `.gitignore` without duplicating entries.
+- `specs/` and `.tessariq/runs/` are created when missing, with `.tessariq/` living at the repository root as a sibling of `specs/`.
+- `.tessariq/` is added to `.gitignore` without duplicating entries, creating or updating `.gitignore` as needed.
 - The command behaves cleanly on reruns.
 - The task continues to treat `.tessariq/` as repo-local generated state, not repo-tracked config.
 

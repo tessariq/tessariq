@@ -9,10 +9,11 @@ milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:
   - specs/tessariq-v0.1.0.md#repository-model
+  - specs/tessariq-v0.1.0.md#user-authored-inputs
   - specs/tessariq-v0.1.0.md#workspace-guarantees
   - specs/tessariq-v0.1.0.md#acceptance-scenarios
   - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: 2026-03-29T00:00:00Z
+updated_at: 2026-03-29T12:06:20Z
 areas:
   - git
   - evidence
@@ -45,9 +46,10 @@ Fail early on dirty repositories and copy the task file into evidence with stabl
 
 ## Acceptance Criteria
 
-- Dirty repositories fail before any container work starts.
+- Dirty repositories fail before any container work starts when the repo has staged, unstaged, or untracked non-ignored files.
 - The task file is copied exactly to evidence as `task.md`.
-- `task_title` is derived from the first H1 or the basename fallback.
+- `task_title` is derived from the first Markdown H1 when present, or the task-file basename without extension when no H1 exists.
+- The derived `task_title` is written into the manifest before runner bootstrap begins.
 - Dirty-repo failure messaging tells the user to commit, stash, or clean the repository first.
 
 ## Test Expectations

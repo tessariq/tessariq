@@ -14,7 +14,7 @@ spec_refs:
   - specs/tessariq-v0.1.0.md#networking-and-egress
   - specs/tessariq-v0.1.0.md#evidence-contract
   - specs/tessariq-v0.1.0.md#acceptance-scenarios
-updated_at: 2026-03-29T00:00:00Z
+updated_at: 2026-03-29T12:06:20Z
 areas:
   - networking
   - evidence
@@ -50,9 +50,10 @@ Implement requested-versus-resolved egress mode handling, user-level allowlist d
 - `auto` resolves to `proxy` for the supported first-party adapters.
 - `open` requires explicit unsafe opt-in.
 - Requested and resolved egress modes are preserved in `manifest.json`.
-- User-level config is read from the documented XDG/default path locations for proxy/auto allowlist defaults only.
+- User-level config is read from the documented XDG/default path locations for proxy/auto allowlist defaults only, and CLI flags remain the per-run source of truth.
 - `--egress-allow-reset` discards built-in and user-configured defaults before later CLI allowlist entries are applied.
 - Allowlist precedence follows CLI entries first, then user-level config, then the built-in profile.
+- The built-in Tessariq allowlist profile includes at least npm, PyPI, RubyGems, crates.io, the Go module proxy, the Go checksum database, Maven Central, and Wikipedia over TCP `443`.
 - `manifest.json` records `requested_egress_mode`, `resolved_egress_mode`, and `allowlist_source`.
 
 ## Test Expectations

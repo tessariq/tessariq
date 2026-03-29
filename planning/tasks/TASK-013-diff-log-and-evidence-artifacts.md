@@ -11,7 +11,7 @@ spec_version: v0.1.0
 spec_refs:
   - specs/tessariq-v0.1.0.md#evidence-contract
   - specs/tessariq-v0.1.0.md#acceptance-scenarios
-updated_at: 2026-03-29T00:00:00Z
+updated_at: 2026-03-29T12:06:20Z
 areas:
   - evidence
   - diff
@@ -40,15 +40,16 @@ verification:
 
 ## Summary
 
-Emit the required v0.1.0 evidence artifacts, including logs, workspace metadata, and diffs.
+Finish required v0.1.0 evidence artifact emission, including diff outputs, capped logs, and final completeness checks across artifacts produced by earlier tasks.
 
 ## Acceptance Criteria
 
-- Required JSON and Markdown/log artifacts are present for every run.
-- `diff.patch` and `diffstat.txt` exist when changes are present.
+- This task closes remaining evidence gaps across artifacts already seeded by earlier tasks.
+- Required artifacts are present for every run: `manifest.json`, `status.json`, `adapter.json`, `task.md`, `run.log`, `runner.log`, and `workspace.json`.
+- `diff.patch` and `diffstat.txt` exist only when code changes are present.
+- Proxy-mode artifacts remain conditional: `egress.compiled.yaml` and `egress.events.jsonl` only in proxy mode, and optional `squid.log` only when emitted by the proxy runtime.
 - Capped logs include an explicit truncation marker when trimmed.
-- The task covers the full required artifact set: `manifest.json`, `status.json`, `adapter.json`, `task.md`, `run.log`, `runner.log`, `workspace.json`, conditional diff artifacts, conditional proxy artifacts, and optional capped `squid.log`.
-- Proxy-mode artifacts are emitted only when proxy mode is active.
+- Required JSON artifacts preserve `schema_version: 1` and their earlier minimum-shape guarantees.
 
 ## Test Expectations
 
@@ -64,3 +65,4 @@ Emit the required v0.1.0 evidence artifacts, including logs, workspace metadata,
 ## Notes
 
 - Required JSON artifacts must keep `schema_version: 1`.
+- Proxy artifact production is owned by `TASK-012`; this task enforces completeness, diff outputs, and capped-log behavior at the end of the run pipeline.

@@ -8,10 +8,11 @@ depends_on:
 milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:
+  - specs/tessariq-v0.1.0.md#core-workflow
   - specs/tessariq-v0.1.0.md#tessariq-run-task-path
   - specs/tessariq-v0.1.0.md#lifecycle-rules
   - specs/tessariq-v0.1.0.md#evidence-contract
-updated_at: 2026-03-29T00:00:00Z
+updated_at: 2026-03-29T12:06:20Z
 areas:
   - runner
   - evidence
@@ -44,10 +45,11 @@ Implement bootstrap and runner lifecycle ownership for `status.json`, timeout ha
 
 ## Acceptance Criteria
 
-- `status.json` exists even on bootstrap failure.
-- Timeout handling writes the expected evidence before escalation.
-- Runner lifecycle produces valid terminal states and timestamps.
+- `status.json` exists even on bootstrap failure and is created before long-running runner work begins.
+- Runner lifecycle produces exactly the v0.1.0 terminal states `success`, `failed`, `timeout`, `killed`, or `interrupted`, with valid `started_at` and `finished_at` timestamps.
+- Timeout handling writes the expected evidence, including `timed_out` and `exit_code`, before escalation.
 - `status.json` includes the minimum required fields for `schema_version`, `state`, `started_at`, `finished_at`, `exit_code`, and `timed_out`.
+- Runner bootstrap records the deterministic container name `tessariq-<run_id>` in `manifest.json` before detached guidance prints it.
 - `run.log` and `runner.log` remain durable even when bootstrap or timeout paths fail.
 
 ## Test Expectations

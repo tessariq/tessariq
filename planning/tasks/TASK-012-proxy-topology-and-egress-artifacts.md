@@ -4,6 +4,7 @@ title: Implement proxy topology and egress evidence artifacts
 status: todo
 priority: p1
 depends_on:
+  - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
   - TASK-011-egress-mode-resolution-and-manifest-recording
 milestone: v0.1.0
 spec_version: v0.1.0
@@ -12,7 +13,7 @@ spec_refs:
   - specs/tessariq-v0.1.0.md#evidence-contract
   - specs/tessariq-v0.1.0.md#acceptance-scenarios
   - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: 2026-03-29T00:00:00Z
+updated_at: 2026-03-29T12:06:20Z
 areas:
   - networking
   - proxy
@@ -45,11 +46,12 @@ Implement proxy mode runtime topology, compiled allowlists, and egress event evi
 
 ## Acceptance Criteria
 
-- Proxy mode enforces host:port allowlists with default port `443`.
-- `egress.compiled.yaml` and `egress.events.jsonl` are emitted in proxy mode.
+- Proxy mode integrates with the runner/container lifecycle and enforces host:port allowlists with default port `443`.
+- `egress.compiled.yaml` is emitted in proxy mode with `schema_version`, `allowlist_source`, and fully resolved destination `host` and `port` entries.
+- `egress.events.jsonl` is emitted only in proxy mode and records blocked attempts alongside the resolved allowlist context.
 - HTTPS and WSS CONNECT-style traffic is supported through the allowlisted proxy path.
 - Proxy evidence records both allowlist provenance and the fully resolved destinations without re-derivation.
-- Blocked-destination failures tell the user which `host:port` was blocked and how to allow it or rerun with explicit open egress.
+- Blocked-destination failures tell the user which `host:port` was blocked and how to allow it through user config or CLI flags, or rerun with explicit open egress.
 
 ## Test Expectations
 

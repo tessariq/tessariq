@@ -10,9 +10,11 @@ milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:
   - specs/tessariq-v0.1.0.md#tessariq-promote-run-ref
+  - specs/tessariq-v0.1.0.md#lifecycle-rules
+  - specs/tessariq-v0.1.0.md#evidence-contract
   - specs/tessariq-v0.1.0.md#acceptance-scenarios
   - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: 2026-03-29T00:00:00Z
+updated_at: 2026-03-29T12:06:20Z
 areas:
   - git
   - promote
@@ -45,12 +47,13 @@ Implement `tessariq promote <run-ref>` with branch creation, exactly one commit,
 
 ## Acceptance Criteria
 
-- Promote creates one branch and exactly one commit for changed runs.
-- Default branch and commit message behavior matches the spec.
-- Zero-diff and missing-evidence cases fail without creating a branch or commit.
-- Default trailers are exactly `Tessariq-Run`, `Tessariq-Base`, and `Tessariq-Task`.
+- Promote works only for finished runs with code changes; unknown, unfinished, missing-evidence, and zero-diff cases fail without creating a branch or commit.
+- The default branch name is exactly `tessariq/<run_id>`.
+- The default commit message is `task_title`, with fallback `tessariq: apply run <run_id>`.
+- Promote creates one branch and exactly one commit for changed runs and uses `git add -A` for the promoted delta.
+- Default trailers are exactly `Tessariq-Run: <run_id>`, `Tessariq-Base: <base_sha>`, and `Tessariq-Task: <task_path>`.
 - `--no-trailers` suppresses the default trailer block without changing the one-commit contract.
-- Promote uses `git add -A` for the promoted delta.
+- Failure guidance tells the user when there were no code changes to promote or identifies the missing artifact that blocks promotion.
 
 ## Test Expectations
 

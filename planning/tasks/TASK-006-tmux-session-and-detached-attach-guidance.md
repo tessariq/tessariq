@@ -9,8 +9,9 @@ milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:
   - specs/tessariq-v0.1.0.md#product-intent
+  - specs/tessariq-v0.1.0.md#core-workflow
   - specs/tessariq-v0.1.0.md#tessariq-run-task-path
-updated_at: 2026-03-29T00:00:00Z
+updated_at: 2026-03-29T12:06:20Z
 areas:
   - tmux
   - cli
@@ -43,9 +44,9 @@ Launch live `tmux` sessions for runs and print attach and promote guidance in de
 
 ## Acceptance Criteria
 
-- Runs remain detached by default.
+- Runs remain detached by default with `--attach=false`, while still creating a live `tmux` session that later attach flows can target.
 - Printed output includes run id, workspace path, evidence path, container identifier, attach command, and promote command.
-- Tmux session naming is stable enough for later attach behavior.
+- Tmux session naming and attach-command generation are stable enough for later attach behavior.
 - Stdout output remains script-friendly while still surfacing the attach and promote commands.
 
 ## Test Expectations

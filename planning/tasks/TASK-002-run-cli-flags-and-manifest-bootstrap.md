@@ -9,11 +9,12 @@ milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:
   - specs/tessariq-v0.1.0.md#product-intent
+  - specs/tessariq-v0.1.0.md#core-workflow
   - specs/tessariq-v0.1.0.md#repository-model
   - specs/tessariq-v0.1.0.md#tessariq-run-task-path
   - specs/tessariq-v0.1.0.md#failure-ux
   - specs/tessariq-v0.1.0.md#evidence-contract
-updated_at: 2026-03-29T00:00:00Z
+updated_at: 2026-03-29T12:06:20Z
 areas:
   - cli
   - evidence
@@ -42,15 +43,18 @@ verification:
 
 ## Summary
 
-Add `tessariq run <task-path>` command wiring, supported flags, task-path validation, `--attach` handling, and initial manifest creation.
+Add `tessariq run <task-path>` command wiring, supported flags, task-path validation, `--attach` handling, and manifest bootstrap scaffolding.
 
 ## Acceptance Criteria
 
-- All v0.1.0 run flags parse with the documented defaults.
+- All v0.1.0 run flags parse with the documented defaults: `--timeout=30m`, `--grace=30s`, `--agent=claude-code`, `--egress=auto`, and `--attach=false`.
+- The supported flag surface is decision-complete for v0.1.0: `--agent`, `--image`, `--model`, `--yolo`, `--egress`, `--unsafe-egress`, `--egress-allow`, `--egress-allow-reset`, `--pre`, `--verify`, and `--attach`.
+- `--unsafe-egress` behaves exactly as an alias for `--egress open`, and repeatable flags preserve CLI order for later allowlist processing.
 - Invalid flag combinations fail cleanly before execution.
 - Missing paths, non-Markdown paths, and paths outside the current repository fail before container start with the required guidance.
 - `--attach` is wired as the non-default live-attach path while detached mode remains the default UX.
-- Initial manifest data exists before long-running work starts and includes the minimum required fields for `schema_version`, `run_id`, `task_path`, `task_title`, `adapter`, `base_sha`, `workspace_mode`, requested/resolved egress, `allowlist_source`, `container_name`, and `created_at`.
+- Manifest bootstrap exists before long-running work starts and records the stable fields available at command-preflight time: `schema_version`, `run_id`, `task_path`, `adapter`, `requested_egress_mode`, and `created_at`.
+- Follow-on tasks explicitly own filling the remaining required manifest fields before runner bootstrap begins: `task_title` in `TASK-003`, `base_sha` and `workspace_mode` in `TASK-004`, `container_name` in `TASK-005`, and `resolved_egress_mode` plus `allowlist_source` in `TASK-011`.
 
 ## Test Expectations
 

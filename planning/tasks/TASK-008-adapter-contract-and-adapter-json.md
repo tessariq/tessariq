@@ -10,7 +10,7 @@ spec_version: v0.1.0
 spec_refs:
   - specs/tessariq-v0.1.0.md#adapter-contract
   - specs/tessariq-v0.1.0.md#evidence-contract
-updated_at: 2026-03-29T00:00:00Z
+updated_at: 2026-03-29T12:06:20Z
 areas:
   - adapters
   - evidence
@@ -43,8 +43,9 @@ Create shared adapter abstractions and `adapter.json` emission rules for v0.1.0.
 
 ## Acceptance Criteria
 
-- `adapter.json` always records requested options.
-- Unsupported exact application is recorded explicitly in `applied`.
+- `adapter.json` uses the v0.1.0 minimum shape with `schema_version`, `adapter`, `image`, `requested`, and `applied`.
+- `adapter.json` always records requested options, including options that later prove unsupported.
+- Unsupported exact application is recorded explicitly in `applied` without erasing the original requested values.
 - Concrete adapters can plug into the shared contract without changing schema version 1.
 
 ## Test Expectations

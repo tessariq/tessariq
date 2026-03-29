@@ -23,6 +23,7 @@ depends_on:
 milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:
+  - specs/tessariq-v0.1.0.md#release-intent
   - specs/tessariq-v0.1.0.md#product-intent
   - specs/tessariq-v0.1.0.md#tessariq-run-task-path
   - specs/tessariq-v0.1.0.md#tessariq-attach-run-ref
@@ -30,7 +31,8 @@ spec_refs:
   - specs/tessariq-v0.1.0.md#evidence-contract
   - specs/tessariq-v0.1.0.md#acceptance-scenarios
   - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: 2026-03-29T00:00:00Z
+  - specs/tessariq-v0.1.0.md#success-metrics
+updated_at: 2026-03-29T12:06:20Z
 areas:
   - verification
   - spec
@@ -64,7 +66,8 @@ Run the final v0.1.0 conformity sweep against the normative spec after the stren
 ## Acceptance Criteria
 
 - `go run ./cmd/tessariq-workflow verify --profile spec --disposition report --json` passes with no unresolved high-severity findings.
-- Every normative contract and acceptance scenario in the active v0.1.0 spec is covered by tasks and implemented behavior.
+- Every normative contract, acceptance scenario, failure-UX row, and evidence-compatibility rule in the active v0.1.0 spec is covered by tasks and implemented behavior.
+- The closeout explicitly records each v0.1.0 success metric as met, not yet measurable, or follow-up required; it must not silently ignore the section.
 - Regenerated verification artifacts and `planning/STATE.md` validation metadata point at the final passing sweep.
 
 ## Test Expectations

@@ -29,7 +29,7 @@ spec_refs:
   - specs/tessariq-v0.1.0.md#evidence-contract
   - specs/tessariq-v0.1.0.md#acceptance-scenarios
   - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: 2026-03-29T00:00:00Z
+updated_at: 2026-03-29T12:06:20Z
 areas:
   - verification
   - spec
@@ -45,10 +45,10 @@ verification:
       - go test -tags=integration ./...
     rationale: Integration coverage is optional unless the conformity verifier starts real collaborators.
   e2e:
-    required: true
+    required: false
     commands:
       - go test -tags=e2e ./...
-    rationale: Final conformity should include thin end-to-end coverage of the critical user journeys.
+    rationale: This task hardens verification tooling rather than introducing a new runtime user flow.
   mutation:
     required: true
     commands:
@@ -58,20 +58,20 @@ verification:
 
 ## Summary
 
-Harden `validate-state` and `verify --profile spec` so broken task/spec links, stale anchors, and missing active-spec coverage fail loudly in normal workflow use and CI.
+Harden `validate-state` and `verify --profile spec` so broken task/spec links, stale anchors, and missing active-spec ownership of normative contracts fail loudly in normal workflow use and CI.
 
 ## Acceptance Criteria
 
 - `go run ./cmd/tessariq-workflow validate-state` fails when a task points at a missing spec file or dead heading anchor.
-- `go run ./cmd/tessariq-workflow verify --profile spec --disposition report --json` reports scope metadata for the active milestone spec and fails on unresolved high-severity findings.
-- Workflow validation fixtures cover the stale-link regression that previously passed silently.
+- `go run ./cmd/tessariq-workflow verify --profile spec --disposition report --json` reports scope metadata for the active milestone spec and emits high-severity findings for uncovered normative contracts, acceptance scenarios, failure-UX rows, or evidence-compatibility rules in that active spec.
+- Workflow validation fixtures cover both the stale-link regression and a missing-coverage regression that previously passed silently.
 - Task and CI documentation explain that the validation gates are hard failures, not advisory output.
 
 ## Test Expectations
 
-- Add unit tests for spec-reference resolution, dead-anchor detection, scope reporting, and spec-coverage verification.
+- Add unit tests for spec-reference resolution, dead-anchor detection, active-scope reporting, and coverage mapping for normative contracts, acceptance scenarios, failure rows, and evidence rules.
 - Integration tests are optional unless the verifier grows real collaborator dependencies.
-- Integration tests are optional unless the verifier grows real collaborator dependencies.
+- E2E tests are not required for this task because it hardens verification tooling rather than introducing a new runtime user flow.
 - Run mutation testing because verification logic is easy to weaken accidentally.
 
 ## TDD Plan

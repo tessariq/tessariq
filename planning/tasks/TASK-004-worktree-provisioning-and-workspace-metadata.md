@@ -10,7 +10,7 @@ spec_version: v0.1.0
 spec_refs:
   - specs/tessariq-v0.1.0.md#workspace-guarantees
   - specs/tessariq-v0.1.0.md#evidence-contract
-updated_at: 2026-03-29T00:00:00Z
+updated_at: 2026-03-29T12:06:20Z
 areas:
   - git
   - workspace
@@ -43,8 +43,10 @@ Create detached worktrees under `~/.tessariq/worktrees/...` and emit `workspace.
 
 ## Acceptance Criteria
 
-- Worktrees are detached and isolated from the host working tree.
-- `workspace.json` includes the minimum required fields for `schema_version`, `workspace_mode`, `base_sha`, `workspace_path`, `repo_mount_mode`, `repo_clean`, and `reproducibility`.
+- Worktrees are created with `git worktree add --detach` and remain isolated from the host working tree.
+- `base_sha` is captured from repository `HEAD` at run start and written into `workspace.json`.
+- `workspace.json` includes the minimum required fields for `schema_version`, `workspace_mode`, `base_sha`, `workspace_path`, `repo_mount_mode`, `repo_clean`, and `reproducibility`, with v0.1.0 `worktree` values recorded as `workspace_mode=worktree`, `repo_clean=true`, and `reproducibility=strong`.
+- The workspace path follows the run-scoped worktree layout under `~/.tessariq/worktrees/<repo_id>/<run_id>`.
 - Cleanup paths are prepared for later runner and promote logic.
 
 ## Test Expectations
@@ -61,3 +63,4 @@ Create detached worktrees under `~/.tessariq/worktrees/...` and emit `workspace.
 ## Notes
 
 - Keep host path handling portable across Linux and macOS.
+- Mount wiring for `/work` and the separate evidence mount is intentionally owned by later runner/bootstrap tasks.
