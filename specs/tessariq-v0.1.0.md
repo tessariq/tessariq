@@ -1,6 +1,6 @@
 # Tessariq v0.1.0 Specification
 
-**Status:** Draft (normative)  
+**Status:** In Progress  
 **Scope:** First release  
 **Theme:** Prove the core local workflow before expanding workspace breadth
 

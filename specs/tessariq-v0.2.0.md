@@ -1,6 +1,6 @@
 # Tessariq v0.2.0 Specification
 
-**Status:** Draft (normative)  
+**Status:** Draft  
 **Scope:** Second release  
 **Theme:** Expand Tessariq to the full planned workspace model
 
@@ -43,6 +43,17 @@ Still out of scope:
 - web UI or database
 - automatic push or PR creation
 
+## Changes from v0.1.0
+
+v0.2.0 extends or overrides v0.1.0 in these areas:
+
+- add `copy+patch` and `repo-rw` workspace modes
+- add `--workspace worktree|copy+patch|repo-rw`
+- add `--resume <run-ref>` and resume-specific evidence fields
+- add `--unsafe-workspace` and `--unsafe` for the unsafe workspace path
+- add workspace-specific promote behavior for `copy+patch` and `repo-rw`
+- retain the v0.1.0 run outcome model; this spec changes workspace and resume behavior, not terminal run outcomes
+
 ## Workspace guarantees
 
 | Workspace | Host repo mutated during `run` | Reproducibility | Unsafe opt-in required | Resume basis | Promote path |
@@ -64,11 +75,13 @@ Intent:
 
 Required behavior:
 
+- Tessariq MUST refuse to start a `copy+patch` run if the repository has staged, unstaged, or untracked non-ignored files
 - the host repository is mounted read-only for source material only
 - the working copy inside the container lives at `/work`
 - `/work` MUST be a deterministic Git checkout at `base_sha`, not a raw file copy
 - the agent modifies `/work`
 - no host-visible working tree changes occur during the run
+- dirty-repo failure for `copy+patch` MUST happen before container start and tell the user to commit, stash, or clean the repository first
 
 ### `repo-rw`
 
@@ -98,7 +111,12 @@ Rules:
 
 - default workspace remains `worktree`
 - `repo-rw` MUST require explicit unsafe opt-in
+- `--unsafe` acts as a convenience flag only; it does not select `repo-rw` by itself and does not override an explicit `--workspace` or `--egress` value
+- `--unsafe-workspace` satisfies the workspace safety gate only for `--workspace repo-rw`
+- `--unsafe-egress` remains an alias for `--egress open` as inherited from v0.1.0
 - `resume` always creates a new `run_id` and a new evidence folder
+- if `--resume` is set without `--workspace`, the resumed run MUST default to the source run's workspace mode
+- if both `--resume` and `--workspace` are set, Tessariq MUST use the explicitly requested workspace mode and apply the corresponding reconstruction rules
 - `resume` MUST fail if the referenced run is unknown or lacks the required reconstruction evidence for its workspace mode
 
 ### `tessariq promote <run-ref>`
@@ -118,6 +136,7 @@ v0.2.0 adds workspace-specific promote semantics.
 - `resume` always creates a new `run_id`
 - `resume` never overwrites earlier evidence
 - `manifest.json` and `workspace.json` MUST record `resume_from`
+- in this spec, a "finished run" means a run in one of the inherited v0.1.0 terminal run outcomes: `success`, `failed`, `timeout`, `killed`, or `interrupted`
 - runs in any finished state MAY be resumed if their workspace-specific reconstruction inputs still exist
 - live runs MUST NOT be resumed
 

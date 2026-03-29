@@ -57,9 +57,21 @@ Planned later scope:
 
 ## Authoring conventions
 
+- Each versioned spec must declare a document `Status` in the header.
+- The `Status` line must contain only one of these values: `Draft`, `In Progress`, or `Done`.
+- `Draft` means the version is exploratory or planned and is not yet the active implementation baseline.
+- `In Progress` means the version is the active implementation baseline and remains normative while delivery is underway.
+- `Done` means the version is shipped or otherwise contract-locked; further behavior changes should be introduced in a newer versioned spec.
 - Each versioned spec must include a `Release intent` section.
 - Specs should state both what is in scope and what is intentionally deferred.
 - Versioned specs should optimize for user-visible contracts, guarantees, and acceptance scenarios rather than runtime internals.
 - Each versioned spec may include an `Implementation Notes (Informative)` section for version-specific runtime detail.
 - Informative sections describe likely implementation shape, but the normative sections in the same file define release behavior.
 - Repo-tracked Markdown belongs in `specs/` at the repository root; generated runtime state belongs in `<repo>/.tessariq/`.
+
+## Terminology
+
+- `Status` refers to spec-document maturity in the document header.
+- `run state` or `run outcome` refers to Tessariq runtime behavior such as `status.json` and lifecycle transitions.
+- `workspace mode` refers to how Tessariq exposes repository contents to a run, such as `worktree`, `copy+patch`, or `repo-rw`.
+- `evidence artifact` refers to a durable file emitted under `<repo>/.tessariq/runs/<run_id>/`.
