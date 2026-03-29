@@ -19,11 +19,11 @@ type Config struct {
 	Agent            string
 	Image            string
 	Model            string
-	Yolo             bool
+	Interactive      bool
 	Egress           string
 	UnsafeEgress     bool
 	EgressAllow      []string
-	EgressAllowReset bool
+	EgressNoDefaults bool
 	Pre              []string
 	Verify           []string
 	Attach           bool

@@ -1,7 +1,7 @@
 ---
 id: TASK-018-replace-yolo-with-interactive-and-cli-polish
 title: Replace --yolo with --interactive and polish CLI flags
-status: todo
+status: done
 priority: p0
 depends_on:
     - TASK-002-run-cli-flags-and-manifest-bootstrap
@@ -12,7 +12,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#adapter-contract
     - specs/tessariq-v0.1.0.md#networking-and-egress
     - specs/tessariq-v0.1.0.md#specification-changelog
-updated_at: "2026-03-29T17:30:00Z"
+updated_at: "2026-03-29T20:18:47Z"
 areas:
     - cli
 verification:
@@ -92,3 +92,4 @@ Replace `--yolo` with `--interactive` (inverted semantics, autonomous-by-default
 - This task is safe to execute immediately after TASK-002 since it only modifies Config struct fields, flag definitions, and help text.
 - Adapter tasks (TASK-008, TASK-009, TASK-010) are not yet implemented, so the rename has zero migration cost.
 - The spec changelog entry for 2026-03-29 documents the rationale for these changes.
+- 2026-03-29T20:18:47Z: Renamed Yolo→Interactive, EgressAllowReset→EgressNoDefaults in Config struct and CLI flags. Added custom DurationValue pflag.Value type for clean --help output (30m not 30m0s). Added --interactive without --attach stderr warning. All tests pass, mutation efficacy 97.30%. Evidence: planning/artifacts/manual-test/TASK-018-replace-yolo-with-interactive-and-cli-polish/20260329T201752Z/report.md, planning/artifacts/verify/task/TASK-018-replace-yolo-with-interactive-and-cli-polish/20260329T201839Z/report.json

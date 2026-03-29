@@ -36,6 +36,10 @@ func newRunCmd() *cobra.Command {
 				return err
 			}
 
+			if cfg.Interactive && !cfg.Attach {
+				fmt.Fprintln(cmd.ErrOrStderr(), "warning: --interactive without --attach; agent will block waiting for approval with no terminal attached")
+			}
+
 			if err := git.IsClean(cmd.Context(), root); err != nil {
 				return err
 			}
@@ -94,16 +98,16 @@ func newRunCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().DurationVar(&cfg.Timeout, "timeout", cfg.Timeout, "maximum run duration")
-	cmd.Flags().DurationVar(&cfg.Grace, "grace", cfg.Grace, "grace period after timeout before kill")
+	cmd.Flags().Var((*run.DurationValue)(&cfg.Timeout), "timeout", "maximum run duration")
+	cmd.Flags().Var((*run.DurationValue)(&cfg.Grace), "grace", "grace period after timeout before kill")
 	cmd.Flags().StringVar(&cfg.Agent, "agent", cfg.Agent, "agent adapter (claude-code|opencode)")
 	cmd.Flags().StringVar(&cfg.Image, "image", cfg.Image, "container image override")
 	cmd.Flags().StringVar(&cfg.Model, "model", cfg.Model, "model identifier for the agent")
-	cmd.Flags().BoolVar(&cfg.Yolo, "yolo", cfg.Yolo, "enable yolo mode for the agent")
+	cmd.Flags().BoolVar(&cfg.Interactive, "interactive", cfg.Interactive, "require human approval for agent tool use (use with --attach)")
 	cmd.Flags().StringVar(&cfg.Egress, "egress", cfg.Egress, "egress mode (none|proxy|open|auto)")
 	cmd.Flags().BoolVar(&cfg.UnsafeEgress, "unsafe-egress", cfg.UnsafeEgress, "alias for --egress open")
 	cmd.Flags().StringArrayVar(&cfg.EgressAllow, "egress-allow", cfg.EgressAllow, "allowed egress destination (repeatable)")
-	cmd.Flags().BoolVar(&cfg.EgressAllowReset, "egress-allow-reset", cfg.EgressAllowReset, "discard built-in and user-configured allowlist")
+	cmd.Flags().BoolVar(&cfg.EgressNoDefaults, "egress-no-defaults", cfg.EgressNoDefaults, "ignore default allowlists; only --egress-allow entries apply")
 	cmd.Flags().StringArrayVar(&cfg.Pre, "pre", cfg.Pre, "pre-command to run before the agent (repeatable)")
 	cmd.Flags().StringArrayVar(&cfg.Verify, "verify", cfg.Verify, "verify command to run after the agent (repeatable)")
 	cmd.Flags().BoolVar(&cfg.Attach, "attach", cfg.Attach, "attach to the run session immediately")
