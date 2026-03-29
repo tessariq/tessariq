@@ -16,6 +16,8 @@ Guidance for coding agents working in the Tessariq repository.
 - CI checks and required validations: `.github/workflows/ci.yml`.
 - Release pipeline: `.goreleaser.yml`.
 - Product overview: `README.md`.
+- Tracked-work workflow and testing policy: `docs/workflow/`.
+- Mirrored agent skills: `.agents/skills/` and `.claude/skills/`.
 
 ## Toolchain and environment
 - Go version: `1.26` (`go.mod`).
@@ -42,10 +44,12 @@ Use these defaults unless a task requires otherwise.
 ### Integration tests
 - Run integration-tag tests: `go test -tags=integration ./...`
 - Task wrapper: `task test:integration`
+- Integration and e2e tests must use Testcontainers for Go for service or process collaborators; do not use custom local servers.
 
 ### End-to-end tests
 - Run e2e-tag tests: `go test -tags=e2e ./...`
 - Task wrapper: `task test:e2e`
+- E2E tests should stay thin, cover critical CLI flows only, and use Testcontainers when runtime collaborators are needed.
 
 ### Run a single test
 - Single test in one package:
@@ -69,8 +73,18 @@ Use these defaults unless a task requires otherwise.
 ### Mutation tests
 - Run mutation testing: `gremlins unleash`
 - Task wrapper: `task test:mutate`
-- With quality gate (used in CI): `gremlins unleash --threshold-efficacy 0.25`
+- With quality gate (used in CI): `gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70`
 - Install gremlins: `go install github.com/go-gremlins/gremlins/cmd/gremlins@v0.6.0`
+
+### Tracked-work workflow commands
+- Validate state: `go run ./cmd/tessariq-workflow validate-state`
+- Select next task: `go run ./cmd/tessariq-workflow next --json`
+- Start task: `go run ./cmd/tessariq-workflow start --mode user_request --agent-id <agent> --model <model> <task-id>`
+- Finish task: `go run ./cmd/tessariq-workflow finish --status done --note "<evidence>" <task-id>`
+- Refresh state: `go run ./cmd/tessariq-workflow refresh-state`
+- Verify spec coverage: `go run ./cmd/tessariq-workflow verify --profile spec --disposition report --json`
+- Check mirrored skills: `go run ./cmd/tessariq-workflow check-skills`
+- See `docs/workflow/` for the full deterministic workflow contract.
 
 ### License compliance check used in CI
 - Check allowed licenses: `go-licenses check ./cmd/tessariq --allowed_licenses=Apache-2.0,MIT,BSD-3-Clause,ISC,AGPL-3.0`
@@ -130,8 +144,12 @@ Follow existing conventions and keep CLI UX stable.
 - Use `t.Parallel()` for unit tests when safe.
 - Mark integration tests with `//go:build integration`.
 - Mark end-to-end tests with `//go:build e2e`.
-- Use `t.TempDir()` for temporary filesystem fixtures.
-- Keep tests deterministic; avoid live Docker or network unless integration-scoped.
+- Follow TDD for code changes: write the smallest failing test first, then make it pass, then refactor.
+- Follow the testing pyramid: default to unit tests, add integration tests for subsystem boundaries, and keep e2e tests sparse and high-signal.
+- Unit tests must not touch real filesystem paths, temp files, Docker, or network.
+- Integration and e2e tests may use `t.TempDir()` for local fixtures and workspaces, but must use Testcontainers for Go for real process or service collaborators.
+- Integration and e2e tests must not use custom HTTP/TCP servers or live external network services.
+- Keep tests deterministic; avoid live Docker or network unless integration-scoped and containerized.
 - Test evidence artifacts by verifying file existence, structure, and required fields.
 
 ### Dependency and platform practices
@@ -165,9 +183,13 @@ Follow existing conventions and keep CLI UX stable.
 ## Change checklist for agents
 - Run `gofmt -w` on edited Go files.
 - Run `go vet ./...` for non-trivial changes.
+- Keep implementation in a TDD loop for code changes.
 - Run targeted tests for touched packages.
 - Run full `go test ./...` before handing off broad changes.
 - If integration paths changed, run `go test -tags=integration ./...`.
+- If e2e paths changed, run `go test -tags=e2e ./...`.
+- If non-trivial logic changed, run `gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70`.
+- If tracked-work tooling or skills changed, run `go run ./cmd/tessariq-workflow validate-state`, `go run ./cmd/tessariq-workflow check-skills`, and `go run ./cmd/tessariq-workflow verify --profile spec --disposition report --json`.
 - Update `README.md` when CLI flags/commands/behavior change.
 - Update `CHANGELOG.md` for user-visible behavior changes; keep entries user-facing and skip internal-only maintenance noise.
 - Verify evidence file contracts are maintained when changing run or promote logic.

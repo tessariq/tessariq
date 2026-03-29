@@ -31,6 +31,11 @@ tasks:
     cmds:
       - gremlins unleash
 
+  test:mutate:gate:
+    desc: Run mutation testing with CI threshold
+    cmds:
+      - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
+
   run:
     desc: Run tessariq with no arguments
     cmds:
@@ -40,6 +45,31 @@ tasks:
     desc: Run tessariq --help
     cmds:
       - go run ./cmd/tessariq --help
+
+  workflow:validate:
+    desc: Validate tracked-work state
+    cmds:
+      - go run ./cmd/tessariq-workflow validate-state
+
+  workflow:next:
+    desc: Select the next eligible tracked task
+    cmds:
+      - go run ./cmd/tessariq-workflow next --json
+
+  workflow:refresh:
+    desc: Refresh derived tracked-work state
+    cmds:
+      - go run ./cmd/tessariq-workflow refresh-state
+
+  workflow:verify:spec:
+    desc: Verify tracked-work coverage against the v0.1.0 spec
+    cmds:
+      - go run ./cmd/tessariq-workflow verify --profile spec --disposition report --json
+
+  workflow:check-skills:
+    desc: Verify mirrored agent skill directories stay in sync
+    cmds:
+      - go run ./cmd/tessariq-workflow check-skills
 
   release:check:
     desc: Validate goreleaser configuration
