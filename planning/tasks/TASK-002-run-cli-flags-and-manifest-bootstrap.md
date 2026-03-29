@@ -41,6 +41,7 @@ verification:
         rationale: Defaulting and option-application logic are mutation-prone and should meet the CI threshold once implemented.
     manual_test:
         required: true
+        commands: []
         rationale: Validates CLI behavior and evidence artifacts through direct execution against acceptance criteria.
 ---
 

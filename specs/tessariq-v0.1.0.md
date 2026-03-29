@@ -101,12 +101,11 @@ Required `worktree` behavior:
 
 ### `tessariq init`
 
-Creates the following top-level repository skeleton:
+Creates the runtime state directory:
 
-- `specs/`
 - `.tessariq/runs/`
 
-Here `.tessariq/` is a top-level repository directory, not a child of `specs/`.
+It MUST NOT create `specs/` or any other user-managed directories.
 
 It MUST add `.tessariq/` to `.gitignore`.
 
@@ -376,7 +375,7 @@ Minimum `index.jsonl` entry shape:
 
 ## Acceptance scenarios
 
-- `init` creates the expected local skeleton and `.gitignore` entry
+- `init` creates `.tessariq/runs/` and the `.gitignore` entry
 - `run` succeeds on a clean repo and creates the required evidence files
 - `run` fails early on a dirty repo before container start
 - `attach` works for a live run and fails cleanly for a finished run

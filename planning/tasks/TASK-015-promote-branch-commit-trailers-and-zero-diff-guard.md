@@ -41,6 +41,7 @@ verification:
         rationale: Guardrails around zero-diff and trailer emission should survive mutation testing.
     manual_test:
         required: true
+        commands: []
         rationale: Validates CLI behavior and evidence artifacts through direct execution against acceptance criteria.
 ---
 

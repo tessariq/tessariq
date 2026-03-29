@@ -38,6 +38,7 @@ verification:
         rationale: Index ordering and run-ref parsing are branch-heavy.
     manual_test:
         required: true
+        commands: []
         rationale: Validates CLI behavior and evidence artifacts through direct execution against acceptance criteria.
 ---
 

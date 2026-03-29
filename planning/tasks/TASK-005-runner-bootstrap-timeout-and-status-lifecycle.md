@@ -39,6 +39,7 @@ verification:
         rationale: Timeout and terminal-state transitions are important mutation-test targets.
     manual_test:
         required: true
+        commands: []
         rationale: Validates CLI behavior and evidence artifacts through direct execution against acceptance criteria.
 ---
 

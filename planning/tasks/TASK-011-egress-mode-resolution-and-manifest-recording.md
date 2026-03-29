@@ -41,6 +41,7 @@ verification:
         rationale: Mode resolution and unsafe-open gating are mutation-prone.
     manual_test:
         required: true
+        commands: []
         rationale: Validates CLI behavior and evidence artifacts through direct execution against acceptance criteria.
 ---
 

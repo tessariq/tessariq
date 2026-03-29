@@ -40,6 +40,7 @@ verification:
         rationale: Dirty-repo gating and metadata fallback logic are good mutation-testing targets.
     manual_test:
         required: true
+        commands: []
         rationale: Validates CLI behavior and evidence artifacts through direct execution against acceptance criteria.
 ---
 

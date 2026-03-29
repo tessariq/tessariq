@@ -40,6 +40,7 @@ verification:
         rationale: Rule compilation and allowlist enforcement are high-value mutation targets.
     manual_test:
         required: true
+        commands: []
         rationale: Validates CLI behavior and evidence artifacts through direct execution against acceptance criteria.
 ---
 

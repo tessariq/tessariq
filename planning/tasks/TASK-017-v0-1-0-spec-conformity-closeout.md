@@ -59,6 +59,7 @@ verification:
         rationale: Closeout relies on verification logic that should still meet the mutation threshold.
     manual_test:
         required: true
+        commands: []
         rationale: Validates CLI behavior and evidence artifacts through direct execution against acceptance criteria.
 ---
 

@@ -38,6 +38,7 @@ verification:
         rationale: Mutation testing is optional unless the session lifecycle logic becomes complex.
     manual_test:
         required: true
+        commands: []
         rationale: Validates CLI behavior and evidence artifacts through direct execution against acceptance criteria.
 ---
 

@@ -37,6 +37,7 @@ verification:
         rationale: Provisioning and cleanup branching should be mutation-tested once implemented.
     manual_test:
         required: true
+        commands: []
         rationale: Validates CLI behavior and evidence artifacts through direct execution against acceptance criteria.
 ---
 

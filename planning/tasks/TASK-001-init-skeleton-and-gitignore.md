@@ -1,7 +1,7 @@
 ---
 id: TASK-001-init-skeleton-and-gitignore
 title: Initialize repository skeleton and ignore generated runtime state
-status: todo
+status: done
 priority: p0
 depends_on: []
 milestone: v0.1.0
@@ -12,7 +12,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#generated-runtime-state
     - specs/tessariq-v0.1.0.md#tessariq-init
     - specs/tessariq-v0.1.0.md#acceptance-scenarios
-updated_at: "2026-03-29T12:06:20Z"
+updated_at: "2026-03-29T13:39:40Z"
 areas:
     - cli
     - repository
@@ -39,6 +39,7 @@ verification:
         rationale: Idempotent `.gitignore` insertion has branches (file exists vs not, entry present vs not, trailing newline handling) that mutations can weaken.
     manual_test:
         required: true
+        commands: []
         rationale: Validates CLI behavior and evidence artifacts through direct execution against acceptance criteria.
 ---
 
@@ -48,7 +49,7 @@ Create `tessariq init` behavior for the repo skeleton and `.gitignore` update.
 
 ## Acceptance Criteria
 
-- `specs/` and `.tessariq/runs/` are created when missing, with `.tessariq/` living at the repository root as a sibling of `specs/`.
+- `.tessariq/runs/` is created when missing at the repository root.
 - `.tessariq/` is added to `.gitignore` without duplicating entries, creating or updating `.gitignore` as needed.
 - The command behaves cleanly on reruns.
 - The task continues to treat `.tessariq/` as repo-local generated state, not repo-tracked config.
@@ -67,3 +68,4 @@ Create `tessariq init` behavior for the repo skeleton and `.gitignore` update.
 ## Notes
 
 - Keep the implementation behavior-preserving outside the new `init` command.
+- 2026-03-29T13:39:40Z: Unit tests pass (8 scenarios), mutation efficacy 76.92% (>70% threshold), manual test 6/6 pass. Evidence: planning/artifacts/manual-test/TASK-001-init-skeleton-and-gitignore/2026-03-29T1340Z/report.md, planning/artifacts/verify/task/TASK-001-init-skeleton-and-gitignore/20260329T133934Z/report.json

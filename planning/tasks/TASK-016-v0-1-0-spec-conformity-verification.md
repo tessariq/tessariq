@@ -56,6 +56,7 @@ verification:
         rationale: Verification logic and acceptance-scenario mapping should hold the mutation threshold too.
     manual_test:
         required: true
+        commands: []
         rationale: Validates CLI behavior and evidence artifacts through direct execution against acceptance criteria.
 ---
 
