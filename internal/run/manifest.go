@@ -14,17 +14,21 @@ type Manifest struct {
 	TaskPath            string `json:"task_path"`
 	TaskTitle           string `json:"task_title"`
 	Adapter             string `json:"adapter"`
+	BaseSHA             string `json:"base_sha"`
+	WorkspaceMode       string `json:"workspace_mode"`
 	RequestedEgressMode string `json:"requested_egress_mode"`
 	CreatedAt           string `json:"created_at"`
 }
 
-func BuildManifestSeed(cfg Config, runID string, taskTitle string, now time.Time) Manifest {
+func BuildManifestSeed(cfg Config, runID, taskTitle, baseSHA string, now time.Time) Manifest {
 	return Manifest{
 		SchemaVersion:       1,
 		RunID:               runID,
 		TaskPath:            cfg.TaskPath,
 		TaskTitle:           taskTitle,
 		Adapter:             cfg.Agent,
+		BaseSHA:             baseSHA,
+		WorkspaceMode:       "worktree",
 		RequestedEgressMode: cfg.ResolveEgress(),
 		CreatedAt:           now.UTC().Format(time.RFC3339),
 	}
@@ -48,14 +52,14 @@ func WriteManifest(dir string, m Manifest) error {
 	return nil
 }
 
-func BootstrapManifest(repoRoot string, cfg Config, taskTitle string, now time.Time) (string, string, error) {
+func BootstrapManifest(repoRoot string, cfg Config, taskTitle, baseSHA string, now time.Time) (string, string, error) {
 	runID, err := NewRunID(now)
 	if err != nil {
 		return "", "", fmt.Errorf("generate run ID: %w", err)
 	}
 
 	evidenceDir := filepath.Join(repoRoot, ".tessariq", "runs", runID)
-	m := BuildManifestSeed(cfg, runID, taskTitle, now)
+	m := BuildManifestSeed(cfg, runID, taskTitle, baseSHA, now)
 
 	if err := WriteManifest(evidenceDir, m); err != nil {
 		return "", "", fmt.Errorf("bootstrap manifest: %w", err)

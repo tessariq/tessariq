@@ -1,7 +1,7 @@
 ---
 id: TASK-004-worktree-provisioning-and-workspace-metadata
 title: Provision detached worktrees and record workspace metadata
-status: todo
+status: done
 priority: p0
 depends_on:
     - TASK-003-dirty-repo-gate-and-task-ingest
@@ -10,7 +10,7 @@ spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#workspace-guarantees
     - specs/tessariq-v0.1.0.md#evidence-contract
-updated_at: "2026-03-29T12:06:20Z"
+updated_at: "2026-03-29T19:45:01Z"
 areas:
     - git
     - workspace
@@ -68,3 +68,4 @@ Create detached worktrees under `~/.tessariq/worktrees/...` and emit `workspace.
 
 - Keep host path handling portable across Linux and macOS.
 - Mount wiring for `/work` and the separate evidence mount is intentionally owned by later runner/bootstrap tasks.
+- 2026-03-29T19:45:01Z: Worktree provisioning implemented with TDD. Evidence: unit tests (internal/workspace/repoid_test.go, metadata_test.go), integration tests (internal/git/head_integration_test.go, worktree_integration_test.go, internal/workspace/provision_integration_test.go), mutation testing 97.62% efficacy, manual test pass (planning/artifacts/manual-test/TASK-004-.../20260329T194142Z/report.md), verification pass (planning/artifacts/verify/task/TASK-004-.../20260329T194453Z/report.json)

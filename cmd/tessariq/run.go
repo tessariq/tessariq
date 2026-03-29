@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/tessariq/tessariq/internal/git"
 	"github.com/tessariq/tessariq/internal/run"
+	"github.com/tessariq/tessariq/internal/workspace"
 )
 
 func newRunCmd() *cobra.Command {
@@ -46,7 +47,12 @@ func newRunCmd() *cobra.Command {
 
 			taskTitle := run.ExtractTaskTitle(content, cfg.TaskPath)
 
-			runID, evidenceDir, err := run.BootstrapManifest(root, cfg, taskTitle, time.Now())
+			baseSHA, err := git.HeadSHA(cmd.Context(), root)
+			if err != nil {
+				return err
+			}
+
+			runID, evidenceDir, err := run.BootstrapManifest(root, cfg, taskTitle, baseSHA, time.Now())
 			if err != nil {
 				return err
 			}
@@ -55,8 +61,19 @@ func newRunCmd() *cobra.Command {
 				return err
 			}
 
+			homeDir, err := os.UserHomeDir()
+			if err != nil {
+				return fmt.Errorf("resolve home directory: %w", err)
+			}
+
+			wsPath, _, err := workspace.Provision(cmd.Context(), homeDir, root, runID, evidenceDir)
+			if err != nil {
+				return err
+			}
+
 			fmt.Fprintf(cmd.OutOrStdout(), "run_id: %s\n", runID)
 			fmt.Fprintf(cmd.OutOrStdout(), "evidence_path: %s\n", evidenceDir)
+			fmt.Fprintf(cmd.OutOrStdout(), "workspace_path: %s\n", wsPath)
 
 			return nil
 		},
