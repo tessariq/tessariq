@@ -1,0 +1,66 @@
+---
+id: TASK-015-promote-branch-commit-trailers-and-zero-diff-guard
+title: Implement promote branch creation commit trailers and zero-diff protection
+status: todo
+priority: p0
+depends_on:
+  - TASK-013-diff-log-and-evidence-artifacts
+  - TASK-014-run-index-and-run-ref-resolution
+milestone: v0.1.0
+spec_version: v0.1.0
+spec_refs:
+  - specs/tessariq-v0.1.0.md#cli-promote
+  - specs/tessariq-v0.1.0.md#acceptance-promote-one-commit
+  - specs/tessariq-v0.1.0.md#acceptance-promote-zero-diff
+  - specs/tessariq-v0.1.0.md#acceptance-missing-evidence
+updated_at: 2026-03-29T00:00:00Z
+areas:
+  - git
+  - promote
+verification:
+  unit:
+    required: true
+    commands:
+      - go test ./...
+    rationale: Branch-name selection, commit-message fallback, and trailer rendering should begin with unit tests.
+  integration:
+    required: true
+    commands:
+      - go test -tags=integration ./...
+    rationale: Promote creates real git side effects and requires Testcontainers-backed integration coverage only.
+  e2e:
+    required: true
+    commands:
+      - go test -tags=e2e ./...
+    rationale: "`run -> promote` is a primary user journey and deserves thin end-to-end coverage."
+  mutation:
+    required: true
+    commands:
+      - "gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70"
+    rationale: Guardrails around zero-diff and trailer emission should survive mutation testing.
+---
+
+## Summary
+
+Implement `tessariq promote <run-ref>` with branch creation, exactly one commit, optional trailers, and zero-diff guards.
+
+## Acceptance Criteria
+
+- Promote creates one branch and exactly one commit for changed runs.
+- Default branch and commit message behavior matches the spec.
+- Zero-diff and missing-evidence cases fail without creating a branch or commit.
+
+## Test Expectations
+
+- Add unit tests for branch names, commit messages, and trailer formatting.
+- Add integration tests for promote side effects using Testcontainers-backed collaborators only.
+- Add a thin e2e `run -> promote` flow for a successful changed run and a zero-diff failure path.
+- Run mutation testing because guardrails and fallback logic are safety-critical.
+
+## TDD Plan
+
+- Start with a failing unit test for zero-diff detection and trailer rendering, then a failing e2e promote flow.
+
+## Notes
+
+- Use `git add -A` during promote and keep user-visible failures actionable.

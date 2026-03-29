@@ -41,3 +41,6 @@ website/public/
 
 # Local agent state
 .superpowers/
+
+# Local workflow verification artifacts
+planning/artifacts/
