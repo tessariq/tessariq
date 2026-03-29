@@ -18,17 +18,18 @@ func TestBuildManifestSeed_RequiredFields(t *testing.T) {
 	runID := "01ARZ3NDEKTSV4RRFFQ69G5FAV"
 	now := time.Date(2026, 3, 29, 12, 0, 0, 0, time.UTC)
 
-	m := BuildManifestSeed(cfg, runID, now)
+	m := BuildManifestSeed(cfg, runID, "Example Task", now)
 
 	require.Equal(t, 1, m.SchemaVersion)
 	require.Equal(t, "01ARZ3NDEKTSV4RRFFQ69G5FAV", m.RunID)
 	require.Equal(t, "specs/example.md", m.TaskPath)
+	require.Equal(t, "Example Task", m.TaskTitle)
 	require.Equal(t, "claude-code", m.Adapter)
 	require.Equal(t, "auto", m.RequestedEgressMode)
 	require.Equal(t, "2026-03-29T12:00:00Z", m.CreatedAt)
 }
 
-func TestBuildManifestSeed_ExactlySixFields(t *testing.T) {
+func TestBuildManifestSeed_ExactlySevenFields(t *testing.T) {
 	t.Parallel()
 
 	cfg := DefaultConfig()
@@ -36,7 +37,7 @@ func TestBuildManifestSeed_ExactlySixFields(t *testing.T) {
 	runID := "01ARZ3NDEKTSV4RRFFQ69G5FAV"
 	now := time.Now()
 
-	m := BuildManifestSeed(cfg, runID, now)
+	m := BuildManifestSeed(cfg, runID, "Task Title", now)
 
 	data, err := json.Marshal(m)
 	require.NoError(t, err)
@@ -48,6 +49,7 @@ func TestBuildManifestSeed_ExactlySixFields(t *testing.T) {
 		"schema_version":        true,
 		"run_id":                true,
 		"task_path":             true,
+		"task_title":            true,
 		"adapter":               true,
 		"requested_egress_mode": true,
 		"created_at":            true,
@@ -68,7 +70,7 @@ func TestBuildManifestSeed_UsesResolveEgress(t *testing.T) {
 	runID := "01ARZ3NDEKTSV4RRFFQ69G5FAV"
 	now := time.Now()
 
-	m := BuildManifestSeed(cfg, runID, now)
+	m := BuildManifestSeed(cfg, runID, "Task", now)
 	require.Equal(t, "open", m.RequestedEgressMode)
 }
 
@@ -80,7 +82,7 @@ func TestBuildManifestSeed_CreatedAtFormat(t *testing.T) {
 	runID := "01ARZ3NDEKTSV4RRFFQ69G5FAV"
 	now := time.Date(2026, 1, 27, 12, 0, 0, 0, time.UTC)
 
-	m := BuildManifestSeed(cfg, runID, now)
+	m := BuildManifestSeed(cfg, runID, "Task", now)
 	require.Equal(t, "2026-01-27T12:00:00Z", m.CreatedAt)
 }
 
@@ -92,7 +94,7 @@ func TestBuildManifestSeed_RunIDFormat(t *testing.T) {
 	runID := "01ARZ3NDEKTSV4RRFFQ69G5FAV"
 	now := time.Now()
 
-	m := BuildManifestSeed(cfg, runID, now)
+	m := BuildManifestSeed(cfg, runID, "Task", now)
 	require.True(t, IsValidRunID(m.RunID))
 }
 
@@ -148,7 +150,7 @@ func TestBootstrapManifest_Integration(t *testing.T) {
 	cfg.TaskPath = "specs/task.md"
 	now := time.Now()
 
-	runID, dir, err := BootstrapManifest(root, cfg, now)
+	runID, dir, err := BootstrapManifest(root, cfg, "Task Title", now)
 	require.NoError(t, err)
 	require.True(t, IsValidRunID(runID))
 	require.Contains(t, dir, runID)
@@ -160,6 +162,7 @@ func TestBootstrapManifest_Integration(t *testing.T) {
 	require.NoError(t, json.Unmarshal(data, &parsed))
 	require.Equal(t, runID, parsed.RunID)
 	require.Equal(t, "specs/task.md", parsed.TaskPath)
+	require.Equal(t, "Task Title", parsed.TaskTitle)
 	require.Equal(t, "claude-code", parsed.Adapter)
 	require.Equal(t, "auto", parsed.RequestedEgressMode)
 }

@@ -2,9 +2,12 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/tessariq/tessariq/internal/git"
 	"github.com/tessariq/tessariq/internal/run"
 )
 
@@ -31,8 +34,24 @@ func newRunCmd() *cobra.Command {
 				return err
 			}
 
-			runID, evidenceDir, err := run.BootstrapManifest(root, cfg, time.Now())
+			if err := git.IsClean(cmd.Context(), root); err != nil {
+				return err
+			}
+
+			absTaskPath := filepath.Join(root, cfg.TaskPath)
+			content, err := os.ReadFile(absTaskPath)
 			if err != nil {
+				return fmt.Errorf("read task file: %w", err)
+			}
+
+			taskTitle := run.ExtractTaskTitle(content, cfg.TaskPath)
+
+			runID, evidenceDir, err := run.BootstrapManifest(root, cfg, taskTitle, time.Now())
+			if err != nil {
+				return err
+			}
+
+			if err := run.CopyTaskFile(root, cfg.TaskPath, evidenceDir, content); err != nil {
 				return err
 			}
 
