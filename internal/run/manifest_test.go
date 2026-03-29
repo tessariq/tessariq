@@ -31,7 +31,7 @@ func TestBuildManifestSeed_RequiredFields(t *testing.T) {
 	require.Equal(t, "2026-03-29T12:00:00Z", m.CreatedAt)
 }
 
-func TestBuildManifestSeed_ExactlyNineFields(t *testing.T) {
+func TestBuildManifestSeed_ExactlyTenFields(t *testing.T) {
 	t.Parallel()
 
 	cfg := DefaultConfig()
@@ -56,6 +56,7 @@ func TestBuildManifestSeed_ExactlyNineFields(t *testing.T) {
 		"base_sha":              true,
 		"workspace_mode":        true,
 		"requested_egress_mode": true,
+		"container_name":        true,
 		"created_at":            true,
 	}
 
@@ -63,6 +64,18 @@ func TestBuildManifestSeed_ExactlyNineFields(t *testing.T) {
 		require.True(t, expectedKeys[k], "unexpected key in manifest: %s", k)
 	}
 	require.Len(t, raw, len(expectedKeys), "manifest should have exactly %d keys", len(expectedKeys))
+}
+
+func TestBuildManifestSeed_ContainerName(t *testing.T) {
+	t.Parallel()
+
+	cfg := DefaultConfig()
+	cfg.TaskPath = "specs/task.md"
+	runID := "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+	now := time.Now()
+
+	m := BuildManifestSeed(cfg, runID, "Task", "sha", now)
+	require.Equal(t, "tessariq-01ARZ3NDEKTSV4RRFFQ69G5FAV", m.ContainerName)
 }
 
 func TestBuildManifestSeed_UsesResolveEgress(t *testing.T) {

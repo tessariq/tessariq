@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/tessariq/tessariq/internal/git"
 	"github.com/tessariq/tessariq/internal/run"
+	"github.com/tessariq/tessariq/internal/runner"
 	"github.com/tessariq/tessariq/internal/workspace"
 )
 
@@ -71,9 +72,23 @@ func newRunCmd() *cobra.Command {
 				return err
 			}
 
+			containerName := run.ContainerName(runID)
+
+			r := &runner.Runner{
+				RunID:       runID,
+				EvidenceDir: evidenceDir,
+				Config:      cfg,
+			}
+			if err := r.Run(cmd.Context()); err != nil {
+				return err
+			}
+
 			fmt.Fprintf(cmd.OutOrStdout(), "run_id: %s\n", runID)
 			fmt.Fprintf(cmd.OutOrStdout(), "evidence_path: %s\n", evidenceDir)
 			fmt.Fprintf(cmd.OutOrStdout(), "workspace_path: %s\n", wsPath)
+			fmt.Fprintf(cmd.OutOrStdout(), "container_name: %s\n", containerName)
+			fmt.Fprintf(cmd.OutOrStdout(), "attach: tessariq attach %s\n", runID)
+			fmt.Fprintf(cmd.OutOrStdout(), "promote: tessariq promote %s\n", runID)
 
 			return nil
 		},

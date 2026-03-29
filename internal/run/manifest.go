@@ -17,6 +17,7 @@ type Manifest struct {
 	BaseSHA             string `json:"base_sha"`
 	WorkspaceMode       string `json:"workspace_mode"`
 	RequestedEgressMode string `json:"requested_egress_mode"`
+	ContainerName       string `json:"container_name"`
 	CreatedAt           string `json:"created_at"`
 }
 
@@ -30,6 +31,7 @@ func BuildManifestSeed(cfg Config, runID, taskTitle, baseSHA string, now time.Ti
 		BaseSHA:             baseSHA,
 		WorkspaceMode:       "worktree",
 		RequestedEgressMode: cfg.ResolveEgress(),
+		ContainerName:       ContainerName(runID),
 		CreatedAt:           now.UTC().Format(time.RFC3339),
 	}
 }
