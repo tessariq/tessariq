@@ -1,0 +1,63 @@
+package run
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"time"
+)
+
+type Manifest struct {
+	SchemaVersion       int    `json:"schema_version"`
+	RunID               string `json:"run_id"`
+	TaskPath            string `json:"task_path"`
+	Adapter             string `json:"adapter"`
+	RequestedEgressMode string `json:"requested_egress_mode"`
+	CreatedAt           string `json:"created_at"`
+}
+
+func BuildManifestSeed(cfg Config, runID string, now time.Time) Manifest {
+	return Manifest{
+		SchemaVersion:       1,
+		RunID:               runID,
+		TaskPath:            cfg.TaskPath,
+		Adapter:             cfg.Agent,
+		RequestedEgressMode: cfg.ResolveEgress(),
+		CreatedAt:           now.UTC().Format(time.RFC3339),
+	}
+}
+
+func WriteManifest(dir string, m Manifest) error {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("create evidence directory: %w", err)
+	}
+
+	data, err := json.MarshalIndent(m, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal manifest: %w", err)
+	}
+
+	path := filepath.Join(dir, "manifest.json")
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return fmt.Errorf("write manifest: %w", err)
+	}
+
+	return nil
+}
+
+func BootstrapManifest(repoRoot string, cfg Config, now time.Time) (string, string, error) {
+	runID, err := NewRunID(now)
+	if err != nil {
+		return "", "", fmt.Errorf("generate run ID: %w", err)
+	}
+
+	evidenceDir := filepath.Join(repoRoot, ".tessariq", "runs", runID)
+	m := BuildManifestSeed(cfg, runID, now)
+
+	if err := WriteManifest(evidenceDir, m); err != nil {
+		return "", "", fmt.Errorf("bootstrap manifest: %w", err)
+	}
+
+	return runID, evidenceDir, nil
+}
