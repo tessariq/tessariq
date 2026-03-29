@@ -4,37 +4,37 @@ title: Provision detached worktrees and record workspace metadata
 status: todo
 priority: p0
 depends_on:
-  - TASK-003-dirty-repo-gate-and-task-ingest
+    - TASK-003-dirty-repo-gate-and-task-ingest
 milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:
-  - specs/tessariq-v0.1.0.md#workspace-guarantees
-  - specs/tessariq-v0.1.0.md#evidence-contract
-updated_at: 2026-03-29T12:06:20Z
+    - specs/tessariq-v0.1.0.md#workspace-guarantees
+    - specs/tessariq-v0.1.0.md#evidence-contract
+updated_at: "2026-03-29T12:06:20Z"
 areas:
-  - git
-  - workspace
+    - git
+    - workspace
 verification:
-  unit:
-    required: true
-    commands:
-      - go test ./...
-    rationale: Workspace-path derivation and metadata shaping should begin with unit tests.
-  integration:
-    required: true
-    commands:
-      - go test -tags=integration ./...
-    rationale: Real worktree provisioning crosses process boundaries and the integration coverage must use Testcontainers-backed collaborators only.
-  e2e:
-    required: false
-    commands:
-      - go test -tags=e2e ./...
-    rationale: Full CLI coverage can wait until run orchestration is complete.
-  mutation:
-    required: true
-    commands:
-      - "gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70"
-    rationale: Provisioning and cleanup branching should be mutation-tested once implemented.
+    unit:
+        required: true
+        commands:
+            - go test ./...
+        rationale: Workspace-path derivation and metadata shaping should begin with unit tests.
+    integration:
+        required: true
+        commands:
+            - go test -tags=integration ./...
+        rationale: Real worktree provisioning crosses process boundaries and the integration coverage must use Testcontainers-backed collaborators only.
+    e2e:
+        required: false
+        commands:
+            - go test -tags=e2e ./...
+        rationale: Full CLI coverage can wait until run orchestration is complete.
+    mutation:
+        required: true
+        commands:
+            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
+        rationale: Provisioning and cleanup branching should be mutation-tested once implemented.
 ---
 
 ## Summary

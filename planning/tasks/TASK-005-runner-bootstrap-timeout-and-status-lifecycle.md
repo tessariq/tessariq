@@ -4,39 +4,39 @@ title: Implement runner bootstrap timeout handling and status lifecycle
 status: todo
 priority: p0
 depends_on:
-  - TASK-004-worktree-provisioning-and-workspace-metadata
+    - TASK-004-worktree-provisioning-and-workspace-metadata
 milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:
-  - specs/tessariq-v0.1.0.md#core-workflow
-  - specs/tessariq-v0.1.0.md#tessariq-run-task-path
-  - specs/tessariq-v0.1.0.md#lifecycle-rules
-  - specs/tessariq-v0.1.0.md#evidence-contract
-updated_at: 2026-03-29T12:06:20Z
+    - specs/tessariq-v0.1.0.md#core-workflow
+    - specs/tessariq-v0.1.0.md#tessariq-run-task-path
+    - specs/tessariq-v0.1.0.md#lifecycle-rules
+    - specs/tessariq-v0.1.0.md#evidence-contract
+updated_at: "2026-03-29T12:06:20Z"
 areas:
-  - runner
-  - evidence
+    - runner
+    - evidence
 verification:
-  unit:
-    required: true
-    commands:
-      - go test ./...
-    rationale: State transitions, timeout bookkeeping, and artifact shaping belong in unit tests first.
-  integration:
-    required: true
-    commands:
-      - go test -tags=integration ./...
-    rationale: Runner lifecycle needs real process coordination and integration coverage must use Testcontainers only.
-  e2e:
-    required: false
-    commands:
-      - go test -tags=e2e ./...
-    rationale: End-to-end flow should wait until attach and promote are connected.
-  mutation:
-    required: true
-    commands:
-      - "gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70"
-    rationale: Timeout and terminal-state transitions are important mutation-test targets.
+    unit:
+        required: true
+        commands:
+            - go test ./...
+        rationale: State transitions, timeout bookkeeping, and artifact shaping belong in unit tests first.
+    integration:
+        required: true
+        commands:
+            - go test -tags=integration ./...
+        rationale: Runner lifecycle needs real process coordination and integration coverage must use Testcontainers only.
+    e2e:
+        required: false
+        commands:
+            - go test -tags=e2e ./...
+        rationale: End-to-end flow should wait until attach and promote are connected.
+    mutation:
+        required: true
+        commands:
+            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
+        rationale: Timeout and terminal-state transitions are important mutation-test targets.
 ---
 
 ## Summary
@@ -55,7 +55,12 @@ Implement bootstrap and runner lifecycle ownership for `status.json`, timeout ha
 ## Test Expectations
 
 - Add unit tests for status transitions and timeout bookkeeping.
+- Add unit tests for signal-to-state mapping: SIGTERM to `killed`, SIGINT to `interrupted`, and grace period expiration escalation (SIGTERM then SIGKILL).
+- Add a unit test for deterministic container name derivation (`tessariq-<run_id>`), since downstream tasks depend on this contract.
+- Add unit tests for `--pre` and `--verify` hook execution: CLI-order execution of multiple `--pre` values, pre-command failure halting the run before agent start, verify-command execution after agent completion, and verify-command failure affecting run status.
 - Add integration tests for runner bootstrap and termination behavior using Testcontainers-backed collaborators only.
+- Add integration tests for real process signal delivery and evidence durability when signals arrive during bootstrap or evidence writing.
+- Add integration tests for `--pre`/`--verify` hook execution with real process boundaries.
 - E2E tests are deferred until attach and promote can observe the full lifecycle.
 - Run mutation testing because lifecycle logic is safety-critical.
 

@@ -4,38 +4,38 @@ title: Maintain the run index and resolve repository-scoped run refs
 status: todo
 priority: p1
 depends_on:
-  - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
-  - TASK-013-diff-log-and-evidence-artifacts
+    - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
+    - TASK-013-diff-log-and-evidence-artifacts
 milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:
-  - specs/tessariq-v0.1.0.md#lifecycle-rules
-  - specs/tessariq-v0.1.0.md#evidence-contract
-updated_at: 2026-03-29T12:06:20Z
+    - specs/tessariq-v0.1.0.md#lifecycle-rules
+    - specs/tessariq-v0.1.0.md#evidence-contract
+updated_at: "2026-03-29T12:06:20Z"
 areas:
-  - evidence
-  - indexing
+    - evidence
+    - indexing
 verification:
-  unit:
-    required: true
-    commands:
-      - go test ./...
-    rationale: "Index entry shaping and `last`/`last-N` resolution belong in unit tests first."
-  integration:
-    required: false
-    commands:
-      - go test -tags=integration ./...
-    rationale: Containerized integration coverage is only needed if file append behavior requires process-level validation.
-  e2e:
-    required: true
-    commands:
-      - go test -tags=e2e ./...
-    rationale: Run-ref resolution affects attach and promote user flows and deserves thin end-to-end coverage.
-  mutation:
-    required: true
-    commands:
-      - "gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70"
-    rationale: Index ordering and run-ref parsing are branch-heavy.
+    unit:
+        required: true
+        commands:
+            - go test ./...
+        rationale: Index entry shaping and `last`/`last-N` resolution belong in unit tests first.
+    integration:
+        required: true
+        commands:
+            - go test -tags=integration ./...
+        rationale: Append-only file I/O with potential concurrent runs needs Testcontainers-backed validation for atomic append safety and corrupted-index resilience.
+    e2e:
+        required: true
+        commands:
+            - go test -tags=e2e ./...
+        rationale: Run-ref resolution affects attach and promote user flows and deserves thin end-to-end coverage.
+    mutation:
+        required: true
+        commands:
+            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
+        rationale: Index ordering and run-ref parsing are branch-heavy.
 ---
 
 ## Summary
@@ -53,7 +53,8 @@ Append run index entries and implement repository-scoped run-ref resolution.
 ## Test Expectations
 
 - Add unit tests for index entry rendering and run-ref resolution.
-- Integration tests are optional unless append semantics need process-level validation.
+- Add unit tests for edge cases: `last` on empty index, `last-0` behavior, malformed JSON lines in index (graceful skip or explicit failure), and ULID format validation of index entries.
+- Add integration tests for concurrent append safety (two runs finishing simultaneously) and corrupted-index recovery.
 - Add thin e2e coverage because run refs feed user-facing attach and promote commands.
 - Run mutation testing because ordering and resolution logic are subtle.
 

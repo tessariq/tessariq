@@ -4,41 +4,41 @@ title: Add run command flags and manifest bootstrap
 status: todo
 priority: p0
 depends_on:
-  - TASK-001-init-skeleton-and-gitignore
+    - TASK-001-init-skeleton-and-gitignore
 milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:
-  - specs/tessariq-v0.1.0.md#product-intent
-  - specs/tessariq-v0.1.0.md#core-workflow
-  - specs/tessariq-v0.1.0.md#repository-model
-  - specs/tessariq-v0.1.0.md#tessariq-run-task-path
-  - specs/tessariq-v0.1.0.md#failure-ux
-  - specs/tessariq-v0.1.0.md#evidence-contract
-updated_at: 2026-03-29T12:06:20Z
+    - specs/tessariq-v0.1.0.md#product-intent
+    - specs/tessariq-v0.1.0.md#core-workflow
+    - specs/tessariq-v0.1.0.md#repository-model
+    - specs/tessariq-v0.1.0.md#tessariq-run-task-path
+    - specs/tessariq-v0.1.0.md#failure-ux
+    - specs/tessariq-v0.1.0.md#evidence-contract
+updated_at: "2026-03-29T12:06:20Z"
 areas:
-  - cli
-  - evidence
+    - cli
+    - evidence
 verification:
-  unit:
-    required: true
-    commands:
-      - go test ./...
-    rationale: Flag parsing, defaulting, and manifest bootstrap should be covered through focused unit tests.
-  integration:
-    required: false
-    commands:
-      - go test -tags=integration ./...
-    rationale: Containerized integration coverage becomes useful once the run pipeline starts external collaborators.
-  e2e:
-    required: false
-    commands:
-      - go test -tags=e2e ./...
-    rationale: The user-visible run flow is not complete until runner and adapter tasks land.
-  mutation:
-    required: true
-    commands:
-      - "gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70"
-    rationale: Defaulting and option-application logic are mutation-prone and should meet the CI threshold once implemented.
+    unit:
+        required: true
+        commands:
+            - go test ./...
+        rationale: Flag parsing, defaulting, and manifest bootstrap should be covered through focused unit tests.
+    integration:
+        required: false
+        commands:
+            - go test -tags=integration ./...
+        rationale: Containerized integration coverage becomes useful once the run pipeline starts external collaborators.
+    e2e:
+        required: false
+        commands:
+            - go test -tags=e2e ./...
+        rationale: The user-visible run flow is not complete until runner and adapter tasks land.
+    mutation:
+        required: true
+        commands:
+            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
+        rationale: Defaulting and option-application logic are mutation-prone and should meet the CI threshold once implemented.
 ---
 
 ## Summary
@@ -59,8 +59,11 @@ Add `tessariq run <task-path>` command wiring, supported flags, task-path valida
 ## Test Expectations
 
 - Add unit tests for default values, aliases, invalid task-path rejection, `--attach` handling, and manifest bootstrap content.
+- Add unit tests for ULID format validation of generated `run_id` values.
+- Add boundary-value unit tests for temporal flags: `--timeout=0`, `--timeout=-1`, `--grace=0`, `--grace` larger than `--timeout`, and absurdly large values.
+- Add unit tests for contradictory flag combinations: `--egress none` with `--egress-allow`, `--egress-allow` without proxy mode, and `--pre`/`--verify` with empty strings.
 - Integration tests are deferred until a real container lifecycle exists and must then use Testcontainers only.
-- E2E coverage is deferred until the full run flow is stitched together.
+- Error-path e2e tests for invalid task-path failure are consolidated in `TASK-017` closeout sweep.
 - Run mutation testing because flag/default logic is non-trivial.
 
 ## TDD Plan

@@ -4,37 +4,37 @@ title: Implement adapter contract and adapter metadata recording
 status: todo
 priority: p1
 depends_on:
-  - TASK-002-run-cli-flags-and-manifest-bootstrap
+    - TASK-002-run-cli-flags-and-manifest-bootstrap
 milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:
-  - specs/tessariq-v0.1.0.md#adapter-contract
-  - specs/tessariq-v0.1.0.md#evidence-contract
-updated_at: 2026-03-29T12:06:20Z
+    - specs/tessariq-v0.1.0.md#adapter-contract
+    - specs/tessariq-v0.1.0.md#evidence-contract
+updated_at: "2026-03-29T12:06:20Z"
 areas:
-  - adapters
-  - evidence
+    - adapters
+    - evidence
 verification:
-  unit:
-    required: true
-    commands:
-      - go test ./...
-    rationale: Adapter option recording and applied/requested semantics should start with unit tests.
-  integration:
-    required: false
-    commands:
-      - go test -tags=integration ./...
-    rationale: Containerized integration tests can wait until concrete adapters are wired into run execution.
-  e2e:
-    required: false
-    commands:
-      - go test -tags=e2e ./...
-    rationale: End-to-end coverage belongs with concrete adapter flows rather than the shared contract alone.
-  mutation:
-    required: true
-    commands:
-      - "gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70"
-    rationale: Requested-versus-applied bookkeeping is a good mutation target.
+    unit:
+        required: true
+        commands:
+            - go test ./...
+        rationale: Adapter option recording and applied/requested semantics should start with unit tests.
+    integration:
+        required: false
+        commands:
+            - go test -tags=integration ./...
+        rationale: Containerized integration tests can wait until concrete adapters are wired into run execution.
+    e2e:
+        required: false
+        commands:
+            - go test -tags=e2e ./...
+        rationale: End-to-end coverage belongs with concrete adapter flows rather than the shared contract alone.
+    mutation:
+        required: true
+        commands:
+            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
+        rationale: Requested-versus-applied bookkeeping is a good mutation target.
 ---
 
 ## Summary

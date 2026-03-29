@@ -4,41 +4,41 @@ title: Implement promote branch creation commit trailers and zero-diff protectio
 status: todo
 priority: p0
 depends_on:
-  - TASK-013-diff-log-and-evidence-artifacts
-  - TASK-014-run-index-and-run-ref-resolution
+    - TASK-013-diff-log-and-evidence-artifacts
+    - TASK-014-run-index-and-run-ref-resolution
 milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:
-  - specs/tessariq-v0.1.0.md#tessariq-promote-run-ref
-  - specs/tessariq-v0.1.0.md#lifecycle-rules
-  - specs/tessariq-v0.1.0.md#evidence-contract
-  - specs/tessariq-v0.1.0.md#acceptance-scenarios
-  - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: 2026-03-29T12:06:20Z
+    - specs/tessariq-v0.1.0.md#tessariq-promote-run-ref
+    - specs/tessariq-v0.1.0.md#lifecycle-rules
+    - specs/tessariq-v0.1.0.md#evidence-contract
+    - specs/tessariq-v0.1.0.md#acceptance-scenarios
+    - specs/tessariq-v0.1.0.md#failure-ux
+updated_at: "2026-03-29T12:06:20Z"
 areas:
-  - git
-  - promote
+    - git
+    - promote
 verification:
-  unit:
-    required: true
-    commands:
-      - go test ./...
-    rationale: Branch-name selection, commit-message fallback, and trailer rendering should begin with unit tests.
-  integration:
-    required: true
-    commands:
-      - go test -tags=integration ./...
-    rationale: Promote creates real git side effects and requires Testcontainers-backed integration coverage only.
-  e2e:
-    required: true
-    commands:
-      - go test -tags=e2e ./...
-    rationale: "`run -> promote` is a primary user journey and deserves thin end-to-end coverage."
-  mutation:
-    required: true
-    commands:
-      - "gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70"
-    rationale: Guardrails around zero-diff and trailer emission should survive mutation testing.
+    unit:
+        required: true
+        commands:
+            - go test ./...
+        rationale: Branch-name selection, commit-message fallback, and trailer rendering should begin with unit tests.
+    integration:
+        required: true
+        commands:
+            - go test -tags=integration ./...
+        rationale: Promote creates real git side effects and requires Testcontainers-backed integration coverage only.
+    e2e:
+        required: true
+        commands:
+            - go test -tags=e2e ./...
+        rationale: '`run -> promote` is a primary user journey and deserves thin end-to-end coverage.'
+    mutation:
+        required: true
+        commands:
+            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
+        rationale: Guardrails around zero-diff and trailer emission should survive mutation testing.
 ---
 
 ## Summary
@@ -58,6 +58,8 @@ Implement `tessariq promote <run-ref>` with branch creation, exactly one commit,
 ## Test Expectations
 
 - Add unit tests for branch names, commit messages, exact trailer formatting, and `--no-trailers` behavior.
+- Add unit tests for promote edge cases: branch name collision (target branch already exists), `--branch` with invalid git branch characters (`..`, spaces, `~`), promoting the same run twice (second attempt fails cleanly), commit message with unicode and special characters, `--message` with multiline string, and worktree already cleaned up before promote.
+- Add unit tests verifying `git add -A` includes file deletions in the promoted delta.
 - Add integration tests for promote side effects using Testcontainers-backed collaborators only.
 - Add a thin e2e `run -> promote` flow for a successful changed run and a zero-diff failure path.
 - Run mutation testing because guardrails and fallback logic are safety-critical.

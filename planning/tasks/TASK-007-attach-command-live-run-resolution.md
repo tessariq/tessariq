@@ -4,40 +4,40 @@ title: Implement attach command and live run resolution
 status: todo
 priority: p1
 depends_on:
-  - TASK-006-tmux-session-and-detached-attach-guidance
-  - TASK-014-run-index-and-run-ref-resolution
+    - TASK-006-tmux-session-and-detached-attach-guidance
+    - TASK-014-run-index-and-run-ref-resolution
 milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:
-  - specs/tessariq-v0.1.0.md#tessariq-attach-run-ref
-  - specs/tessariq-v0.1.0.md#lifecycle-rules
-  - specs/tessariq-v0.1.0.md#acceptance-scenarios
-  - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: 2026-03-29T12:06:20Z
+    - specs/tessariq-v0.1.0.md#tessariq-attach-run-ref
+    - specs/tessariq-v0.1.0.md#lifecycle-rules
+    - specs/tessariq-v0.1.0.md#acceptance-scenarios
+    - specs/tessariq-v0.1.0.md#failure-ux
+updated_at: "2026-03-29T12:06:20Z"
 areas:
-  - tmux
-  - cli
+    - tmux
+    - cli
 verification:
-  unit:
-    required: true
-    commands:
-      - go test ./...
-    rationale: Run-ref parsing and live-run eligibility checks should start with unit tests.
-  integration:
-    required: true
-    commands:
-      - go test -tags=integration ./...
-    rationale: Attach behavior relies on real session/process resolution and must use Testcontainers-backed integration coverage only.
-  e2e:
-    required: true
-    commands:
-      - go test -tags=e2e ./...
-    rationale: A thin attach end-to-end flow is needed because the feature is explicitly user-visible.
-  mutation:
-    required: true
-    commands:
-      - "gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70"
-    rationale: Run-ref and eligibility branching should survive mutation testing.
+    unit:
+        required: true
+        commands:
+            - go test ./...
+        rationale: Run-ref parsing and live-run eligibility checks should start with unit tests.
+    integration:
+        required: true
+        commands:
+            - go test -tags=integration ./...
+        rationale: Attach behavior relies on real session/process resolution and must use Testcontainers-backed integration coverage only.
+    e2e:
+        required: true
+        commands:
+            - go test -tags=e2e ./...
+        rationale: A thin attach end-to-end flow is needed because the feature is explicitly user-visible.
+    mutation:
+        required: true
+        commands:
+            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
+        rationale: Run-ref and eligibility branching should survive mutation testing.
 ---
 
 ## Summary

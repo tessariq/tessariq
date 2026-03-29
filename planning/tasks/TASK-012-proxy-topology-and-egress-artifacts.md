@@ -4,40 +4,40 @@ title: Implement proxy topology and egress evidence artifacts
 status: todo
 priority: p1
 depends_on:
-  - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
-  - TASK-011-egress-mode-resolution-and-manifest-recording
+    - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
+    - TASK-011-egress-mode-resolution-and-manifest-recording
 milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:
-  - specs/tessariq-v0.1.0.md#networking-and-egress
-  - specs/tessariq-v0.1.0.md#evidence-contract
-  - specs/tessariq-v0.1.0.md#acceptance-scenarios
-  - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: 2026-03-29T12:06:20Z
+    - specs/tessariq-v0.1.0.md#networking-and-egress
+    - specs/tessariq-v0.1.0.md#evidence-contract
+    - specs/tessariq-v0.1.0.md#acceptance-scenarios
+    - specs/tessariq-v0.1.0.md#failure-ux
+updated_at: "2026-03-29T12:06:20Z"
 areas:
-  - networking
-  - proxy
+    - networking
+    - proxy
 verification:
-  unit:
-    required: true
-    commands:
-      - go test ./...
-    rationale: Allowlists and compiled rule rendering should begin with unit tests.
-  integration:
-    required: true
-    commands:
-      - go test -tags=integration ./...
-    rationale: Proxy networking is a real container boundary and must use Testcontainers-backed integration coverage only.
-  e2e:
-    required: true
-    commands:
-      - go test -tags=e2e ./...
-    rationale: The user-visible proxy mode should receive thin end-to-end verification once the run flow is complete.
-  mutation:
-    required: true
-    commands:
-      - "gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70"
-    rationale: Rule compilation and allowlist enforcement are high-value mutation targets.
+    unit:
+        required: true
+        commands:
+            - go test ./...
+        rationale: Allowlists and compiled rule rendering should begin with unit tests.
+    integration:
+        required: true
+        commands:
+            - go test -tags=integration ./...
+        rationale: Proxy networking is a real container boundary and must use Testcontainers-backed integration coverage only.
+    e2e:
+        required: true
+        commands:
+            - go test -tags=e2e ./...
+        rationale: The user-visible proxy mode should receive thin end-to-end verification once the run flow is complete.
+    mutation:
+        required: true
+        commands:
+            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
+        rationale: Rule compilation and allowlist enforcement are high-value mutation targets.
 ---
 
 ## Summary
