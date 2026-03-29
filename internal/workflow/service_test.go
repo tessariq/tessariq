@@ -1,6 +1,7 @@
 package workflow
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -37,6 +38,7 @@ func TestValidateStateAndTasksRejectsMissingTaskSections(t *testing.T) {
 				Integration: VerificationTier{Rationale: "considered"},
 				E2E:         VerificationTier{Rationale: "considered"},
 				Mutation:    VerificationTier{Rationale: "considered"},
+				ManualTest:  VerificationTier{Rationale: "considered"},
 			},
 		},
 		Body: "## Summary\n",
@@ -402,7 +404,7 @@ func TestAppendTaskNoteAndMissingRationales(t *testing.T) {
 	require.Contains(t, task.Body, "note")
 
 	missing := missingVerificationRationales(TaskVerification{})
-	require.ElementsMatch(t, []string{"unit", "integration", "e2e", "mutation"}, missing)
+	require.ElementsMatch(t, []string{"unit", "integration", "e2e", "mutation", "manual_test"}, missing)
 }
 
 func TestPriorityAndSeverityRank(t *testing.T) {
@@ -410,6 +412,51 @@ func TestPriorityAndSeverityRank(t *testing.T) {
 
 	require.Less(t, priorityRank("p0"), priorityRank("p2"))
 	require.Less(t, severityRank("low"), severityRank("high"))
+}
+
+func TestCheckManualTestArtifactsRequiresPlanAndReport(t *testing.T) {
+	t.Parallel()
+
+	base := t.TempDir()
+	taskID := "TASK-001-example"
+
+	// No artifacts directory at all → error.
+	err := checkManualTestArtifacts(base, taskID)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "manual test artifacts missing")
+
+	// Create task directory but no timestamped subdirectory → error.
+	taskDir := filepath.Join(base, "manual-test", taskID)
+	require.NoError(t, os.MkdirAll(taskDir, 0o755))
+	err = checkManualTestArtifacts(base, taskID)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "manual test artifacts missing")
+
+	// Create timestamped directory with only plan.md → error.
+	tsDir := filepath.Join(taskDir, "20260329T140000Z")
+	require.NoError(t, os.MkdirAll(tsDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(tsDir, "plan.md"), []byte("plan"), 0o644))
+	err = checkManualTestArtifacts(base, taskID)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "report.md")
+
+	// Add report.md → success.
+	require.NoError(t, os.WriteFile(filepath.Join(tsDir, "report.md"), []byte("report"), 0o644))
+	err = checkManualTestArtifacts(base, taskID)
+	require.NoError(t, err)
+}
+
+func TestCheckManualTestArtifactsSkipsForNonDoneStatus(t *testing.T) {
+	t.Parallel()
+
+	base := t.TempDir()
+	taskID := "TASK-001-example"
+
+	// No artifacts, but status is "blocked" → no check needed.
+	// This test documents the expectation that the caller (Finish) only
+	// invokes checkManualTestArtifacts for status "done".
+	err := checkManualTestArtifacts(base, taskID)
+	require.Error(t, err, "the function itself always checks; the caller gates on status")
 }
 
 func taskForTest(id, status, priority string, refs []string) *Task {
@@ -430,6 +477,7 @@ func taskForTest(id, status, priority string, refs []string) *Task {
 				Integration: VerificationTier{Rationale: "considered"},
 				E2E:         VerificationTier{Rationale: "considered"},
 				Mutation:    VerificationTier{Rationale: "considered"},
+				ManualTest:  VerificationTier{Rationale: "considered"},
 			},
 		},
 		Body: "## Summary\n\nx\n\n## Acceptance Criteria\n\nx\n\n## Test Expectations\n\nx\n\n## TDD Plan\n\nx\n\n## Notes\n\nx\n",

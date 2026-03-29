@@ -57,6 +57,9 @@ verification:
         commands:
             - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
         rationale: Closeout relies on verification logic that should still meet the mutation threshold.
+    manual_test:
+        required: true
+        rationale: Validates CLI behavior and evidence artifacts through direct execution against acceptance criteria.
 ---
 
 ## Summary

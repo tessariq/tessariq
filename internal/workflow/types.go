@@ -61,6 +61,7 @@ type TaskVerification struct {
 	Integration VerificationTier `yaml:"integration"`
 	E2E         VerificationTier `yaml:"e2e"`
 	Mutation    VerificationTier `yaml:"mutation"`
+	ManualTest  VerificationTier `yaml:"manual_test"`
 }
 
 type TaskFrontmatter struct {

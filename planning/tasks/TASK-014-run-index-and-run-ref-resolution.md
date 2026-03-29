@@ -36,6 +36,9 @@ verification:
         commands:
             - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
         rationale: Index ordering and run-ref parsing are branch-heavy.
+    manual_test:
+        required: true
+        rationale: Validates CLI behavior and evidence artifacts through direct execution against acceptance criteria.
 ---
 
 ## Summary

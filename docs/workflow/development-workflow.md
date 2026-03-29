@@ -60,6 +60,18 @@ Testcontainers standard:
 - CI enforces `gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70`.
 - Use mutation testing for non-trivial logic changes and when logic-confidence evidence would otherwise be weak.
 
+## Manual Testing
+
+After automated test tiers pass, run the `autonomous-manual-test` skill to exercise the built CLI against the task's acceptance criteria:
+
+1. The agent reads the task's acceptance criteria and generates a test plan.
+2. Each test step runs in a sandboxed `/tmp/` directory.
+3. Failures are classified by severity (critical, major, minor) and resolved inline when possible.
+4. A structured report records all outcomes.
+5. Artifacts are written to `planning/artifacts/manual-test/<task-id>/<timestamp>/`.
+
+Manual testing is required before running verification and before finishing a task as `done`.
+
 ## Tracked-Work Commands
 
 - `go run ./cmd/tessariq-workflow validate-state`
@@ -84,3 +96,5 @@ Testcontainers standard:
   workflow validation, skill parity check, and spec verification
 - Spec or planning edits:
   `validate-state` and `verify --profile spec` are hard failure gates and must pass before review
+- All code changes:
+  manual testing against task acceptance criteria before verification

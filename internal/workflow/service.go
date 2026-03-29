@@ -134,6 +134,12 @@ func (s *Service) Finish(input FinishInput) (FinishResult, error) {
 		return FinishResult{}, fmt.Errorf("task %s is not in progress", taskID)
 	}
 
+	if input.Status == "done" {
+		if err := checkManualTestArtifacts(s.paths.ArtifactsDir, taskID); err != nil {
+			return FinishResult{}, err
+		}
+	}
+
 	now := nowUTC().Format(timeLayout)
 	task.Frontmatter.Status = input.Status
 	task.Frontmatter.UpdatedAt = now
@@ -166,6 +172,37 @@ func (s *Service) Finish(input FinishInput) (FinishResult, error) {
 		FinishedAt: now,
 		Note:       strings.TrimSpace(input.Note),
 	}, nil
+}
+
+func checkManualTestArtifacts(artifactsDir, taskID string) error {
+	taskDir := filepath.Join(artifactsDir, "manual-test", taskID)
+	entries, err := os.ReadDir(taskDir)
+	if err != nil {
+		return fmt.Errorf("manual test artifacts missing for task %s; run manual testing before finishing as done", taskID)
+	}
+
+	for i := len(entries) - 1; i >= 0; i-- {
+		entry := entries[i]
+		if !entry.IsDir() {
+			continue
+		}
+		tsDir := filepath.Join(taskDir, entry.Name())
+		planExists := fileExists(filepath.Join(tsDir, "plan.md"))
+		reportExists := fileExists(filepath.Join(tsDir, "report.md"))
+		if planExists && reportExists {
+			return nil
+		}
+		if planExists && !reportExists {
+			return fmt.Errorf("manual test artifacts incomplete for task %s: plan.md exists but report.md is missing", taskID)
+		}
+	}
+
+	return fmt.Errorf("manual test artifacts missing for task %s; run manual testing before finishing as done", taskID)
+}
+
+func fileExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
 }
 
 func (s *Service) RefreshState() (RefreshResult, error) {
@@ -731,6 +768,7 @@ func missingVerificationRationales(v TaskVerification) []string {
 		{name: "integration", tier: v.Integration},
 		{name: "e2e", tier: v.E2E},
 		{name: "mutation", tier: v.Mutation},
+		{name: "manual_test", tier: v.ManualTest},
 	}
 	var missing []string
 	for _, tier := range tiers {

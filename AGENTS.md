@@ -193,6 +193,7 @@ Follow existing conventions and keep CLI UX stable.
 - Update `README.md` when CLI flags/commands/behavior change.
 - Update `CHANGELOG.md` for user-visible behavior changes; keep entries user-facing and skip internal-only maintenance noise.
 - Verify evidence file contracts are maintained when changing run or promote logic.
+- Run manual testing against the task's acceptance criteria before verification; artifacts must exist under `planning/artifacts/manual-test/<task-id>/` before finishing as `done`.
 - Update specs in `specs/` only when explicitly requested; specs are normative.
 
 ## Agent do/don'ts (PR + commits)

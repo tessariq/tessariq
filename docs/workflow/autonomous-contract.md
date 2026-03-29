@@ -43,6 +43,8 @@ Rules:
 - `spec` profile checks seeded task coverage against `specs/tessariq-v0.1.0.md`.
 - Verification writes plan and report artifacts under `planning/artifacts/verify/`.
 - Unresolved medium-or-higher findings can be converted into tracked follow-up items through `followups --mode create`.
+- Manual test artifacts (plan and report) must exist under `planning/artifacts/manual-test/<task-id>/` before a task can be finished as `done`.
+- `finish --status done` validates the presence of these artifacts.
 
 ## Safety Rules
 

@@ -8,10 +8,11 @@ How a human developer should work when Tessariq tracked-work state exists.
 2. Claim a tracked item with `start`.
 3. Implement in a TDD loop.
 4. Run the required test tiers according to the testing pyramid.
-5. Run verification for the task.
-6. Create follow-up items if verification leaves backlog-worthy findings.
-7. Finish the task with an evidence-bearing note.
-8. Refresh state.
+5. Run manual testing against the task's acceptance criteria.
+6. Run verification for the task.
+7. Create follow-up items if verification leaves backlog-worthy findings.
+8. Finish the task with an evidence-bearing note.
+9. Refresh state.
 
 ## Testing Rules
 

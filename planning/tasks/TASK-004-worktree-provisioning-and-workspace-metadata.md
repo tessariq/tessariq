@@ -35,6 +35,9 @@ verification:
         commands:
             - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
         rationale: Provisioning and cleanup branching should be mutation-tested once implemented.
+    manual_test:
+        required: true
+        rationale: Validates CLI behavior and evidence artifacts through direct execution against acceptance criteria.
 ---
 
 ## Summary
