@@ -5,12 +5,14 @@ status: todo
 priority: p1
 depends_on:
   - TASK-006-tmux-session-and-detached-attach-guidance
+  - TASK-014-run-index-and-run-ref-resolution
 milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:
-  - specs/tessariq-v0.1.0.md#cli-attach
+  - specs/tessariq-v0.1.0.md#tessariq-attach-run-ref
   - specs/tessariq-v0.1.0.md#lifecycle-rules
-  - specs/tessariq-v0.1.0.md#acceptance-attach-live-run
+  - specs/tessariq-v0.1.0.md#acceptance-scenarios
+  - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: 2026-03-29T00:00:00Z
 areas:
   - tmux
@@ -40,7 +42,7 @@ verification:
 
 ## Summary
 
-Implement `tessariq attach <run-ref>` with `run_id`, `last`, and `last-N` resolution.
+Implement `tessariq attach <run-ref>` on top of the shared repository-scoped run-ref resolver.
 
 ## Acceptance Criteria
 
@@ -50,15 +52,15 @@ Implement `tessariq attach <run-ref>` with `run_id`, `last`, and `last-N` resolu
 
 ## Test Expectations
 
-- Add unit tests for run-ref parsing and attach preflight decisions.
+- Add unit tests for attach preflight decisions and live-run eligibility on top of the shared run-ref resolver.
 - Add integration tests for live-session lookup and attach failures using Testcontainers-backed collaborators only.
 - Add a thin e2e attach flow for a live run.
 - Run mutation testing because the resolution logic has multiple branches.
 
 ## TDD Plan
 
-- Start with a failing unit test for `last` and `last-N` resolution, then a failing e2e test for attaching to a live run.
+- Start with a failing unit test for attach live-run eligibility, then a failing e2e test for attaching to a live run.
 
 ## Notes
 
-- Keep attach behavior repository-scoped via the run index.
+- Shared run-ref parsing and index semantics are intentionally owned by `TASK-014`.

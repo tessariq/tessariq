@@ -1,6 +1,6 @@
 ---
 id: TASK-016-v0-1-0-spec-conformity-verification
-title: Verify v0.1.0 implementation conformity against the spec
+title: Harden tracked-work validation and active-spec verification gates
 status: todo
 priority: p0
 depends_on:
@@ -23,18 +23,12 @@ milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:
   - specs/tessariq-v0.1.0.md#product-intent
-  - specs/tessariq-v0.1.0.md#cli-run
-  - specs/tessariq-v0.1.0.md#cli-attach
-  - specs/tessariq-v0.1.0.md#cli-promote
+  - specs/tessariq-v0.1.0.md#tessariq-run-task-path
+  - specs/tessariq-v0.1.0.md#tessariq-attach-run-ref
+  - specs/tessariq-v0.1.0.md#tessariq-promote-run-ref
   - specs/tessariq-v0.1.0.md#evidence-contract
-  - specs/tessariq-v0.1.0.md#acceptance-init-skeleton
-  - specs/tessariq-v0.1.0.md#acceptance-run-clean-repo
-  - specs/tessariq-v0.1.0.md#acceptance-run-dirty-repo
-  - specs/tessariq-v0.1.0.md#acceptance-attach-live-run
-  - specs/tessariq-v0.1.0.md#acceptance-promote-one-commit
-  - specs/tessariq-v0.1.0.md#acceptance-promote-zero-diff
-  - specs/tessariq-v0.1.0.md#acceptance-missing-evidence
-  - specs/tessariq-v0.1.0.md#acceptance-proxy-allowlists
+  - specs/tessariq-v0.1.0.md#acceptance-scenarios
+  - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: 2026-03-29T00:00:00Z
 areas:
   - verification
@@ -64,25 +58,26 @@ verification:
 
 ## Summary
 
-Run the final v0.1.0 conformity sweep against the normative spec and create follow-up tasks for any unresolved gaps.
+Harden `validate-state` and `verify --profile spec` so broken task/spec links, stale anchors, and missing active-spec coverage fail loudly in normal workflow use and CI.
 
 ## Acceptance Criteria
 
-- `go run ./cmd/tessariq-workflow verify --profile spec --disposition report --json` passes with no unresolved high-severity findings.
-- Every normative contract and acceptance scenario is covered by tasks and implemented behavior.
-- Follow-up tasks are created for any remaining medium-or-higher gaps.
+- `go run ./cmd/tessariq-workflow validate-state` fails when a task points at a missing spec file or dead heading anchor.
+- `go run ./cmd/tessariq-workflow verify --profile spec --disposition report --json` reports scope metadata for the active milestone spec and fails on unresolved high-severity findings.
+- Workflow validation fixtures cover the stale-link regression that previously passed silently.
+- Task and CI documentation explain that the validation gates are hard failures, not advisory output.
 
 ## Test Expectations
 
-- Add unit tests for spec-reference coverage and acceptance-scenario mapping.
+- Add unit tests for spec-reference resolution, dead-anchor detection, scope reporting, and spec-coverage verification.
 - Integration tests are optional unless the verifier grows real collaborator dependencies.
-- Add thin end-to-end coverage for the critical user-visible workflows before calling the milestone done.
+- Integration tests are optional unless the verifier grows real collaborator dependencies.
 - Run mutation testing because verification logic is easy to weaken accidentally.
 
 ## TDD Plan
 
-- Start with a failing unit test for missing spec coverage and a failing spec-verifier report expectation.
+- Start with a failing unit test for a dead spec anchor and a failing verifier expectation for active-scope reporting.
 
 ## Notes
 
-- This task is the required final gate before considering `v0.1.0` complete.
+- This task makes the planning/spec validation gate trustworthy before the final v0.1.0 closeout sweep.

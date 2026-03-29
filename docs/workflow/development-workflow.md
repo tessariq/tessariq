@@ -18,8 +18,9 @@ Contributor and coding-agent workflow for tracked work in Tessariq.
 - End-to-end tests: `go test -tags=e2e ./...`
 - Mutation tests: `gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70`
 - Workflow validation: `go run ./cmd/tessariq-workflow validate-state`
+- Workflow validation bundle: `task workflow:check`
 - Skill parity: `go run ./cmd/tessariq-workflow check-skills`
-- Spec verification: `go run ./cmd/tessariq-workflow verify --profile spec --disposition report --json`
+- Spec verification: `go run ./cmd/tessariq-workflow verify --profile spec --disposition report --json` (active milestone spec only)
 
 ## TDD Default
 
@@ -81,3 +82,5 @@ Testcontainers standard:
   unit tests plus targeted e2e coverage
 - Tracked-work system changes:
   workflow validation, skill parity check, and spec verification
+- Spec or planning edits:
+  `validate-state` and `verify --profile spec` are hard failure gates and must pass before review

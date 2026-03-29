@@ -10,7 +10,7 @@ milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:
   - specs/tessariq-v0.1.0.md#evidence-contract
-  - specs/tessariq-v0.1.0.md#acceptance-run-clean-repo
+  - specs/tessariq-v0.1.0.md#acceptance-scenarios
 updated_at: 2026-03-29T00:00:00Z
 areas:
   - evidence
@@ -47,6 +47,8 @@ Emit the required v0.1.0 evidence artifacts, including logs, workspace metadata,
 - Required JSON and Markdown/log artifacts are present for every run.
 - `diff.patch` and `diffstat.txt` exist when changes are present.
 - Capped logs include an explicit truncation marker when trimmed.
+- The task covers the full required artifact set: `manifest.json`, `status.json`, `adapter.json`, `task.md`, `run.log`, `runner.log`, `workspace.json`, conditional diff artifacts, conditional proxy artifacts, and optional capped `squid.log`.
+- Proxy-mode artifacts are emitted only when proxy mode is active.
 
 ## Test Expectations
 

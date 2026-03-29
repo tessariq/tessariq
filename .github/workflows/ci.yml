@@ -48,13 +48,13 @@ jobs:
         run: |
           go run ./cmd/tessariq --help
 
-      - name: Validate tracked-work state
+      - name: Validate tracked-work state and live spec refs
         run: go run ./cmd/tessariq-workflow validate-state
 
       - name: Verify mirrored workflow skills
         run: go run ./cmd/tessariq-workflow check-skills
 
-      - name: Verify v0.1.0 spec coverage
+      - name: Verify active milestone spec coverage
         run: go run ./cmd/tessariq-workflow verify --profile spec --disposition report --json
 
       - name: Validate GoReleaser config

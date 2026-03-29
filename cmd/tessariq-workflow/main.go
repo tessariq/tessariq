@@ -95,7 +95,13 @@ func newValidateStateCmd() *cobra.Command {
 				fallback = "state invalid"
 			}
 
-			return printResult(cmd, opt.json, result, fallback)
+			if err := printResult(cmd, opt.json, result, fallback); err != nil {
+				return err
+			}
+			if !result.Valid {
+				return errors.New("state invalid")
+			}
+			return nil
 		},
 	}
 
@@ -269,7 +275,13 @@ func newVerifyCmd() *cobra.Command {
 				return err
 			}
 
-			return printResult(cmd, opt.json, result, result.ArtifactDir)
+			if err := printResult(cmd, opt.json, result, result.ArtifactDir); err != nil {
+				return err
+			}
+			if result.Summary.High > 0 {
+				return fmt.Errorf("verification failed with %d high-severity findings", result.Summary.High)
+			}
+			return nil
 		},
 	}
 

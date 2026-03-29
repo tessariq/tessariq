@@ -9,7 +9,9 @@ milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:
   - specs/tessariq-v0.1.0.md#networking-and-egress
-  - specs/tessariq-v0.1.0.md#acceptance-proxy-allowlists
+  - specs/tessariq-v0.1.0.md#evidence-contract
+  - specs/tessariq-v0.1.0.md#acceptance-scenarios
+  - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: 2026-03-29T00:00:00Z
 areas:
   - networking
@@ -46,6 +48,8 @@ Implement proxy mode runtime topology, compiled allowlists, and egress event evi
 - Proxy mode enforces host:port allowlists with default port `443`.
 - `egress.compiled.yaml` and `egress.events.jsonl` are emitted in proxy mode.
 - HTTPS and WSS CONNECT-style traffic is supported through the allowlisted proxy path.
+- Proxy evidence records both allowlist provenance and the fully resolved destinations without re-derivation.
+- Blocked-destination failures tell the user which `host:port` was blocked and how to allow it or rerun with explicit open egress.
 
 ## Test Expectations
 

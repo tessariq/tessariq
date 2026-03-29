@@ -47,9 +47,16 @@ tasks:
       - go run ./cmd/tessariq --help
 
   workflow:validate:
-    desc: Validate tracked-work state
+    desc: Validate tracked-work state, scope metadata, and live spec refs
     cmds:
       - go run ./cmd/tessariq-workflow validate-state
+
+  workflow:check:
+    desc: Run tracked-work validation, active-spec verification, and skill parity checks
+    cmds:
+      - go run ./cmd/tessariq-workflow validate-state
+      - go run ./cmd/tessariq-workflow verify --profile spec --disposition report --json
+      - go run ./cmd/tessariq-workflow check-skills
 
   workflow:next:
     desc: Select the next eligible tracked task
@@ -62,7 +69,7 @@ tasks:
       - go run ./cmd/tessariq-workflow refresh-state
 
   workflow:verify:spec:
-    desc: Verify tracked-work coverage against the v0.1.0 spec
+    desc: Verify tracked-work coverage against the active milestone spec
     cmds:
       - go run ./cmd/tessariq-workflow verify --profile spec --disposition report --json
 

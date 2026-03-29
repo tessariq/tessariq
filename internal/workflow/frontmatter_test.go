@@ -16,7 +16,7 @@ func TestParseFrontmatterRoundTrip(t *testing.T) {
 		Priority:    "p1",
 		Milestone:   "v0.1.0",
 		SpecVersion: "v0.1.0",
-		SpecRefs:    []string{"specs/tessariq-v0.1.0.md#cli-run"},
+		SpecRefs:    []string{"specs/tessariq-v0.1.0.md#tessariq-run-task-path"},
 	}
 
 	encoded, err := marshalFrontmatter(value, "## Summary\n\nBody\n")

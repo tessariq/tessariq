@@ -9,10 +9,9 @@ depends_on:
 milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:
-  - specs/tessariq-v0.1.0.md#cli-promote
-  - specs/tessariq-v0.1.0.md#acceptance-promote-one-commit
-  - specs/tessariq-v0.1.0.md#acceptance-promote-zero-diff
-  - specs/tessariq-v0.1.0.md#acceptance-missing-evidence
+  - specs/tessariq-v0.1.0.md#tessariq-promote-run-ref
+  - specs/tessariq-v0.1.0.md#acceptance-scenarios
+  - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: 2026-03-29T00:00:00Z
 areas:
   - git
@@ -49,10 +48,13 @@ Implement `tessariq promote <run-ref>` with branch creation, exactly one commit,
 - Promote creates one branch and exactly one commit for changed runs.
 - Default branch and commit message behavior matches the spec.
 - Zero-diff and missing-evidence cases fail without creating a branch or commit.
+- Default trailers are exactly `Tessariq-Run`, `Tessariq-Base`, and `Tessariq-Task`.
+- `--no-trailers` suppresses the default trailer block without changing the one-commit contract.
+- Promote uses `git add -A` for the promoted delta.
 
 ## Test Expectations
 
-- Add unit tests for branch names, commit messages, and trailer formatting.
+- Add unit tests for branch names, commit messages, exact trailer formatting, and `--no-trailers` behavior.
 - Add integration tests for promote side effects using Testcontainers-backed collaborators only.
 - Add a thin e2e `run -> promote` flow for a successful changed run and a zero-diff failure path.
 - Run mutation testing because guardrails and fallback logic are safety-critical.

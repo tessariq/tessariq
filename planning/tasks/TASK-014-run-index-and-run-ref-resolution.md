@@ -10,6 +10,7 @@ milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:
   - specs/tessariq-v0.1.0.md#lifecycle-rules
+  - specs/tessariq-v0.1.0.md#evidence-contract
 updated_at: 2026-03-29T00:00:00Z
 areas:
   - evidence
@@ -46,6 +47,8 @@ Append run index entries and implement repository-scoped run-ref resolution.
 - `index.jsonl` is append-only.
 - `run_id`, `last`, and `last-N` resolve against the current repository.
 - Unknown refs fail cleanly.
+- `index.jsonl` entries include the minimum required fields for `run_id`, `created_at`, `task_path`, `task_title`, `adapter`, `workspace_mode`, `state`, and `evidence_path`.
+- Shared run-ref resolution is the source of truth for attach and promote.
 
 ## Test Expectations
 

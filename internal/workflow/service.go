@@ -30,7 +30,7 @@ func (s *Service) ValidateState() (ValidationResult, error) {
 		return ValidationResult{}, err
 	}
 
-	violations := validateStateAndTasks(state, tasks, nowUTC())
+	violations := validateStateAndTasks(state, tasks, nowUTC(), s.paths.RepoRoot)
 	return ValidationResult{
 		Valid:      len(violations) == 0,
 		Violations: violations,
@@ -219,7 +219,7 @@ func (s *Service) Verify(input VerifyInput) (VerifyResult, error) {
 	state.Frontmatter.UpdatedAt = now
 	state.Frontmatter.ValidationLastRun = report.GeneratedAt
 	state.Frontmatter.ValidationStatus = validationStatus(report.Summary)
-	state.Frontmatter.ValidationScope = input.Profile
+	state.Frontmatter.ValidationScope = verificationScopeLabel(report)
 	state.Frontmatter.ValidationPlan = relPath(s.paths.RepoRoot, report.PlanPath)
 	state.Frontmatter.ValidationReport = relPath(s.paths.RepoRoot, report.ReportPath)
 	state.Frontmatter.ValidationCheckedAt = report.GeneratedAt
@@ -408,10 +408,19 @@ func (s *Service) buildVerificationReport(state *State, tasks []*Task, input Ver
 		return VerificationReport{}, fmt.Errorf("create verification artifacts dir: %w", err)
 	}
 
+	scope, scopeViolations := resolveSpecScope(state)
+	specDocs, specDocViolations := loadReferencedSpecDocs(s.paths.RepoRoot, tasks)
+	scopeViolations = append(scopeViolations, specDocViolations...)
+	if len(scopeViolations) == 0 {
+		if _, err := loadSpecDocument(s.paths.RepoRoot, scope); err != nil {
+			scopeViolations = append(scopeViolations, err.Error())
+		}
+	}
+
 	findings := make([]Finding, 0)
-	findings = append(findings, buildTaskFindings(tasks, input)...)
+	findings = append(findings, buildTaskFindings(state, tasks, input, scope, specDocs, scopeViolations)...)
 	if input.Profile == "spec" {
-		findings = append(findings, buildSpecFindings(tasks)...)
+		findings = append(findings, buildSpecFindings(tasks, scope, scopeViolations)...)
 	}
 	if input.Profile == "implemented" {
 		findings = append(findings, buildImplementedFindings(tasks)...)
@@ -420,15 +429,18 @@ func (s *Service) buildVerificationReport(state *State, tasks []*Task, input Ver
 	reportPath := filepath.Join(artifactDir, "report.json")
 	planPath := filepath.Join(artifactDir, "plan.md")
 	report := VerificationReport{
-		SchemaVersion: reportSchemaVersion,
-		Profile:       input.Profile,
-		Disposition:   input.Disposition,
-		GeneratedAt:   nowUTC().Format(timeLayout),
-		ArtifactDir:   artifactDir,
-		PlanPath:      planPath,
-		ReportPath:    reportPath,
-		Findings:      findings,
-		Summary:       summarizeFindings(findings),
+		SchemaVersion:     reportSchemaVersion,
+		Profile:           input.Profile,
+		Disposition:       input.Disposition,
+		GeneratedAt:       nowUTC().Format(timeLayout),
+		MilestoneFocus:    scope.Milestone,
+		ActiveSpecVersion: scope.Version,
+		ActiveSpecPath:    scope.Path,
+		ArtifactDir:       artifactDir,
+		PlanPath:          planPath,
+		ReportPath:        reportPath,
+		Findings:          findings,
+		Summary:           summarizeFindings(findings),
 	}
 
 	return report, nil
@@ -450,7 +462,7 @@ func (s *Service) writeVerificationArtifacts(report VerificationReport) error {
 	return nil
 }
 
-func validateStateAndTasks(state *State, tasks []*Task, now time.Time) []string {
+func validateStateAndTasks(state *State, tasks []*Task, now time.Time, repoRoot string) []string {
 	var violations []string
 	if state.Frontmatter.SchemaVersion != stateSchemaVersion {
 		violations = append(violations, fmt.Sprintf("state schema_version must be %d", stateSchemaVersion))
@@ -461,6 +473,11 @@ func validateStateAndTasks(state *State, tasks []*Task, now time.Time) []string 
 	if state.Frontmatter.MaxRetries <= 0 {
 		violations = append(violations, "state max_retries must be positive")
 	}
+
+	_, scopeViolations := resolveSpecScope(state)
+	violations = append(violations, scopeViolations...)
+	specDocs, specDocViolations := loadReferencedSpecDocs(repoRoot, tasks)
+	violations = append(violations, specDocViolations...)
 
 	byID := make(map[string]*Task, len(tasks))
 	inProgress := 0
@@ -480,6 +497,22 @@ func validateStateAndTasks(state *State, tasks []*Task, now time.Time) []string 
 		}
 		if len(task.Frontmatter.SpecRefs) == 0 {
 			violations = append(violations, fmt.Sprintf("task %s missing spec_refs", task.Frontmatter.ID))
+		}
+		for _, ref := range task.Frontmatter.SpecRefs {
+			path, anchor, err := splitSpecRef(ref)
+			if err != nil {
+				violations = append(violations, fmt.Sprintf("task %s has invalid spec_ref %q: %v", task.Frontmatter.ID, ref, err))
+				continue
+			}
+			refVersion := specVersionFromPath(path)
+			if refVersion != "" && task.Frontmatter.SpecVersion != refVersion {
+				violations = append(violations, fmt.Sprintf("task %s spec_version %q does not match spec_ref %q", task.Frontmatter.ID, task.Frontmatter.SpecVersion, ref))
+			}
+			if specDoc := specDocs[path]; specDoc != nil {
+				if _, ok := specDoc.Anchors[anchor]; !ok {
+					violations = append(violations, fmt.Sprintf("task %s spec_ref %q points to unknown heading anchor", task.Frontmatter.ID, ref))
+				}
+			}
 		}
 		if missing := missingTaskSections(task.Body); len(missing) > 0 {
 			violations = append(violations, fmt.Sprintf("task %s missing sections: %s", task.Frontmatter.ID, strings.Join(missing, ", ")))
@@ -655,6 +688,9 @@ func renderStateSnapshot(frontmatter StateFrontmatter, tasks []*Task) string {
 	out.WriteString(fmt.Sprintf("- Active task: %s\n", nonEmpty(frontmatter.ActiveTask, "none")))
 	out.WriteString(fmt.Sprintf("- Last completed: %s\n", nonEmpty(frontmatter.LastCompleted, "none")))
 	out.WriteString(fmt.Sprintf("- Validation status: %s\n", nonEmpty(frontmatter.ValidationStatus, "not_run")))
+	if frontmatter.ActiveSpecVersion != "" || frontmatter.ActiveSpecPath != "" {
+		out.WriteString(fmt.Sprintf("- Active spec: %s (%s)\n", nonEmpty(frontmatter.ActiveSpecVersion, "unknown"), nonEmpty(frontmatter.ActiveSpecPath, "unknown")))
+	}
 	out.WriteString("- Next tasks:\n")
 	if len(frontmatter.NextTasks) == 0 {
 		out.WriteString("  - none\n")
@@ -716,7 +752,32 @@ func appendTaskNote(task *Task, note string) {
 	task.Body = strings.TrimRight(task.Body, "\n") + "\n" + note + "\n"
 }
 
-func buildTaskFindings(tasks []*Task, input VerifyInput) []Finding {
+func loadReferencedSpecDocs(repoRoot string, tasks []*Task) (map[string]*specDocument, []string) {
+	docs := make(map[string]*specDocument)
+	var violations []string
+
+	for _, task := range tasks {
+		for _, ref := range task.Frontmatter.SpecRefs {
+			path, _, err := splitSpecRef(ref)
+			if err != nil {
+				continue
+			}
+			if _, ok := docs[path]; ok {
+				continue
+			}
+			doc, err := loadSpecDocumentAtPath(repoRoot, path)
+			if err != nil {
+				violations = append(violations, err.Error())
+				continue
+			}
+			docs[path] = doc
+		}
+	}
+
+	return docs, violations
+}
+
+func buildTaskFindings(state *State, tasks []*Task, input VerifyInput, scope specScope, specDocs map[string]*specDocument, scopeViolations []string) []Finding {
 	findings := make([]Finding, 0)
 	targets := tasks
 	if input.Profile == "task" {
@@ -729,6 +790,17 @@ func buildTaskFindings(tasks []*Task, input VerifyInput) []Finding {
 		}
 	}
 
+	for _, violation := range scopeViolations {
+		findings = append(findings, Finding{
+			ID:          slugify("scope-" + violation),
+			Title:       "invalid planning spec scope",
+			Severity:    "high",
+			Status:      "open",
+			Details:     violation,
+			SpecVersion: state.Frontmatter.ActiveSpecVersion,
+		})
+	}
+
 	for _, task := range targets {
 		if len(task.Frontmatter.SpecRefs) == 0 {
 			findings = append(findings, Finding{
@@ -739,6 +811,48 @@ func buildTaskFindings(tasks []*Task, input VerifyInput) []Finding {
 				Details:  "Task must include exact spec_refs.",
 				TaskID:   task.Frontmatter.ID,
 			})
+		}
+		for _, ref := range task.Frontmatter.SpecRefs {
+			path, anchor, err := splitSpecRef(ref)
+			if err != nil {
+				findings = append(findings, Finding{
+					ID:       task.Frontmatter.ID + "-bad-spec-ref",
+					Title:    "task has invalid spec ref",
+					Severity: "high",
+					Status:   "open",
+					Details:  err.Error(),
+					TaskID:   task.Frontmatter.ID,
+					SpecRefs: []string{ref},
+				})
+				continue
+			}
+			refVersion := specVersionFromPath(path)
+			if refVersion != "" && task.Frontmatter.SpecVersion != refVersion {
+				findings = append(findings, Finding{
+					ID:          task.Frontmatter.ID + "-spec-version",
+					Title:       "task spec version does not match its spec refs",
+					Severity:    "high",
+					Status:      "open",
+					Details:     fmt.Sprintf("Task spec_version %q does not match spec ref %q.", task.Frontmatter.SpecVersion, ref),
+					TaskID:      task.Frontmatter.ID,
+					SpecVersion: task.Frontmatter.SpecVersion,
+					SpecRefs:    []string{ref},
+				})
+			}
+			if specDoc := specDocs[path]; specDoc != nil {
+				if _, ok := specDoc.Anchors[anchor]; !ok {
+					findings = append(findings, Finding{
+						ID:          task.Frontmatter.ID + "-" + slugify(anchor),
+						Title:       "task spec ref points to an unknown heading",
+						Severity:    "high",
+						Status:      "open",
+						Details:     fmt.Sprintf("Spec ref %q does not resolve to a heading in %s.", ref, path),
+						TaskID:      task.Frontmatter.ID,
+						SpecVersion: task.Frontmatter.SpecVersion,
+						SpecRefs:    []string{ref},
+					})
+				}
+			}
 		}
 		if missing := missingTaskSections(task.Body); len(missing) > 0 {
 			findings = append(findings, Finding{
@@ -774,7 +888,11 @@ func buildTaskFindings(tasks []*Task, input VerifyInput) []Finding {
 	return findings
 }
 
-func buildSpecFindings(tasks []*Task) []Finding {
+func buildSpecFindings(tasks []*Task, scope specScope, scopeViolations []string) []Finding {
+	if len(scopeViolations) > 0 {
+		return nil
+	}
+
 	covered := map[string]bool{}
 	for _, task := range tasks {
 		for _, ref := range task.Frontmatter.SpecRefs {
@@ -783,7 +901,7 @@ func buildSpecFindings(tasks []*Task) []Finding {
 	}
 
 	findings := make([]Finding, 0)
-	for _, required := range requiredSpecCoverageRefs {
+	for _, required := range requiredSpecCoverageByVersion[scope.Version] {
 		if covered[required.Ref] {
 			continue
 		}
@@ -842,21 +960,38 @@ func validationStatus(summary VerificationSummary) string {
 	return "passed"
 }
 
+func verificationScopeLabel(report VerificationReport) string {
+	if report.ActiveSpecVersion == "" {
+		return report.Profile
+	}
+	return fmt.Sprintf("%s:%s", report.Profile, report.ActiveSpecVersion)
+}
+
 func renderVerificationPlan(report VerificationReport) string {
 	var out strings.Builder
 	out.WriteString("# Verification Plan\n\n")
 	out.WriteString(fmt.Sprintf("- Profile: `%s`\n", report.Profile))
 	out.WriteString(fmt.Sprintf("- Disposition: `%s`\n", report.Disposition))
 	out.WriteString(fmt.Sprintf("- Generated at: `%s`\n", report.GeneratedAt))
+	if report.MilestoneFocus != "" {
+		out.WriteString(fmt.Sprintf("- Milestone: `%s`\n", report.MilestoneFocus))
+	}
+	if report.ActiveSpecVersion != "" {
+		out.WriteString(fmt.Sprintf("- Active spec version: `%s`\n", report.ActiveSpecVersion))
+	}
+	if report.ActiveSpecPath != "" {
+		out.WriteString(fmt.Sprintf("- Active spec path: `%s`\n", report.ActiveSpecPath))
+	}
 	out.WriteString(fmt.Sprintf("- Report: `%s`\n", relPath(filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(report.PlanPath)))), report.ReportPath)))
 	out.WriteString("\n## Checks\n\n")
 	switch report.Profile {
 	case "task":
-		out.WriteString("- Validate task metadata and required sections.\n")
+		out.WriteString("- Validate task metadata, scope alignment, and required sections.\n")
 	case "implemented":
 		out.WriteString("- Validate completed-task verification metadata.\n")
 	case "spec":
-		out.WriteString("- Validate seeded tasks cover all normative and acceptance references.\n")
+		out.WriteString("- Validate seeded tasks cover the active milestone spec, not every versioned spec.\n")
+		out.WriteString("- Validate task spec_refs resolve to live headings in the active spec.\n")
 	}
 	out.WriteString("- Confirm TDD and test-tier expectations remain explicit.\n")
 	out.WriteString("- Confirm mutation threshold policy remains documented.\n")

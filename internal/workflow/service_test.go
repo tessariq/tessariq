@@ -1,6 +1,7 @@
 package workflow
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -16,6 +17,8 @@ func TestValidateStateAndTasksRejectsMissingTaskSections(t *testing.T) {
 			SchemaVersion:     1,
 			UpdatedAt:         time.Now().UTC().Format(timeLayout),
 			MilestoneFocus:    "v0.1.0",
+			ActiveSpecVersion: "v0.1.0",
+			ActiveSpecPath:    "specs/tessariq-v0.1.0.md",
 			StaleAfterMinutes: 180,
 			MaxRetries:        2,
 		},
@@ -28,7 +31,7 @@ func TestValidateStateAndTasksRejectsMissingTaskSections(t *testing.T) {
 			Priority:    "p1",
 			Milestone:   "v0.1.0",
 			SpecVersion: "v0.1.0",
-			SpecRefs:    []string{"specs/tessariq-v0.1.0.md#cli-run"},
+			SpecRefs:    []string{"specs/tessariq-v0.1.0.md#tessariq-run-task-path"},
 			Verification: TaskVerification{
 				Unit:        VerificationTier{Rationale: "required"},
 				Integration: VerificationTier{Rationale: "considered"},
@@ -39,7 +42,7 @@ func TestValidateStateAndTasksRejectsMissingTaskSections(t *testing.T) {
 		Body: "## Summary\n",
 	}
 
-	violations := validateStateAndTasks(state, []*Task{task}, time.Now().UTC())
+	violations := validateStateAndTasks(state, []*Task{task}, time.Now().UTC(), testRepoRoot(t))
 	require.NotEmpty(t, violations)
 	require.Contains(t, strings.Join(violations, "\n"), "missing sections")
 }
@@ -54,6 +57,9 @@ func TestValidateStateAndTasksRejectsBrokenState(t *testing.T) {
 			UpdatedAt:           now.Format(timeLayout),
 			ActiveTask:          "TASK-001-a",
 			ActiveTaskStartedAt: now.Add(-4 * time.Hour).Format(timeLayout),
+			MilestoneFocus:      "v0.1.0",
+			ActiveSpecVersion:   "v0.1.0",
+			ActiveSpecPath:      "specs/tessariq-v0.1.0.md",
 			StaleAfterMinutes:   180,
 			MaxRetries:          0,
 		},
@@ -64,7 +70,7 @@ func TestValidateStateAndTasksRejectsBrokenState(t *testing.T) {
 	}
 	tasks[1].Frontmatter.DependsOn = []string{"TASK-999-missing"}
 
-	violations := validateStateAndTasks(state, tasks, now)
+	violations := validateStateAndTasks(state, tasks, now, testRepoRoot(t))
 	joined := strings.Join(violations, "\n")
 	require.Contains(t, joined, "state schema_version")
 	require.Contains(t, joined, "state max_retries")
@@ -176,12 +182,68 @@ func TestBuildSpecFindingsReportsMissingCoverage(t *testing.T) {
 	t.Parallel()
 
 	tasks := []*Task{
-		taskForTest("TASK-001-a", "todo", "p1", []string{"specs/tessariq-v0.1.0.md#cli-run"}),
+		taskForTest("TASK-001-a", "todo", "p1", []string{"specs/tessariq-v0.1.0.md#tessariq-run-task-path"}),
 	}
 
-	findings := buildSpecFindings(tasks)
+	findings := buildSpecFindings(tasks, specScope{
+		Milestone: "v0.1.0",
+		Version:   "v0.1.0",
+		Path:      "specs/tessariq-v0.1.0.md",
+	}, nil)
 	require.NotEmpty(t, findings)
 	require.Equal(t, "high", findings[0].Severity)
+}
+
+func TestValidateStateAndTasksRejectsDeadSpecRefs(t *testing.T) {
+	t.Parallel()
+
+	state := &State{
+		Frontmatter: StateFrontmatter{
+			SchemaVersion:     1,
+			UpdatedAt:         time.Now().UTC().Format(timeLayout),
+			MilestoneFocus:    "v0.1.0",
+			ActiveSpecVersion: "v0.1.0",
+			ActiveSpecPath:    "specs/tessariq-v0.1.0.md",
+			StaleAfterMinutes: 180,
+			MaxRetries:        2,
+		},
+	}
+	task := taskForTest("TASK-001-a", "todo", "p1", []string{"specs/tessariq-v0.1.0.md#cli-run"})
+
+	violations := validateStateAndTasks(state, []*Task{task}, time.Now().UTC(), testRepoRoot(t))
+	require.Contains(t, strings.Join(violations, "\n"), "unknown heading anchor")
+}
+
+func TestBuildTaskFindingsReportsVersionMismatchAndDeadRefs(t *testing.T) {
+	t.Parallel()
+
+	scope := specScope{
+		Milestone: "v0.1.0",
+		Version:   "v0.1.0",
+		Path:      "specs/tessariq-v0.1.0.md",
+	}
+	specDocs, violations := loadReferencedSpecDocs(testRepoRoot(t), []*Task{
+		taskForTest("TASK-001-a", "todo", "p1", []string{"specs/tessariq-v0.1.0.md#cli-run"}),
+	})
+	require.Empty(t, violations)
+	_, err := loadSpecDocument(testRepoRoot(t), scope)
+	require.NoError(t, err)
+
+	task := taskForTest("TASK-001-a", "todo", "p1", []string{"specs/tessariq-v0.1.0.md#cli-run"})
+	task.Frontmatter.SpecVersion = "v0.2.0"
+
+	findings := buildTaskFindings(
+		&State{Frontmatter: StateFrontmatter{MilestoneFocus: scope.Milestone, ActiveSpecVersion: scope.Version, ActiveSpecPath: scope.Path}},
+		[]*Task{task},
+		VerifyInput{Profile: "task", TaskID: task.Frontmatter.ID},
+		scope,
+		specDocs,
+		nil,
+	)
+
+	require.Len(t, findings, 2)
+	require.Equal(t, "task spec version does not match its spec refs", findings[0].Title)
+	require.Equal(t, "task spec ref points to an unknown heading", findings[1].Title)
 }
 
 func TestCompareSkillTreesReportsParityProblems(t *testing.T) {
@@ -234,10 +296,32 @@ func TestBuildTaskFindingsBranches(t *testing.T) {
 	task.Body = "## Summary\n\nonly summary\n"
 	task.Frontmatter.Verification.Unit.Rationale = ""
 
-	findings := buildTaskFindings([]*Task{task}, VerifyInput{Profile: "task", TaskID: "TASK-001-a"})
+	scope := specScope{
+		Milestone: "v0.1.0",
+		Version:   "v0.1.0",
+		Path:      "specs/tessariq-v0.1.0.md",
+	}
+	specDocs, violations := loadReferencedSpecDocs(testRepoRoot(t), []*Task{task})
+	require.Empty(t, violations)
+
+	findings := buildTaskFindings(
+		&State{Frontmatter: StateFrontmatter{MilestoneFocus: scope.Milestone, ActiveSpecVersion: scope.Version, ActiveSpecPath: scope.Path}},
+		[]*Task{task},
+		VerifyInput{Profile: "task", TaskID: "TASK-001-a"},
+		scope,
+		specDocs,
+		nil,
+	)
 	require.Len(t, findings, 3)
 
-	missing := buildTaskFindings([]*Task{}, VerifyInput{Profile: "task", TaskID: "TASK-404"})
+	missing := buildTaskFindings(
+		&State{Frontmatter: StateFrontmatter{MilestoneFocus: scope.Milestone, ActiveSpecVersion: scope.Version, ActiveSpecPath: scope.Path}},
+		[]*Task{},
+		VerifyInput{Profile: "task", TaskID: "TASK-404"},
+		scope,
+		specDocs,
+		nil,
+	)
 	require.Len(t, missing, 1)
 	require.Equal(t, "high", missing[0].Severity)
 }
@@ -266,14 +350,18 @@ func TestRenderVerificationPlanAndVerifyTarget(t *testing.T) {
 	t.Parallel()
 
 	report := VerificationReport{
-		Profile:     "spec",
-		Disposition: "report",
-		GeneratedAt: "2026-03-29T00:00:00Z",
-		PlanPath:    "/tmp/plan.md",
-		ReportPath:  "/tmp/report.json",
+		Profile:           "spec",
+		Disposition:       "report",
+		GeneratedAt:       "2026-03-29T00:00:00Z",
+		MilestoneFocus:    "v0.1.0",
+		ActiveSpecVersion: "v0.1.0",
+		ActiveSpecPath:    "specs/tessariq-v0.1.0.md",
+		PlanPath:          "/tmp/plan.md",
+		ReportPath:        "/tmp/report.json",
 	}
 	plan := renderVerificationPlan(report)
-	require.Contains(t, plan, "Validate seeded tasks cover all normative and acceptance references.")
+	require.Contains(t, plan, "Validate seeded tasks cover the active milestone spec")
+	require.Equal(t, "spec:v0.1.0", verificationScopeLabel(report))
 
 	state := &State{Frontmatter: StateFrontmatter{ActiveTask: "TASK-001-a"}}
 	require.Equal(t, "TASK-123", verifyTarget(VerifyInput{TaskID: "TASK-123"}, state))
@@ -289,7 +377,7 @@ func TestFollowupTaskAndHelpers(t *testing.T) {
 		Title:       "Missing Spec Coverage",
 		Severity:    "high",
 		SpecVersion: "v0.1.0",
-		SpecRefs:    []string{"specs/tessariq-v0.1.0.md#cli-run"},
+		SpecRefs:    []string{"specs/tessariq-v0.1.0.md#tessariq-run-task-path"},
 		Details:     "missing",
 	}, "v0.1.0")
 
@@ -326,7 +414,7 @@ func TestPriorityAndSeverityRank(t *testing.T) {
 
 func taskForTest(id, status, priority string, refs []string) *Task {
 	if refs == nil {
-		refs = []string{"specs/tessariq-v0.1.0.md#cli-run"}
+		refs = []string{"specs/tessariq-v0.1.0.md#tessariq-run-task-path"}
 	}
 	return &Task{
 		Frontmatter: TaskFrontmatter{
@@ -346,4 +434,12 @@ func taskForTest(id, status, priority string, refs []string) *Task {
 		},
 		Body: "## Summary\n\nx\n\n## Acceptance Criteria\n\nx\n\n## Test Expectations\n\nx\n\n## TDD Plan\n\nx\n\n## Notes\n\nx\n",
 	}
+}
+
+func testRepoRoot(t *testing.T) string {
+	t.Helper()
+
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	require.NoError(t, err)
+	return root
 }

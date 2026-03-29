@@ -9,6 +9,7 @@ milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:
   - specs/tessariq-v0.1.0.md#workspace-guarantees
+  - specs/tessariq-v0.1.0.md#evidence-contract
 updated_at: 2026-03-29T00:00:00Z
 areas:
   - git
@@ -43,7 +44,7 @@ Create detached worktrees under `~/.tessariq/worktrees/...` and emit `workspace.
 ## Acceptance Criteria
 
 - Worktrees are detached and isolated from the host working tree.
-- `base_sha`, `workspace_path`, `repo_clean`, and reproducibility metadata are recorded.
+- `workspace.json` includes the minimum required fields for `schema_version`, `workspace_mode`, `base_sha`, `workspace_path`, `repo_mount_mode`, `repo_clean`, and `reproducibility`.
 - Cleanup paths are prepared for later runner and promote logic.
 
 ## Test Expectations

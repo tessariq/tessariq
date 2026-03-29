@@ -10,8 +10,8 @@ spec_version: v0.1.0
 spec_refs:
   - specs/tessariq-v0.1.0.md#repository-model
   - specs/tessariq-v0.1.0.md#workspace-guarantees
-  - specs/tessariq-v0.1.0.md#acceptance-run-clean-repo
-  - specs/tessariq-v0.1.0.md#acceptance-run-dirty-repo
+  - specs/tessariq-v0.1.0.md#acceptance-scenarios
+  - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: 2026-03-29T00:00:00Z
 areas:
   - git
@@ -48,6 +48,7 @@ Fail early on dirty repositories and copy the task file into evidence with stabl
 - Dirty repositories fail before any container work starts.
 - The task file is copied exactly to evidence as `task.md`.
 - `task_title` is derived from the first H1 or the basename fallback.
+- Dirty-repo failure messaging tells the user to commit, stash, or clean the repository first.
 
 ## Test Expectations
 
@@ -62,4 +63,4 @@ Fail early on dirty repositories and copy the task file into evidence with stabl
 
 ## Notes
 
-- Failure messaging must tell the user to commit, stash, or clean the repository first.
+- Task-path validation is intentionally owned by `TASK-002`; this task stays focused on dirty-repo gating and task ingestion.

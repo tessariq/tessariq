@@ -39,6 +39,8 @@ type StateFrontmatter struct {
 	ValidationReport    string   `yaml:"validation_report"`
 	ValidationCheckedAt string   `yaml:"validation_checked_at"`
 	MilestoneFocus      string   `yaml:"milestone_focus"`
+	ActiveSpecVersion   string   `yaml:"active_spec_version"`
+	ActiveSpecPath      string   `yaml:"active_spec_path"`
 	StaleAfterMinutes   int      `yaml:"stale_after_minutes"`
 	MaxRetries          int      `yaml:"max_retries"`
 }
@@ -101,15 +103,18 @@ type VerificationSummary struct {
 }
 
 type VerificationReport struct {
-	SchemaVersion int                 `json:"schema_version"`
-	Profile       string              `json:"profile"`
-	Disposition   string              `json:"disposition"`
-	GeneratedAt   string              `json:"generated_at"`
-	ArtifactDir   string              `json:"artifact_dir"`
-	PlanPath      string              `json:"plan_path"`
-	ReportPath    string              `json:"report_path"`
-	Findings      []Finding           `json:"findings"`
-	Summary       VerificationSummary `json:"summary"`
+	SchemaVersion     int                 `json:"schema_version"`
+	Profile           string              `json:"profile"`
+	Disposition       string              `json:"disposition"`
+	GeneratedAt       string              `json:"generated_at"`
+	MilestoneFocus    string              `json:"milestone_focus,omitempty"`
+	ActiveSpecVersion string              `json:"active_spec_version,omitempty"`
+	ActiveSpecPath    string              `json:"active_spec_path,omitempty"`
+	ArtifactDir       string              `json:"artifact_dir"`
+	PlanPath          string              `json:"plan_path"`
+	ReportPath        string              `json:"report_path"`
+	Findings          []Finding           `json:"findings"`
+	Summary           VerificationSummary `json:"summary"`
 }
 
 type ValidationResult struct {
@@ -187,11 +192,6 @@ type FollowupsResult struct {
 type SkillCheckResult struct {
 	Match      bool     `json:"match"`
 	Mismatches []string `json:"mismatches"`
-}
-
-type requiredSpecCoverage struct {
-	Ref   string
-	Title string
 }
 
 func nowUTC() time.Time {

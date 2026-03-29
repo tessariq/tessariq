@@ -9,8 +9,11 @@ depends_on:
 milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:
-  - specs/tessariq-v0.1.0.md#cli-run
+  - specs/tessariq-v0.1.0.md#generated-runtime-state
+  - specs/tessariq-v0.1.0.md#tessariq-run-task-path
   - specs/tessariq-v0.1.0.md#networking-and-egress
+  - specs/tessariq-v0.1.0.md#evidence-contract
+  - specs/tessariq-v0.1.0.md#acceptance-scenarios
 updated_at: 2026-03-29T00:00:00Z
 areas:
   - networking
@@ -40,17 +43,21 @@ verification:
 
 ## Summary
 
-Implement requested-versus-resolved egress mode handling and manifest recording.
+Implement requested-versus-resolved egress mode handling, user-level allowlist defaulting, and manifest recording.
 
 ## Acceptance Criteria
 
 - `auto` resolves to `proxy` for the supported first-party adapters.
 - `open` requires explicit unsafe opt-in.
 - Requested and resolved egress modes are preserved in `manifest.json`.
+- User-level config is read from the documented XDG/default path locations for proxy/auto allowlist defaults only.
+- `--egress-allow-reset` discards built-in and user-configured defaults before later CLI allowlist entries are applied.
+- Allowlist precedence follows CLI entries first, then user-level config, then the built-in profile.
+- `manifest.json` records `requested_egress_mode`, `resolved_egress_mode`, and `allowlist_source`.
 
 ## Test Expectations
 
-- Add unit tests for mode resolution, aliases, and manifest recording.
+- Add unit tests for mode resolution, aliases, XDG/default config discovery, allowlist precedence, `--egress-allow-reset`, and manifest recording.
 - Integration tests are deferred until proxy topology exists.
 - E2E tests are deferred until runtime networking is active.
 - Run mutation testing because the resolution logic is branch-heavy.
@@ -61,4 +68,4 @@ Implement requested-versus-resolved egress mode handling and manifest recording.
 
 ## Notes
 
-- Keep allowlist normalization separate from low-level proxy process details.
+- Keep allowlist normalization and provenance explicit; proxy transport details stay in `TASK-012`.
