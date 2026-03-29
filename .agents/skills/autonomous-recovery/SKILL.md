@@ -1,7 +1,6 @@
 ---
 name: autonomous-recovery
 description: Recover Tessariq tracked-work state when it becomes stale or inconsistent
-disable-model-invocation: true
 ---
 
 # autonomous-recovery

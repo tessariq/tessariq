@@ -1,7 +1,6 @@
 ---
 name: autonomous-manual-test
 description: Generate and execute a manual test plan against task acceptance criteria in a sandboxed tmp directory
-disable-model-invocation: true
 argument-hint: "[task-id]"
 ---
 
