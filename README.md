@@ -24,7 +24,7 @@ The core idea is to make agent execution reproducible, inspectable, and usable i
 This repository is currently spec-first. The current target release is `v0.1.0`, and the next planned release is `v0.2.0`.
 
 - `v0.1.0` focuses on proving the core local workflow with one workspace model.
-- `v0.2.0` expands Tessariq to the required additional workspace modes and resume behavior.
+- `v0.2.0` expands Tessariq to the required additional workspace modes and same-mode resume behavior.
 - Later versions are expected to add operator and admin commands such as `inspect`, `logs`, and `doctor`.
 
 ## Product direction
@@ -53,7 +53,7 @@ The second release extends the core model with:
 
 - `copy+patch`
 - `repo-rw`
-- `resume` across all workspace modes
+- same-mode `resume` within each workspace mode
 
 ## Repository layout
 

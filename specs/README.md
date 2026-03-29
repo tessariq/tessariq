@@ -38,7 +38,7 @@ Reasoning:
 Primary scope:
 - `copy+patch`
 - `repo-rw`
-- `resume` across all workspace modes
+- same-mode `resume` within each workspace mode
 - per-workspace promote and evidence semantics
 
 ### Later versions

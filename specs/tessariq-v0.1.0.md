@@ -75,7 +75,10 @@ Promotion is the normal path from isolated workspace output into ordinary Git re
 
 - runtime state is generated under `<repo>/.tessariq/` at the repository root, as a sibling of `specs/`
 - `tessariq init` MUST add `.tessariq/` to `.gitignore`
-- repo-tracked config files are out of scope for v0.1.0; behavior is driven by CLI flags
+- repo-tracked config files are out of scope for v0.1.0
+- v0.1.0 MAY read user-level defaults from `$XDG_CONFIG_HOME/tessariq/config.yaml` or `~/.config/tessariq/config.yaml` when the XDG location is unset
+- the only normative user-level config surface in v0.1.0 is default proxy allowlist selection for `--egress=auto`
+- CLI flags remain the per-run source of truth and override user-level defaults
 
 ## Workspace guarantees
 
@@ -234,6 +237,26 @@ Modes:
 
 - for `claude-code` and `opencode`, `auto` MUST resolve to `proxy`
 - the resolved mode MUST be written into `manifest.json`
+- when no explicit allowlist is provided by user config or CLI flags, `auto` MUST use the built-in Tessariq allowlist profile
+
+User-level config:
+
+- user-level config MAY define a replacement default allowlist for `proxy` and `auto`
+- repo-tracked project config remains out of scope for v0.1.0
+- CLI `--egress-allow` entries MUST override user-level config for that run
+- `--egress-allow-reset` MUST discard any built-in or user-configured default allowlist before later `--egress-allow` entries are applied
+
+Allowlist precedence:
+
+- if one or more CLI `--egress-allow` values are provided, the resolved allowlist MUST contain exactly those CLI destinations
+- otherwise, if user-level config defines a default allowlist, the resolved allowlist MUST contain exactly the configured destinations
+- otherwise, the resolved allowlist MUST contain the built-in Tessariq allowlist profile
+
+Built-in Tessariq allowlist profile:
+
+- the built-in profile MUST include maintained HTTPS destinations for common package-manager workflows and Wikipedia
+- the initial v0.1.0 profile MUST include at least npm, PyPI, RubyGems, crates.io, the Go module proxy and checksum database, Maven Central, and Wikipedia over TCP `443`
+- the fully resolved allowlist MUST be written to `egress.compiled.yaml`
 
 User-visible `proxy` contract:
 
@@ -278,6 +301,7 @@ Logs MUST be capped and MUST include a truncation marker if truncated.
 - required fields in the minimum shapes below MUST always be present
 - implementations MAY add extra fields without changing `schema_version` if they do not change the meaning of existing fields
 - `index.jsonl` is append-only; each line represents one run and MUST not be rewritten in place for another run
+- proxy-mode evidence MUST record both allowlist provenance and the fully resolved destinations without requiring the caller to re-derive them
 
 Minimum `manifest.json` shape:
 
@@ -292,9 +316,20 @@ Minimum `manifest.json` shape:
   "workspace_mode": "worktree",
   "requested_egress_mode": "auto",
   "resolved_egress_mode": "proxy",
+  "allowlist_source": "auto",
   "container_name": "tessariq-01J...",
   "created_at": "2026-01-27T12:00:00Z"
 }
+```
+
+Required proxy-mode `egress.compiled.yaml` fields:
+
+```yaml
+schema_version: 1
+allowlist_source: auto
+destinations:
+  - host: registry.npmjs.org
+    port: 443
 ```
 
 Minimum `status.json` shape:
@@ -349,6 +384,28 @@ Minimum `index.jsonl` entry shape:
 - `promote` creates no branch and no commit for a zero-diff run
 - `promote` fails cleanly if required evidence is missing
 - `proxy` mode enforces destination allowlists and records the compiled configuration
+- `auto` uses the built-in allowlist profile when no explicit allowlist source is present
+- user-level config replaces the built-in allowlist profile for `auto`
+- CLI `--egress-allow` values override user-level config and the built-in allowlist profile
+
+## Failure UX
+
+| Condition | Required behavior | Required user guidance |
+| --- | --- | --- |
+| task path is missing, outside the repository, or not Markdown | fail before container start | print the invalid path and tell the user to pass a Markdown task file inside the current repository |
+| repository is dirty for `worktree` | fail before container start | tell the user to commit, stash, or clean the repository first |
+| proxy mode blocks a destination that is not present in the resolved allowlist | fail the network attempt and record it in proxy evidence | tell the user which `host:port` was blocked and how to add it through user config or CLI flags, or to rerun with explicit open egress |
+| `attach` references an unknown or finished run | fail without attaching | print the evidence path when known and tell the user the run is not live |
+| `promote` sees zero diff | fail without creating a branch or commit | tell the user there were no code changes to promote |
+| `promote` cannot find required evidence | fail without creating a branch or commit | identify the missing artifact and tell the user the run cannot be promoted until evidence is intact |
+
+## Success metrics
+
+- at least 90% of started runs end with the required evidence set present and parseable
+- at least 70% of finished runs with code changes are promotable without manual evidence repair
+- at least 80% of proxy-mode runs succeed without requiring `--egress open`
+- fewer than 15% of proxy-mode failures are caused by missing allowlist destinations after one corrective rerun
+- fewer than 40% of successful runs require `attach`, preserving detached-by-default as the normal path
 
 ## Implementation Notes (Informative)
 

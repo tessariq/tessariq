@@ -11,7 +11,7 @@ Tessariq v0.2.0 is intended to verify:
 - how the required workspace modes are used in practice
 - `copy+patch` provides meaningful isolation value over `worktree`
 - `repo-rw` is useful enough to justify its weaker safety and reproducibility guarantees
-- resume across all workspace modes materially improves iteration speed
+- same-mode resume for each workspace materially improves iteration speed
 - the multi-workspace model can stay coherent without adding the later operator CLI yet
 
 ## Inheritance from v0.1.0
@@ -33,7 +33,7 @@ v0.2.0 adds these normative capabilities:
 - `copy+patch`
 - `repo-rw`
 - `--workspace worktree|copy+patch|repo-rw`
-- `--resume <run-ref>` for all workspace modes
+- `--resume <run-ref>` within each workspace mode
 
 Still out of scope:
 
@@ -49,7 +49,7 @@ v0.2.0 extends or overrides v0.1.0 in these areas:
 
 - add `copy+patch` and `repo-rw` workspace modes
 - add `--workspace worktree|copy+patch|repo-rw`
-- add `--resume <run-ref>` and resume-specific evidence fields
+- add `--resume <run-ref>` with same-mode resume and resume-specific evidence fields
 - add `--unsafe-workspace` and `--unsafe` for the unsafe workspace path
 - add workspace-specific promote behavior for `copy+patch` and `repo-rw`
 - retain the v0.1.0 run outcome model; this spec changes workspace and resume behavior, not terminal run outcomes
@@ -58,13 +58,19 @@ v0.2.0 extends or overrides v0.1.0 in these areas:
 
 | Workspace | Host repo mutated during `run` | Reproducibility | Unsafe opt-in required | Resume basis | Promote path |
 | --- | --- | --- | --- | --- | --- |
-| `worktree` | No | Strong, from resume base on a clean repo | No | latest committed state inside prior worktree | Commit from isolated workspace output |
+| `worktree` | No | Strong, from preserved prior workspace state on a clean repo | No | preserved workspace snapshot from the source run | Commit from isolated workspace output |
 | `copy+patch` | No | Strong, from original `base_sha` plus cumulative patch | No | original `base_sha` plus prior `diff.patch` | Apply patch to fresh isolated checkout, then commit |
-| `repo-rw` | Yes | Unsafe and non-reproducible | Yes | current repository working directory state | Commit directly from repository working tree |
+| `repo-rw` | Yes | Unsafe and non-reproducible, but promote attribution is bounded by a captured baseline | Yes | current repository working directory state plus the lineage baseline snapshot | Commit the net delta from the captured lineage baseline |
 
 ### `worktree`
 
 `worktree` behavior from v0.1.0 remains unchanged except that it can now be resumed.
+
+Resume-specific behavior:
+
+- Tessariq MUST preserve the source run's in-progress workspace state, including uncommitted tracked changes and untracked non-ignored files
+- resume MUST reconstruct the new isolated workspace from that preserved state rather than from the source worktree `HEAD`
+- the preserved reconstruction material MUST be retained until successful `promote` or explicit cleanup
 
 ### `copy+patch`
 
@@ -95,6 +101,8 @@ Required behavior:
 - require `--unsafe-workspace` or `--unsafe`
 - print a warning before run start
 - record the unsafe mode in `manifest.json`
+- capture a run-start baseline snapshot before agent-visible mutation begins, even when the repository starts dirty
+- retain the lineage baseline needed for future `resume` and `promote` until successful `promote` or explicit cleanup
 
 ## CLI changes from v0.1.0
 
@@ -116,7 +124,7 @@ Rules:
 - `--unsafe-egress` remains an alias for `--egress open` as inherited from v0.1.0
 - `resume` always creates a new `run_id` and a new evidence folder
 - if `--resume` is set without `--workspace`, the resumed run MUST default to the source run's workspace mode
-- if both `--resume` and `--workspace` are set, Tessariq MUST use the explicitly requested workspace mode and apply the corresponding reconstruction rules
+- if both `--resume` and `--workspace` are set, the requested workspace mode MUST match the source run's workspace mode or Tessariq MUST fail before container start
 - `resume` MUST fail if the referenced run is unknown or lacks the required reconstruction evidence for its workspace mode
 
 ### `tessariq promote <run-ref>`
@@ -136,17 +144,19 @@ v0.2.0 adds workspace-specific promote semantics.
 - `resume` always creates a new `run_id`
 - `resume` never overwrites earlier evidence
 - `manifest.json` and `workspace.json` MUST record `resume_from`
+- `resume` is same-mode only; cross-workspace resume is out of scope for v0.2.0
 - in this spec, a "finished run" means a run in one of the inherited v0.1.0 terminal run outcomes: `success`, `failed`, `timeout`, `killed`, or `interrupted`
 - runs in any finished state MAY be resumed if their workspace-specific reconstruction inputs still exist
 - live runs MUST NOT be resumed
+- reconstructable workspace material and lineage baselines MUST be retained until successful `promote` or explicit cleanup
 
 ### Workspace-specific resume behavior
 
 | Workspace | How the resumed workspace is constructed | Required failure behavior |
 | --- | --- | --- |
-| `worktree` | determine `resume_base_sha` from the previous worktree `HEAD`, then create a new detached worktree there | fail if the old worktree no longer exists or its Git state cannot be read |
+| `worktree` | restore the preserved workspace snapshot from the source run into a new detached worktree | fail if the preserved workspace snapshot is missing or cannot be restored cleanly |
 | `copy+patch` | create a fresh checkout at the original run's `base_sha`, then apply the old `diff.patch` | fail if `diff.patch` is missing or cannot be applied cleanly |
-| `repo-rw` | use the repository's current working directory state as `/work` | warn that the resumed run is non-reproducible; fail if unsafe workspace opt-in is absent |
+| `repo-rw` | use the repository's current working directory state as `/work`, carrying forward the original lineage baseline for later promote | warn that the resumed run is non-reproducible; fail if unsafe workspace opt-in is absent or the lineage baseline is missing |
 
 `copy+patch` resumed runs MUST generate a cumulative `diff.patch` against the same original `base_sha`.
 
@@ -166,8 +176,10 @@ v0.2.0 adds workspace-specific promote semantics.
 
 ### `repo-rw`
 
+- compare the repository working tree against the captured lineage baseline rather than blindly promoting the entire current tree
+- fail cleanly if the lineage baseline cannot be reconciled or if repository `HEAD` changed since the lineage root run started
 - create the branch in the repository working tree
-- use `git add -A`
+- use `git add -A` for the net delta selected from that comparison
 - create exactly one commit
 - print a warning that the commit was produced from an unsafe workspace mode
 
@@ -198,6 +210,7 @@ Required `workspace.json` fields for all workspace modes:
   "base_sha": "abc123",
   "repo_mount_mode": "ro",
   "resume_from": "01J...",
+  "lineage_root_run_id": "01J...",
   "reproducibility": "strong"
 }
 ```
@@ -209,6 +222,7 @@ Required `manifest.json` additions when relevant:
   "schema_version": 1,
   "workspace_mode": "copy+patch",
   "resume_from": "01J...",
+  "lineage_root_run_id": "01J...",
   "unsafe_workspace": false
 }
 ```
@@ -219,6 +233,9 @@ Rules:
 - patch generation for `copy+patch` MUST be deterministic
 - `repo-rw` evidence MUST make its weaker guarantees explicit
 - `resume_from` MUST refer to the immediately resumed prior `run_id`, not the root ancestor
+- `lineage_root_run_id` MUST refer to the first run in the promote lineage
+- `worktree` evidence MUST describe the preserved workspace snapshot needed for same-mode resume
+- `repo-rw` evidence MUST describe the captured lineage baseline used to bound promote attribution
 
 ## Acceptance scenarios
 
@@ -226,10 +243,34 @@ Rules:
 - `copy+patch` produces a deterministic patch and promotes it into one commit
 - `repo-rw` requires explicit unsafe opt-in and records that choice in evidence
 - `resume` works for `worktree`, `copy+patch`, and `repo-rw`
+- `worktree` resume preserves uncommitted tracked changes and untracked non-ignored files
 - resumed `copy+patch` runs generate cumulative patches against a stable `base_sha`
+- `--resume` with a different `--workspace` fails before container start
+- `repo-rw` may start dirty but `promote` commits only the net delta from the captured lineage baseline
+- `repo-rw` promote fails cleanly if repository `HEAD` changed after the lineage root run started
 - resuming a live run fails cleanly
 - resuming a run with missing reconstruction inputs fails cleanly
 - all workspace-specific warnings and evidence fields are present
+
+## Failure UX
+
+| Condition | Required behavior | Required user guidance |
+| --- | --- | --- |
+| `--resume` references a live run | fail before container start | tell the user the source run is still live and must finish before resume |
+| `--resume` requests a different workspace mode | fail before container start | print both workspace modes and tell the user v0.2 resume is same-mode only |
+| `worktree` resume reconstruction material is missing | fail before container start | identify the missing preserved workspace state and tell the user resume is no longer possible |
+| `copy+patch` reconstruction patch is missing or cannot be applied | fail before container start or promote | identify the patch failure and tell the user the run cannot be resumed or promoted cleanly |
+| `repo-rw` is selected without `--unsafe-workspace` or `--unsafe` | fail before container start | explain that `repo-rw` is unsafe and requires explicit opt-in |
+| `repo-rw` lineage baseline is missing or repository `HEAD` changed since the lineage root run started | fail without creating a branch or commit | tell the user promote attribution is no longer safe and the run must be rerun from a fresh baseline |
+| `promote` sees zero diff | fail without creating a branch or commit | tell the user there were no code changes to promote |
+
+## Success metrics
+
+- at least 85% of finished runs with resume-eligible evidence can be resumed successfully in the same workspace mode
+- at least 80% of resumed `worktree` runs preserve in-progress state without user-reported loss of edits
+- at least 75% of `copy+patch` runs with code changes promote successfully without patch-apply failure
+- at least 90% of `repo-rw` promote attempts either produce a bounded single commit or fail with the defined attribution-safety message
+- fewer than 10% of resume failures are caused by premature loss of retained reconstruction material
 
 ## Implementation Notes (Informative)
 
@@ -296,7 +337,7 @@ The current implementation direction shared across workspace modes is:
 `worktree`:
 
 - continue using a detached host worktree mounted read-write at `/work`
-- resume by reading the previous worktree `HEAD` and creating a fresh detached worktree from that point
+- resume from preserved workspace reconstruction material rather than from the previous worktree `HEAD`
 
 `copy+patch`:
 
@@ -309,7 +350,8 @@ The current implementation direction shared across workspace modes is:
 
 - mount the repository working tree directly at `/work`
 - record the unsafe workspace choice in evidence
-- resume from the repository's current working directory state rather than a reconstructable isolated snapshot
+- capture and retain a lineage baseline snapshot to bound later promote attribution
+- resume from the repository's current working directory state while carrying forward that lineage baseline
 
 ### Runner responsibilities
 
