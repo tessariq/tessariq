@@ -9,7 +9,9 @@ import (
 	"github.com/oklog/ulid/v2"
 )
 
-var entropy = ulid.Monotonic(rand.Reader, 0)
+var entropy = &ulid.LockedMonotonicReader{
+	MonotonicReader: ulid.Monotonic(rand.Reader, 0),
+}
 
 func NewRunID(now time.Time) (string, error) {
 	id, err := ulid.New(ulid.Timestamp(now), entropy)
