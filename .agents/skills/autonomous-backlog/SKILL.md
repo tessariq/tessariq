@@ -1,3 +1,9 @@
+---
+name: autonomous-backlog
+description: Execute one deterministic autonomous backlog cycle for Tessariq tracked work
+disable-model-invocation: true
+---
+
 # autonomous-backlog
 
 Execute one deterministic autonomous backlog cycle for Tessariq tracked work.

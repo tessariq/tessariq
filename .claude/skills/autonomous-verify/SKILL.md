@@ -1,3 +1,10 @@
+---
+name: autonomous-verify
+description: Run deterministic verification against Tessariq tracked-work acceptance criteria and spec coverage
+disable-model-invocation: true
+argument-hint: "[profile]"
+---
+
 # autonomous-verify
 
 Run deterministic verification against Tessariq tracked-work acceptance criteria and spec coverage.

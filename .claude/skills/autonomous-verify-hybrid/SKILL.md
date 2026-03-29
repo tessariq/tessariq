@@ -1,3 +1,10 @@
+---
+name: autonomous-verify-hybrid
+description: Run hybrid verification for Tessariq tracked work with deterministic low-risk fixes only
+disable-model-invocation: true
+argument-hint: "[profile]"
+---
+
 # autonomous-verify-hybrid
 
 Run hybrid verification for Tessariq tracked work with deterministic low-risk fixes only.

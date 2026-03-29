@@ -1,3 +1,10 @@
+---
+name: autonomous-task
+description: Execute one specified Tessariq tracked task with deterministic workflow transitions
+disable-model-invocation: true
+argument-hint: "[task-id]"
+---
+
 # autonomous-task
 
 Execute one specified Tessariq tracked task with deterministic workflow transitions.
