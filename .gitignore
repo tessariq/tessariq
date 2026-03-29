@@ -38,3 +38,6 @@ website/public/
 
 # Tessariq runtime state
 .tessariq/
+
+# Local agent state
+.superpowers/
