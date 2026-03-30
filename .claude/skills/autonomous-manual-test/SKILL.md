@@ -123,7 +123,7 @@ Container mode rules:
 - Fixes apply to product code only; never mutate test expectations to force a pass.
 - Re-run only the specific failing step after a fix, not the entire plan.
 - Do not auto-select another task after manual testing completes.
-- Never take shortcuts by substituting automated e2e test results for manual test evidence.
+- Never take shortcuts by substituting automated e2e test results for manual test evidence. If a test needs containers, write a proper `_manual_test.go` file.
 
 ### Cleanup (critical)
 
@@ -132,4 +132,4 @@ Manual test code is **ephemeral tooling** — only the artifacts (plan.md, repor
 - Sandbox mode: delete `cmd/manual-test-NNN/` and `/tmp/tessariq-manual-test-<task-id>/` after the report is written.
 - Container mode: delete `_manual_test.go` files after the report is written.
 - `.gitignore` blocks `*_manual_test.go` and `cmd/manual-test-*/` as a safety net, but the agent must still clean up explicitly.
-- If manual test code is found in a commit, remove it immediately. If a test needs containers, write a proper `_manual_test.go` file.
+- If manual test code is found in a commit, remove it immediately.
