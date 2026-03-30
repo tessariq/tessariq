@@ -85,6 +85,12 @@ Container mode manual tests:
 - Build CLI binaries with `CGO_ENABLED=0` for Alpine containers.
 - Never substitute automated e2e test results for manual test evidence.
 
+Cleanup (critical):
+- Manual test code is **ephemeral** — only artifacts (plan.md, report.md) are persisted.
+- After the report is written, delete all `_manual_test.go` files and `cmd/manual-test-*/` directories.
+- `.gitignore` blocks these patterns as a safety net, but agents must still clean up explicitly.
+- Never commit manual test code.
+
 Manual testing is required before running verification and before finishing a task as `done`.
 
 ## Tracked-Work Commands

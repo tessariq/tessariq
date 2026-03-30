@@ -1,6 +1,6 @@
 ---
 schema_version: 1
-updated_at: "2026-03-30T18:41:24Z"
+updated_at: "2026-03-30T18:43:38Z"
 mode: autonomous_backlog
 run_id: wf-20260330T183049Z
 agent_id: claude-opus-4-6
@@ -16,12 +16,12 @@ repo_state: idle
 last_transition: finish
 last_transition_at: "2026-03-30T18:41:18Z"
 selection_reason: next eligible todo by priority
-validation_last_run: "2026-03-30T18:39:58Z"
+validation_last_run: "2026-03-30T18:43:16Z"
 validation_status: passed
 validation_scope: task:v0.1.0
-validation_plan: planning/artifacts/verify/task/TASK-010-opencode-adapter/20260330T183958Z/plan.md
-validation_report: planning/artifacts/verify/task/TASK-010-opencode-adapter/20260330T183958Z/report.json
-validation_checked_at: "2026-03-30T18:39:58Z"
+validation_plan: planning/artifacts/verify/task/TASK-010-opencode-adapter/20260330T184316Z/plan.md
+validation_report: planning/artifacts/verify/task/TASK-010-opencode-adapter/20260330T184316Z/report.json
+validation_checked_at: "2026-03-30T18:43:16Z"
 milestone_focus: v0.1.0
 active_spec_version: v0.1.0
 active_spec_path: specs/tessariq-v0.1.0.md

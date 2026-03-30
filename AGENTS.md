@@ -226,6 +226,7 @@ Rules:
 - Update `CHANGELOG.md` for user-visible behavior changes; keep entries user-facing and skip internal-only maintenance noise.
 - Verify evidence file contracts are maintained when changing run or promote logic.
 - Run manual testing against the task's acceptance criteria before verification; artifacts must exist under `planning/artifacts/manual-test/<task-id>/` before finishing as `done`.
+- After manual testing, delete all manual test code (`_manual_test.go` files and `cmd/manual-test-*/` directories); only artifacts (plan.md, report.md) are committed.
 - Update specs in `specs/` only when explicitly requested; specs are normative.
 
 ## Agent do/don'ts (PR + commits)

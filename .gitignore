@@ -44,5 +44,9 @@ website/public/
 .superpowers/
 docs/superpowers/
 
+# Manual test code (ephemeral; only artifacts in planning/artifacts/ are kept)
+*_manual_test.go
+cmd/manual-test-*/
+
 # Local workflow verification artifacts
 planning/artifacts/
