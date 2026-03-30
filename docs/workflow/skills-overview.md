@@ -5,8 +5,9 @@ Skill catalog for deterministic tracked-work execution in Tessariq.
 ## Canonical Skills
 
 - `autonomous-backlog`
-- `autonomous-task`
+- `autonomous-manual-test`
 - `autonomous-recovery`
+- `autonomous-task`
 - `autonomous-verify`
 - `autonomous-verify-hybrid`
 
