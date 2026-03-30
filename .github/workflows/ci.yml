@@ -44,10 +44,6 @@ jobs:
       - name: Check dependency licenses
         run: go-licenses check ./cmd/tessariq --allowed_licenses=Apache-2.0,MIT,BSD-3-Clause,ISC,AGPL-3.0
 
-      - name: CLI help smoke test
-        run: |
-          go run ./cmd/tessariq --help
-
       - name: Validate tracked-work state and live spec refs
         run: go run ./cmd/tessariq-workflow validate-state
 
@@ -84,6 +80,29 @@ jobs:
       - name: Unit tests
         run: go test ./...
 
+  smoke-tests:
+    needs: checks
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build binary
+        run: CGO_ENABLED=0 go build -o tessariq ./cmd/tessariq
+
+      - name: Smoke test --help
+        run: ./tessariq --help
+
   integration-tests:
     needs: unit-tests
     runs-on: ubuntu-latest
@@ -101,7 +120,7 @@ jobs:
         run: go test -tags=integration ./...
 
   e2e-tests:
-    needs: integration-tests
+    needs: [integration-tests, smoke-tests]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
