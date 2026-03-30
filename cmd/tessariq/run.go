@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/tessariq/tessariq/internal/adapter"
 	"github.com/tessariq/tessariq/internal/git"
 	"github.com/tessariq/tessariq/internal/run"
 	"github.com/tessariq/tessariq/internal/runner"
@@ -94,6 +95,15 @@ func newRunCmd() *cobra.Command {
 				return err
 			}
 
+			adapterProc, err := adapter.NewProcess(cfg, string(content))
+			if err != nil {
+				return fmt.Errorf("create adapter: %w", err)
+			}
+
+			if err := adapter.WriteInfo(evidenceDir, adapterProc.Metadata); err != nil {
+				return fmt.Errorf("write adapter info: %w", err)
+			}
+
 			containerName := run.ContainerName(runID)
 			sessionName := run.SessionName(runID)
 
@@ -101,6 +111,7 @@ func newRunCmd() *cobra.Command {
 				RunID:       runID,
 				EvidenceDir: evidenceDir,
 				Config:      cfg,
+				Process:     adapterProc.Process,
 				Session:     &tmux.Starter{},
 				SessionName: sessionName,
 			}

@@ -1,7 +1,7 @@
 ---
 id: TASK-009-claude-code-adapter
 title: Implement the Claude Code adapter
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-008-adapter-contract-and-adapter-json
@@ -10,7 +10,7 @@ spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#adapter-contract
     - specs/tessariq-v0.1.0.md#evidence-contract
-updated_at: "2026-03-29T17:30:00Z"
+updated_at: "2026-03-30T15:58:12Z"
 areas:
     - adapters
     - claude-code
@@ -68,3 +68,4 @@ Implement the first-party `claude-code` adapter on top of the shared adapter con
 ## Notes
 
 - Preserve the evidence contract even when the adapter cannot apply an option exactly.
+- 2026-03-30T15:58:12Z: Claude Code adapter implemented. Evidence: unit tests (internal/adapter/claudecode/claudecode_test.go), integration tests (claudecode_integration_test.go), e2e test (cmd/tessariq/run_e2e_test.go), factory (internal/adapter/factory.go), wired into cmd/tessariq/run.go. Mutation testing 96.43% efficacy. Manual test: planning/artifacts/manual-test/TASK-009-claude-code-adapter/20260330T155600Z/report.md. Verification: planning/artifacts/verify/task/TASK-009-claude-code-adapter/20260330T155513Z/report.json (0 findings).
