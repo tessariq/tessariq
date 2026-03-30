@@ -28,6 +28,13 @@ type RunEnv struct {
 // claude binary that exits with claudeExitCode. The container bind-mounts
 // t.TempDir() at /work for host-side file exchange.
 func StartRunEnv(ctx context.Context, t *testing.T, claudeExitCode int) (*RunEnv, error) {
+	return StartRunEnvForBinary(ctx, t, "claude", claudeExitCode)
+}
+
+// StartRunEnvForBinary creates an Alpine container with tmux, git, bash, and
+// a fake binary at /usr/local/bin/<binaryName> that exits with exitCode. The
+// container bind-mounts t.TempDir() at /work for host-side file exchange.
+func StartRunEnvForBinary(ctx context.Context, t *testing.T, binaryName string, exitCode int) (*RunEnv, error) {
 	t.Helper()
 
 	u, err := user.Current()
@@ -63,13 +70,15 @@ func StartRunEnv(ctx context.Context, t *testing.T, claudeExitCode int) (*RunEnv
 		_ = container.Terminate(context.Background())
 	})
 
+	binPath := fmt.Sprintf("/usr/local/bin/%s", binaryName)
+
 	// Install runtime dependencies.
 	setupCmds := []string{
 		"apk add --no-cache tmux git bash",
 		"git config --global user.email test@test.com",
 		"git config --global user.name Test",
 		"git config --global init.defaultBranch main",
-		fmt.Sprintf("printf '#!/bin/sh\\nexit %d\\n' > /usr/local/bin/claude && chmod +x /usr/local/bin/claude", claudeExitCode),
+		fmt.Sprintf("printf '#!/bin/sh\\nexit %d\\n' > %s && chmod +x %s", exitCode, binPath, binPath),
 	}
 
 	for _, cmd := range setupCmds {

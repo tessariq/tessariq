@@ -1,4 +1,4 @@
-package claudecode
+package opencode
 
 import (
 	"context"
@@ -15,10 +15,8 @@ func TestBuildArgs_DefaultNonInteractive(t *testing.T) {
 	cfg := run.DefaultConfig()
 	args := buildArgs(cfg, "implement feature X")
 
-	require.Contains(t, args, "--print")
-	require.Contains(t, args, "--dangerously-skip-permissions")
-	require.Contains(t, args, "implement feature X")
-	require.NotContains(t, args, "--model")
+	require.Equal(t, []string{"implement feature X"}, args,
+		"opencode takes only the task as a positional arg, no flags")
 }
 
 func TestBuildArgs_WithModel(t *testing.T) {
@@ -28,10 +26,10 @@ func TestBuildArgs_WithModel(t *testing.T) {
 	cfg.Model = "sonnet"
 	args := buildArgs(cfg, "fix bug")
 
-	require.Contains(t, args, "--model")
-	require.Contains(t, args, "sonnet")
-	require.Contains(t, args, "--print")
-	require.Contains(t, args, "--dangerously-skip-permissions")
+	require.Equal(t, []string{"fix bug"}, args,
+		"model is not forwarded as a CLI flag")
+	require.NotContains(t, args, "--model")
+	require.NotContains(t, args, "sonnet")
 }
 
 func TestBuildArgs_Interactive(t *testing.T) {
@@ -41,10 +39,8 @@ func TestBuildArgs_Interactive(t *testing.T) {
 	cfg.Interactive = true
 	args := buildArgs(cfg, "review code")
 
-	require.NotContains(t, args, "--print")
-	require.NotContains(t, args, "--dangerously-skip-permissions")
-	require.NotContains(t, args, "review code",
-		"interactive mode should not pass task content as prompt arg")
+	require.Equal(t, []string{"review code"}, args,
+		"interactive mode does not change CLI args")
 }
 
 func TestBuildArgs_InteractiveWithModel(t *testing.T) {
@@ -55,10 +51,8 @@ func TestBuildArgs_InteractiveWithModel(t *testing.T) {
 	cfg.Model = "opus"
 	args := buildArgs(cfg, "task content")
 
-	require.NotContains(t, args, "--print")
-	require.NotContains(t, args, "--dangerously-skip-permissions")
-	require.Contains(t, args, "--model")
-	require.Contains(t, args, "opus")
+	require.Equal(t, []string{"task content"}, args,
+		"neither model nor interactive affect CLI args")
 }
 
 func TestBuildArgs_TableDriven(t *testing.T) {
@@ -69,35 +63,11 @@ func TestBuildArgs_TableDriven(t *testing.T) {
 		model       string
 		interactive bool
 		task        string
-		wantPrint   bool
-		wantSkip    bool
-		wantModel   bool
-		wantTask    bool
 	}{
-		{
-			name:      "default autonomous no model",
-			task:      "do stuff",
-			wantPrint: true, wantSkip: true, wantModel: false, wantTask: true,
-		},
-		{
-			name:      "autonomous with model",
-			model:     "sonnet",
-			task:      "do stuff",
-			wantPrint: true, wantSkip: true, wantModel: true, wantTask: true,
-		},
-		{
-			name:        "interactive no model",
-			interactive: true,
-			task:        "do stuff",
-			wantPrint:   false, wantSkip: false, wantModel: false, wantTask: false,
-		},
-		{
-			name:        "interactive with model",
-			interactive: true,
-			model:       "opus",
-			task:        "do stuff",
-			wantPrint:   false, wantSkip: false, wantModel: true, wantTask: false,
-		},
+		{name: "default autonomous no model", task: "do stuff"},
+		{name: "autonomous with model", model: "sonnet", task: "do stuff"},
+		{name: "interactive no model", interactive: true, task: "do stuff"},
+		{name: "interactive with model", interactive: true, model: "opus", task: "do stuff"},
 	}
 
 	for _, tt := range tests {
@@ -109,30 +79,8 @@ func TestBuildArgs_TableDriven(t *testing.T) {
 			cfg.Interactive = tt.interactive
 			args := buildArgs(cfg, tt.task)
 
-			if tt.wantPrint {
-				require.Contains(t, args, "--print")
-			} else {
-				require.NotContains(t, args, "--print")
-			}
-
-			if tt.wantSkip {
-				require.Contains(t, args, "--dangerously-skip-permissions")
-			} else {
-				require.NotContains(t, args, "--dangerously-skip-permissions")
-			}
-
-			if tt.wantModel {
-				require.Contains(t, args, "--model")
-				require.Contains(t, args, tt.model)
-			} else {
-				require.NotContains(t, args, "--model")
-			}
-
-			if tt.wantTask {
-				require.Contains(t, args, tt.task)
-			} else {
-				require.NotContains(t, args, tt.task)
-			}
+			require.Equal(t, []string{tt.task}, args,
+				"opencode always produces a single positional arg regardless of config")
 		})
 	}
 }
@@ -176,8 +124,8 @@ func TestBuildApplied_WithModel(t *testing.T) {
 	cfg.Model = "sonnet"
 	app := buildApplied(cfg)
 
-	require.True(t, app["interactive"])
-	require.True(t, app["model"])
+	require.False(t, app["interactive"], "opencode does not support interactive toggle")
+	require.False(t, app["model"], "opencode does not support model selection")
 }
 
 func TestBuildApplied_WithoutModel(t *testing.T) {
@@ -186,19 +134,30 @@ func TestBuildApplied_WithoutModel(t *testing.T) {
 	cfg := run.DefaultConfig()
 	app := buildApplied(cfg)
 
-	require.True(t, app["interactive"])
+	require.False(t, app["interactive"], "opencode does not support interactive toggle")
 	_, hasModel := app["model"]
 	require.False(t, hasModel, "model should be absent when not requested")
+}
+
+func TestBuildApplied_Interactive(t *testing.T) {
+	t.Parallel()
+
+	cfg := run.DefaultConfig()
+	cfg.Interactive = true
+	app := buildApplied(cfg)
+
+	require.False(t, app["interactive"],
+		"opencode cannot apply interactive mode, so applied must be false")
 }
 
 func TestResolveImage_CustomOverride(t *testing.T) {
 	t.Parallel()
 
 	cfg := run.DefaultConfig()
-	cfg.Image = "myregistry/claude:v2"
+	cfg.Image = "myregistry/opencode:v2"
 	img := resolveImage(cfg)
 
-	require.Equal(t, "myregistry/claude:v2", img)
+	require.Equal(t, "myregistry/opencode:v2", img)
 }
 
 func TestResolveImage_Default(t *testing.T) {
@@ -221,8 +180,8 @@ func TestNew_ReturnsProcessWithMetadata(t *testing.T) {
 	require.Equal(t, DefaultImage, p.Image())
 	require.Equal(t, "sonnet", p.Requested()["model"])
 	require.Equal(t, false, p.Requested()["interactive"])
-	require.True(t, p.Applied()["model"])
-	require.True(t, p.Applied()["interactive"])
+	require.False(t, p.Applied()["model"], "opencode does not apply model")
+	require.False(t, p.Applied()["interactive"], "opencode does not apply interactive")
 }
 
 func TestNew_CustomImage(t *testing.T) {
@@ -243,7 +202,8 @@ func TestNew_InteractiveMode(t *testing.T) {
 	p := New(cfg, "task")
 
 	require.Equal(t, true, p.Requested()["interactive"])
-	require.True(t, p.Applied()["interactive"])
+	require.False(t, p.Applied()["interactive"],
+		"opencode does not support interactive toggle")
 }
 
 func TestNew_NoModelOmitsFromMetadata(t *testing.T) {
@@ -268,7 +228,7 @@ func TestStart_BinaryNotFound_UserGuidance(t *testing.T) {
 	err := p.Start(context.Background())
 	require.Error(t, err)
 	require.ErrorIs(t, err, exec.ErrNotFound)
-	require.Contains(t, err.Error(), `adapter binary "claude"`)
+	require.Contains(t, err.Error(), `adapter binary "opencode"`)
 	require.Contains(t, err.Error(), "container image")
 	require.Contains(t, err.Error(), "--image")
 }

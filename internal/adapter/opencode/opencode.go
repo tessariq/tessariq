@@ -1,4 +1,4 @@
-package claudecode
+package opencode
 
 import (
 	"context"
@@ -10,13 +10,13 @@ import (
 	"github.com/tessariq/tessariq/internal/run"
 )
 
-// DefaultImage is the default container image for the Claude Code adapter.
-const DefaultImage = "ghcr.io/tessariq/claude-code:latest"
+// DefaultImage is the default container image for the OpenCode adapter.
+const DefaultImage = "ghcr.io/tessariq/opencode:latest"
 
 // AdapterName is the adapter identifier recorded in adapter.json.
-const AdapterName = "claude-code"
+const AdapterName = "opencode"
 
-// Process implements runner.ProcessRunner for the Claude Code adapter.
+// Process implements runner.ProcessRunner for the OpenCode adapter.
 type Process struct {
 	args      []string
 	image     string
@@ -25,7 +25,7 @@ type Process struct {
 	cmd       *exec.Cmd
 }
 
-// New creates a Claude Code adapter process from the run configuration.
+// New creates an OpenCode adapter process from the run configuration.
 func New(cfg run.Config, taskContent string) *Process {
 	return &Process{
 		args:      buildArgs(cfg, taskContent),
@@ -50,13 +50,13 @@ func (p *Process) Applied() map[string]bool {
 	return p.applied
 }
 
-// Start begins the claude process.
+// Start begins the opencode process.
 func (p *Process) Start(ctx context.Context) error {
-	p.cmd = exec.CommandContext(ctx, "claude", p.args...)
+	p.cmd = exec.CommandContext(ctx, "opencode", p.args...)
 	err := p.cmd.Start()
 	if err != nil {
 		if errors.Is(err, exec.ErrNotFound) {
-			return fmt.Errorf("adapter binary %q is not available; ensure the container image includes claude or use --image to specify a compatible image: %w", "claude", err)
+			return fmt.Errorf("adapter binary %q is not available; ensure the container image includes opencode or use --image to specify a compatible image: %w", "opencode", err)
 		}
 		return err
 	}
@@ -84,25 +84,11 @@ func (p *Process) Signal(sig os.Signal) error {
 	return nil
 }
 
-// buildArgs translates run.Config into claude CLI arguments.
-// Non-interactive (default): claude --print --dangerously-skip-permissions [--model M] <task>
-// Interactive: claude [--model M]
+// buildArgs translates run.Config into opencode CLI arguments.
+// OpenCode takes only the task content as a positional argument.
+// It does not support --model or --interactive flags.
 func buildArgs(cfg run.Config, taskContent string) []string {
-	var args []string
-
-	if !cfg.Interactive {
-		args = append(args, "--print", "--dangerously-skip-permissions")
-	}
-
-	if cfg.Model != "" {
-		args = append(args, "--model", cfg.Model)
-	}
-
-	if !cfg.Interactive {
-		args = append(args, taskContent)
-	}
-
-	return args
+	return []string{taskContent}
 }
 
 // buildRequested records which adapter options were requested by the user.
@@ -117,13 +103,13 @@ func buildRequested(cfg run.Config) map[string]any {
 }
 
 // buildApplied records which requested options the adapter applied exactly.
-// Claude Code supports both --model and --interactive natively.
+// OpenCode does not natively support --model or --interactive.
 func buildApplied(cfg run.Config) map[string]bool {
 	app := map[string]bool{
-		"interactive": true,
+		"interactive": false,
 	}
 	if cfg.Model != "" {
-		app["model"] = true
+		app["model"] = false
 	}
 	return app
 }

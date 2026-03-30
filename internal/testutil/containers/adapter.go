@@ -26,26 +26,41 @@ type AdapterEnv struct {
 //	-1: no binary installed (binary-not-found tests)
 //	>= 0: /usr/local/bin/claude exits with that code
 func StartAdapterEnv(ctx context.Context, t *testing.T, exitCode int) (*AdapterEnv, error) {
+	return StartAdapterEnvForBinary(ctx, t, "claude", exitCode)
+}
+
+// StartAdapterEnvForBinary creates an Alpine container with a fake binary
+// installed at /usr/local/bin/<binaryName>. exitCode controls behavior:
+//
+//	-1: no binary installed (binary-not-found tests)
+//	>= 0: binary exits with that code
+func StartAdapterEnvForBinary(ctx context.Context, t *testing.T, binaryName string, exitCode int) (*AdapterEnv, error) {
 	t.Helper()
 
 	if exitCode < 0 {
-		return startAdapterContainer(ctx, t, "")
+		return startAdapterContainer(ctx, t, binaryName, "")
 	}
 
 	script := fmt.Sprintf("#!/bin/sh\nexit %d\n", exitCode)
-	return startAdapterContainer(ctx, t, script)
+	return startAdapterContainer(ctx, t, binaryName, script)
 }
 
 // StartAdapterEnvWithScript creates an Alpine container with a custom claude
 // script body. Use this for edge cases like crash-no-output (e.g. "kill -9 $$").
 func StartAdapterEnvWithScript(ctx context.Context, t *testing.T, scriptBody string) (*AdapterEnv, error) {
+	return StartAdapterEnvWithScriptForBinary(ctx, t, "claude", scriptBody)
+}
+
+// StartAdapterEnvWithScriptForBinary creates an Alpine container with a custom
+// script body installed as the named binary.
+func StartAdapterEnvWithScriptForBinary(ctx context.Context, t *testing.T, binaryName string, scriptBody string) (*AdapterEnv, error) {
 	t.Helper()
 
 	script := fmt.Sprintf("#!/bin/sh\n%s\n", scriptBody)
-	return startAdapterContainer(ctx, t, script)
+	return startAdapterContainer(ctx, t, binaryName, script)
 }
 
-func startAdapterContainer(ctx context.Context, t *testing.T, claudeScript string) (*AdapterEnv, error) {
+func startAdapterContainer(ctx context.Context, t *testing.T, binaryName string, script string) (*AdapterEnv, error) {
 	t.Helper()
 
 	req := testcontainers.ContainerRequest{
@@ -67,15 +82,16 @@ func startAdapterContainer(ctx context.Context, t *testing.T, claudeScript strin
 		_ = container.Terminate(context.Background())
 	})
 
-	if claudeScript != "" {
-		installCmd := fmt.Sprintf("printf '%%s' '%s' > /usr/local/bin/claude && chmod +x /usr/local/bin/claude",
-			strings.ReplaceAll(claudeScript, "'", "'\\''"))
+	if script != "" {
+		binPath := fmt.Sprintf("/usr/local/bin/%s", binaryName)
+		installCmd := fmt.Sprintf("printf '%%s' '%s' > %s && chmod +x %s",
+			strings.ReplaceAll(script, "'", "'\\''"), binPath, binPath)
 		code, _, err := container.Exec(ctx, []string{"sh", "-c", installCmd}, tcexec.Multiplexed())
 		if err != nil {
-			return nil, fmt.Errorf("install fake claude: %w", err)
+			return nil, fmt.Errorf("install fake %s: %w", binaryName, err)
 		}
 		if code != 0 {
-			return nil, fmt.Errorf("install fake claude exited with code %d", code)
+			return nil, fmt.Errorf("install fake %s exited with code %d", binaryName, code)
 		}
 	}
 

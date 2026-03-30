@@ -1,7 +1,7 @@
 ---
 id: TASK-010-opencode-adapter
 title: Implement the OpenCode adapter
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-008-adapter-contract-and-adapter-json
@@ -11,7 +11,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#adapter-contract
     - specs/tessariq-v0.1.0.md#evidence-contract
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-03-30T20:35:00Z"
+updated_at: "2026-03-30T18:41:18Z"
 areas:
     - adapters
     - opencode
@@ -71,3 +71,4 @@ Implement the first-party `opencode` adapter on top of the shared adapter contra
 ## Notes
 
 - Preserve the evidence contract even when the adapter cannot apply an option exactly.
+- 2026-03-30T18:41:18Z: Implemented opencode adapter with unit tests (18), integration tests (4), e2e tests (2), manual test (1). Binary-not-found wrapping added to both adapters for consistency. Mutation efficacy 94.94%. Evidence: planning/artifacts/verify/task/TASK-010-opencode-adapter/20260330T183958Z/, planning/artifacts/manual-test/TASK-010-opencode-adapter/20260330T204000Z/

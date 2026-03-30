@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/tessariq/tessariq/internal/adapter/claudecode"
+	"github.com/tessariq/tessariq/internal/adapter/opencode"
 	"github.com/tessariq/tessariq/internal/run"
 	"github.com/tessariq/tessariq/internal/runner"
 )
@@ -29,7 +30,16 @@ func NewProcess(cfg run.Config, taskContent string) (*AdapterProcess, error) {
 			),
 		}, nil
 	case "opencode":
-		return nil, fmt.Errorf("adapter not yet implemented: opencode")
+		p := opencode.New(cfg, taskContent)
+		return &AdapterProcess{
+			Process: p,
+			Metadata: NewInfo(
+				opencode.AdapterName,
+				p.Image(),
+				p.Requested(),
+				p.Applied(),
+			),
+		}, nil
 	default:
 		return nil, fmt.Errorf("unsupported adapter: %s", cfg.Agent)
 	}

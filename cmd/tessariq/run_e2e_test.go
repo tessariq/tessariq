@@ -46,10 +46,17 @@ const repoDir = "/work/repo"
 // setupRunEnv creates a RunEnv container, copies the tessariq binary into it,
 // and initialises a git repo with a sample task file inside the container.
 func setupRunEnv(t *testing.T, bin string, claudeExitCode int) *containers.RunEnv {
+	return setupRunEnvForBinary(t, bin, "claude", claudeExitCode)
+}
+
+// setupRunEnvForBinary creates a RunEnv container with a fake adapter binary,
+// copies the tessariq binary into it, and initialises a git repo with a sample
+// task file inside the container.
+func setupRunEnvForBinary(t *testing.T, bin string, binaryName string, exitCode int) *containers.RunEnv {
 	t.Helper()
 
 	ctx := context.Background()
-	env, err := containers.StartRunEnv(ctx, t, claudeExitCode)
+	env, err := containers.StartRunEnvForBinary(ctx, t, binaryName, exitCode)
 	require.NoError(t, err)
 
 	// Copy the tessariq binary into the bind-mounted dir.
@@ -133,6 +140,51 @@ func TestE2E_AdapterJSONWritten(t *testing.T) {
 	require.NotEmpty(t, info.Image)
 	require.NotNil(t, info.Requested)
 	require.NotNil(t, info.Applied)
+}
+
+func TestE2E_OpenCodeDetachedRunPrintsGuidance(t *testing.T) {
+	bin := buildBinary(t)
+	env := setupRunEnvForBinary(t, bin, "opencode", 0)
+
+	ctx := context.Background()
+	code, output, err := env.Exec(ctx, []string{"sh", "-c", "cd " + repoDir + " && /work/tessariq run --agent opencode tasks/sample.md"})
+	require.NoError(t, err)
+	require.Equal(t, 0, code, "run failed: %s", output)
+
+	require.Contains(t, output, "run_id: ")
+	require.Contains(t, output, "evidence_path: ")
+	require.Contains(t, output, "workspace_path: ")
+	require.Contains(t, output, "container_name: ")
+	require.Contains(t, output, "attach: tessariq attach ")
+	require.Contains(t, output, "promote: tessariq promote ")
+}
+
+func TestE2E_OpenCodeAdapterJSONWritten(t *testing.T) {
+	bin := buildBinary(t)
+	env := setupRunEnvForBinary(t, bin, "opencode", 0)
+
+	ctx := context.Background()
+	code, output, err := env.Exec(ctx, []string{"sh", "-c", "cd " + repoDir + " && /work/tessariq run --agent opencode tasks/sample.md"})
+	require.NoError(t, err)
+	require.Equal(t, 0, code, "run failed: %s", output)
+
+	evidencePath := extractField(output, "evidence_path")
+	require.NotEmpty(t, evidencePath, "evidence_path must be in output")
+
+	// Read adapter.json from inside the container.
+	catCode, adapterData, err := env.Exec(ctx, []string{"cat", filepath.Join(evidencePath, "adapter.json")})
+	require.NoError(t, err)
+	require.Equal(t, 0, catCode, "adapter.json must exist")
+
+	var info adapter.Info
+	require.NoError(t, json.Unmarshal([]byte(adapterData), &info))
+	require.Equal(t, 1, info.SchemaVersion)
+	require.Equal(t, "opencode", info.Adapter)
+	require.NotEmpty(t, info.Image)
+	require.NotNil(t, info.Requested)
+	require.NotNil(t, info.Applied)
+	require.False(t, info.Applied["interactive"],
+		"opencode does not apply interactive")
 }
 
 func TestE2E_InitFailsWithActionableGuidanceWhenGitMissing(t *testing.T) {

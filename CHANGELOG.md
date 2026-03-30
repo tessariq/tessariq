@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added detached-by-default tmux session startup with script-friendly stdout guidance for `attach` and `promote` commands.
 - Added shared adapter evidence contract with `adapter.json` requested-versus-applied recording semantics for exact and partial option application.
 - Added first-party `claude-code` adapter support integrated into run lifecycle execution and evidence output.
+- Added first-party `opencode` adapter with partial-application recording for unsupported `--model` and `--interactive` options.
+- Added actionable binary-not-found error messages for both `claude-code` and `opencode` adapters naming the missing binary and container image expectation.
 
 ### Changed
 
