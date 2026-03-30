@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Changed evidence model from single `adapter.json` to split `agent.json` (requested/applied options) and `runtime.json` (image identity and mount-policy metadata), aligning with v0.1.0 agent-and-runtime contract.
+- Changed `manifest.json` to use `agent` instead of `adapter` and added `resolved_egress_mode` and `allowlist_source` fields per v0.1.0 spec.
 - Changed CLI approval and egress flag UX: replaced `--yolo` with `--interactive` (autonomous-by-default) and renamed `--egress-allow-reset` to `--egress-no-defaults` for clearer intent.
 - Changed prerequisite preflight UX for local CLI execution so `tessariq init`, `tessariq run`, and `tessariq attach` fail fast with actionable missing-dependency guidance before lifecycle side effects.
 

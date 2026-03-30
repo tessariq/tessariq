@@ -105,8 +105,12 @@ func newRunCmd() *cobra.Command {
 				return fmt.Errorf("create adapter: %w", err)
 			}
 
-			if err := adapter.WriteInfo(evidenceDir, adapterProc.Metadata); err != nil {
-				return fmt.Errorf("write adapter info: %w", err)
+			if err := adapter.WriteAgentInfo(evidenceDir, adapterProc.AgentInfo); err != nil {
+				return fmt.Errorf("write agent info: %w", err)
+			}
+
+			if err := adapter.WriteRuntimeInfo(evidenceDir, adapterProc.RuntimeInfo); err != nil {
+				return fmt.Errorf("write runtime info: %w", err)
 			}
 
 			containerName := run.ContainerName(runID)

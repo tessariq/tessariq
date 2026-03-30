@@ -18,8 +18,10 @@ func TestNewProcess_ClaudeCode(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, ap)
 	require.NotNil(t, ap.Process)
-	require.Equal(t, "claude-code", ap.Metadata.Adapter)
-	require.Equal(t, 1, ap.Metadata.SchemaVersion)
+	require.Equal(t, "claude-code", ap.AgentInfo.Agent)
+	require.Equal(t, 1, ap.AgentInfo.SchemaVersion)
+	require.Equal(t, 1, ap.RuntimeInfo.SchemaVersion)
+	require.Equal(t, "reference", ap.RuntimeInfo.ImageSource)
 }
 
 func TestNewProcess_OpenCode(t *testing.T) {
@@ -33,10 +35,11 @@ func TestNewProcess_OpenCode(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, ap)
 	require.NotNil(t, ap.Process)
-	require.Equal(t, "opencode", ap.Metadata.Adapter)
-	require.Equal(t, 1, ap.Metadata.SchemaVersion)
-	require.False(t, ap.Metadata.Applied["interactive"],
+	require.Equal(t, "opencode", ap.AgentInfo.Agent)
+	require.Equal(t, 1, ap.AgentInfo.SchemaVersion)
+	require.False(t, ap.AgentInfo.Applied["interactive"],
 		"opencode does not apply interactive")
+	require.Equal(t, "reference", ap.RuntimeInfo.ImageSource)
 }
 
 func TestNewProcess_OpenCodeWithModel(t *testing.T) {
@@ -49,9 +52,22 @@ func TestNewProcess_OpenCodeWithModel(t *testing.T) {
 	ap, err := NewProcess(cfg, "task")
 
 	require.NoError(t, err)
-	require.Equal(t, "sonnet", ap.Metadata.Requested["model"])
-	require.False(t, ap.Metadata.Applied["model"],
+	require.Equal(t, "sonnet", ap.AgentInfo.Requested["model"])
+	require.False(t, ap.AgentInfo.Applied["model"],
 		"opencode does not apply model")
+}
+
+func TestNewProcess_CustomImageSource(t *testing.T) {
+	t.Parallel()
+
+	cfg := run.DefaultConfig()
+	cfg.TaskPath = "specs/task.md"
+	cfg.Image = "my-registry/custom:v1"
+	ap, err := NewProcess(cfg, "task")
+
+	require.NoError(t, err)
+	require.Equal(t, "custom", ap.RuntimeInfo.ImageSource)
+	require.Equal(t, "my-registry/custom:v1", ap.RuntimeInfo.Image)
 }
 
 func TestNewProcess_BinaryNotFoundMessageConsistency(t *testing.T) {

@@ -116,7 +116,7 @@ func TestE2E_DetachedRunPrintsGuidance(t *testing.T) {
 	require.Contains(t, output, "promote: tessariq promote ")
 }
 
-func TestE2E_AdapterJSONWritten(t *testing.T) {
+func TestE2E_AgentAndRuntimeJSONWritten(t *testing.T) {
 	bin := buildBinary(t)
 	env := setupRunEnv(t, bin, 0)
 
@@ -128,18 +128,29 @@ func TestE2E_AdapterJSONWritten(t *testing.T) {
 	evidencePath := extractField(output, "evidence_path")
 	require.NotEmpty(t, evidencePath, "evidence_path must be in output")
 
-	// Read adapter.json from inside the container.
-	catCode, adapterData, err := env.Exec(ctx, []string{"cat", filepath.Join(evidencePath, "adapter.json")})
+	// Read agent.json from inside the container.
+	catCode, agentData, err := env.Exec(ctx, []string{"cat", filepath.Join(evidencePath, "agent.json")})
 	require.NoError(t, err)
-	require.Equal(t, 0, catCode, "adapter.json must exist")
+	require.Equal(t, 0, catCode, "agent.json must exist")
 
-	var info adapter.Info
-	require.NoError(t, json.Unmarshal([]byte(adapterData), &info))
-	require.Equal(t, 1, info.SchemaVersion)
-	require.Equal(t, "claude-code", info.Adapter)
-	require.NotEmpty(t, info.Image)
-	require.NotNil(t, info.Requested)
-	require.NotNil(t, info.Applied)
+	var agentInfo adapter.AgentInfo
+	require.NoError(t, json.Unmarshal([]byte(agentData), &agentInfo))
+	require.Equal(t, 1, agentInfo.SchemaVersion)
+	require.Equal(t, "claude-code", agentInfo.Agent)
+	require.NotNil(t, agentInfo.Requested)
+	require.NotNil(t, agentInfo.Applied)
+
+	// Read runtime.json from inside the container.
+	catCode, runtimeData, err := env.Exec(ctx, []string{"cat", filepath.Join(evidencePath, "runtime.json")})
+	require.NoError(t, err)
+	require.Equal(t, 0, catCode, "runtime.json must exist")
+
+	var runtimeInfo adapter.RuntimeInfo
+	require.NoError(t, json.Unmarshal([]byte(runtimeData), &runtimeInfo))
+	require.Equal(t, 1, runtimeInfo.SchemaVersion)
+	require.NotEmpty(t, runtimeInfo.Image)
+	require.Equal(t, "reference", runtimeInfo.ImageSource)
+	require.Equal(t, "read-only", runtimeInfo.AuthMountMode)
 }
 
 func TestE2E_OpenCodeDetachedRunPrintsGuidance(t *testing.T) {
@@ -159,7 +170,7 @@ func TestE2E_OpenCodeDetachedRunPrintsGuidance(t *testing.T) {
 	require.Contains(t, output, "promote: tessariq promote ")
 }
 
-func TestE2E_OpenCodeAdapterJSONWritten(t *testing.T) {
+func TestE2E_OpenCodeAgentAndRuntimeJSONWritten(t *testing.T) {
 	bin := buildBinary(t)
 	env := setupRunEnvForBinary(t, bin, "opencode", 0)
 
@@ -171,20 +182,30 @@ func TestE2E_OpenCodeAdapterJSONWritten(t *testing.T) {
 	evidencePath := extractField(output, "evidence_path")
 	require.NotEmpty(t, evidencePath, "evidence_path must be in output")
 
-	// Read adapter.json from inside the container.
-	catCode, adapterData, err := env.Exec(ctx, []string{"cat", filepath.Join(evidencePath, "adapter.json")})
+	// Read agent.json from inside the container.
+	catCode, agentData, err := env.Exec(ctx, []string{"cat", filepath.Join(evidencePath, "agent.json")})
 	require.NoError(t, err)
-	require.Equal(t, 0, catCode, "adapter.json must exist")
+	require.Equal(t, 0, catCode, "agent.json must exist")
 
-	var info adapter.Info
-	require.NoError(t, json.Unmarshal([]byte(adapterData), &info))
-	require.Equal(t, 1, info.SchemaVersion)
-	require.Equal(t, "opencode", info.Adapter)
-	require.NotEmpty(t, info.Image)
-	require.NotNil(t, info.Requested)
-	require.NotNil(t, info.Applied)
-	require.False(t, info.Applied["interactive"],
+	var agentInfo adapter.AgentInfo
+	require.NoError(t, json.Unmarshal([]byte(agentData), &agentInfo))
+	require.Equal(t, 1, agentInfo.SchemaVersion)
+	require.Equal(t, "opencode", agentInfo.Agent)
+	require.NotNil(t, agentInfo.Requested)
+	require.NotNil(t, agentInfo.Applied)
+	require.False(t, agentInfo.Applied["interactive"],
 		"opencode does not apply interactive")
+
+	// Read runtime.json from inside the container.
+	catCode, runtimeData, err := env.Exec(ctx, []string{"cat", filepath.Join(evidencePath, "runtime.json")})
+	require.NoError(t, err)
+	require.Equal(t, 0, catCode, "runtime.json must exist")
+
+	var runtimeInfo adapter.RuntimeInfo
+	require.NoError(t, json.Unmarshal([]byte(runtimeData), &runtimeInfo))
+	require.Equal(t, 1, runtimeInfo.SchemaVersion)
+	require.NotEmpty(t, runtimeInfo.Image)
+	require.Equal(t, "reference", runtimeInfo.ImageSource)
 }
 
 func TestE2E_InitFailsWithActionableGuidanceWhenGitMissing(t *testing.T) {

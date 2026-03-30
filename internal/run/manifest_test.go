@@ -24,14 +24,16 @@ func TestBuildManifestSeed_RequiredFields(t *testing.T) {
 	require.Equal(t, "01ARZ3NDEKTSV4RRFFQ69G5FAV", m.RunID)
 	require.Equal(t, "specs/example.md", m.TaskPath)
 	require.Equal(t, "Example Task", m.TaskTitle)
-	require.Equal(t, "claude-code", m.Adapter)
+	require.Equal(t, "claude-code", m.Agent)
 	require.Equal(t, "abc123def456", m.BaseSHA)
 	require.Equal(t, "worktree", m.WorkspaceMode)
 	require.Equal(t, "auto", m.RequestedEgressMode)
+	require.Equal(t, "proxy", m.ResolvedEgressMode)
+	require.Equal(t, "built_in", m.AllowlistSource)
 	require.Equal(t, "2026-03-29T12:00:00Z", m.CreatedAt)
 }
 
-func TestBuildManifestSeed_ExactlyTenFields(t *testing.T) {
+func TestBuildManifestSeed_ExactlyTwelveFields(t *testing.T) {
 	t.Parallel()
 
 	cfg := DefaultConfig()
@@ -52,10 +54,12 @@ func TestBuildManifestSeed_ExactlyTenFields(t *testing.T) {
 		"run_id":                true,
 		"task_path":             true,
 		"task_title":            true,
-		"adapter":               true,
+		"agent":                 true,
 		"base_sha":              true,
 		"workspace_mode":        true,
 		"requested_egress_mode": true,
+		"resolved_egress_mode":  true,
+		"allowlist_source":      true,
 		"container_name":        true,
 		"created_at":            true,
 	}
@@ -89,6 +93,7 @@ func TestBuildManifestSeed_UsesResolveEgress(t *testing.T) {
 
 	m := BuildManifestSeed(cfg, runID, "Task", "sha", now)
 	require.Equal(t, "open", m.RequestedEgressMode)
+	require.Equal(t, "open", m.ResolvedEgressMode)
 }
 
 func TestBuildManifestSeed_CreatedAtFormat(t *testing.T) {
@@ -115,6 +120,58 @@ func TestBuildManifestSeed_RunIDFormat(t *testing.T) {
 	require.True(t, IsValidRunID(m.RunID))
 }
 
+func TestBuildManifestSeed_AutoResolvesToProxy(t *testing.T) {
+	t.Parallel()
+
+	cfg := DefaultConfig()
+	cfg.TaskPath = "specs/task.md"
+	runID := "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+	now := time.Now()
+
+	m := BuildManifestSeed(cfg, runID, "Task", "sha", now)
+	require.Equal(t, "auto", m.RequestedEgressMode)
+	require.Equal(t, "proxy", m.ResolvedEgressMode)
+}
+
+func TestBuildManifestSeed_ExplicitEgressNone(t *testing.T) {
+	t.Parallel()
+
+	cfg := DefaultConfig()
+	cfg.TaskPath = "specs/task.md"
+	cfg.Egress = "none"
+	runID := "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+	now := time.Now()
+
+	m := BuildManifestSeed(cfg, runID, "Task", "sha", now)
+	require.Equal(t, "none", m.RequestedEgressMode)
+	require.Equal(t, "none", m.ResolvedEgressMode)
+}
+
+func TestBuildManifestSeed_AllowlistSourceCLI(t *testing.T) {
+	t.Parallel()
+
+	cfg := DefaultConfig()
+	cfg.TaskPath = "specs/task.md"
+	cfg.EgressAllow = []string{"api.openai.com:443"}
+	runID := "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+	now := time.Now()
+
+	m := BuildManifestSeed(cfg, runID, "Task", "sha", now)
+	require.Equal(t, "cli", m.AllowlistSource)
+}
+
+func TestBuildManifestSeed_AllowlistSourceBuiltIn(t *testing.T) {
+	t.Parallel()
+
+	cfg := DefaultConfig()
+	cfg.TaskPath = "specs/task.md"
+	runID := "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+	now := time.Now()
+
+	m := BuildManifestSeed(cfg, runID, "Task", "sha", now)
+	require.Equal(t, "built_in", m.AllowlistSource)
+}
+
 func TestWriteManifest_CreatesDirectory(t *testing.T) {
 	t.Parallel()
 
@@ -123,8 +180,10 @@ func TestWriteManifest_CreatesDirectory(t *testing.T) {
 		SchemaVersion:       1,
 		RunID:               "01ARZ3NDEKTSV4RRFFQ69G5FAV",
 		TaskPath:            "specs/task.md",
-		Adapter:             "claude-code",
+		Agent:               "claude-code",
 		RequestedEgressMode: "auto",
+		ResolvedEgressMode:  "proxy",
+		AllowlistSource:     "built_in",
 		CreatedAt:           "2026-01-27T12:00:00Z",
 	}
 
@@ -142,8 +201,10 @@ func TestWriteManifest_WritesValidJSON(t *testing.T) {
 		SchemaVersion:       1,
 		RunID:               "01ARZ3NDEKTSV4RRFFQ69G5FAV",
 		TaskPath:            "specs/task.md",
-		Adapter:             "claude-code",
+		Agent:               "claude-code",
 		RequestedEgressMode: "auto",
+		ResolvedEgressMode:  "proxy",
+		AllowlistSource:     "built_in",
 		CreatedAt:           "2026-01-27T12:00:00Z",
 	}
 
@@ -180,8 +241,10 @@ func TestBootstrapManifest_Integration(t *testing.T) {
 	require.Equal(t, runID, parsed.RunID)
 	require.Equal(t, "specs/task.md", parsed.TaskPath)
 	require.Equal(t, "Task Title", parsed.TaskTitle)
-	require.Equal(t, "claude-code", parsed.Adapter)
+	require.Equal(t, "claude-code", parsed.Agent)
 	require.Equal(t, "abc123", parsed.BaseSHA)
 	require.Equal(t, "worktree", parsed.WorkspaceMode)
 	require.Equal(t, "auto", parsed.RequestedEgressMode)
+	require.Equal(t, "proxy", parsed.ResolvedEgressMode)
+	require.Equal(t, "built_in", parsed.AllowlistSource)
 }

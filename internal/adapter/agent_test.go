@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewInfo_RequiredFields(t *testing.T) {
+func TestNewAgentInfo_RequiredFields(t *testing.T) {
 	t.Parallel()
 
 	requested := map[string]any{
@@ -21,16 +21,15 @@ func TestNewInfo_RequiredFields(t *testing.T) {
 		"interactive": true,
 	}
 
-	info := NewInfo("claude-code", "example/image:tag", requested, applied)
+	info := NewAgentInfo("claude-code", requested, applied)
 
 	require.Equal(t, 1, info.SchemaVersion)
-	require.Equal(t, "claude-code", info.Adapter)
-	require.Equal(t, "example/image:tag", info.Image)
+	require.Equal(t, "claude-code", info.Agent)
 	require.Equal(t, requested, info.Requested)
 	require.Equal(t, applied, info.Applied)
 }
 
-func TestNewInfo_RecordsUnsupportedRequested(t *testing.T) {
+func TestNewAgentInfo_RecordsUnsupportedRequested(t *testing.T) {
 	t.Parallel()
 
 	requested := map[string]any{
@@ -42,13 +41,13 @@ func TestNewInfo_RecordsUnsupportedRequested(t *testing.T) {
 		"interactive": true,
 	}
 
-	info := NewInfo("claude-code", "img:latest", requested, applied)
+	info := NewAgentInfo("claude-code", requested, applied)
 
 	require.Equal(t, "gpt-5.4", info.Requested["model"])
 	require.False(t, info.Applied["model"])
 }
 
-func TestNewInfo_AppliedDiffersFromRequested(t *testing.T) {
+func TestNewAgentInfo_AppliedDiffersFromRequested(t *testing.T) {
 	t.Parallel()
 
 	requested := map[string]any{
@@ -60,16 +59,16 @@ func TestNewInfo_AppliedDiffersFromRequested(t *testing.T) {
 		"interactive": false,
 	}
 
-	info := NewInfo("opencode", "img:v1", requested, applied)
+	info := NewAgentInfo("opencode", requested, applied)
 
 	require.Equal(t, "o3-pro", info.Requested["model"],
 		"requested value must be preserved even when not applied")
 	require.False(t, info.Applied["model"],
-		"applied must reflect actual adapter capability")
+		"applied must reflect actual agent capability")
 	require.False(t, info.Applied["interactive"])
 }
 
-func TestNewInfo_Extensibility(t *testing.T) {
+func TestNewAgentInfo_Extensibility(t *testing.T) {
 	t.Parallel()
 
 	requested := map[string]any{
@@ -83,7 +82,7 @@ func TestNewInfo_Extensibility(t *testing.T) {
 		"custom_flag": false,
 	}
 
-	info := NewInfo("claude-code", "img:v2", requested, applied)
+	info := NewAgentInfo("claude-code", requested, applied)
 
 	require.Equal(t, 1, info.SchemaVersion,
 		"extra options must not change schema_version")
@@ -91,10 +90,10 @@ func TestNewInfo_Extensibility(t *testing.T) {
 	require.False(t, info.Applied["custom_flag"])
 }
 
-func TestNewInfo_ExactlyFiveTopLevelKeys(t *testing.T) {
+func TestNewAgentInfo_ExactlyFourTopLevelKeys(t *testing.T) {
 	t.Parallel()
 
-	info := NewInfo("claude-code", "img:tag",
+	info := NewAgentInfo("claude-code",
 		map[string]any{"model": "x"},
 		map[string]bool{"model": true},
 	)
@@ -107,8 +106,7 @@ func TestNewInfo_ExactlyFiveTopLevelKeys(t *testing.T) {
 
 	expectedKeys := map[string]bool{
 		"schema_version": true,
-		"adapter":        true,
-		"image":          true,
+		"agent":          true,
 		"requested":      true,
 		"applied":        true,
 	}
@@ -119,57 +117,56 @@ func TestNewInfo_ExactlyFiveTopLevelKeys(t *testing.T) {
 	require.Len(t, raw, len(expectedKeys))
 }
 
-func TestWriteInfo_CreatesDirectoryAndFile(t *testing.T) {
+func TestWriteAgentInfo_CreatesDirectoryAndFile(t *testing.T) {
 	t.Parallel()
 
 	dir := filepath.Join(t.TempDir(), "evidence")
-	info := NewInfo("claude-code", "img:tag",
+	info := NewAgentInfo("claude-code",
 		map[string]any{"model": "gpt-5.4"},
 		map[string]bool{"model": true},
 	)
 
-	require.NoError(t, WriteInfo(dir, info))
+	require.NoError(t, WriteAgentInfo(dir, info))
 
 	_, err := os.Stat(dir)
 	require.NoError(t, err, "evidence directory must be created")
 
-	_, err = os.Stat(filepath.Join(dir, "adapter.json"))
-	require.NoError(t, err, "adapter.json must be created")
+	_, err = os.Stat(filepath.Join(dir, "agent.json"))
+	require.NoError(t, err, "agent.json must be created")
 }
 
-func TestWriteInfo_WritesValidJSON(t *testing.T) {
+func TestWriteAgentInfo_WritesValidJSON(t *testing.T) {
 	t.Parallel()
 
 	dir := filepath.Join(t.TempDir(), "evidence")
-	info := NewInfo("claude-code", "example/image:tag",
+	info := NewAgentInfo("claude-code",
 		map[string]any{"model": "gpt-5.4", "interactive": true},
 		map[string]bool{"model": false, "interactive": true},
 	)
 
-	require.NoError(t, WriteInfo(dir, info))
+	require.NoError(t, WriteAgentInfo(dir, info))
 
-	data, err := os.ReadFile(filepath.Join(dir, "adapter.json"))
+	data, err := os.ReadFile(filepath.Join(dir, "agent.json"))
 	require.NoError(t, err)
 
-	var parsed Info
+	var parsed AgentInfo
 	require.NoError(t, json.Unmarshal(data, &parsed))
 	require.Equal(t, info.SchemaVersion, parsed.SchemaVersion)
-	require.Equal(t, info.Adapter, parsed.Adapter)
-	require.Equal(t, info.Image, parsed.Image)
+	require.Equal(t, info.Agent, parsed.Agent)
 }
 
-func TestWriteInfo_JSONMatchesSpecShape(t *testing.T) {
+func TestWriteAgentInfo_JSONMatchesSpecShape(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	info := NewInfo("claude-code", "example/image:tag",
+	info := NewAgentInfo("claude-code",
 		map[string]any{"model": "gpt-5.4", "interactive": true},
 		map[string]bool{"model": false, "interactive": true},
 	)
 
-	require.NoError(t, WriteInfo(dir, info))
+	require.NoError(t, WriteAgentInfo(dir, info))
 
-	data, err := os.ReadFile(filepath.Join(dir, "adapter.json"))
+	data, err := os.ReadFile(filepath.Join(dir, "agent.json"))
 	require.NoError(t, err)
 
 	var raw map[string]json.RawMessage
@@ -179,13 +176,9 @@ func TestWriteInfo_JSONMatchesSpecShape(t *testing.T) {
 	require.NoError(t, json.Unmarshal(raw["schema_version"], &schemaVersion))
 	require.Equal(t, 1, schemaVersion)
 
-	var adapter string
-	require.NoError(t, json.Unmarshal(raw["adapter"], &adapter))
-	require.Equal(t, "claude-code", adapter)
-
-	var image string
-	require.NoError(t, json.Unmarshal(raw["image"], &image))
-	require.Equal(t, "example/image:tag", image)
+	var agent string
+	require.NoError(t, json.Unmarshal(raw["agent"], &agent))
+	require.Equal(t, "claude-code", agent)
 
 	var requested map[string]any
 	require.NoError(t, json.Unmarshal(raw["requested"], &requested))

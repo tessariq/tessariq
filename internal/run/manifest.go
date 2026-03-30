@@ -13,27 +13,52 @@ type Manifest struct {
 	RunID               string `json:"run_id"`
 	TaskPath            string `json:"task_path"`
 	TaskTitle           string `json:"task_title"`
-	Adapter             string `json:"adapter"`
+	Agent               string `json:"agent"`
 	BaseSHA             string `json:"base_sha"`
 	WorkspaceMode       string `json:"workspace_mode"`
 	RequestedEgressMode string `json:"requested_egress_mode"`
+	ResolvedEgressMode  string `json:"resolved_egress_mode"`
+	AllowlistSource     string `json:"allowlist_source"`
 	ContainerName       string `json:"container_name"`
 	CreatedAt           string `json:"created_at"`
 }
 
 func BuildManifestSeed(cfg Config, runID, taskTitle, baseSHA string, now time.Time) Manifest {
+	requestedEgress := cfg.ResolveEgress()
+	resolvedEgress := resolveEgressMode(requestedEgress)
+	allowlistSource := resolveAllowlistSource(cfg)
+
 	return Manifest{
 		SchemaVersion:       1,
 		RunID:               runID,
 		TaskPath:            cfg.TaskPath,
 		TaskTitle:           taskTitle,
-		Adapter:             cfg.Agent,
+		Agent:               cfg.Agent,
 		BaseSHA:             baseSHA,
 		WorkspaceMode:       "worktree",
-		RequestedEgressMode: cfg.ResolveEgress(),
+		RequestedEgressMode: requestedEgress,
+		ResolvedEgressMode:  resolvedEgress,
+		AllowlistSource:     allowlistSource,
 		ContainerName:       ContainerName(runID),
 		CreatedAt:           now.UTC().Format(time.RFC3339),
 	}
+}
+
+// resolveEgressMode maps the requested egress mode to the actual mode.
+// In v0.1.0, "auto" resolves to "proxy" for all agents.
+func resolveEgressMode(requested string) string {
+	if requested == "auto" {
+		return "proxy"
+	}
+	return requested
+}
+
+// resolveAllowlistSource determines the provenance of the egress allowlist.
+func resolveAllowlistSource(cfg Config) string {
+	if len(cfg.EgressAllow) > 0 {
+		return "cli"
+	}
+	return "built_in"
 }
 
 func WriteManifest(dir string, m Manifest) error {

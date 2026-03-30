@@ -9,36 +9,34 @@ import (
 	"github.com/tessariq/tessariq/internal/runner"
 )
 
-// AdapterProcess wraps a ProcessRunner with adapter metadata.
+// AdapterProcess wraps a ProcessRunner with agent and runtime metadata.
 type AdapterProcess struct {
-	Process  runner.ProcessRunner
-	Metadata Info
+	Process     runner.ProcessRunner
+	AgentInfo   AgentInfo
+	RuntimeInfo RuntimeInfo
 }
 
 // NewProcess creates an AdapterProcess for the agent specified in cfg.
 func NewProcess(cfg run.Config, taskContent string) (*AdapterProcess, error) {
+	imageSource := "reference"
+	if cfg.Image != "" {
+		imageSource = "custom"
+	}
+
 	switch cfg.Agent {
 	case "claude-code":
 		p := claudecode.New(cfg, taskContent)
 		return &AdapterProcess{
-			Process: p,
-			Metadata: NewInfo(
-				claudecode.AdapterName,
-				p.Image(),
-				p.Requested(),
-				p.Applied(),
-			),
+			Process:     p,
+			AgentInfo:   NewAgentInfo(claudecode.AdapterName, p.Requested(), p.Applied()),
+			RuntimeInfo: NewRuntimeInfo(p.Image(), imageSource, "disabled", "disabled"),
 		}, nil
 	case "opencode":
 		p := opencode.New(cfg, taskContent)
 		return &AdapterProcess{
-			Process: p,
-			Metadata: NewInfo(
-				opencode.AdapterName,
-				p.Image(),
-				p.Requested(),
-				p.Applied(),
-			),
+			Process:     p,
+			AgentInfo:   NewAgentInfo(opencode.AdapterName, p.Requested(), p.Applied()),
+			RuntimeInfo: NewRuntimeInfo(p.Image(), imageSource, "disabled", "disabled"),
 		}, nil
 	default:
 		return nil, fmt.Errorf("unsupported adapter: %s", cfg.Agent)
