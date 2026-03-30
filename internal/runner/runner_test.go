@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -221,4 +222,102 @@ func TestRunner_SchemaVersion(t *testing.T) {
 	s, err := ReadStatus(dir)
 	require.NoError(t, err)
 	require.Equal(t, 1, s.SchemaVersion)
+}
+
+// fakeSession simulates a SessionStarter for unit testing.
+type fakeSession struct {
+	startErr    error
+	startCalled bool
+	sessionName string
+}
+
+func (f *fakeSession) StartSession(_ context.Context, name string) error {
+	f.startCalled = true
+	f.sessionName = name
+	return f.startErr
+}
+
+func TestRunner_SessionStarted(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	r := newTestRunner(dir, newFakeProcess(0))
+	sess := &fakeSession{}
+	r.Session = sess
+	r.SessionName = "tessariq-TESTID"
+
+	require.NoError(t, r.Run(context.Background()))
+	require.True(t, sess.startCalled)
+	require.Equal(t, "tessariq-TESTID", sess.sessionName)
+}
+
+func TestRunner_SessionStartFailure(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	r := newTestRunner(dir, newFakeProcess(0))
+	r.Session = &fakeSession{startErr: errors.New("tmux not available")}
+	r.SessionName = "tessariq-TESTID"
+
+	require.NoError(t, r.Run(context.Background()))
+
+	s, err := ReadStatus(dir)
+	require.NoError(t, err)
+	require.Equal(t, StateFailed, s.State)
+}
+
+func TestRunner_SessionStartFailure_StatusExists(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	r := newTestRunner(dir, newFakeProcess(0))
+	r.Session = &fakeSession{startErr: errors.New("session error")}
+	r.SessionName = "tessariq-TESTID"
+
+	require.NoError(t, r.Run(context.Background()))
+
+	s, err := ReadStatus(dir)
+	require.NoError(t, err)
+	require.NotEmpty(t, s.StartedAt)
+	require.NotEmpty(t, s.FinishedAt)
+}
+
+func TestRunner_NilSession_DoesNotPanic(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	r := newTestRunner(dir, newFakeProcess(0))
+	r.Session = nil
+
+	require.NoError(t, r.Run(context.Background()))
+
+	s, err := ReadStatus(dir)
+	require.NoError(t, err)
+	require.Equal(t, StateSuccess, s.State)
+}
+
+func TestRunner_SessionNamePassedThrough(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	r := newTestRunner(dir, newFakeProcess(0))
+	sess := &fakeSession{}
+	r.Session = sess
+	r.SessionName = "custom-session-name"
+
+	require.NoError(t, r.Run(context.Background()))
+	require.Equal(t, "custom-session-name", sess.sessionName)
+}
+
+func TestRunner_EmptySessionName_SkipsSessionStart(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	r := newTestRunner(dir, newFakeProcess(0))
+	sess := &fakeSession{}
+	r.Session = sess
+	r.SessionName = ""
+
+	require.NoError(t, r.Run(context.Background()))
+	require.False(t, sess.startCalled)
 }

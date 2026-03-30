@@ -1,7 +1,7 @@
 ---
 id: TASK-006-tmux-session-and-detached-attach-guidance
 title: Start tmux sessions and print detached attach guidance
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
@@ -11,7 +11,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#product-intent
     - specs/tessariq-v0.1.0.md#core-workflow
     - specs/tessariq-v0.1.0.md#tessariq-run-task-path
-updated_at: "2026-03-29T12:06:20Z"
+updated_at: "2026-03-30T15:21:26Z"
 areas:
     - tmux
     - cli
@@ -69,3 +69,4 @@ Launch live `tmux` sessions for runs and print attach and promote guidance in de
 ## Notes
 
 - Keep stdout output script-friendly.
+- 2026-03-30T15:21:26Z: evidence: planning/artifacts/verify/task/TASK-006-tmux-session-and-detached-attach-guidance/20260330T151246Z/report.json (0 findings), planning/artifacts/manual-test/TASK-006-tmux-session-and-detached-attach-guidance/20260330T151321Z/report.md (9/9 pass)

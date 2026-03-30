@@ -14,6 +14,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/tessariq/tessariq/internal/run"
+	"github.com/tessariq/tessariq/internal/tmux"
 )
 
 // shellProcess runs a shell command as the ProcessRunner for integration tests.
@@ -187,4 +188,59 @@ func TestRunnerIntegration_VerifyHookFailure(t *testing.T) {
 	s, err := ReadStatus(dir)
 	require.NoError(t, err)
 	require.Equal(t, StateFailed, s.State)
+}
+
+func skipIfNoTmux(t *testing.T) {
+	t.Helper()
+	if _, err := exec.LookPath("tmux"); err != nil {
+		t.Skip("tmux not available")
+	}
+}
+
+func TestRunnerIntegration_TmuxSessionCreated(t *testing.T) {
+	t.Parallel()
+	skipIfNoTmux(t)
+
+	ctx := context.Background()
+	sessionName := "tessariq-test-runner-tmux-" + t.Name()
+	t.Cleanup(func() { _ = tmux.KillSession(ctx, sessionName) })
+
+	dir := t.TempDir()
+	r := newIntegrationRunner(dir, newShellProcess("exit 0"))
+	r.Session = &tmux.Starter{}
+	r.SessionName = sessionName
+
+	require.NoError(t, r.Run(ctx))
+
+	s, err := ReadStatus(dir)
+	require.NoError(t, err)
+	require.Equal(t, StateSuccess, s.State)
+
+	exists, err := tmux.HasSession(ctx, sessionName)
+	require.NoError(t, err)
+	require.True(t, exists, "tmux session should exist after runner completes")
+}
+
+func TestRunnerIntegration_TmuxSessionExistsAfterProcessFails(t *testing.T) {
+	t.Parallel()
+	skipIfNoTmux(t)
+
+	ctx := context.Background()
+	sessionName := "tessariq-test-runner-fail-" + t.Name()
+	t.Cleanup(func() { _ = tmux.KillSession(ctx, sessionName) })
+
+	dir := t.TempDir()
+	r := newIntegrationRunner(dir, newShellProcess("exit 1"))
+	r.Session = &tmux.Starter{}
+	r.SessionName = sessionName
+
+	require.NoError(t, r.Run(ctx))
+
+	s, err := ReadStatus(dir)
+	require.NoError(t, err)
+	require.Equal(t, StateFailed, s.State)
+
+	exists, err := tmux.HasSession(ctx, sessionName)
+	require.NoError(t, err)
+	require.True(t, exists, "tmux session should persist even when process fails")
 }

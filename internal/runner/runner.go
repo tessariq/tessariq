@@ -16,12 +16,19 @@ type ProcessRunner interface {
 	Signal(sig os.Signal) error
 }
 
+// SessionStarter creates a tmux session for the run.
+type SessionStarter interface {
+	StartSession(ctx context.Context, sessionName string) error
+}
+
 // Runner orchestrates the full run lifecycle.
 type Runner struct {
 	RunID       string
 	EvidenceDir string
 	Config      run.Config
 	Process     ProcessRunner
+	Session     SessionStarter
+	SessionName string
 	Clock       func() time.Time
 }
 
@@ -56,6 +63,16 @@ func (r *Runner) Run(ctx context.Context) error {
 	defer logs.Close()
 
 	fmt.Fprintf(logs.RunnerLog, "[%s] runner started for run %s\n", startedAt.UTC().Format(time.RFC3339), r.RunID)
+
+	// Create tmux session if a session starter is configured.
+	if r.Session != nil && r.SessionName != "" {
+		fmt.Fprintf(logs.RunnerLog, "[%s] creating tmux session %s\n", r.clock().UTC().Format(time.RFC3339), r.SessionName)
+		if err := r.Session.StartSession(ctx, r.SessionName); err != nil {
+			finishedAt := r.clock()
+			fmt.Fprintf(logs.RunnerLog, "[%s] tmux session creation failed: %s\n", finishedAt.UTC().Format(time.RFC3339), err)
+			return r.writeTerminalStatus(StateFailed, startedAt, finishedAt, 1, false)
+		}
+	}
 
 	// Run pre-hooks.
 	if len(r.Config.Pre) > 0 {

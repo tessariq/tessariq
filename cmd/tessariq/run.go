@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -10,8 +11,25 @@ import (
 	"github.com/tessariq/tessariq/internal/git"
 	"github.com/tessariq/tessariq/internal/run"
 	"github.com/tessariq/tessariq/internal/runner"
+	"github.com/tessariq/tessariq/internal/tmux"
 	"github.com/tessariq/tessariq/internal/workspace"
 )
+
+type runOutput struct {
+	RunID         string
+	EvidencePath  string
+	WorkspacePath string
+	ContainerName string
+}
+
+func printRunOutput(w io.Writer, out runOutput) {
+	fmt.Fprintf(w, "run_id: %s\n", out.RunID)
+	fmt.Fprintf(w, "evidence_path: %s\n", out.EvidencePath)
+	fmt.Fprintf(w, "workspace_path: %s\n", out.WorkspacePath)
+	fmt.Fprintf(w, "container_name: %s\n", out.ContainerName)
+	fmt.Fprintf(w, "attach: tessariq attach %s\n", out.RunID)
+	fmt.Fprintf(w, "promote: tessariq promote %s\n", out.RunID)
+}
 
 func newRunCmd() *cobra.Command {
 	cfg := run.DefaultConfig()
@@ -77,22 +95,25 @@ func newRunCmd() *cobra.Command {
 			}
 
 			containerName := run.ContainerName(runID)
+			sessionName := run.SessionName(runID)
 
 			r := &runner.Runner{
 				RunID:       runID,
 				EvidenceDir: evidenceDir,
 				Config:      cfg,
+				Session:     &tmux.Starter{},
+				SessionName: sessionName,
 			}
 			if err := r.Run(cmd.Context()); err != nil {
 				return err
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "run_id: %s\n", runID)
-			fmt.Fprintf(cmd.OutOrStdout(), "evidence_path: %s\n", evidenceDir)
-			fmt.Fprintf(cmd.OutOrStdout(), "workspace_path: %s\n", wsPath)
-			fmt.Fprintf(cmd.OutOrStdout(), "container_name: %s\n", containerName)
-			fmt.Fprintf(cmd.OutOrStdout(), "attach: tessariq attach %s\n", runID)
-			fmt.Fprintf(cmd.OutOrStdout(), "promote: tessariq promote %s\n", runID)
+			printRunOutput(cmd.OutOrStdout(), runOutput{
+				RunID:         runID,
+				EvidencePath:  evidenceDir,
+				WorkspacePath: wsPath,
+				ContainerName: containerName,
+			})
 
 			return nil
 		},
