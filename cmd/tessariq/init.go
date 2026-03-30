@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/tessariq/tessariq/internal/initialize"
+	"github.com/tessariq/tessariq/internal/prereq"
 )
 
 func newInitCmd() *cobra.Command {
@@ -14,6 +15,10 @@ func newInitCmd() *cobra.Command {
 		Use:   "init",
 		Short: "Initialize tessariq runtime state in the current repository",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := prereq.NewChecker().CheckCommand("init"); err != nil {
+				return err
+			}
+
 			root, err := repoRoot(cmd)
 			if err != nil {
 				return err

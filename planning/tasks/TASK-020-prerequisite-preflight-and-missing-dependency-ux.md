@@ -1,7 +1,7 @@
 ---
 id: TASK-020-prerequisite-preflight-and-missing-dependency-ux
 title: Add prerequisite preflight and missing dependency guidance
-status: todo
+status: done
 priority: p0
 depends_on:
     - TASK-002-run-cli-flags-and-manifest-bootstrap
@@ -16,7 +16,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#tessariq-attach-run-ref
     - specs/tessariq-v0.1.0.md#failure-ux
     - specs/tessariq-v0.1.0.md#acceptance-scenarios
-updated_at: "2026-03-30T20:35:00Z"
+updated_at: "2026-03-30T17:55:09Z"
 areas:
     - cli
     - ux
@@ -75,3 +75,4 @@ Add shared prerequisite preflight handling so missing dependencies fail fast wit
 
 - Keep error messages script-friendly and actionable.
 - Docker runtime preflight behavior for proxy/container topology remains coordinated with `TASK-012`.
+- 2026-03-30T17:55:09Z: Implemented shared prerequisite preflight for init/run/attach mapping; init and run now fail fast with actionable missing-dependency guidance. Tests: go test ./..., go test -tags=e2e ./..., gremlins efficacy 96.97%. Evidence: planning/artifacts/manual-test/TASK-020-prerequisite-preflight-and-missing-dependency-ux/20260330T175430Z/report.md, planning/artifacts/verify/task/TASK-020-prerequisite-preflight-and-missing-dependency-ux/20260330T175427Z/report.json.

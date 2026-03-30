@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/tessariq/tessariq/internal/adapter"
 	"github.com/tessariq/tessariq/internal/git"
+	"github.com/tessariq/tessariq/internal/prereq"
 	"github.com/tessariq/tessariq/internal/run"
 	"github.com/tessariq/tessariq/internal/runner"
 	"github.com/tessariq/tessariq/internal/tmux"
@@ -41,6 +42,10 @@ func newRunCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg.TaskPath = args[0]
+
+			if err := prereq.NewChecker().CheckCommand("run"); err != nil {
+				return err
+			}
 
 			root, err := repoRoot(cmd)
 			if err != nil {

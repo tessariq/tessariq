@@ -134,3 +134,36 @@ func TestE2E_AdapterJSONWritten(t *testing.T) {
 	require.NotNil(t, info.Requested)
 	require.NotNil(t, info.Applied)
 }
+
+func TestE2E_InitFailsWithActionableGuidanceWhenGitMissing(t *testing.T) {
+	bin := buildBinary(t)
+	env := setupRunEnv(t, bin, 0)
+
+	ctx := context.Background()
+	_, _, err := env.Exec(ctx, []string{"sh", "-c", "mkdir -p /work/bin-empty"})
+	require.NoError(t, err)
+
+	code, output, err := env.Exec(ctx, []string{"sh", "-c", "cd " + repoDir + " && PATH=/work/bin-empty /work/tessariq init"})
+	require.NoError(t, err)
+	require.NotEqual(t, 0, code)
+	require.Contains(t, output, "required host prerequisite \"git\" is missing or unavailable")
+	require.Contains(t, output, "install or enable git, then retry")
+}
+
+func TestE2E_RunFailsWithActionableGuidanceWhenTmuxMissing(t *testing.T) {
+	bin := buildBinary(t)
+	env := setupRunEnv(t, bin, 0)
+
+	ctx := context.Background()
+	_, _, err := env.Exec(ctx, []string{"sh", "-c", "mkdir -p /work/bin && ln -sf $(command -v git) /work/bin/git"})
+	require.NoError(t, err)
+
+	code, output, err := env.Exec(ctx, []string{"sh", "-c", "cd " + repoDir + " && PATH=/work/bin /work/tessariq run tasks/sample.md"})
+	require.NoError(t, err)
+	require.NotEqual(t, 0, code)
+	require.Contains(t, output, "required host prerequisite \"tmux\" is missing or unavailable")
+	require.Contains(t, output, "install or enable tmux, then retry")
+	require.NotContains(t, output, "run_id: ")
+	require.NotContains(t, output, "attach: tessariq attach ")
+	require.NotContains(t, output, "promote: tessariq promote ")
+}
