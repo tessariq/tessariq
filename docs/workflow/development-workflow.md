@@ -97,6 +97,10 @@ Manual testing is required before running verification and before finishing a ta
 - `go run ./cmd/tessariq-workflow verify --profile task|implemented|spec --disposition report|hybrid --json`
 - `go run ./cmd/tessariq-workflow followups --mode create --min-severity medium --json`
 
+Notes:
+
+- `verify --profile task` now includes a medium-severity reminder finding when user-visible code changes are detected without updating `CHANGELOG.md`; workflow-tooling-only changes (`cmd/tessariq-workflow/`, `internal/workflow/`) are excluded.
+
 ## Change-Type Matrix
 
 - Docs-only changes:

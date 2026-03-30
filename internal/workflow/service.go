@@ -1,19 +1,23 @@
 package workflow
 
 import (
+	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
 
 type Service struct {
-	paths Paths
+	paths          Paths
+	changedFilesFn func(repoRoot string) ([]string, error)
 }
 
 func NewService(start string) (*Service, error) {
@@ -21,7 +25,7 @@ func NewService(start string) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Service{paths: paths}, nil
+	return &Service{paths: paths, changedFilesFn: changedFilesFromGit}, nil
 }
 
 func (s *Service) ValidateState() (ValidationResult, error) {
@@ -455,7 +459,15 @@ func (s *Service) buildVerificationReport(state *State, tasks []*Task, input Ver
 	}
 
 	findings := make([]Finding, 0)
-	findings = append(findings, buildTaskFindings(state, tasks, input, scope, specDocs, scopeViolations)...)
+	changedFiles := make([]string, 0)
+	if input.Profile == "task" && s.changedFilesFn != nil {
+		files, err := s.changedFilesFn(s.paths.RepoRoot)
+		if err == nil {
+			changedFiles = files
+		}
+	}
+
+	findings = append(findings, buildTaskFindings(state, tasks, input, scope, specDocs, scopeViolations, changedFiles)...)
 	if input.Profile == "spec" {
 		findings = append(findings, buildSpecFindings(tasks, scope, scopeViolations)...)
 	}
@@ -815,7 +827,7 @@ func loadReferencedSpecDocs(repoRoot string, tasks []*Task) (map[string]*specDoc
 	return docs, violations
 }
 
-func buildTaskFindings(state *State, tasks []*Task, input VerifyInput, scope specScope, specDocs map[string]*specDocument, scopeViolations []string) []Finding {
+func buildTaskFindings(state *State, tasks []*Task, input VerifyInput, scope specScope, specDocs map[string]*specDocument, scopeViolations []string, changedFiles []string) []Finding {
 	findings := make([]Finding, 0)
 	targets := tasks
 	if input.Profile == "task" {
@@ -923,7 +935,139 @@ func buildTaskFindings(state *State, tasks []*Task, input VerifyInput, scope spe
 			TaskID:   input.TaskID,
 		})
 	}
+
+	if input.Profile == "task" {
+		targetTaskID := strings.TrimSpace(input.TaskID)
+		if targetTaskID == "" {
+			targetTaskID = strings.TrimSpace(state.Frontmatter.ActiveTask)
+		}
+		if targetTaskID == "" {
+			targetTaskID = "sweep"
+		}
+		findings = append(findings, buildChangelogFindings(targetTaskID, changedFiles)...)
+	}
+
 	return findings
+}
+
+func buildChangelogFindings(taskID string, changedFiles []string) []Finding {
+	required, evidence := requiresChangelogUpdate(changedFiles)
+	if !required {
+		return nil
+	}
+
+	return []Finding{{
+		ID:       taskID + "-changelog",
+		Title:    "user-visible changes missing changelog update",
+		Severity: "medium",
+		Status:   "open",
+		Details:  fmt.Sprintf("User-visible code changes detected (%s) without updating CHANGELOG.md. Add a user-facing entry under CHANGELOG.md before finishing the task.", strings.Join(evidence, ", ")),
+		TaskID:   taskID,
+	}}
+}
+
+func requiresChangelogUpdate(changedFiles []string) (bool, []string) {
+	if len(changedFiles) == 0 {
+		return false, nil
+	}
+
+	touchedChangelog := false
+	evidence := make([]string, 0)
+	seen := make(map[string]struct{})
+
+	for _, path := range changedFiles {
+		norm := filepath.ToSlash(strings.TrimSpace(path))
+		if norm == "" {
+			continue
+		}
+		if norm == "CHANGELOG.md" {
+			touchedChangelog = true
+			continue
+		}
+		if !isUserVisibleCodePath(norm) {
+			continue
+		}
+		if _, ok := seen[norm]; ok {
+			continue
+		}
+		seen[norm] = struct{}{}
+		evidence = append(evidence, norm)
+	}
+
+	if touchedChangelog || len(evidence) == 0 {
+		return false, nil
+	}
+
+	sort.Strings(evidence)
+	return true, evidence
+}
+
+func isUserVisibleCodePath(path string) bool {
+	if !strings.HasSuffix(path, ".go") {
+		return false
+	}
+	if strings.HasSuffix(path, "_test.go") {
+		return false
+	}
+	if isWorkflowToolPath(path) {
+		return false
+	}
+	if strings.HasPrefix(path, "cmd/tessariq/") {
+		return true
+	}
+	if strings.HasPrefix(path, "internal/") && !strings.HasPrefix(path, "internal/testutil/") {
+		return true
+	}
+	return false
+}
+
+func isWorkflowToolPath(path string) bool {
+	return strings.HasPrefix(path, "cmd/tessariq-workflow/") || strings.HasPrefix(path, "internal/workflow/")
+}
+
+func changedFilesFromGit(repoRoot string) ([]string, error) {
+	cmd := exec.Command("git", "-C", repoRoot, "status", "--porcelain")
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("list changed files: %w", err)
+	}
+	return parseGitStatusPorcelain(string(out)), nil
+}
+
+func parseGitStatusPorcelain(output string) []string {
+	scanner := bufio.NewScanner(strings.NewReader(output))
+	paths := make([]string, 0)
+	seen := make(map[string]struct{})
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if len(line) < 4 {
+			continue
+		}
+
+		path := strings.TrimSpace(line[3:])
+		if idx := strings.Index(path, " -> "); idx >= 0 {
+			path = strings.TrimSpace(path[idx+4:])
+		}
+		if strings.HasPrefix(path, "\"") && strings.HasSuffix(path, "\"") {
+			if unquoted, err := strconv.Unquote(path); err == nil {
+				path = unquoted
+			}
+		}
+
+		norm := filepath.ToSlash(strings.TrimSpace(path))
+		if norm == "" {
+			continue
+		}
+		if _, ok := seen[norm]; ok {
+			continue
+		}
+		seen[norm] = struct{}{}
+		paths = append(paths, norm)
+	}
+
+	sort.Strings(paths)
+	return paths
 }
 
 func buildSpecFindings(tasks []*Task, scope specScope, scopeViolations []string) []Finding {
@@ -1025,6 +1169,7 @@ func renderVerificationPlan(report VerificationReport) string {
 	switch report.Profile {
 	case "task":
 		out.WriteString("- Validate task metadata, scope alignment, and required sections.\n")
+		out.WriteString("- Remind for changelog updates when user-visible code changes are present (excluding workflow-tooling-only changes).\n")
 	case "implemented":
 		out.WriteString("- Validate completed-task verification metadata.\n")
 	case "spec":

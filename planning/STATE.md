@@ -1,6 +1,6 @@
 ---
 schema_version: 1
-updated_at: "2026-03-30T17:55:12Z"
+updated_at: "2026-03-30T18:14:58Z"
 mode: autonomous_backlog
 run_id: wf-20260330T175002Z
 agent_id: gpt-5.3-codex
@@ -17,12 +17,12 @@ repo_state: idle
 last_transition: finish
 last_transition_at: "2026-03-30T17:55:09Z"
 selection_reason: next eligible todo by priority
-validation_last_run: "2026-03-30T17:54:27Z"
+validation_last_run: "2026-03-30T18:14:58Z"
 validation_status: passed
-validation_scope: task:v0.1.0
-validation_plan: planning/artifacts/verify/task/TASK-020-prerequisite-preflight-and-missing-dependency-ux/20260330T175427Z/plan.md
-validation_report: planning/artifacts/verify/task/TASK-020-prerequisite-preflight-and-missing-dependency-ux/20260330T175427Z/report.json
-validation_checked_at: "2026-03-30T17:54:27Z"
+validation_scope: spec:v0.1.0
+validation_plan: planning/artifacts/verify/spec/sweep/20260330T181458Z/plan.md
+validation_report: planning/artifacts/verify/spec/sweep/20260330T181458Z/report.json
+validation_checked_at: "2026-03-30T18:14:58Z"
 milestone_focus: v0.1.0
 active_spec_version: v0.1.0
 active_spec_path: specs/tessariq-v0.1.0.md

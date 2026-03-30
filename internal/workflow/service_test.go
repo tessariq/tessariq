@@ -241,6 +241,7 @@ func TestBuildTaskFindingsReportsVersionMismatchAndDeadRefs(t *testing.T) {
 		scope,
 		specDocs,
 		nil,
+		nil,
 	)
 
 	require.Len(t, findings, 2)
@@ -313,6 +314,7 @@ func TestBuildTaskFindingsBranches(t *testing.T) {
 		scope,
 		specDocs,
 		nil,
+		nil,
 	)
 	require.Len(t, findings, 3)
 
@@ -322,6 +324,7 @@ func TestBuildTaskFindingsBranches(t *testing.T) {
 		VerifyInput{Profile: "task", TaskID: "TASK-404"},
 		scope,
 		specDocs,
+		nil,
 		nil,
 	)
 	require.Len(t, missing, 1)

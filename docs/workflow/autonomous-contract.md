@@ -39,6 +39,7 @@ Rules:
 
 - Run verification through `go run ./cmd/tessariq-workflow verify ...`.
 - `task` profile checks one tracked item.
+- `task` profile also emits a medium-severity finding when user-visible code changes are present without a `CHANGELOG.md` update; workflow-tooling-only changes (`cmd/tessariq-workflow/`, `internal/workflow/`) are excluded.
 - `implemented` profile checks completed items for retained verification metadata.
 - `spec` profile checks seeded task coverage against `specs/tessariq-v0.1.0.md`.
 - Verification writes plan and report artifacts under `planning/artifacts/verify/`.
