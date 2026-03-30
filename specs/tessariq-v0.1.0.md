@@ -41,6 +41,17 @@ Tessariq v0.1.0 provides a Git-native, sandboxed way to run coding agents agains
 - web UI or database
 - automatic push or PR creation
 
+## Host prerequisites
+
+Tessariq v0.1.0 depends on a small set of host-side prerequisites.
+
+- required host binaries:
+  - `git` for repository discovery and Git operations
+  - `tmux` for run session creation and attach flows
+  - `docker` for containerized run execution
+- prerequisite checks MUST fail before run-time side effects that depend on those prerequisites
+- prerequisite failures MUST identify the missing or unavailable dependency and tell the user to install or enable it before retrying
+
 ## Core workflow
 
 ### Run
@@ -109,9 +120,13 @@ It MUST NOT create `specs/` or any other user-managed directories.
 
 It MUST add `.tessariq/` to `.gitignore`.
 
+It MUST fail cleanly if `git` is unavailable.
+
 ### `tessariq run <task-path>`
 
 Detached by default.
+
+The command MUST fail cleanly if required host prerequisites for run execution are unavailable (`git`, `tmux`, or `docker`).
 
 Defaults:
 
@@ -156,6 +171,7 @@ Required printed output:
 - attaches the user terminal to the run's `tmux` session
 - MUST fail cleanly if the run is not live
 - failure output MUST include the evidence path
+- MUST fail cleanly if `tmux` is unavailable
 
 ### `tessariq promote <run-ref>`
 
@@ -385,7 +401,10 @@ Minimum `index.jsonl` entry shape:
 - `init` creates `.tessariq/runs/` and the `.gitignore` entry
 - `run` succeeds on a clean repo and creates the required evidence files
 - `run` fails early on a dirty repo before container start
+- `run` fails early with actionable guidance when a required host prerequisite is missing or unavailable
+- `init` fails cleanly with actionable guidance when `git` is unavailable
 - `attach` works for a live run and fails cleanly for a finished run
+- `attach` fails cleanly with actionable guidance when `tmux` is unavailable
 - `promote` creates exactly one commit from a finished run with code changes
 - `promote` creates no branch and no commit for a zero-diff run
 - `promote` fails cleanly if required evidence is missing
@@ -400,6 +419,7 @@ Minimum `index.jsonl` entry shape:
 | --- | --- | --- |
 | task path is missing, outside the repository, or not Markdown | fail before container start | print the invalid path and tell the user to pass a Markdown task file inside the current repository |
 | repository is dirty for `worktree` | fail before container start | tell the user to commit, stash, or clean the repository first |
+| required host prerequisite (`git`, `tmux`, or `docker`) is missing or unavailable | fail before dependent command work begins | identify which prerequisite is missing or unavailable and tell the user to install or enable it, then retry |
 | proxy mode blocks a destination that is not present in the resolved allowlist | fail the network attempt and record it in proxy evidence | tell the user which `host:port` was blocked and how to add it through user config or CLI flags, or to rerun with explicit open egress |
 | `attach` references an unknown or finished run | fail without attaching | print the evidence path when known and tell the user the run is not live |
 | `promote` sees zero diff | fail without creating a branch or commit | tell the user there were no code changes to promote |

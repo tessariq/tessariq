@@ -23,13 +23,14 @@ milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#product-intent
+    - specs/tessariq-v0.1.0.md#host-prerequisites
     - specs/tessariq-v0.1.0.md#tessariq-run-task-path
     - specs/tessariq-v0.1.0.md#tessariq-attach-run-ref
     - specs/tessariq-v0.1.0.md#tessariq-promote-run-ref
     - specs/tessariq-v0.1.0.md#evidence-contract
     - specs/tessariq-v0.1.0.md#acceptance-scenarios
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-03-29T12:06:20Z"
+updated_at: "2026-03-30T20:35:00Z"
 areas:
     - verification
     - spec
@@ -67,13 +68,13 @@ Harden `validate-state` and `verify --profile spec` so broken task/spec links, s
 ## Acceptance Criteria
 
 - `go run ./cmd/tessariq-workflow validate-state` fails when a task points at a missing spec file or dead heading anchor.
-- `go run ./cmd/tessariq-workflow verify --profile spec --disposition report --json` reports scope metadata for the active milestone spec and emits high-severity findings for uncovered normative contracts, acceptance scenarios, failure-UX rows, or evidence-compatibility rules in that active spec.
+- `go run ./cmd/tessariq-workflow verify --profile spec --disposition report --json` reports scope metadata for the active milestone spec and emits high-severity findings for uncovered normative contracts, acceptance scenarios, failure-UX rows, host-prerequisite contracts, or evidence-compatibility rules in that active spec.
 - Workflow validation fixtures cover both the stale-link regression and a missing-coverage regression that previously passed silently.
 - Task and CI documentation explain that the validation gates are hard failures, not advisory output.
 
 ## Test Expectations
 
-- Add unit tests for spec-reference resolution, dead-anchor detection, active-scope reporting, and coverage mapping for normative contracts, acceptance scenarios, failure rows, and evidence rules.
+- Add unit tests for spec-reference resolution, dead-anchor detection, active-scope reporting, and coverage mapping for normative contracts, acceptance scenarios, failure rows, host-prerequisite contracts, and evidence rules.
 - Integration tests are optional unless the verifier grows real collaborator dependencies.
 - E2E tests are not required for this task because it hardens verification tooling rather than introducing a new runtime user flow.
 - Run mutation testing because verification logic is easy to weaken accidentally.

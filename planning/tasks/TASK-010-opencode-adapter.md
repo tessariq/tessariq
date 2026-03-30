@@ -10,7 +10,8 @@ spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#adapter-contract
     - specs/tessariq-v0.1.0.md#evidence-contract
-updated_at: "2026-03-29T17:30:00Z"
+    - specs/tessariq-v0.1.0.md#failure-ux
+updated_at: "2026-03-30T20:35:00Z"
 areas:
     - adapters
     - opencode
@@ -51,12 +52,14 @@ Implement the first-party `opencode` adapter on top of the shared adapter contra
 - Requested adapter options are forwarded when supported.
 - Unsupported exact application is recorded in `adapter.json`, including partial application of `--model` and `--interactive`.
 - The adapter integrates cleanly with the run lifecycle.
+- Missing adapter binary failures include actionable user guidance that names `opencode` and indicates the required container image/runtime expectation.
 
 ## Test Expectations
 
 - Add unit tests for command/option translation.
 - Add integration tests for adapter process invocation using Testcontainers-backed collaborators only.
 - Add integration tests for adapter binary not-found error handling (clean failure with user guidance when `opencode` is absent from the container image).
+- Add unit tests for user-facing binary-not-found error message formatting consistency across adapters.
 - Add integration tests for adapter process crash mid-run (unexpected exit code, no output).
 - Add a thin e2e run path once the adapter is wired into run execution.
 - Run mutation testing because option translation is branchy.

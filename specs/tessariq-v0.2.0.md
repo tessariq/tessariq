@@ -23,6 +23,7 @@ v0.2.0 inherits all v0.1.0 behavior unless this document changes it explicitly. 
 - promotion remains the normal path from isolated workspace output into Git history
 - `promote` still creates exactly one commit or fails cleanly
 - evidence JSON artifacts remain parseable under the same compatibility rules
+- host prerequisite guarantees and missing-prerequisite failure UX from v0.1.0 remain in force
 
 This document focuses on the additions and changed guarantees for multi-workspace operation and resume, but it also includes the implementation notes needed to read the file on its own.
 
@@ -250,6 +251,7 @@ Rules:
 - `repo-rw` promote fails cleanly if repository `HEAD` changed after the lineage root run started
 - resuming a live run fails cleanly
 - resuming a run with missing reconstruction inputs fails cleanly
+- missing or unavailable host prerequisites fail cleanly with actionable guidance
 - all workspace-specific warnings and evidence fields are present
 
 ## Failure UX
@@ -257,6 +259,7 @@ Rules:
 | Condition | Required behavior | Required user guidance |
 | --- | --- | --- |
 | `--resume` references a live run | fail before container start | tell the user the source run is still live and must finish before resume |
+| required host prerequisite (`git`, `tmux`, or `docker`) is missing or unavailable | fail before dependent command work begins | identify which prerequisite is missing or unavailable and tell the user to install or enable it, then retry |
 | `--resume` requests a different workspace mode | fail before container start | print both workspace modes and tell the user v0.2 resume is same-mode only |
 | `worktree` resume reconstruction material is missing | fail before container start | identify the missing preserved workspace state and tell the user resume is no longer possible |
 | `copy+patch` reconstruction patch is missing or cannot be applied | fail before container start or promote | identify the patch failure and tell the user the run cannot be resumed or promoted cleanly |

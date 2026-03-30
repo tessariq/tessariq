@@ -20,11 +20,13 @@ depends_on:
     - TASK-014-run-index-and-run-ref-resolution
     - TASK-015-promote-branch-commit-trailers-and-zero-diff-guard
     - TASK-016-v0-1-0-spec-conformity-verification
+    - TASK-020-prerequisite-preflight-and-missing-dependency-ux
 milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#release-intent
     - specs/tessariq-v0.1.0.md#product-intent
+    - specs/tessariq-v0.1.0.md#host-prerequisites
     - specs/tessariq-v0.1.0.md#tessariq-run-task-path
     - specs/tessariq-v0.1.0.md#tessariq-attach-run-ref
     - specs/tessariq-v0.1.0.md#tessariq-promote-run-ref
@@ -32,7 +34,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#acceptance-scenarios
     - specs/tessariq-v0.1.0.md#failure-ux
     - specs/tessariq-v0.1.0.md#success-metrics
-updated_at: "2026-03-29T12:06:20Z"
+updated_at: "2026-03-30T20:35:00Z"
 areas:
     - verification
     - spec
@@ -70,7 +72,7 @@ Run the final v0.1.0 conformity sweep against the normative spec after the stren
 ## Acceptance Criteria
 
 - `go run ./cmd/tessariq-workflow verify --profile spec --disposition report --json` passes with no unresolved high-severity findings.
-- Every normative contract, acceptance scenario, failure-UX row, and evidence-compatibility rule in the active v0.1.0 spec is covered by tasks and implemented behavior.
+- Every normative contract, acceptance scenario, failure-UX row, host-prerequisite contract, and evidence-compatibility rule in the active v0.1.0 spec is covered by tasks and implemented behavior.
 - The closeout explicitly records each v0.1.0 success metric as met, not yet measurable, or follow-up required; it must not silently ignore the section.
 - Regenerated verification artifacts and `planning/STATE.md` validation metadata point at the final passing sweep.
 
@@ -80,6 +82,7 @@ Run the final v0.1.0 conformity sweep against the normative spec after the stren
 - Integration tests are optional unless the closeout workflow grows real collaborator dependencies.
 - Add a full-pipeline e2e test covering the primary user journey end-to-end: `init -> create task -> run (detached) -> wait for completion -> promote -> verify branch, commit, trailers, and evidence artifacts`. This is the single most important e2e test for v0.1.0.
 - Add error-path e2e tests for the two most common user-facing failures not covered by earlier tasks: dirty-repo rejection (spec failure-UX row) and invalid-task-path rejection (spec failure-UX row).
+- Add error-path e2e tests for missing host prerequisites: missing `git` for `init`/`run` preflight, missing `tmux` for attach/run session paths, and missing or unavailable `docker` for run/proxy paths.
 - Add thin end-to-end coverage for any other still-uncovered critical user-visible flow before marking the milestone done.
 - Run mutation testing because the final gate should not rely on brittle or weakened verification logic.
 

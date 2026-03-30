@@ -9,11 +9,12 @@ depends_on:
 milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:
+    - specs/tessariq-v0.1.0.md#host-prerequisites
     - specs/tessariq-v0.1.0.md#networking-and-egress
     - specs/tessariq-v0.1.0.md#evidence-contract
     - specs/tessariq-v0.1.0.md#acceptance-scenarios
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-03-29T12:06:20Z"
+updated_at: "2026-03-30T20:35:00Z"
 areas:
     - networking
     - proxy
@@ -51,16 +52,20 @@ Implement proxy mode runtime topology, compiled allowlists, and egress event evi
 ## Acceptance Criteria
 
 - Proxy mode integrates with the runner/container lifecycle and enforces host:port allowlists with default port `443`.
+- Proxy mode preflights Docker prerequisites (binary availability and daemon reachability) before attempting container/network setup.
 - `egress.compiled.yaml` is emitted in proxy mode with `schema_version`, `allowlist_source`, and fully resolved destination `host` and `port` entries.
 - `egress.events.jsonl` is emitted only in proxy mode and records blocked attempts alongside the resolved allowlist context.
 - HTTPS and WSS CONNECT-style traffic is supported through the allowlisted proxy path.
 - Proxy evidence records both allowlist provenance and the fully resolved destinations without re-derivation.
 - Blocked-destination failures tell the user which `host:port` was blocked and how to allow it through user config or CLI flags, or rerun with explicit open egress.
+- Missing/unavailable Docker failures tell the user Docker is required for proxy mode and provide actionable retry guidance.
 
 ## Test Expectations
 
 - Add unit tests for allowlist compilation and manifest/proxy configuration rendering.
+- Add unit tests for Docker prerequisite checks and user-facing missing/unavailable Docker guidance.
 - Add integration tests for proxy-mode runtime behavior using Testcontainers-backed collaborators only.
+- Add integration tests for Docker-daemon-unavailable failure handling.
 - Add a thin e2e proxy-mode flow once run execution is end-to-end capable.
 - Run mutation testing because policy logic is safety-critical.
 
