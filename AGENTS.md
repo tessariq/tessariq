@@ -152,6 +152,38 @@ Follow existing conventions and keep CLI UX stable.
 - Keep tests deterministic; avoid live Docker or network unless integration-scoped and containerized.
 - Test evidence artifacts by verifying file existence, structure, and required fields.
 
+### Testcontainers patterns
+All reusable container helpers live in `internal/testutil/containers/`. Available helpers:
+- `StartGitRepo` — Alpine container with git for repository operation tests.
+- `StartHTTPBin` — kennethreitz/httpbin container for HTTP service tests.
+- `StartAdapterEnv` — Alpine container with a configurable fake adapter binary for adapter process lifecycle tests.
+- `StartRunEnv` — Alpine container with tmux, git, bash, and a fake claude binary for full CLI e2e tests.
+
+Pattern: `Start*` → `t.Cleanup()` handles teardown → use `Exec()` for commands → use bind-mounts for host-side artifact verification.
+
+Rules:
+- Never use local fake binaries, custom local servers, or host-installed tools as process collaborators in integration or e2e tests.
+- Never use `skipIfNoTmux` or similar host-tool guards — the container must provide everything.
+- When a new process or service collaborator is needed, add a new `Start*` helper to `internal/testutil/containers/` rather than creating ad-hoc local fakes.
+- Wait strategies: use `wait.ForExec` for process-based containers, `wait.ForHTTP` for service containers.
+- Build CLI binaries with `CGO_ENABLED=0` when they run inside Alpine containers (glibc vs musl).
+- Run containers as the current user (`user.Current()`) when bind-mounting host dirs, or fix ownership in cleanup to avoid `t.TempDir()` permission errors.
+
+### Integration test checklist
+- Build tag: `//go:build integration`.
+- Process and service collaborators must come from a `containers.Start*` helper.
+- Local fixtures via `t.TempDir()` are fine for files the test itself creates.
+- No host tool dependencies (tmux, docker CLI, etc.) — these must be inside the container.
+- Use `env.Exec()` to run commands inside the container and assert on exit codes and output.
+
+### E2e test checklist
+- Build tag: `//go:build e2e`.
+- Use `StartRunEnv` (or similar) to get a container with all runtime dependencies.
+- Build the CLI binary on the host with `CGO_ENABLED=0`, copy into bind-mount.
+- Run CLI commands inside the container via `env.Exec(ctx, []string{"sh", "-c", "cd /repo && /work/binary ..."})`.
+- Read evidence artifacts from inside the container via `env.Exec(ctx, []string{"cat", path})`.
+- No `skipIfNoTmux` or similar host-tool guards.
+
 ### Dependency and platform practices
 - Prefer the standard library first; add dependencies only when justified.
 - Keep Linux/macOS differences explicit and runtime-guarded.

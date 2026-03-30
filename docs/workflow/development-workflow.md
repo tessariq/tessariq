@@ -53,6 +53,11 @@ Testcontainers standard:
 - use `github.com/testcontainers/testcontainers-go`
 - use official wait strategies
 - keep container-backed suites on Linux CI runners with Docker available
+- all reusable container helpers live in `internal/testutil/containers/`
+- available helpers: `StartGitRepo` (git), `StartHTTPBin` (HTTP), `StartAdapterEnv` (adapter process), `StartRunEnv` (full CLI e2e with tmux+git+fake claude)
+- new process or service collaborators must get a `Start*` helper — do not create ad-hoc local fakes or depend on host-installed tools
+- e2e tests must use `StartRunEnv` so they are self-contained and CI-portable
+- build CLI binaries with `CGO_ENABLED=0` when targeting Alpine containers
 
 ## Mutation Testing
 
@@ -65,10 +70,20 @@ Testcontainers standard:
 After automated test tiers pass, run the `autonomous-manual-test` skill to exercise the built CLI against the task's acceptance criteria:
 
 1. The agent reads the task's acceptance criteria and generates a test plan.
-2. Each test step runs in a sandboxed `/tmp/` directory.
+2. Each test step runs in the appropriate mode:
+   - **Sandbox mode**: standalone Go programs in `/tmp/tessariq-manual-test-<task-id>/` for API-level tests.
+   - **Container mode**: `_manual_test.go` files with `//go:build manual_test` tag for tests needing tmux, fake adapter binaries, or full CLI lifecycle.
 3. Failures are classified by severity (critical, major, minor) and resolved inline when possible.
 4. A structured report records all outcomes.
 5. Artifacts are written to `planning/artifacts/manual-test/<task-id>/<timestamp>/`.
+
+Container mode manual tests:
+- Place `_manual_test.go` files in the package closest to the code under test.
+- Name test functions `TestManual_<descriptive name>`.
+- Use Testcontainers helpers from `internal/testutil/containers/`.
+- Run via `go test -tags=manual_test ./<package>/ -run TestManual_<Name> -v -count=1`.
+- Build CLI binaries with `CGO_ENABLED=0` for Alpine containers.
+- Never substitute automated e2e test results for manual test evidence.
 
 Manual testing is required before running verification and before finishing a task as `done`.
 
