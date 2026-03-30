@@ -15,7 +15,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#evidence-contract
     - specs/tessariq-v0.1.0.md#acceptance-scenarios
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-03-30T20:35:00Z"
+updated_at: "2026-03-30T22:10:00Z"
 areas:
     - git
     - promote
@@ -59,6 +59,7 @@ Implement `tessariq promote <run-ref>` with branch creation, exactly one commit,
 - Default trailers are exactly `Tessariq-Run: <run_id>`, `Tessariq-Base: <base_sha>`, and `Tessariq-Task: <task_path>`.
 - `--no-trailers` suppresses the default trailer block without changing the one-commit contract.
 - Failure guidance tells the user when there were no code changes to promote or identifies the missing artifact that blocks promotion.
+- Promote accepts the new `agent.json` and `runtime.json` evidence model as the source of truth rather than the superseded `adapter.json` model.
 - Promote fails cleanly with actionable guidance when required `git` operations cannot run because `git` is missing or unavailable.
 
 ## Test Expectations

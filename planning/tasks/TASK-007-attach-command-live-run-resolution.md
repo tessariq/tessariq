@@ -14,7 +14,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#lifecycle-rules
     - specs/tessariq-v0.1.0.md#acceptance-scenarios
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-03-30T20:35:00Z"
+updated_at: "2026-03-30T22:10:00Z"
 areas:
     - tmux
     - cli
@@ -72,3 +72,4 @@ Implement `tessariq attach <run-ref>` on top of the shared repository-scoped run
 ## Notes
 
 - Shared run-ref parsing and index semantics are intentionally owned by `TASK-014`.
+- This task is not materially changed by the v0.1.0 agent/runtime spec shift; it remains in the v0.1.0 backlog unchanged except for refreshed planning metadata.

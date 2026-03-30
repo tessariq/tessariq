@@ -1,14 +1,16 @@
 ---
 id: TASK-019-inline-prompt-support
 title: Support inline text prompts via --prompt flag
-status: todo
+status: blocked
 priority: p2
 depends_on: []
 milestone: v0.2.0
-spec_version: v0.1.0
+spec_version: v0.2.0
 spec_refs:
-    - specs/tessariq-v0.1.0.md#specification-changelog
-updated_at: "2026-03-29T17:30:00Z"
+    - specs/tessariq-v0.2.0.md#release-intent
+    - specs/tessariq-v0.2.0.md#scope
+    - specs/tessariq-v0.2.0.md#acceptance-scenarios
+updated_at: "2026-03-30T22:28:00Z"
 areas:
     - cli
     - evidence
@@ -67,5 +69,6 @@ Add a `--prompt` flag to `tessariq run` that accepts inline text instead of a ta
 ## Notes
 
 - Deferred to v0.2.0. The v0.1.0 thesis is file-based, git-tracked, reproducible tasks. Inline prompts should only be added after v0.1.0 validates that workflow and user feedback shows task-file creation is a barrier.
+- This task is intentionally blocked until `v0.2.0` becomes the active milestone and its draft spec adds explicit `--prompt` contract language.
 - Practical v0.1.0 workaround: `echo "# Fix the bug" > tasks/quick.md && tessariq run tasks/quick.md`.
 - Spec changes for v0.2.0 will need to define `<inline>` semantics for `task_path` and document the reproducibility trade-off (inline prompts are ephemeral, not version-controlled).

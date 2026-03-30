@@ -11,9 +11,6 @@ depends_on:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
     - TASK-006-tmux-session-and-detached-attach-guidance
     - TASK-007-attach-command-live-run-resolution
-    - TASK-008-adapter-contract-and-adapter-json
-    - TASK-009-claude-code-adapter
-    - TASK-010-opencode-adapter
     - TASK-011-egress-mode-resolution-and-manifest-recording
     - TASK-012-proxy-topology-and-egress-artifacts
     - TASK-013-diff-log-and-evidence-artifacts
@@ -21,6 +18,12 @@ depends_on:
     - TASK-015-promote-branch-commit-trailers-and-zero-diff-guard
     - TASK-016-v0-1-0-spec-conformity-verification
     - TASK-020-prerequisite-preflight-and-missing-dependency-ux
+    - TASK-021-reference-runtime-image-and-docs
+    - TASK-022-agent-and-runtime-evidence-migration
+    - TASK-023-supported-agent-auth-mounts
+    - TASK-024-claude-code-agent-runtime-integration
+    - TASK-025-opencode-agent-runtime-integration
+    - TASK-026-mount-agent-config-flag-and-config-dir-mounts
 milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:
@@ -28,13 +31,14 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#product-intent
     - specs/tessariq-v0.1.0.md#host-prerequisites
     - specs/tessariq-v0.1.0.md#tessariq-run-task-path
+    - specs/tessariq-v0.1.0.md#agent-and-runtime-contract
     - specs/tessariq-v0.1.0.md#tessariq-attach-run-ref
     - specs/tessariq-v0.1.0.md#tessariq-promote-run-ref
     - specs/tessariq-v0.1.0.md#evidence-contract
     - specs/tessariq-v0.1.0.md#acceptance-scenarios
     - specs/tessariq-v0.1.0.md#failure-ux
     - specs/tessariq-v0.1.0.md#success-metrics
-updated_at: "2026-03-30T20:35:00Z"
+updated_at: "2026-03-30T22:10:00Z"
 areas:
     - verification
     - spec
@@ -75,15 +79,16 @@ Run the final v0.1.0 conformity sweep against the normative spec after the stren
 - Every normative contract, acceptance scenario, failure-UX row, host-prerequisite contract, and evidence-compatibility rule in the active v0.1.0 spec is covered by tasks and implemented behavior.
 - The closeout explicitly records each v0.1.0 success metric as met, not yet measurable, or follow-up required; it must not silently ignore the section.
 - Regenerated verification artifacts and `planning/STATE.md` validation metadata point at the final passing sweep.
+- The closeout sweep explicitly covers the v0.1.0 runtime-image contract, read-only supported-agent auth reuse, `--mount-agent-config`, agent-aware `auto` egress, and the `agent.json` plus `runtime.json` evidence split.
 
 ## Test Expectations
 
 - Add unit tests only if closeout uncovers a missing verifier assertion.
 - Integration tests are optional unless the closeout workflow grows real collaborator dependencies.
-- Add a full-pipeline e2e test covering the primary user journey end-to-end: `init -> create task -> run (detached) -> wait for completion -> promote -> verify branch, commit, trailers, and evidence artifacts`. This is the single most important e2e test for v0.1.0.
-- Add error-path e2e tests for the two most common user-facing failures not covered by earlier tasks: dirty-repo rejection (spec failure-UX row) and invalid-task-path rejection (spec failure-UX row).
+- Add a full-pipeline e2e test covering the primary user journey end-to-end: `init -> create task -> run (detached) -> wait for completion -> promote -> verify branch, commit, trailers, and evidence artifacts`.
+- Add error-path e2e tests for the two most common user-facing failures not covered by earlier tasks: dirty-repo rejection and invalid-task-path rejection.
 - Add error-path e2e tests for missing host prerequisites: missing `git` for `init`/`run` preflight, missing `tmux` for attach/run session paths, and missing or unavailable `docker` for run/proxy paths.
-- Add thin end-to-end coverage for any other still-uncovered critical user-visible flow before marking the milestone done.
+- Add thin end-to-end coverage for the v0.1.0 auth/runtime failure paths: missing selected-agent binary, missing required supported-agent auth state, and unsupported writable auth-refresh expectation.
 - Run mutation testing because the final gate should not rely on brittle or weakened verification logic.
 
 ## TDD Plan

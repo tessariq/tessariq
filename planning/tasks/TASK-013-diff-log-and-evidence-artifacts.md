@@ -1,17 +1,18 @@
 ---
 id: TASK-013-diff-log-and-evidence-artifacts
-title: Emit diff, log, and workspace evidence artifacts
+title: Emit diff, log, agent, and runtime evidence artifacts
 status: todo
 priority: p1
 depends_on:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
     - TASK-012-proxy-topology-and-egress-artifacts
+    - TASK-022-agent-and-runtime-evidence-migration
 milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#evidence-contract
     - specs/tessariq-v0.1.0.md#acceptance-scenarios
-updated_at: "2026-03-29T12:06:20Z"
+updated_at: "2026-03-30T22:10:00Z"
 areas:
     - evidence
     - diff
@@ -49,7 +50,7 @@ Finish required v0.1.0 evidence artifact emission, including diff outputs, cappe
 ## Acceptance Criteria
 
 - This task closes remaining evidence gaps across artifacts already seeded by earlier tasks.
-- Required artifacts are present for every run: `manifest.json`, `status.json`, `adapter.json`, `task.md`, `run.log`, `runner.log`, and `workspace.json`.
+- Required artifacts are present for every run: `manifest.json`, `status.json`, `agent.json`, `runtime.json`, `task.md`, `run.log`, `runner.log`, and `workspace.json`.
 - `diff.patch` and `diffstat.txt` exist only when code changes are present.
 - Proxy-mode artifacts remain conditional: `egress.compiled.yaml` and `egress.events.jsonl` only in proxy mode, and optional `squid.log` only when emitted by the proxy runtime.
 - Capped logs include an explicit truncation marker when trimmed.
@@ -60,7 +61,7 @@ Finish required v0.1.0 evidence artifact emission, including diff outputs, cappe
 - Add unit tests for artifact-path derivation and truncation behavior.
 - Add unit tests for log truncation boundary conditions: exactly at the size limit, one byte over the limit, and well under the limit.
 - Add integration tests for artifact generation using Testcontainers-backed collaborators only.
-- Add an integration test for holistic evidence completeness: assert all 7 required files (`manifest.json`, `status.json`, `adapter.json`, `task.md`, `run.log`, `runner.log`, `workspace.json`) exist, are non-empty, and JSON artifacts parse with valid `schema_version: 1`.
+- Add an integration test for holistic evidence completeness: assert all 8 required files (`manifest.json`, `status.json`, `agent.json`, `runtime.json`, `task.md`, `run.log`, `runner.log`, `workspace.json`) exist, are non-empty, and JSON artifacts parse with valid `schema_version: 1`.
 - Add a thin e2e evidence-presence flow for the run pipeline.
 - Run mutation testing because conditional artifact logic is easy to weaken accidentally.
 

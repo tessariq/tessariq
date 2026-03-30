@@ -13,6 +13,7 @@ Tessariq v0.2.0 is intended to verify:
 - `repo-rw` is useful enough to justify its weaker safety and reproducibility guarantees
 - same-mode resume for each workspace materially improves iteration speed
 - the multi-workspace model can stay coherent without adding the later operator CLI yet
+- the v0.1.0 agent/runtime/auth contract remains stable across all workspace modes
 
 ## Inheritance from v0.1.0
 
@@ -24,6 +25,10 @@ v0.2.0 inherits all v0.1.0 behavior unless this document changes it explicitly. 
 - `promote` still creates exactly one commit or fails cleanly
 - evidence JSON artifacts remain parseable under the same compatibility rules
 - host prerequisite guarantees and missing-prerequisite failure UX from v0.1.0 remain in force
+- the user-facing tool choice remains `agent`, not `adapter`
+- the selected runtime image remains a separate concept from the selected agent
+- supported-agent auth reuse remains read-only and MUST NOT expose host `HOME`
+- `--mount-agent-config` remains an opt-in read-only config-dir mount for supported agents
 
 This document focuses on the additions and changed guarantees for multi-workspace operation and resume, but it also includes the implementation notes needed to read the file on its own.
 
@@ -43,6 +48,9 @@ Still out of scope:
 - multi-agent orchestration
 - web UI or database
 - automatic push or PR creation
+- tracking or pinning upstream third-party agent versions as a Tessariq product responsibility
+- devcontainer-derived runtime support
+- writable host credential or config mounts for agent auth refresh
 
 ## Changes from v0.1.0
 
@@ -54,6 +62,7 @@ v0.2.0 extends or overrides v0.1.0 in these areas:
 - add `--unsafe-workspace` and `--unsafe` for the unsafe workspace path
 - add workspace-specific promote behavior for `copy+patch` and `repo-rw`
 - retain the v0.1.0 run outcome model; this spec changes workspace and resume behavior, not terminal run outcomes
+- keep the v0.1.0 agent/runtime/auth/egress model unchanged while broadening workspace choice
 
 ## Workspace guarantees
 
@@ -127,6 +136,7 @@ Rules:
 - if `--resume` is set without `--workspace`, the resumed run MUST default to the source run's workspace mode
 - if both `--resume` and `--workspace` are set, the requested workspace mode MUST match the source run's workspace mode or Tessariq MUST fail before container start
 - `resume` MUST fail if the referenced run is unknown or lacks the required reconstruction evidence for its workspace mode
+- the inherited `--agent`, `--image`, and `--mount-agent-config` contracts remain in force for resumed runs
 
 ### `tessariq promote <run-ref>`
 
@@ -237,6 +247,7 @@ Rules:
 - `lineage_root_run_id` MUST refer to the first run in the promote lineage
 - `worktree` evidence MUST describe the preserved workspace snapshot needed for same-mode resume
 - `repo-rw` evidence MUST describe the captured lineage baseline used to bound promote attribution
+- the inherited `agent.json` and `runtime.json` artifacts remain required for all workspace modes
 
 ## Acceptance scenarios
 
@@ -252,6 +263,9 @@ Rules:
 - resuming a live run fails cleanly
 - resuming a run with missing reconstruction inputs fails cleanly
 - missing or unavailable host prerequisites fail cleanly with actionable guidance
+- inherited supported-agent auth reuse still works across all workspace modes
+- inherited `--mount-agent-config` behavior still works across all workspace modes
+- inherited `auto` egress remains agent-aware across all workspace modes
 - all workspace-specific warnings and evidence fields are present
 
 ## Failure UX
@@ -265,6 +279,8 @@ Rules:
 | `copy+patch` reconstruction patch is missing or cannot be applied | fail before container start or promote | identify the patch failure and tell the user the run cannot be resumed or promoted cleanly |
 | `repo-rw` is selected without `--unsafe-workspace` or `--unsafe` | fail before container start | explain that `repo-rw` is unsafe and requires explicit opt-in |
 | `repo-rw` lineage baseline is missing or repository `HEAD` changed since the lineage root run started | fail without creating a branch or commit | tell the user promote attribution is no longer safe and the run must be rerun from a fresh baseline |
+| the selected agent binary is missing from the resolved runtime image | fail before agent start | unchanged from v0.1.0 |
+| required supported agent auth state is missing or requires writable refresh | fail before agent start | unchanged from v0.1.0 |
 | `promote` sees zero diff | fail without creating a branch or commit | tell the user there were no code changes to promote |
 
 ## Success metrics
@@ -292,7 +308,8 @@ Repo-local generated state lives at the repository root under `<repo>/.tessariq/
       <run_id>/
         manifest.json
         status.json
-        adapter.json
+        agent.json
+        runtime.json
         task.md
         run.log
         runner.log
@@ -334,6 +351,7 @@ The current implementation direction shared across workspace modes is:
   - start a per-run Squid proxy container connected to `run_net` and a non-internal egress network
   - run the agent container only on `run_net`
   - configure `HTTP_PROXY` and `HTTPS_PROXY` for the agent
+- keep the same read-only supported-agent auth reuse and optional read-only `--mount-agent-config` behavior from v0.1.0
 
 ### Workspace-specific implementation notes
 
@@ -371,7 +389,7 @@ Runner, as PID1, is expected to:
 Bootstrap is expected to:
 
 - run `pre` commands
-- run the selected adapter
+- run the selected agent
 - run `verify` commands
 - trap `EXIT`
 - generate diff artifacts best-effort

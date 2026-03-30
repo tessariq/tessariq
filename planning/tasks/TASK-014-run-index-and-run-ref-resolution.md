@@ -6,12 +6,13 @@ priority: p1
 depends_on:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
     - TASK-013-diff-log-and-evidence-artifacts
+    - TASK-022-agent-and-runtime-evidence-migration
 milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#lifecycle-rules
     - specs/tessariq-v0.1.0.md#evidence-contract
-updated_at: "2026-03-29T12:06:20Z"
+updated_at: "2026-03-30T22:10:00Z"
 areas:
     - evidence
     - indexing
@@ -49,7 +50,7 @@ Append run index entries and implement repository-scoped run-ref resolution.
 ## Acceptance Criteria
 
 - `index.jsonl` is append-only.
-- `index.jsonl` entries include the minimum required fields for `run_id`, `created_at`, `task_path`, `task_title`, `adapter`, `workspace_mode`, `state`, and `evidence_path`.
+- `index.jsonl` entries include the minimum required fields for `run_id`, `created_at`, `task_path`, `task_title`, `agent`, `workspace_mode`, `state`, and `evidence_path`.
 - `run_id`, `last`, and `last-N` resolve against the current repository's run index only.
 - Commands fail cleanly when the referenced run cannot be found in the current repository.
 - Shared run-ref resolution is the source of truth for attach and promote.

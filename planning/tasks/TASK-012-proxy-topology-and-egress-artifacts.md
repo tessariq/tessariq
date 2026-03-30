@@ -1,6 +1,6 @@
 ---
 id: TASK-012-proxy-topology-and-egress-artifacts
-title: Implement proxy topology and egress evidence artifacts
+title: Implement proxy topology and provider-aware egress evidence artifacts
 status: todo
 priority: p1
 depends_on:
@@ -10,14 +10,16 @@ milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#host-prerequisites
+    - specs/tessariq-v0.1.0.md#agent-and-runtime-contract
     - specs/tessariq-v0.1.0.md#networking-and-egress
     - specs/tessariq-v0.1.0.md#evidence-contract
     - specs/tessariq-v0.1.0.md#acceptance-scenarios
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-03-30T20:35:00Z"
+updated_at: "2026-03-30T23:05:00Z"
 areas:
     - networking
     - proxy
+    - agents
 verification:
     unit:
         required: true
@@ -47,7 +49,7 @@ verification:
 
 ## Summary
 
-Implement proxy mode runtime topology, compiled allowlists, and egress event evidence.
+Implement proxy mode runtime topology, compiled allowlists, and egress event evidence for the selected supported agent, including provider-aware OpenCode behavior.
 
 ## Acceptance Criteria
 
@@ -57,6 +59,9 @@ Implement proxy mode runtime topology, compiled allowlists, and egress event evi
 - `egress.events.jsonl` is emitted only in proxy mode and records blocked attempts alongside the resolved allowlist context.
 - HTTPS and WSS CONNECT-style traffic is supported through the allowlisted proxy path.
 - Proxy evidence records both allowlist provenance and the fully resolved destinations without re-derivation.
+- The proxy topology works with Claude Code's fixed first-party endpoints under `--egress auto`.
+- The proxy topology works with OpenCode's provider-aware endpoint profile under `--egress auto`, including `models.dev:443` and the resolved provider host on `443`.
+- OpenCode `--egress auto` never silently falls back to broad network access when the provider host cannot be resolved.
 - Blocked-destination failures tell the user which `host:port` was blocked and how to allow it through user config or CLI flags, or rerun with explicit open egress.
 - Missing/unavailable Docker failures tell the user Docker is required for proxy mode and provide actionable retry guidance.
 
@@ -66,12 +71,15 @@ Implement proxy mode runtime topology, compiled allowlists, and egress event evi
 - Add unit tests for Docker prerequisite checks and user-facing missing/unavailable Docker guidance.
 - Add integration tests for proxy-mode runtime behavior using Testcontainers-backed collaborators only.
 - Add integration tests for Docker-daemon-unavailable failure handling.
+- Add integration tests that Claude Code can reach its maintained allowlisted endpoints and is blocked from non-allowlisted destinations.
+- Add integration tests that OpenCode can reach `models.dev` and the resolved provider host while still being blocked from non-allowlisted destinations.
+- Add integration coverage that unresolved OpenCode provider-host cases fail before container start rather than broadening egress.
 - Add a thin e2e proxy-mode flow once run execution is end-to-end capable.
 - Run mutation testing because policy logic is safety-critical.
 
 ## TDD Plan
 
-- Start with a failing unit test for allowlist compilation and a failing integration test for proxy-mode egress enforcement.
+- Start with a failing unit test for allowlist compilation and a failing integration test for provider-aware proxy-mode egress enforcement.
 
 ## Notes
 

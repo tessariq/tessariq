@@ -13,15 +13,17 @@ Tessariq v0.1.0 is intended to verify:
 - durable evidence artifacts are sufficient for debugging and future automation
 - `worktree` is a good default balance of UX, Git integration, and safety
 - proxy-based egress control is practical for real agent usage without breaking developer UX
+- a minimal Tessariq reference runtime plus per-agent auth reuse is a workable local foundation
 
 ## Product intent
 
-Tessariq v0.1.0 provides a Git-native, sandboxed way to run coding agents against a repository. The release is centered on four user-visible contracts:
+Tessariq v0.1.0 provides a Git-native, sandboxed way to run coding agents against a repository. The release is centered on five user-visible contracts:
 
 - runs are detached by default, with optional attach to a live `tmux` session
 - the default workspace is isolated from the repository working tree
 - evidence is durable, repo-local, and stable enough for later automation
 - promotion produces exactly one reviewable Git commit or fails cleanly
+- a selected agent can reuse the user's existing supported auth state inside a compatible container runtime image without exposing host `HOME`
 
 ## Goals
 
@@ -29,6 +31,7 @@ Tessariq v0.1.0 provides a Git-native, sandboxed way to run coding agents agains
 2. Stable run identity, lifecycle, and evidence layout.
 3. Safe-by-default networking, with explicit unsafe opt-in for `open`.
 4. Evidence contracts that later automation can parse without guessing.
+5. A clear separation between user-facing agent selection and runtime-image execution details.
 
 ## Non-goals
 
@@ -40,6 +43,9 @@ Tessariq v0.1.0 provides a Git-native, sandboxed way to run coding agents agains
 - multi-agent orchestration
 - web UI or database
 - automatic push or PR creation
+- tracking or pinning upstream third-party agent versions as a Tessariq product responsibility
+- devcontainer-derived runtime support
+- writable host credential or config mounts for agent auth refresh
 
 ## Host prerequisites
 
@@ -136,6 +142,7 @@ Defaults:
 - `--egress=auto`
 - `--interactive=false`
 - `--attach=false`
+- `--mount-agent-config=false`
 
 Supported flags:
 
@@ -143,6 +150,7 @@ Supported flags:
 - `--image <image>`
 - `--model <string>`
 - `--interactive`
+- `--mount-agent-config`
 - `--egress none|proxy|open|auto`
 - `--unsafe-egress` as an alias for `--egress open`
 - `--egress-allow <host[:port]>` repeatable
@@ -156,6 +164,17 @@ Default tool-permission mode:
 - by default the agent runs autonomously inside the container sandbox without requiring human approval for tool use
 - `--interactive` opts in to human-in-the-loop approval; this is intended for use with `--attach` where a human is present to approve each tool invocation
 - `--interactive` without `--attach` is valid but will cause the agent to block waiting for approval with no terminal attached
+
+Runtime-image behavior:
+
+- Tessariq MUST ship one official minimal reference runtime image for v0.1.0
+- the reference runtime image for v0.1.0 MUST be published as `ghcr.io/tessariq/reference-runtime:v0.1.0`
+- the reference runtime image MUST use a glibc-based Linux base image and a non-root default user
+- the reference runtime image MUST support general JS/TS, Python, and Go development tooling
+- the reference runtime image baseline MUST include at least `bash`, `ca-certificates`, `curl`, `git`, `jq`, `ripgrep`, `zip`, `unzip`, `tar`, `xz-utils`, `patch`, `procps`, `less`, `openssh-client`, `make`, `build-essential`, `pkg-config`, Python 3 with `pip` and `venv`, Node LTS with `npm` and `corepack`, and Go `1.26`
+- the reference runtime image MUST NOT bundle third-party agent binaries such as Claude Code or OpenCode
+- `--image` overrides the runtime image for that run
+- the selected agent binary MUST already exist in the resolved runtime image
 
 Required printed output:
 
@@ -215,36 +234,51 @@ Zero-diff behavior:
 
 Resolution is against the current repository's run index. Commands MUST fail if the referenced run cannot be found in that repository.
 
-## Adapter contract
+## Agent and Runtime Contract
 
-v0.1.0 supports exactly these first-party adapters:
+v0.1.0 supports exactly these first-party agents:
 
 - `claude-code`
 - `opencode`
 
-Common rules:
+Common agent rules:
 
-- each adapter MUST write `adapter.json`
-- `adapter.json` MUST record requested adapter options
-- if an option such as `--model` or `--interactive` cannot be applied exactly, the adapter MUST record that it was requested but not applied
+- each run MUST write `agent.json`
+- `agent.json` MUST record requested agent options
+- if an option such as `--model` or `--interactive` cannot be applied exactly, the selected agent MUST record that it was requested but not applied
 
-Minimum `adapter.json` shape:
+Common runtime rules:
 
-```json
-{
-  "schema_version": 1,
-  "adapter": "claude-code",
-  "image": "example/image:tag",
-  "requested": {
-    "model": "gpt-5.4",
-    "interactive": true
-  },
-  "applied": {
-    "model": false,
-    "interactive": true
-  }
-}
-```
+- each run MUST write `runtime.json`
+- Tessariq MUST treat `agent` as the user-facing tool choice and the runtime image as the execution environment
+- v0.1.0 local auth reuse support is limited to Linux and macOS hosts
+- Tessariq MUST NOT expose the host `HOME` directory inside the container
+- for each supported agent, Tessariq MUST maintain documented knowledge of the host auth files or directories required for that agent to reuse existing local authentication
+- for each supported agent, Tessariq MUST auto-detect the required auth files or directories and mount them read-only when present
+- Claude Code required auth paths are:
+  - Linux: `~/.claude/.credentials.json` and `~/.claude.json`
+  - macOS: `~/.claude/.credentials.json` when a file-backed credential mirror is present, and `~/.claude.json`
+- OpenCode required auth paths are:
+  - Linux and macOS: `~/.local/share/opencode/auth.json`
+- `--mount-agent-config` MUST opt in to additional read-only mounting of the supported agent's default config directories
+- `--mount-agent-config` default config directories are:
+  - Claude Code: `~/.claude/`
+  - OpenCode: `~/.config/opencode/`
+- required and optional mounts MUST use deterministic in-container destinations under the container user's home directory:
+  - Claude Code: `$HOME/.claude/.credentials.json`, `$HOME/.claude.json`, and `$HOME/.claude/`
+  - OpenCode: `$HOME/.local/share/opencode/auth.json` and `$HOME/.config/opencode/`
+- when Claude Code config directories are mounted, Tessariq MUST set `CLAUDE_CONFIG_DIR=$HOME/.claude` inside the container
+- Tessariq MUST NOT mount arbitrary host-home paths as a side effect of `--mount-agent-config`
+- missing or unreadable optional agent config directories MUST warn and be recorded in run artifacts, but MUST NOT fail a run when required auth mounts are valid
+- direct reuse of the macOS Keychain for Claude Code is out of scope for v0.1.0; Claude Code auth reuse on macOS is supported only when the file-backed credential mirror exists
+- Tessariq MUST NOT support auth flows that require writable credential or config mounts in v0.1.0
+- Tessariq MUST fail cleanly when the selected agent requires writable auth refresh behavior that is incompatible with the read-only mount contract
+
+## Adapter contract
+
+Historical alias for completed planning tasks created before the v0.1.0 shift from adapter-centric wording to the agent/runtime model.
+
+The current normative contract lives in `Agent and Runtime Contract` above.
 
 ## Networking and egress
 
@@ -260,6 +294,7 @@ Modes:
 - for `claude-code` and `opencode`, `auto` MUST resolve to `proxy`
 - the resolved mode MUST be written into `manifest.json`
 - when no explicit allowlist is provided by user config or CLI flags, `auto` MUST use the built-in Tessariq allowlist profile
+- `allowlist_source` in `manifest.json` and `egress.compiled.yaml` MUST be one of `cli`, `user_config`, or `built_in`
 
 User-level config:
 
@@ -277,7 +312,13 @@ Allowlist precedence:
 Built-in Tessariq allowlist profile:
 
 - the built-in profile MUST include maintained HTTPS destinations for common package-manager workflows and Wikipedia
-- the initial v0.1.0 profile MUST include at least npm, PyPI, RubyGems, crates.io, the Go module proxy and checksum database, Maven Central, and Wikipedia over TCP `443`
+- the built-in profile MUST also include the maintained HTTPS destinations required for the selected supported agent to authenticate and operate normally under the documented v0.1.0 contract
+- the initial v0.1.0 baseline profile MUST include at least npm, PyPI, RubyGems, crates.io, the Go module proxy and checksum database, Maven Central, and Wikipedia over TCP `443`
+- the implementation MUST maintain a documented per-agent endpoint profile for Claude Code and a documented provider-aware endpoint profile for OpenCode so `auto` remains predictable as endpoints evolve
+- Claude Code built-in endpoints MUST include `api.anthropic.com:443`, `claude.ai:443`, and `platform.claude.com:443`
+- OpenCode built-in endpoints MUST include `models.dev:443` and the resolved provider base-URL host on `443`
+- `opencode.ai:443` MUST be added only when the resolved OpenCode configuration uses an OpenCode-hosted provider or auth flow that requires it
+- when OpenCode is selected and Tessariq cannot determine the provider host required for `--egress auto` from the available config and auth state, Tessariq MUST fail before container start and tell the user to configure the provider explicitly or use `--egress-allow`
 - the fully resolved allowlist MUST be written to `egress.compiled.yaml`
 
 User-visible `proxy` contract:
@@ -303,7 +344,8 @@ The following files MUST exist for every run unless marked otherwise:
 
 - `manifest.json`
 - `status.json`
-- `adapter.json`
+- `agent.json`
+- `runtime.json`
 - `task.md`
 - `run.log`
 - `runner.log`
@@ -319,7 +361,7 @@ Logs MUST be capped and MUST include a truncation marker if truncated.
 ### Compatibility rules
 
 - every emitted JSON artifact defined by this spec MUST include `schema_version`
-- v0.1.0 defines `schema_version: 1` for `manifest.json`, `status.json`, `adapter.json`, and `workspace.json`
+- v0.1.0 defines `schema_version: 1` for `manifest.json`, `status.json`, `agent.json`, `runtime.json`, and `workspace.json`
 - required fields in the minimum shapes below MUST always be present
 - implementations MAY add extra fields without changing `schema_version` if they do not change the meaning of existing fields
 - `index.jsonl` is append-only; each line represents one run and MUST not be rewritten in place for another run
@@ -333,7 +375,7 @@ Minimum `manifest.json` shape:
   "run_id": "01J...",
   "task_path": "specs/example.md",
   "task_title": "Example task",
-  "adapter": "claude-code",
+  "agent": "claude-code",
   "base_sha": "abc123",
   "workspace_mode": "worktree",
   "requested_egress_mode": "auto",
@@ -341,6 +383,36 @@ Minimum `manifest.json` shape:
   "allowlist_source": "auto",
   "container_name": "tessariq-01J...",
   "created_at": "2026-01-27T12:00:00Z"
+}
+```
+
+Minimum `agent.json` shape:
+
+```json
+{
+  "schema_version": 1,
+  "agent": "claude-code",
+  "requested": {
+    "model": "gpt-5.4",
+    "interactive": true
+  },
+  "applied": {
+    "model": false,
+    "interactive": true
+  }
+}
+```
+
+Minimum `runtime.json` shape:
+
+```json
+{
+  "schema_version": 1,
+  "image": "ghcr.io/tessariq/reference-runtime:v0.1.0",
+  "image_source": "reference",
+  "auth_mount_mode": "read-only",
+  "agent_config_mount": "disabled",
+  "agent_config_mount_status": "disabled"
 }
 ```
 
@@ -389,7 +461,7 @@ Minimum `index.jsonl` entry shape:
   "created_at": "2026-01-27T12:00:00Z",
   "task_path": "specs/example.md",
   "task_title": "Example task",
-  "adapter": "claude-code",
+  "agent": "claude-code",
   "workspace_mode": "worktree",
   "state": "success",
   "evidence_path": ".tessariq/runs/01J..."
@@ -399,9 +471,17 @@ Minimum `index.jsonl` entry shape:
 ## Acceptance scenarios
 
 - `init` creates `.tessariq/runs/` and the `.gitignore` entry
-- `run` succeeds on a clean repo and creates the required evidence files
+- `run` succeeds on a clean repo with a compatible runtime image and creates the required evidence files
 - `run` fails early on a dirty repo before container start
 - `run` fails early with actionable guidance when a required host prerequisite is missing or unavailable
+- `run` auto-detects supported agent auth state and mounts it read-only when present
+- `run` reuses Claude Code auth on macOS only when a file-backed `~/.claude/.credentials.json` credential mirror is present
+- `run --mount-agent-config` additionally mounts the selected supported agent's default config directories read-only
+- `run --mount-agent-config` warns and records mount status when optional config directories are missing or unreadable, but continues when required auth mounts are valid
+- `run` does not expose the host `HOME` directory inside the container
+- `run` fails cleanly when the selected agent binary is missing from the resolved runtime image
+- `run` fails cleanly when required supported agent auth state is missing
+- `run` fails cleanly when the selected agent requires writable auth refresh behavior
 - `init` fails cleanly with actionable guidance when `git` is unavailable
 - `attach` works for a live run and fails cleanly for a finished run
 - `attach` fails cleanly with actionable guidance when `tmux` is unavailable
@@ -410,6 +490,8 @@ Minimum `index.jsonl` entry shape:
 - `promote` fails cleanly if required evidence is missing
 - `proxy` mode enforces destination allowlists and records the compiled configuration
 - `auto` uses the built-in allowlist profile when no explicit allowlist source is present
+- `auto` includes the maintained endpoints required for Claude Code and the resolved provider endpoints required for OpenCode
+- `run --agent opencode --egress auto` fails before container start when the required provider host cannot be determined from the available config and auth state
 - user-level config replaces the built-in allowlist profile for `auto`
 - CLI `--egress-allow` values override user-level config and the built-in allowlist profile
 
@@ -420,6 +502,12 @@ Minimum `index.jsonl` entry shape:
 | task path is missing, outside the repository, or not Markdown | fail before container start | print the invalid path and tell the user to pass a Markdown task file inside the current repository |
 | repository is dirty for `worktree` | fail before container start | tell the user to commit, stash, or clean the repository first |
 | required host prerequisite (`git`, `tmux`, or `docker`) is missing or unavailable | fail before dependent command work begins | identify which prerequisite is missing or unavailable and tell the user to install or enable it, then retry |
+| the selected agent binary is missing from the resolved runtime image | fail before agent start | identify the missing binary, name the selected agent, and tell the user to use a compatible runtime image or `--image` override |
+| required supported agent auth state is missing | fail before agent start | identify that supported auth files or directories for the selected agent were not found and tell the user to authenticate that agent locally first |
+| Claude Code is selected on macOS and only Keychain-backed auth exists with no file-backed credential mirror | fail before agent start | explain that v0.1.0 supports Claude Code auth reuse on macOS only when `~/.claude/.credentials.json` exists and tell the user to use a compatible file-backed setup |
+| the selected agent requires writable auth refresh or config mutation | fail before agent start | explain that v0.1.0 supports only read-only auth and config mounts and tell the user to use a compatible pre-authenticated setup |
+| `--mount-agent-config` is enabled and optional config directories are missing or unreadable | continue the run if required auth mounts are valid, and record a warning in run artifacts | tell the user which optional config path could not be mounted and that Tessariq continued with required auth mounts only |
+| OpenCode is selected with `--egress auto` and the provider host cannot be determined | fail before container start | tell the user to configure the provider explicitly so Tessariq can derive the required host, or pass `--egress-allow` manually |
 | proxy mode blocks a destination that is not present in the resolved allowlist | fail the network attempt and record it in proxy evidence | tell the user which `host:port` was blocked and how to add it through user config or CLI flags, or to rerun with explicit open egress |
 | `attach` references an unknown or finished run | fail without attaching | print the evidence path when known and tell the user the run is not live |
 | `promote` sees zero diff | fail without creating a branch or commit | tell the user there were no code changes to promote |
@@ -450,7 +538,8 @@ Repo-local generated state lives at the repository root under `<repo>/.tessariq/
       <run_id>/
         manifest.json
         status.json
-        adapter.json
+        agent.json
+        runtime.json
         task.md
         run.log
         runner.log
@@ -490,6 +579,57 @@ The current implementation direction for `proxy` is:
 - run the agent container only on `run_net`
 - configure `HTTP_PROXY` and `HTTPS_PROXY` for the agent
 
+### Reference runtime baseline
+
+The current reference-runtime direction for `ghcr.io/tessariq/reference-runtime:v0.1.0` is:
+
+- `debian:bookworm-slim` or an equivalent glibc-based base image
+- a non-root default user named `tessariq`
+- the baseline toolchain listed in the normative runtime-image contract above
+- no bundled third-party agent binaries
+
+### Supported auth and config paths
+
+Current supported auth and config reuse paths are:
+
+- Claude Code:
+  - required auth:
+    - Linux: `~/.claude/.credentials.json`
+    - macOS: `~/.claude/.credentials.json` when a file-backed credential mirror exists
+    - Linux and macOS: `~/.claude.json`
+  - optional config via `--mount-agent-config`:
+    - `~/.claude/`
+- OpenCode:
+  - required auth:
+    - Linux and macOS: `~/.local/share/opencode/auth.json`
+  - optional config via `--mount-agent-config`:
+    - `~/.config/opencode/`
+
+### Future macOS Claude helper sketch
+
+Direct Claude Code Keychain reuse is not part of the v0.1.0 contract. A future host-helper approach on macOS could look like this:
+
+```sh
+#!/bin/sh
+set -eu
+
+tmp="$(mktemp)"
+chmod 600 "$tmp"
+
+security find-generic-password -a "$USER" -s "Claude Code-credentials" -w > "$tmp"
+
+printf '%s\n' "$tmp"
+```
+
+The intended future flow is:
+
+- run the helper on the macOS host
+- write a short-lived temp credentials file with mode `0600`
+- mount that file read-only into the container at `$HOME/.claude/.credentials.json`
+- delete the temp file after the run completes
+
+This helper sketch is informative only. It is not a supported v0.1.0 auth path and must not use `CLAUDE_CODE_OAUTH_TOKEN` because of the known upstream macOS side effects around Keychain state.
+
 ### Runner responsibilities
 
 Runner, as PID1, is expected to:
@@ -505,13 +645,67 @@ Runner, as PID1, is expected to:
 Bootstrap is expected to:
 
 - run `pre` commands
-- run the selected adapter
+- run the selected agent
 - run `verify` commands
 - trap `EXIT`
 - generate diff artifacts best-effort
 - write the final `status.json`
 
 ## Specification changelog
+
+### 2026-03-30: Shift v0.1.0 to the agent and runtime model
+
+**Changed:**
+
+1. **User-facing terminology now uses `agent` instead of `adapter`**
+   - `adapter` was an internal implementation term that leaked unnecessary runtime details.
+   - v0.1.0 now treats `agent` as the user-facing concept in CLI semantics, evidence, and planning references.
+
+2. **The evidence contract now splits agent metadata from runtime metadata**
+   - Old: `adapter.json` mixed requested/applied agent options with runtime image identity.
+   - New: `agent.json` records requested/applied agent options, and `runtime.json` records runtime-image and mount-policy metadata.
+   - `manifest.json` and `index.jsonl` now use `agent` instead of `adapter`.
+
+3. **v0.1.0 now defines one official minimal Tessariq reference runtime image**
+   - The reference runtime supports JS/TS, Python, and Go development tooling.
+   - It intentionally does not bundle third-party agent binaries.
+   - Rationale: Tessariq should own a safe, minimal runtime foundation without becoming a third-party agent version manager in v0.1.0.
+
+4. **The selected agent must already exist in the resolved runtime image**
+   - `--image` remains the runtime-image override.
+   - Tessariq reuses supported auth state inside a compatible image; it does not reuse the host-installed binary.
+
+5. **Auth and config mounts are now explicit parts of the v0.1.0 contract**
+    - Tessariq MUST auto-detect and mount required supported-agent auth paths read-only.
+    - `--mount-agent-config` opts in to read-only mounting of supported default agent config directories.
+    - Tessariq MUST NOT expose host `HOME` and MUST NOT support writable auth refresh flows in v0.1.0.
+
+6. **Auth reuse is now concretely defined for Linux and macOS hosts**
+   - Claude Code uses `~/.claude/.credentials.json` and `~/.claude.json` on Linux.
+   - Claude Code on macOS is supported only when a file-backed `~/.claude/.credentials.json` credential mirror exists; direct Keychain reuse is out of scope for v0.1.0.
+   - OpenCode uses `~/.local/share/opencode/auth.json` for required auth and `~/.config/opencode/` as the optional config-dir mount.
+
+7. **The reference runtime image now has a concrete baseline contract**
+   - The v0.1.0 image is pinned to `ghcr.io/tessariq/reference-runtime:v0.1.0`.
+   - It uses a glibc-based Linux base image, a non-root user, and a defined baseline toolchain for JS/TS, Python, and Go work.
+
+8. **`auto` egress is now agent-aware for Claude Code and provider-aware for OpenCode**
+   - The built-in allowlist profile still covers common package-manager workflows.
+   - It now also includes the maintained endpoints required for Claude Code and the resolved provider endpoints required for OpenCode.
+
+9. **Optional config-dir mounts now have warning-only behavior**
+   - Missing or unreadable optional config directories do not fail a run when required auth mounts are valid.
+   - Tessariq must warn the user and record the outcome in run artifacts and `runtime.json`.
+
+10. **A future macOS host-helper pattern is documented for Claude Code Keychain export**
+   - The spec now includes an informative helper sketch that exports a Keychain credential to a short-lived temp file for future container mounting.
+   - This is documented as a future approach only, not as part of the supported v0.1.0 contract.
+
+**Tasks affected:**
+
+- Existing done tasks that reference `adapter` terminology or `adapter.json` are now historical and need supersession notes plus updated spec anchors.
+- Existing open tasks for egress, evidence, run index, verification, and closeout must be rewritten around `agent.json`, `runtime.json`, auth/config mounts, and agent-aware `auto` egress.
+- New tasks are required for the official reference runtime image, supported-agent auth reuse, `--mount-agent-config`, and later runtime baking work.
 
 ### 2026-03-29: Replace `--yolo` with `--interactive`, rename `--egress-allow-reset`
 
@@ -532,7 +726,7 @@ Bootstrap is expected to:
    - The defaults section now explicitly lists `--interactive=false` alongside `--timeout=30m`, `--grace=30s`, etc.
    - Rationale: making the autonomous default explicit in the spec removes ambiguity for implementers and users.
 
-4. **`adapter.json` example updated**
-   - The minimum `adapter.json` shape now uses `interactive` instead of `yolo` in the `requested` and `applied` fields.
+4. **Agent-option evidence example updated**
+   - The minimum requested/applied option shape now uses `interactive` instead of `yolo`.
 
-**Tasks affected:** TASK-002 (done, code update tracked in TASK-018), TASK-009, TASK-010 (updated `--yolo` references to `--interactive`), TASK-011 (updated `--egress-allow-reset` references to `--egress-no-defaults`). New tasks created: TASK-018 (v0.1.0, code changes), TASK-019 (v0.2.0, `--prompt` backlog).
+**Tasks affected:** TASK-002 (done, code update tracked in TASK-018), TASK-009, TASK-010, TASK-011. New tasks created: TASK-018 (v0.1.0, code changes), TASK-019 (v0.2.0, `--prompt` backlog).
