@@ -15,7 +15,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#agent-and-runtime-contract
     - specs/tessariq-v0.1.0.md#acceptance-scenarios
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-03-31T13:20:00Z"
+updated_at: "2026-03-31T16:40:00Z"
 areas:
     - container
     - tmux
@@ -57,13 +57,13 @@ Implement true interactive run support as a runtime feature in its own right, wi
 - `tessariq run --interactive` starts the selected agent in a mode that can receive human approval input through a live terminal path.
 - Interactive mode remains logically independent from `attach`; users can adopt different terminal workflows without changing the flag contract.
 - Detached runs still preserve the durable evidence and host tmux session contracts.
-- Timeout behavior for interactive runs is explicit and tested; approval wait time must not silently force an arbitrary very long default timeout.
+- Timeout behavior for interactive runs is explicit and tested; the active-agent timeout pauses while the run is waiting for human approval instead of silently forcing an arbitrary very long default timeout.
 - Interactive runs fail cleanly with actionable guidance when the selected agent or runtime image cannot support the required terminal behavior.
 - Agent metadata records requested versus applied interactive behavior accurately.
 
 ## Test Expectations
 
-- Add unit tests for interactive runtime validation and timeout/approval-state transitions.
+- Add unit tests for interactive runtime validation and timeout/approval-state transitions, including pausing active-agent timeout accounting during human approval waits.
 - Add integration tests for interactive terminal wiring across tmux and container boundaries.
 - Add e2e coverage for an interactive run that receives approval input successfully.
 - Add e2e coverage for unsupported interactive-runtime failure paths.
@@ -71,10 +71,11 @@ Implement true interactive run support as a runtime feature in its own right, wi
 
 ## TDD Plan
 
-- Start with a failing unit test for the chosen interactive timeout semantics, then add a failing integration test for terminal wiring before implementation.
+- Start with a failing unit test that proves active-agent timeout accounting pauses during human approval waits, then add a failing integration test for terminal wiring before implementation.
 
 ## Notes
 
 - Prefer explicit interactive timeout semantics over silently replacing the normal timeout with a very large default.
-- This task should evaluate separate timers for active agent runtime versus human approval wait, or another equally explicit contract.
+- The baseline contract for this task is: pause active-agent timeout accounting while the run is waiting for human approval.
+- If an overall wall-clock guard is needed in addition to the paused active-agent timeout, it must be explicit and separately documented rather than implicit.
 - `tessariq attach` may remain a useful live-run entry point, but it must not be the sole conceptual owner of interactive mode.
