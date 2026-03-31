@@ -1,7 +1,7 @@
 ---
 id: TASK-025-opencode-agent-runtime-integration
 title: Integrate OpenCode with the v0.1.0 agent and runtime model
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-021-reference-runtime-image-and-docs
@@ -17,7 +17,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#evidence-contract
     - specs/tessariq-v0.1.0.md#acceptance-scenarios
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-03-30T23:05:00Z"
+updated_at: "2026-03-31T09:13:25Z"
 areas:
     - agents
     - opencode
@@ -79,3 +79,4 @@ Integrate `opencode` with the v0.1.0 agent/runtime model, including runtime-bina
 ## Notes
 
 - This task supersedes the old adapter-specific implementation task without rewriting that completed task.
+- 2026-03-31T09:13:25Z: Provider-aware egress resolution for OpenCode implemented. New files: internal/adapter/opencode/provider.go (ProviderInfo, ResolveProvider, ResolveProviderFromPaths, ProviderUnresolvableError), updated internal/adapter/egress.go (OpenCodeEndpoints), updated cmd/tessariq/run.go (pre-start provider validation). Evidence: planning/artifacts/manual-test/TASK-025-opencode-agent-runtime-integration/20260331T090927Z/, planning/artifacts/verify/task/TASK-025-opencode-agent-runtime-integration/20260331T090905Z/. Unit tests: 21 new provider tests + 3 new egress tests. E2E: 1 new unresolvable-provider test. Mutation efficacy: 95.56%.

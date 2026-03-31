@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/tessariq/tessariq/internal/adapter"
+	"github.com/tessariq/tessariq/internal/adapter/opencode"
 	"github.com/tessariq/tessariq/internal/authmount"
 	"github.com/tessariq/tessariq/internal/git"
 	"github.com/tessariq/tessariq/internal/prereq"
@@ -105,6 +106,14 @@ func newRunCmd() *cobra.Command {
 			authResult, err := authmount.Discover(cfg.Agent, homeDir, runtime.GOOS, authmount.FileExists)
 			if err != nil {
 				return err
+			}
+
+			if cfg.Agent == "opencode" && cfg.ResolveEgress() == "auto" {
+				authPath := filepath.Join(homeDir, ".local", "share", "opencode", "auth.json")
+				configDir := filepath.Join(homeDir, ".config", "opencode")
+				if _, provErr := opencode.ResolveProviderFromPaths(authPath, configDir, os.ReadFile); provErr != nil {
+					return provErr
+				}
 			}
 
 			agentConfigMount := "disabled"

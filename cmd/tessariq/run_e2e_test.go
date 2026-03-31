@@ -77,7 +77,7 @@ func setupRunEnvForBinary(t *testing.T, bin string, binaryName string, exitCode 
 	case "opencode":
 		authCmds = []string{
 			"mkdir -p /root/.local/share/opencode",
-			`printf '{"token":"fake"}' > /root/.local/share/opencode/auth.json`,
+			`printf '{"token":"fake","provider":"https://api.example.com"}' > /root/.local/share/opencode/auth.json`,
 		}
 	}
 	for _, cmd := range authCmds {
@@ -227,6 +227,57 @@ func TestE2E_OpenCodeAgentAndRuntimeJSONWritten(t *testing.T) {
 	require.Equal(t, 1, runtimeInfo.SchemaVersion)
 	require.NotEmpty(t, runtimeInfo.Image)
 	require.Equal(t, "reference", runtimeInfo.ImageSource)
+}
+
+func TestE2E_OpenCodeEgressAutoFailsWhenProviderUnresolvable(t *testing.T) {
+	bin := buildBinary(t)
+
+	ctx := context.Background()
+	env, err := containers.StartRunEnvForBinary(ctx, t, "opencode", 0)
+	require.NoError(t, err)
+
+	// Copy the tessariq binary.
+	binData, readErr := os.ReadFile(bin)
+	require.NoError(t, readErr)
+	destBin := filepath.Join(env.Dir(), "tessariq")
+	require.NoError(t, os.WriteFile(destBin, binData, 0o755))
+
+	// Create auth.json WITHOUT provider info.
+	authCmds := []string{
+		"mkdir -p /root/.local/share/opencode",
+		`printf '{"token":"fake"}' > /root/.local/share/opencode/auth.json`,
+	}
+	for _, cmd := range authCmds {
+		code, out, execErr := env.Exec(ctx, []string{"sh", "-c", cmd})
+		require.NoError(t, execErr, "auth setup %q: %s", cmd, out)
+		require.Equal(t, 0, code, "auth setup %q exited %d: %s", cmd, code, out)
+	}
+
+	// Init git repo.
+	cmds := []string{
+		"mkdir -p " + repoDir + "/tasks",
+		"git init " + repoDir,
+		"git -C " + repoDir + " config user.email test@test.com",
+		"git -C " + repoDir + " config user.name Test",
+		"printf '# Sample Task\\n\\nDo something.\\n' > " + repoDir + "/tasks/sample.md",
+		"git -C " + repoDir + " add -A",
+		"git -C " + repoDir + " commit -m initial",
+		"cd " + repoDir + " && /work/tessariq init",
+		"git -C " + repoDir + " add -A",
+		"git -C " + repoDir + " commit -m 'add tessariq config'",
+	}
+	for _, cmd := range cmds {
+		code, out, execErr := env.Exec(ctx, []string{"sh", "-c", cmd})
+		require.NoError(t, execErr, "cmd %q failed: %s", cmd, out)
+		require.Equal(t, 0, code, "cmd %q exited %d: %s", cmd, code, out)
+	}
+
+	// Run with --agent opencode (default egress=auto) — should fail before container start.
+	code, output, err := env.Exec(ctx, []string{"sh", "-c", "cd " + repoDir + " && /work/tessariq run --agent opencode tasks/sample.md"})
+	require.NoError(t, err)
+	require.NotEqual(t, 0, code, "run should fail when provider unresolvable")
+	require.Contains(t, output, "configure the provider")
+	require.Contains(t, output, "--egress-allow")
 }
 
 func TestE2E_InitFailsWithActionableGuidanceWhenGitMissing(t *testing.T) {

@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "profile": "task",
+  "disposition": "hybrid",
+  "generated_at": "2026-03-31T09:08:49Z",
+  "milestone_focus": "v0.1.0",
+  "active_spec_version": "v0.1.0",
+  "active_spec_path": "specs/tessariq-v0.1.0.md",
+  "artifact_dir": "/media/felix/data/code/tessariq/planning/artifacts/verify/task/TASK-025-opencode-agent-runtime-integration/20260331T090849Z",
+  "plan_path": "/media/felix/data/code/tessariq/planning/artifacts/verify/task/TASK-025-opencode-agent-runtime-integration/20260331T090849Z/plan.md",
+  "report_path": "/media/felix/data/code/tessariq/planning/artifacts/verify/task/TASK-025-opencode-agent-runtime-integration/20260331T090849Z/report.json",
+  "findings": [
+    {
+      "id": "TASK-025-opencode-agent-runtime-integration-changelog",
+      "title": "user-visible changes missing changelog update",
+      "severity": "medium",
+      "status": "open",
+      "details": "User-visible code changes detected (cmd/tessariq/run.go, internal/adapter/egress.go, internal/adapter/opencode/provider.go) without updating CHANGELOG.md. Add a user-facing entry under CHANGELOG.md before finishing the task.",
+      "task_id": "TASK-025-opencode-agent-runtime-integration"
+    }
+  ],
+  "summary": {
+    "high": 0,
+    "medium": 1,
+    "low": 0
+  }
+}

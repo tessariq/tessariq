@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `--mount-agent-config` flag to `tessariq run` for opt-in read-only mounting of supported agents' default config directories (Claude Code `~/.claude/`, OpenCode `~/.config/opencode/`) without exposing host `HOME`.
 - Added `CLAUDE_CONFIG_DIR` environment variable injection when Claude Code config directories are mounted via `--mount-agent-config`.
 - Added Claude Code built-in egress endpoint profile (`api.anthropic.com`, `claude.ai`, `platform.claude.com`) for `--egress auto` allowlist resolution.
+- Added OpenCode provider-aware egress endpoint profile (`models.dev`, resolved provider host, conditional `opencode.ai`) for `--egress auto` allowlist resolution.
+- Added pre-start provider resolution for OpenCode under `--egress auto` that reads auth and config state to determine the required provider host, failing before container start with actionable guidance when the host cannot be determined.
 
 ### Changed
 

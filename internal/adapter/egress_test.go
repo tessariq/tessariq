@@ -49,6 +49,47 @@ func TestAgentEndpoints_UnknownAgent_ReturnsNil(t *testing.T) {
 	require.Nil(t, endpoints)
 }
 
+func TestOpenCodeEndpoints_NonOpenCodeHosted(t *testing.T) {
+	t.Parallel()
+
+	endpoints := OpenCodeEndpoints("api.anthropic.com", false)
+	require.Len(t, endpoints, 2)
+
+	hosts := make(map[string]bool)
+	for _, ep := range endpoints {
+		hosts[ep.Host] = true
+		require.Equal(t, 443, ep.Port)
+	}
+	require.True(t, hosts["models.dev"])
+	require.True(t, hosts["api.anthropic.com"])
+}
+
+func TestOpenCodeEndpoints_OpenCodeHosted(t *testing.T) {
+	t.Parallel()
+
+	endpoints := OpenCodeEndpoints("opencode.ai", true)
+	require.Len(t, endpoints, 3)
+
+	hosts := make(map[string]bool)
+	for _, ep := range endpoints {
+		hosts[ep.Host] = true
+		require.Equal(t, 443, ep.Port)
+	}
+	require.True(t, hosts["models.dev"])
+	require.True(t, hosts["opencode.ai"])
+}
+
+func TestOpenCodeEndpoints_AllPort443(t *testing.T) {
+	t.Parallel()
+
+	for _, includeOC := range []bool{true, false} {
+		endpoints := OpenCodeEndpoints("test.com", includeOC)
+		for _, ep := range endpoints {
+			require.Equal(t, 443, ep.Port)
+		}
+	}
+}
+
 func TestDestination_String(t *testing.T) {
 	t.Parallel()
 
