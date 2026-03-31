@@ -25,6 +25,13 @@ depends_on:
     - TASK-025-opencode-agent-runtime-integration
     - TASK-026-mount-agent-config-flag-and-config-dir-mounts
     - TASK-027-container-lifecycle-and-mount-isolation
+    - TASK-033-opencode-interactive-request-recording
+    - TASK-034-opencode-egress-allow-provider-bypass
+    - TASK-035-init-evidence-parent-directory-permissions
+    - TASK-036-base-sha-consistency-between-manifest-and-workspace
+    - TASK-037-prestart-agent-binary-validation
+    - TASK-038-guaranteed-worktree-cleanup-on-run-failure
+    - TASK-039-capped-log-writers-and-truncation-markers
 milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:

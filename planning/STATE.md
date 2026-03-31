@@ -1,6 +1,6 @@
 ---
 schema_version: 1
-updated_at: "2026-03-31T19:37:46Z"
+updated_at: "2026-03-31T20:30:00Z"
 mode: autonomous_backlog
 run_id: wf-20260331T181936Z
 agent_id: claude-opus-4-6
@@ -10,9 +10,9 @@ active_task_started_at: ""
 attempt: 0
 last_completed: TASK-012-proxy-topology-and-egress-artifacts
 next_tasks:
-    - TASK-013-diff-log-and-evidence-artifacts
-    - TASK-030-fix-timeout-signal-escalation
-    - TASK-031-pin-repair-container-image
+    - TASK-037-prestart-agent-binary-validation
+    - TASK-038-guaranteed-worktree-cleanup-on-run-failure
+    - TASK-039-capped-log-writers-and-truncation-markers
 repo_state: idle
 last_transition: finish
 last_transition_at: "2026-03-31T19:37:40Z"
@@ -37,13 +37,13 @@ max_retries: 2
 - Validation status: passed
 - Active spec: v0.1.0 (specs/tessariq-v0.1.0.md)
 - Next tasks:
-  - TASK-013-diff-log-and-evidence-artifacts
-  - TASK-030-fix-timeout-signal-escalation
-  - TASK-031-pin-repair-container-image
+  - TASK-037-prestart-agent-binary-validation
+  - TASK-038-guaranteed-worktree-cleanup-on-run-failure
+  - TASK-039-capped-log-writers-and-truncation-markers
 
 ## Task Counts
 
-- todo: 8
+- todo: 15
 - in_progress: 0
 - done: 23
 - blocked: 1
