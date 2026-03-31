@@ -109,6 +109,7 @@ func newRunCmd() *cobra.Command {
 
 			agentConfigMount := "disabled"
 			agentConfigMountStatus := "disabled"
+			var containerEnvVars map[string]string
 
 			if cfg.MountAgentConfig {
 				agentConfigMount = "enabled"
@@ -119,6 +120,8 @@ func newRunCmd() *cobra.Command {
 				agentConfigMountStatus = configResult.Status
 
 				switch configResult.Status {
+				case "mounted":
+					containerEnvVars = configResult.EnvVars
 				case "missing_optional":
 					fmt.Fprintf(cmd.ErrOrStderr(), "warning: optional config directory for %s not found; continuing with auth mounts only\n", cfg.Agent)
 				case "unreadable_optional":
@@ -126,7 +129,7 @@ func newRunCmd() *cobra.Command {
 				}
 			}
 
-			adapterProc, err := adapter.NewProcess(cfg, string(content), len(authResult.Mounts), agentConfigMount, agentConfigMountStatus)
+			adapterProc, err := adapter.NewProcess(cfg, string(content), len(authResult.Mounts), agentConfigMount, agentConfigMountStatus, containerEnvVars)
 			if err != nil {
 				return fmt.Errorf("create adapter: %w", err)
 			}

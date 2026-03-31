@@ -216,7 +216,7 @@ func TestNew_ReturnsProcessWithMetadata(t *testing.T) {
 
 	cfg := run.DefaultConfig()
 	cfg.Model = "sonnet"
-	p := New(cfg, "implement X")
+	p := New(cfg, "implement X", nil)
 
 	require.Equal(t, DefaultImage, p.Image())
 	require.Equal(t, "sonnet", p.Requested()["model"])
@@ -230,7 +230,7 @@ func TestNew_CustomImage(t *testing.T) {
 
 	cfg := run.DefaultConfig()
 	cfg.Image = "custom/img:v3"
-	p := New(cfg, "task")
+	p := New(cfg, "task", nil)
 
 	require.Equal(t, "custom/img:v3", p.Image())
 }
@@ -240,7 +240,7 @@ func TestNew_InteractiveMode(t *testing.T) {
 
 	cfg := run.DefaultConfig()
 	cfg.Interactive = true
-	p := New(cfg, "task")
+	p := New(cfg, "task", nil)
 
 	require.Equal(t, true, p.Requested()["interactive"])
 	require.True(t, p.Applied()["interactive"])
@@ -250,7 +250,7 @@ func TestNew_NoModelOmitsFromMetadata(t *testing.T) {
 	t.Parallel()
 
 	cfg := run.DefaultConfig()
-	p := New(cfg, "task")
+	p := New(cfg, "task", nil)
 
 	_, hasModel := p.Requested()["model"]
 	require.False(t, hasModel)
@@ -263,7 +263,7 @@ func TestStart_BinaryNotFound_UserGuidance(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
 
 	cfg := run.DefaultConfig()
-	p := New(cfg, "task")
+	p := New(cfg, "task", nil)
 
 	err := p.Start(context.Background())
 	require.Error(t, err)
@@ -271,4 +271,31 @@ func TestStart_BinaryNotFound_UserGuidance(t *testing.T) {
 	require.Contains(t, err.Error(), `adapter binary "claude"`)
 	require.Contains(t, err.Error(), "container image")
 	require.Contains(t, err.Error(), "--image")
+}
+
+func TestBinaryName_IsClaudeString(t *testing.T) {
+	t.Parallel()
+
+	require.Equal(t, "claude", BinaryName)
+}
+
+func TestNew_WithEnvVars(t *testing.T) {
+	t.Parallel()
+
+	cfg := run.DefaultConfig()
+	envVars := map[string]string{"CLAUDE_CONFIG_DIR": "/home/tessariq/.claude"}
+	p := New(cfg, "task", envVars)
+
+	require.Equal(t, DefaultImage, p.Image())
+	require.Equal(t, "/home/tessariq/.claude", p.envVars["CLAUDE_CONFIG_DIR"])
+}
+
+func TestNew_NilEnvVars(t *testing.T) {
+	t.Parallel()
+
+	cfg := run.DefaultConfig()
+	p := New(cfg, "task", nil)
+
+	require.Nil(t, p.envVars)
+	require.Equal(t, DefaultImage, p.Image())
 }

@@ -1,7 +1,7 @@
 ---
 id: TASK-024-claude-code-agent-runtime-integration
 title: Integrate Claude Code with the v0.1.0 agent and runtime model
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-021-reference-runtime-image-and-docs
@@ -17,7 +17,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#evidence-contract
     - specs/tessariq-v0.1.0.md#acceptance-scenarios
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-03-30T23:05:00Z"
+updated_at: "2026-03-31T08:45:39Z"
 areas:
     - agents
     - claude-code
@@ -79,3 +79,4 @@ Integrate `claude-code` with the v0.1.0 agent/runtime model, including runtime-b
 ## Notes
 
 - This task supersedes the old adapter-specific implementation task without rewriting that completed task.
+- 2026-03-31T08:45:39Z: BinaryName constants, CLAUDE_CONFIG_DIR env var wiring, Claude Code egress endpoints, full test coverage, 100% mutation efficacy. Evidence: planning/artifacts/verify/task/TASK-024-claude-code-agent-runtime-integration/20260331T084425Z/report.json

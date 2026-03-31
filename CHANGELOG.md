@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added actionable binary-not-found error messages for both `claude-code` and `opencode` adapters naming the missing binary and container image expectation.
 - Added per-agent auth discovery that auto-detects required auth files before agent start and fails with actionable messages when auth is missing, Keychain-only on macOS, or writable refresh is required.
 - Added `--mount-agent-config` flag to `tessariq run` for opt-in read-only mounting of supported agents' default config directories (Claude Code `~/.claude/`, OpenCode `~/.config/opencode/`) without exposing host `HOME`.
+- Added `CLAUDE_CONFIG_DIR` environment variable injection when Claude Code config directories are mounted via `--mount-agent-config`.
+- Added Claude Code built-in egress endpoint profile (`api.anthropic.com`, `claude.ai`, `platform.claude.com`) for `--egress auto` allowlist resolution.
 
 ### Changed
 

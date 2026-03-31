@@ -65,6 +65,27 @@ func setupRunEnvForBinary(t *testing.T, bin string, binaryName string, exitCode 
 	destBin := filepath.Join(env.Dir(), "tessariq")
 	require.NoError(t, os.WriteFile(destBin, binData, 0o755))
 
+	// Create fake auth files for the agent so auth discovery succeeds.
+	var authCmds []string
+	switch binaryName {
+	case "claude":
+		authCmds = []string{
+			"mkdir -p /root/.claude",
+			`printf '{"token":"fake"}' > /root/.claude/.credentials.json`,
+			`printf '{}' > /root/.claude.json`,
+		}
+	case "opencode":
+		authCmds = []string{
+			"mkdir -p /root/.local/share/opencode",
+			`printf '{"token":"fake"}' > /root/.local/share/opencode/auth.json`,
+		}
+	}
+	for _, cmd := range authCmds {
+		code, out, execErr := env.Exec(ctx, []string{"sh", "-c", cmd})
+		require.NoError(t, execErr, "auth setup %q: %s", cmd, out)
+		require.Equal(t, 0, code, "auth setup %q exited %d: %s", cmd, code, out)
+	}
+
 	// Init a git repo inside the container.
 	cmds := []string{
 		"mkdir -p " + repoDir + "/tasks",
@@ -221,6 +242,66 @@ func TestE2E_InitFailsWithActionableGuidanceWhenGitMissing(t *testing.T) {
 	require.NotEqual(t, 0, code)
 	require.Contains(t, output, "required host prerequisite \"git\" is missing or unavailable")
 	require.Contains(t, output, "install or enable git, then retry")
+}
+
+func TestE2E_MountAgentConfigSetsClaudeConfigDir(t *testing.T) {
+	bin := buildBinary(t)
+
+	ctx := context.Background()
+	// Use a custom claude script that writes CLAUDE_CONFIG_DIR to a file.
+	env, err := containers.StartRunEnvWithScript(ctx, t, "claude",
+		`printf '%s' "$CLAUDE_CONFIG_DIR" > /tmp/claude_config_dir.txt`)
+	require.NoError(t, err)
+
+	// Copy the tessariq binary into the bind-mounted dir.
+	binData, readErr := os.ReadFile(bin)
+	require.NoError(t, readErr)
+	destBin := filepath.Join(env.Dir(), "tessariq")
+	require.NoError(t, os.WriteFile(destBin, binData, 0o755))
+
+	// Init a git repo inside the container.
+	cmds := []string{
+		"mkdir -p " + repoDir + "/tasks",
+		"git init " + repoDir,
+		"git -C " + repoDir + " config user.email test@test.com",
+		"git -C " + repoDir + " config user.name Test",
+		"printf '# Sample Task\\n\\nDo something.\\n' > " + repoDir + "/tasks/sample.md",
+		"git -C " + repoDir + " add -A",
+		"git -C " + repoDir + " commit -m initial",
+		"cd " + repoDir + " && /work/tessariq init",
+		"git -C " + repoDir + " add -A",
+		"git -C " + repoDir + " commit -m 'add tessariq config'",
+	}
+	for _, cmd := range cmds {
+		code, out, execErr := env.Exec(ctx, []string{"sh", "-c", cmd})
+		require.NoError(t, execErr, "cmd %q failed: %s", cmd, out)
+		require.Equal(t, 0, code, "cmd %q exited %d: %s", cmd, code, out)
+	}
+
+	// Create auth files and config dir so --mount-agent-config can discover them.
+	authSetup := []string{
+		"mkdir -p /root/.claude",
+		`printf '{"token":"fake"}' > /root/.claude/.credentials.json`,
+		`printf '{}' > /root/.claude.json`,
+	}
+	for _, cmd := range authSetup {
+		code, out, execErr := env.Exec(ctx, []string{"sh", "-c", cmd})
+		require.NoError(t, execErr, "auth setup %q: %s", cmd, out)
+		require.Equal(t, 0, code, "auth setup %q exited %d: %s", cmd, code, out)
+	}
+
+	// Run tessariq with --mount-agent-config.
+	code, output, err := env.Exec(ctx, []string{"sh", "-c",
+		"cd " + repoDir + " && /work/tessariq run --mount-agent-config tasks/sample.md"})
+	require.NoError(t, err)
+	require.Equal(t, 0, code, "run failed: %s", output)
+
+	// Verify the fake claude saw CLAUDE_CONFIG_DIR.
+	catCode, configDir, err := env.Exec(ctx, []string{"cat", "/tmp/claude_config_dir.txt"})
+	require.NoError(t, err)
+	require.Equal(t, 0, catCode, "config dir file must exist")
+	require.Equal(t, "/home/tessariq/.claude", configDir,
+		"CLAUDE_CONFIG_DIR must point to the container-home .claude dir")
 }
 
 func TestE2E_RunFailsWithActionableGuidanceWhenTmuxMissing(t *testing.T) {

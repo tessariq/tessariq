@@ -16,22 +16,28 @@ const DefaultImage = "ghcr.io/tessariq/opencode:latest"
 // AdapterName is the adapter identifier recorded in adapter.json.
 const AdapterName = "opencode"
 
+// BinaryName is the expected binary name for the OpenCode agent.
+const BinaryName = "opencode"
+
 // Process implements runner.ProcessRunner for the OpenCode adapter.
 type Process struct {
 	args      []string
 	image     string
 	requested map[string]any
 	applied   map[string]bool
+	envVars   map[string]string
 	cmd       *exec.Cmd
 }
 
 // New creates an OpenCode adapter process from the run configuration.
-func New(cfg run.Config, taskContent string) *Process {
+// envVars are additional environment variables injected into the process.
+func New(cfg run.Config, taskContent string, envVars map[string]string) *Process {
 	return &Process{
 		args:      buildArgs(cfg, taskContent),
 		image:     resolveImage(cfg),
 		requested: buildRequested(cfg),
 		applied:   buildApplied(cfg),
+		envVars:   envVars,
 	}
 }
 
@@ -52,11 +58,17 @@ func (p *Process) Applied() map[string]bool {
 
 // Start begins the opencode process.
 func (p *Process) Start(ctx context.Context) error {
-	p.cmd = exec.CommandContext(ctx, "opencode", p.args...)
+	p.cmd = exec.CommandContext(ctx, BinaryName, p.args...)
+	if len(p.envVars) > 0 {
+		p.cmd.Env = os.Environ()
+		for k, v := range p.envVars {
+			p.cmd.Env = append(p.cmd.Env, k+"="+v)
+		}
+	}
 	err := p.cmd.Start()
 	if err != nil {
 		if errors.Is(err, exec.ErrNotFound) {
-			return fmt.Errorf("adapter binary %q is not available; ensure the container image includes opencode or use --image to specify a compatible image: %w", "opencode", err)
+			return fmt.Errorf("adapter binary %q is not available; ensure the container image includes %s or use --image to specify a compatible image: %w", BinaryName, BinaryName, err)
 		}
 		return err
 	}

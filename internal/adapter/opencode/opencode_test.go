@@ -175,7 +175,7 @@ func TestNew_ReturnsProcessWithMetadata(t *testing.T) {
 
 	cfg := run.DefaultConfig()
 	cfg.Model = "sonnet"
-	p := New(cfg, "implement X")
+	p := New(cfg, "implement X", nil)
 
 	require.Equal(t, DefaultImage, p.Image())
 	require.Equal(t, "sonnet", p.Requested()["model"])
@@ -189,7 +189,7 @@ func TestNew_CustomImage(t *testing.T) {
 
 	cfg := run.DefaultConfig()
 	cfg.Image = "custom/img:v3"
-	p := New(cfg, "task")
+	p := New(cfg, "task", nil)
 
 	require.Equal(t, "custom/img:v3", p.Image())
 }
@@ -199,7 +199,7 @@ func TestNew_InteractiveMode(t *testing.T) {
 
 	cfg := run.DefaultConfig()
 	cfg.Interactive = true
-	p := New(cfg, "task")
+	p := New(cfg, "task", nil)
 
 	require.Equal(t, true, p.Requested()["interactive"])
 	require.False(t, p.Applied()["interactive"],
@@ -210,7 +210,7 @@ func TestNew_NoModelOmitsFromMetadata(t *testing.T) {
 	t.Parallel()
 
 	cfg := run.DefaultConfig()
-	p := New(cfg, "task")
+	p := New(cfg, "task", nil)
 
 	_, hasModel := p.Requested()["model"]
 	require.False(t, hasModel)
@@ -223,7 +223,7 @@ func TestStart_BinaryNotFound_UserGuidance(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
 
 	cfg := run.DefaultConfig()
-	p := New(cfg, "task")
+	p := New(cfg, "task", nil)
 
 	err := p.Start(context.Background())
 	require.Error(t, err)

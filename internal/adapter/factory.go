@@ -19,7 +19,8 @@ type AdapterProcess struct {
 // NewProcess creates an AdapterProcess for the agent specified in cfg.
 // authMountCount is the number of auth mounts discovered by authmount.Discover.
 // agentConfigMount and agentConfigMountStatus record the config-dir mount state for runtime.json.
-func NewProcess(cfg run.Config, taskContent string, authMountCount int, agentConfigMount, agentConfigMountStatus string) (*AdapterProcess, error) {
+// envVars are additional environment variables injected into the agent process.
+func NewProcess(cfg run.Config, taskContent string, authMountCount int, agentConfigMount, agentConfigMountStatus string, envVars map[string]string) (*AdapterProcess, error) {
 	imageSource := "reference"
 	if cfg.Image != "" {
 		imageSource = "custom"
@@ -27,14 +28,14 @@ func NewProcess(cfg run.Config, taskContent string, authMountCount int, agentCon
 
 	switch cfg.Agent {
 	case "claude-code":
-		p := claudecode.New(cfg, taskContent)
+		p := claudecode.New(cfg, taskContent, envVars)
 		return &AdapterProcess{
 			Process:     p,
 			AgentInfo:   NewAgentInfo(claudecode.AdapterName, p.Requested(), p.Applied()),
 			RuntimeInfo: NewRuntimeInfo(p.Image(), imageSource, authMountCount, agentConfigMount, agentConfigMountStatus),
 		}, nil
 	case "opencode":
-		p := opencode.New(cfg, taskContent)
+		p := opencode.New(cfg, taskContent, envVars)
 		return &AdapterProcess{
 			Process:     p,
 			AgentInfo:   NewAgentInfo(opencode.AdapterName, p.Requested(), p.Applied()),

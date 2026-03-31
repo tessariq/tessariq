@@ -37,6 +37,16 @@ func StartRunEnv(ctx context.Context, t *testing.T, claudeExitCode int) (*RunEnv
 func StartRunEnvForBinary(ctx context.Context, t *testing.T, binaryName string, exitCode int) (*RunEnv, error) {
 	t.Helper()
 
+	script := fmt.Sprintf("exit %d", exitCode)
+	return StartRunEnvWithScript(ctx, t, binaryName, script)
+}
+
+// StartRunEnvWithScript creates an Alpine container with tmux, git, bash, and
+// a fake binary at /usr/local/bin/<binaryName> whose body is scriptBody. The
+// container bind-mounts t.TempDir() at /work for host-side file exchange.
+func StartRunEnvWithScript(ctx context.Context, t *testing.T, binaryName string, scriptBody string) (*RunEnv, error) {
+	t.Helper()
+
 	u, err := user.Current()
 	if err != nil {
 		return nil, fmt.Errorf("resolve current user: %w", err)
@@ -71,6 +81,7 @@ func StartRunEnvForBinary(ctx context.Context, t *testing.T, binaryName string, 
 	})
 
 	binPath := fmt.Sprintf("/usr/local/bin/%s", binaryName)
+	script := fmt.Sprintf("#!/bin/sh\n%s\n", scriptBody)
 
 	// Install runtime dependencies.
 	setupCmds := []string{
@@ -78,7 +89,8 @@ func StartRunEnvForBinary(ctx context.Context, t *testing.T, binaryName string, 
 		"git config --global user.email test@test.com",
 		"git config --global user.name Test",
 		"git config --global init.defaultBranch main",
-		fmt.Sprintf("printf '#!/bin/sh\\nexit %d\\n' > %s && chmod +x %s", exitCode, binPath, binPath),
+		fmt.Sprintf("printf '%%s' '%s' > %s && chmod +x %s",
+			strings.ReplaceAll(script, "'", "'\\''"), binPath, binPath),
 	}
 
 	for _, cmd := range setupCmds {

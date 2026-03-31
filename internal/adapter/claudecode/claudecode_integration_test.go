@@ -57,3 +57,17 @@ func TestClaudeCodeIntegration_ProcessCrashNoOutput(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEqual(t, 0, code, "crashed process should have non-zero exit code")
 }
+
+func TestClaudeCodeIntegration_EnvVarVisibleInProcess(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	env, err := containers.StartAdapterEnvWithScript(ctx, t, `echo "CONFIG_DIR=$CLAUDE_CONFIG_DIR"`)
+	require.NoError(t, err)
+
+	// Set the env var inside the container and invoke the fake claude binary.
+	code, output, err := env.Exec(ctx, []string{"sh", "-c", "CLAUDE_CONFIG_DIR=/home/tessariq/.claude claude"})
+	require.NoError(t, err)
+	require.Equal(t, 0, code)
+	require.Contains(t, output, "CONFIG_DIR=/home/tessariq/.claude")
+}
