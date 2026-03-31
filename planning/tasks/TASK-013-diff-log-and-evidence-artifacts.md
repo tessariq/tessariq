@@ -7,6 +7,7 @@ depends_on:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
     - TASK-012-proxy-topology-and-egress-artifacts
     - TASK-022-agent-and-runtime-evidence-migration
+    - TASK-027-container-lifecycle-and-mount-isolation
 milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:

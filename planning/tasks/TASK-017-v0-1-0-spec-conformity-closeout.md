@@ -24,6 +24,7 @@ depends_on:
     - TASK-024-claude-code-agent-runtime-integration
     - TASK-025-opencode-agent-runtime-integration
     - TASK-026-mount-agent-config-flag-and-config-dir-mounts
+    - TASK-027-container-lifecycle-and-mount-isolation
 milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:

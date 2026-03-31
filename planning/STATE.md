@@ -10,6 +10,7 @@ active_task_started_at: ""
 attempt: 0
 last_completed: TASK-011-egress-mode-resolution-and-manifest-recording
 next_tasks:
+    - TASK-027-container-lifecycle-and-mount-isolation
     - TASK-012-proxy-topology-and-egress-artifacts
 repo_state: idle
 last_transition: finish
@@ -35,11 +36,12 @@ max_retries: 2
 - Validation status: passed
 - Active spec: v0.1.0 (specs/tessariq-v0.1.0.md)
 - Next tasks:
+  - TASK-027-container-lifecycle-and-mount-isolation
   - TASK-012-proxy-topology-and-egress-artifacts
 
 ## Task Counts
 
-- todo: 7
+- todo: 8
 - in_progress: 0
 - done: 18
 - blocked: 1
