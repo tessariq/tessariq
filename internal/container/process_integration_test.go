@@ -347,6 +347,68 @@ func TestContainerLifecycle_SignalKill(t *testing.T) {
 	require.NotEqual(t, 0, code, "killed container should have non-zero exit code")
 }
 
+func TestContainerLifecycle_DroppedCapabilities(t *testing.T) {
+	t.Parallel()
+	skipIfNoDocker(t)
+
+	name := uniqueName(t)
+	cleanupContainer(t, name)
+
+	hostDir := t.TempDir()
+
+	p := container.New(container.Config{
+		Name:    name,
+		Image:   "alpine:latest",
+		Command: []string{"sh", "-c", "grep CapEff /proc/1/status > /out/caps.txt"},
+		Mounts: []container.Mount{
+			{Source: hostDir, Target: "/out", ReadOnly: false},
+		},
+	})
+
+	err := p.Start(t.Context())
+	require.NoError(t, err)
+
+	code, err := p.Wait()
+	require.NoError(t, err)
+	require.Equal(t, 0, code)
+
+	content, err := os.ReadFile(filepath.Join(hostDir, "caps.txt"))
+	require.NoError(t, err)
+	require.Contains(t, string(content), "0000000000000000",
+		"effective capabilities must be zero with --cap-drop=ALL")
+}
+
+func TestContainerLifecycle_NoNewPrivileges(t *testing.T) {
+	t.Parallel()
+	skipIfNoDocker(t)
+
+	name := uniqueName(t)
+	cleanupContainer(t, name)
+
+	hostDir := t.TempDir()
+
+	p := container.New(container.Config{
+		Name:    name,
+		Image:   "alpine:latest",
+		Command: []string{"sh", "-c", "grep NoNewPrivs /proc/1/status > /out/privs.txt"},
+		Mounts: []container.Mount{
+			{Source: hostDir, Target: "/out", ReadOnly: false},
+		},
+	})
+
+	err := p.Start(t.Context())
+	require.NoError(t, err)
+
+	code, err := p.Wait()
+	require.NoError(t, err)
+	require.Equal(t, 0, code)
+
+	content, err := os.ReadFile(filepath.Join(hostDir, "privs.txt"))
+	require.NoError(t, err)
+	require.Contains(t, string(content), "NoNewPrivs:\t1",
+		"no-new-privileges must be enabled")
+}
+
 func TestContainerLifecycle_WorkDir(t *testing.T) {
 	t.Parallel()
 	skipIfNoDocker(t)

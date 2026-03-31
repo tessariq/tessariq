@@ -53,7 +53,7 @@ func ResolveEgressMode(requested string) string {
 }
 
 func WriteManifest(dir string, m Manifest) error {
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("create evidence directory: %w", err)
 	}
 
@@ -63,7 +63,7 @@ func WriteManifest(dir string, m Manifest) error {
 	}
 
 	path := filepath.Join(dir, "manifest.json")
-	if err := os.WriteFile(path, data, 0o644); err != nil {
+	if err := os.WriteFile(path, data, 0o600); err != nil {
 		return fmt.Errorf("write manifest: %w", err)
 	}
 

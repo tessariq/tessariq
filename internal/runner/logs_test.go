@@ -8,6 +8,25 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestOpenLogs_FilePermissions(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	lf, err := OpenLogs(dir)
+	require.NoError(t, err)
+	defer lf.Close()
+
+	runInfo, err := os.Stat(filepath.Join(dir, "run.log"))
+	require.NoError(t, err)
+	require.Equal(t, os.FileMode(0o600), runInfo.Mode().Perm(),
+		"run.log must be owner-only read/write")
+
+	runnerInfo, err := os.Stat(filepath.Join(dir, "runner.log"))
+	require.NoError(t, err)
+	require.Equal(t, os.FileMode(0o600), runnerInfo.Mode().Perm(),
+		"runner.log must be owner-only read/write")
+}
+
 func TestOpenLogs_CreatesBothFiles(t *testing.T) {
 	t.Parallel()
 

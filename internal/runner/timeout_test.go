@@ -8,6 +8,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestWriteTimeoutFlag_FilePermissions(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	require.NoError(t, WriteTimeoutFlag(dir))
+
+	info, err := os.Stat(filepath.Join(dir, "timeout.flag"))
+	require.NoError(t, err)
+	require.Equal(t, os.FileMode(0o600), info.Mode().Perm(),
+		"evidence file must be owner-only read/write")
+}
+
 func TestWriteTimeoutFlag_CreatesFile(t *testing.T) {
 	t.Parallel()
 

@@ -27,7 +27,7 @@ func TestCopyTaskFile_CopiesExactly(t *testing.T) {
 	require.Equal(t, taskContent, data)
 }
 
-func TestCopyTaskFile_PreservesPermissions(t *testing.T) {
+func TestCopyTaskFile_RestrictedPermissions(t *testing.T) {
 	t.Parallel()
 
 	repoRoot := t.TempDir()
@@ -43,6 +43,25 @@ func TestCopyTaskFile_PreservesPermissions(t *testing.T) {
 	info, err := os.Stat(dest)
 	require.NoError(t, err)
 	require.Equal(t, os.FileMode(0o600), info.Mode().Perm())
+}
+
+func TestCopyTaskFile_EnforcesRestrictedPermissions(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	taskContent := []byte("# Task")
+	taskFile := filepath.Join(repoRoot, "task.md")
+	require.NoError(t, os.WriteFile(taskFile, taskContent, 0o644))
+
+	evidenceDir := t.TempDir()
+
+	require.NoError(t, CopyTaskFile(repoRoot, "task.md", evidenceDir, taskContent))
+
+	dest := filepath.Join(evidenceDir, "task.md")
+	info, err := os.Stat(dest)
+	require.NoError(t, err)
+	require.Equal(t, os.FileMode(0o600), info.Mode().Perm(),
+		"evidence file must be owner-only regardless of source permissions")
 }
 
 func TestCopyTaskFile_NestedPath(t *testing.T) {

@@ -188,6 +188,9 @@ func (p *Process) waitForLogs() {
 func (p *Process) buildCreateArgs() []string {
 	args := []string{"create"}
 
+	args = append(args, "--cap-drop", "ALL")
+	args = append(args, "--security-opt", "no-new-privileges")
+
 	if p.cfg.Interactive {
 		args = append(args, "-i", "-t")
 	}

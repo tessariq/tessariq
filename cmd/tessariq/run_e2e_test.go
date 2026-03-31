@@ -501,6 +501,42 @@ func TestE2E_InteractiveClaudeCodeAccepted(t *testing.T) {
 	require.Contains(t, output, "run_id: ")
 }
 
+func TestE2E_ContainerSecurityHardening(t *testing.T) {
+	bin := buildBinary(t)
+	env := setupRunEnv(t, bin, 0)
+
+	code, output := runTessariq(t, env, "claude", "")
+	require.Equal(t, 0, code, "run failed: %s", output)
+
+	evidencePath := extractField(output, "evidence_path")
+	require.NotEmpty(t, evidencePath)
+
+	ctx := context.Background()
+
+	// Verify evidence directory permissions are 700.
+	statCode, statOut, err := env.Exec(ctx, []string{"sh", "-c",
+		fmt.Sprintf("stat -c '%%a' %s", evidencePath)})
+	require.NoError(t, err)
+	require.Equal(t, 0, statCode)
+	require.Equal(t, "700", strings.TrimSpace(statOut),
+		"evidence directory must be 0700")
+
+	// Verify evidence file permissions are 600.
+	evidenceFiles := []string{
+		"manifest.json", "status.json", "agent.json",
+		"runtime.json", "run.log", "runner.log", "task.md",
+	}
+	for _, f := range evidenceFiles {
+		fPath := filepath.Join(evidencePath, f)
+		fCode, fOut, fErr := env.Exec(ctx, []string{"sh", "-c",
+			fmt.Sprintf("stat -c '%%a' %s", fPath)})
+		require.NoError(t, fErr, "%s stat failed", f)
+		require.Equal(t, 0, fCode, "%s must exist", f)
+		require.Equal(t, "600", strings.TrimSpace(fOut),
+			"%s must be 0600", f)
+	}
+}
+
 func TestE2E_InteractiveClaudeCodeAgentMetadata(t *testing.T) {
 	bin := buildBinary(t)
 	env := setupRunEnvWithScript(t, bin, "claude", "echo metadata-test; exit 0")

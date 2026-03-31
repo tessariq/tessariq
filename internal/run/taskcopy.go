@@ -8,19 +8,12 @@ import (
 
 func CopyTaskFile(repoRoot, taskPath, evidenceDir string, content []byte) error {
 	src := filepath.Join(repoRoot, taskPath)
-	srcFile, err := os.Open(src)
-	if err != nil {
+	if _, err := os.Stat(src); err != nil {
 		return fmt.Errorf("read task file: %w", err)
-	}
-	defer srcFile.Close()
-
-	srcStat, err := srcFile.Stat()
-	if err != nil {
-		return fmt.Errorf("stat task file: %w", err)
 	}
 
 	dest := filepath.Join(evidenceDir, "task.md")
-	if err := os.WriteFile(dest, content, srcStat.Mode()); err != nil {
+	if err := os.WriteFile(dest, content, 0o600); err != nil {
 		return fmt.Errorf("write task file: %w", err)
 	}
 

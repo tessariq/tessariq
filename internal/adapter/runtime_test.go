@@ -92,6 +92,34 @@ func TestNewRuntimeInfo_ExactlySevenTopLevelKeys(t *testing.T) {
 	require.Len(t, raw, len(expectedKeys))
 }
 
+func TestWriteRuntimeInfo_DirectoryPermissions(t *testing.T) {
+	t.Parallel()
+
+	dir := filepath.Join(t.TempDir(), "evidence")
+	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", 0, "disabled", "disabled")
+
+	require.NoError(t, WriteRuntimeInfo(dir, info))
+
+	stat, err := os.Stat(dir)
+	require.NoError(t, err)
+	require.Equal(t, os.FileMode(0o700), stat.Mode().Perm(),
+		"evidence directory must be owner-only")
+}
+
+func TestWriteRuntimeInfo_FilePermissions(t *testing.T) {
+	t.Parallel()
+
+	dir := filepath.Join(t.TempDir(), "evidence")
+	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", 0, "disabled", "disabled")
+
+	require.NoError(t, WriteRuntimeInfo(dir, info))
+
+	stat, err := os.Stat(filepath.Join(dir, "runtime.json"))
+	require.NoError(t, err)
+	require.Equal(t, os.FileMode(0o600), stat.Mode().Perm(),
+		"evidence file must be owner-only read/write")
+}
+
 func TestWriteRuntimeInfo_CreatesDirectoryAndFile(t *testing.T) {
 	t.Parallel()
 

@@ -33,7 +33,7 @@ func BuildMetadata(baseSHA, workspacePath string) Metadata {
 
 // WriteMetadata writes workspace.json into the given evidence directory.
 func WriteMetadata(evidenceDir string, m Metadata) error {
-	if err := os.MkdirAll(evidenceDir, 0o755); err != nil {
+	if err := os.MkdirAll(evidenceDir, 0o700); err != nil {
 		return fmt.Errorf("create evidence directory: %w", err)
 	}
 
@@ -43,7 +43,7 @@ func WriteMetadata(evidenceDir string, m Metadata) error {
 	}
 
 	path := filepath.Join(evidenceDir, "workspace.json")
-	if err := os.WriteFile(path, data, 0o644); err != nil {
+	if err := os.WriteFile(path, data, 0o600); err != nil {
 		return fmt.Errorf("write workspace metadata: %w", err)
 	}
 

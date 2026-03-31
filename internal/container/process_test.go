@@ -211,6 +211,32 @@ func TestBuildCreateArgs_NonInteractiveNoTTYFlags(t *testing.T) {
 	require.Equal(t, -1, indexOf(args, "-t"))
 }
 
+func TestBuildCreateArgs_CapDropAll(t *testing.T) {
+	t.Parallel()
+	p := New(Config{Name: "c", Image: "img"})
+	args := p.buildCreateArgs()
+
+	capIdx := indexOf(args, "--cap-drop")
+	require.GreaterOrEqual(t, capIdx, 0, "--cap-drop must be present")
+	require.Equal(t, "ALL", args[capIdx+1])
+
+	imgIdx := indexOf(args, "img")
+	require.Less(t, capIdx, imgIdx, "--cap-drop must precede image")
+}
+
+func TestBuildCreateArgs_NoNewPrivileges(t *testing.T) {
+	t.Parallel()
+	p := New(Config{Name: "c", Image: "img"})
+	args := p.buildCreateArgs()
+
+	secIdx := indexOf(args, "--security-opt")
+	require.GreaterOrEqual(t, secIdx, 0, "--security-opt must be present")
+	require.Equal(t, "no-new-privileges", args[secIdx+1])
+
+	imgIdx := indexOf(args, "img")
+	require.Less(t, secIdx, imgIdx, "--security-opt must precede image")
+}
+
 func TestPrepareWritableMounts_ChmodsRWMounts(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()

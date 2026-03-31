@@ -128,6 +128,20 @@ func TestStatus_JSONRoundTrip(t *testing.T) {
 	require.Equal(t, original, parsed)
 }
 
+func TestWriteStatus_FilePermissions(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	s := NewTerminalStatus(StateSuccess, time.Now(), time.Now(), 0, false)
+
+	require.NoError(t, WriteStatus(dir, s))
+
+	info, err := os.Stat(filepath.Join(dir, "status.json"))
+	require.NoError(t, err)
+	require.Equal(t, os.FileMode(0o600), info.Mode().Perm(),
+		"evidence file must be owner-only read/write")
+}
+
 func TestWriteStatus_CreatesFile(t *testing.T) {
 	t.Parallel()
 

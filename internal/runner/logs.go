@@ -14,12 +14,12 @@ type LogFiles struct {
 
 // OpenLogs creates run.log and runner.log in the evidence directory.
 func OpenLogs(evidenceDir string) (*LogFiles, error) {
-	runLog, err := os.Create(filepath.Join(evidenceDir, "run.log"))
+	runLog, err := os.OpenFile(filepath.Join(evidenceDir, "run.log"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
 		return nil, fmt.Errorf("create run.log: %w", err)
 	}
 
-	runnerLog, err := os.Create(filepath.Join(evidenceDir, "runner.log"))
+	runnerLog, err := os.OpenFile(filepath.Join(evidenceDir, "runner.log"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
 		runLog.Close()
 		return nil, fmt.Errorf("create runner.log: %w", err)

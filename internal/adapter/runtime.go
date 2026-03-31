@@ -34,7 +34,7 @@ func NewRuntimeInfo(image, imageSource string, authMountCount int, agentConfigMo
 
 // WriteRuntimeInfo writes runtime.json into the given evidence directory.
 func WriteRuntimeInfo(evidenceDir string, info RuntimeInfo) error {
-	if err := os.MkdirAll(evidenceDir, 0o755); err != nil {
+	if err := os.MkdirAll(evidenceDir, 0o700); err != nil {
 		return fmt.Errorf("create evidence directory: %w", err)
 	}
 
@@ -44,7 +44,7 @@ func WriteRuntimeInfo(evidenceDir string, info RuntimeInfo) error {
 	}
 
 	path := filepath.Join(evidenceDir, "runtime.json")
-	if err := os.WriteFile(path, data, 0o644); err != nil {
+	if err := os.WriteFile(path, data, 0o600); err != nil {
 		return fmt.Errorf("write runtime info: %w", err)
 	}
 

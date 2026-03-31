@@ -60,6 +60,34 @@ func TestBuildMetadata_ExactlySevenFields(t *testing.T) {
 	require.Len(t, raw, len(expectedKeys), "workspace metadata should have exactly %d keys", len(expectedKeys))
 }
 
+func TestWriteMetadata_DirectoryPermissions(t *testing.T) {
+	t.Parallel()
+
+	dir := filepath.Join(t.TempDir(), "evidence")
+	m := BuildMetadata("abc123", "/some/path")
+
+	require.NoError(t, WriteMetadata(dir, m))
+
+	info, err := os.Stat(dir)
+	require.NoError(t, err)
+	require.Equal(t, os.FileMode(0o700), info.Mode().Perm(),
+		"evidence directory must be owner-only")
+}
+
+func TestWriteMetadata_FilePermissions(t *testing.T) {
+	t.Parallel()
+
+	dir := filepath.Join(t.TempDir(), "evidence")
+	m := BuildMetadata("abc123", "/some/path")
+
+	require.NoError(t, WriteMetadata(dir, m))
+
+	info, err := os.Stat(filepath.Join(dir, "workspace.json"))
+	require.NoError(t, err)
+	require.Equal(t, os.FileMode(0o600), info.Mode().Perm(),
+		"evidence file must be owner-only read/write")
+}
+
 func TestWriteMetadata_CreatesDirectory(t *testing.T) {
 	t.Parallel()
 

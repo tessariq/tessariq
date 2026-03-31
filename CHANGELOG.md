@@ -33,6 +33,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added Docker container isolation for agent execution: agent binaries run inside a Docker container with the worktree mounted read-write at `/work`, evidence at `/evidence`, auth files read-only at deterministic paths under `/home/tessariq/`, and optional config directories when `--mount-agent-config` is used.
 - Added Docker as a required host prerequisite for `tessariq run` with daemon-reachability preflight check and actionable guidance when Docker is missing or not running.
 
+### Security
+
+- Added container security hardening: agent containers are now created with `--cap-drop=ALL` and `--security-opt=no-new-privileges` to drop all Linux capabilities and prevent privilege escalation.
+- Changed evidence file permissions from world-readable (`0644`/`0755`) to owner-only (`0600`/`0700`) for all evidence directories and files.
+
 ### Changed
 
 - Changed agent execution model from direct host `exec.CommandContext` to Docker container lifecycle (`docker create` + `docker start` + `docker wait` + `docker rm`) with deterministic container names (`tessariq-<run_id>`) and cleanup on all exit paths.

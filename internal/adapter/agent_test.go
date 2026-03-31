@@ -117,6 +117,40 @@ func TestNewAgentInfo_ExactlyFourTopLevelKeys(t *testing.T) {
 	require.Len(t, raw, len(expectedKeys))
 }
 
+func TestWriteAgentInfo_DirectoryPermissions(t *testing.T) {
+	t.Parallel()
+
+	dir := filepath.Join(t.TempDir(), "evidence")
+	info := NewAgentInfo("claude-code",
+		map[string]any{"model": "x"},
+		map[string]bool{"model": true},
+	)
+
+	require.NoError(t, WriteAgentInfo(dir, info))
+
+	stat, err := os.Stat(dir)
+	require.NoError(t, err)
+	require.Equal(t, os.FileMode(0o700), stat.Mode().Perm(),
+		"evidence directory must be owner-only")
+}
+
+func TestWriteAgentInfo_FilePermissions(t *testing.T) {
+	t.Parallel()
+
+	dir := filepath.Join(t.TempDir(), "evidence")
+	info := NewAgentInfo("claude-code",
+		map[string]any{"model": "x"},
+		map[string]bool{"model": true},
+	)
+
+	require.NoError(t, WriteAgentInfo(dir, info))
+
+	stat, err := os.Stat(filepath.Join(dir, "agent.json"))
+	require.NoError(t, err)
+	require.Equal(t, os.FileMode(0o600), stat.Mode().Perm(),
+		"evidence file must be owner-only read/write")
+}
+
 func TestWriteAgentInfo_CreatesDirectoryAndFile(t *testing.T) {
 	t.Parallel()
 

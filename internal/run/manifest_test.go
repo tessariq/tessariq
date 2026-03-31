@@ -230,6 +230,34 @@ func TestWriteManifest_WritesValidJSON(t *testing.T) {
 	require.Equal(t, m, parsed)
 }
 
+func TestWriteManifest_DirectoryPermissions(t *testing.T) {
+	t.Parallel()
+
+	dir := filepath.Join(t.TempDir(), "evidence")
+	m := Manifest{SchemaVersion: 1, RunID: "test"}
+
+	require.NoError(t, WriteManifest(dir, m))
+
+	info, err := os.Stat(dir)
+	require.NoError(t, err)
+	require.Equal(t, os.FileMode(0o700), info.Mode().Perm(),
+		"evidence directory must be owner-only")
+}
+
+func TestWriteManifest_FilePermissions(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	m := Manifest{SchemaVersion: 1, RunID: "test"}
+
+	require.NoError(t, WriteManifest(dir, m))
+
+	info, err := os.Stat(filepath.Join(dir, "manifest.json"))
+	require.NoError(t, err)
+	require.Equal(t, os.FileMode(0o600), info.Mode().Perm(),
+		"evidence file must be owner-only read/write")
+}
+
 func TestBootstrapManifest_Integration(t *testing.T) {
 	t.Parallel()
 
