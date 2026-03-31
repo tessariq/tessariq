@@ -68,8 +68,8 @@ func newRunCmd() *cobra.Command {
 				return err
 			}
 
-			if cfg.Interactive && !cfg.Attach {
-				fmt.Fprintln(cmd.ErrOrStderr(), "warning: --interactive without --attach; agent will block waiting for approval with no terminal attached")
+			if cfg.Interactive {
+				return fmt.Errorf("--interactive is not yet supported for containerized runs; rerun without --interactive for detached mode")
 			}
 
 			if err := git.IsClean(cmd.Context(), root); err != nil {
@@ -189,7 +189,7 @@ func newRunCmd() *cobra.Command {
 	cmd.Flags().StringVar(&cfg.Agent, "agent", cfg.Agent, "coding agent (claude-code|opencode)")
 	cmd.Flags().StringVar(&cfg.Image, "image", cfg.Image, "container image override")
 	cmd.Flags().StringVar(&cfg.Model, "model", cfg.Model, "model identifier for the agent")
-	cmd.Flags().BoolVar(&cfg.Interactive, "interactive", cfg.Interactive, "require human approval for agent tool use (use with --attach)")
+	cmd.Flags().BoolVar(&cfg.Interactive, "interactive", cfg.Interactive, "require human approval for agent tool use")
 	cmd.Flags().StringVar(&cfg.Egress, "egress", cfg.Egress, "egress mode (none|proxy|open|auto)")
 	cmd.Flags().BoolVar(&cfg.UnsafeEgress, "unsafe-egress", cfg.UnsafeEgress, "alias for --egress open")
 	cmd.Flags().StringArrayVar(&cfg.EgressAllow, "egress-allow", cfg.EgressAllow, "allowed egress destination (repeatable)")

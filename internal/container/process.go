@@ -13,11 +13,12 @@ import (
 // Process implements runner.ProcessRunner by managing a Docker container lifecycle.
 // It uses docker create + docker start + docker wait + docker rm.
 type Process struct {
-	cfg     Config
-	docker  string // path to docker binary
-	created bool
-	stdout  *os.File // optional: pipe container stdout here
-	stderr  *os.File // optional: pipe container stderr here
+	cfg      Config
+	docker   string // path to docker binary
+	created  bool
+	stdout   *os.File // optional: pipe container stdout here
+	stderr   *os.File // optional: pipe container stderr here
+	logsDone chan struct{}
 }
 
 // New creates a container Process from the given configuration.
@@ -66,6 +67,7 @@ func (p *Process) Wait() (int, error) {
 	if err != nil {
 		return -1, fmt.Errorf("parse exit code from docker wait: %w", err)
 	}
+	p.waitForLogs()
 	return code, nil
 }
 
@@ -146,6 +148,7 @@ func (p *Process) streamLogs(ctx context.Context) {
 	if stdout == nil && stderr == nil {
 		return
 	}
+	p.logsDone = make(chan struct{})
 	cmd := exec.CommandContext(ctx, p.docker, "logs", "--follow", p.cfg.Name)
 	if stdout != nil {
 		cmd.Stdout = stdout
@@ -153,7 +156,17 @@ func (p *Process) streamLogs(ctx context.Context) {
 	if stderr != nil {
 		cmd.Stderr = stderr
 	}
-	go func() { _ = cmd.Run() }()
+	go func() {
+		defer close(p.logsDone)
+		_ = cmd.Run()
+	}()
+}
+
+func (p *Process) waitForLogs() {
+	if p.logsDone == nil {
+		return
+	}
+	<-p.logsDone
 }
 
 // buildCreateArgs assembles the full docker create argument list.

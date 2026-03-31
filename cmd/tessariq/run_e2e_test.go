@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"github.com/tessariq/tessariq/internal/adapter"
@@ -454,4 +455,39 @@ func TestE2E_AgentExecutesInsideContainer(t *testing.T) {
 	containerName := extractField(output, "container_name")
 	require.True(t, strings.HasPrefix(containerName, "tessariq-"),
 		"container name must start with tessariq-")
+}
+
+func TestE2E_TmuxSessionShowsDetachedRunOutput(t *testing.T) {
+	bin := buildBinary(t)
+	env := setupRunEnvWithScript(t, bin, "claude", `echo detached-output`)
+
+	code, output := runTessariq(t, env, "claude", "")
+	require.Equal(t, 0, code, "run failed: %s", output)
+
+	sessionName := extractField(output, "container_name")
+	require.NotEmpty(t, sessionName)
+
+	evidencePath := extractField(output, "evidence_path")
+	require.NotEmpty(t, evidencePath)
+
+	ctx := context.Background()
+	time.Sleep(500 * time.Millisecond)
+	hasSessionCode, hasSessionOutput, err := env.Exec(ctx, []string{"sh", "-c", "tmux has-session -t " + sessionName})
+	require.NoError(t, err)
+	require.Equal(t, 0, hasSessionCode, "tmux session should exist: %s", hasSessionOutput)
+
+	logCode, runLog, err := env.Exec(ctx, []string{"cat", filepath.Join(evidencePath, "run.log")})
+	require.NoError(t, err)
+	require.Equal(t, 0, logCode, "run.log must exist")
+	require.Contains(t, runLog, "detached-output")
+}
+
+func TestE2E_InteractiveRunFailsWithActionableGuidance(t *testing.T) {
+	bin := buildBinary(t)
+	env := setupRunEnv(t, bin, 0)
+
+	code, output := runTessariq(t, env, "claude", "--interactive")
+	require.NotEqual(t, 0, code)
+	require.Contains(t, output, "--interactive is not yet supported for containerized runs")
+	require.NotContains(t, output, "run_id: ")
 }

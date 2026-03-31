@@ -26,3 +26,16 @@ func TestAvailable_ReturnsErrWhenNotOnPath(t *testing.T) {
 	err := Available()
 	require.ErrorIs(t, err, ErrTmuxNotAvailable)
 }
+
+func TestNewSessionArgs_WithoutCommand(t *testing.T) {
+	t.Parallel()
+
+	require.Equal(t, []string{"new-session", "-d", "-s", "sess"}, newSessionArgs("sess", nil))
+}
+
+func TestNewSessionArgs_WithCommand(t *testing.T) {
+	t.Parallel()
+
+	args := newSessionArgs("sess", []string{"tail", "-n", "+1", "-f", "/tmp/run.log"})
+	require.Equal(t, []string{"new-session", "-d", "-s", "sess", "'tail' '-n' '+1' '-f' '/tmp/run.log'"}, args)
+}

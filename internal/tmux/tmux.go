@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"strings"
 )
 
 // ErrTmuxNotAvailable indicates that the tmux binary is not on PATH.
@@ -20,12 +21,33 @@ func Available() error {
 }
 
 // NewSession creates a new detached tmux session with the given name.
-func NewSession(ctx context.Context, name string) error {
-	cmd := exec.CommandContext(ctx, "tmux", "new-session", "-d", "-s", name)
+// If command is non-empty, tmux starts the session by running that command.
+func NewSession(ctx context.Context, name string, command []string) error {
+	cmd := exec.CommandContext(ctx, "tmux", newSessionArgs(name, command)...)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("create tmux session %q: %s: %w", name, out, err)
 	}
 	return nil
+}
+
+func newSessionArgs(name string, command []string) []string {
+	args := []string{"new-session", "-d", "-s", name}
+	if len(command) > 0 {
+		args = append(args, shellCommand(command))
+	}
+	return args
+}
+
+func shellCommand(args []string) string {
+	quoted := make([]string, 0, len(args))
+	for _, arg := range args {
+		quoted = append(quoted, shellQuote(arg))
+	}
+	return strings.Join(quoted, " ")
+}
+
+func shellQuote(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", `'"'"'`) + "'"
 }
 
 // HasSession returns true if a tmux session with the given name exists.

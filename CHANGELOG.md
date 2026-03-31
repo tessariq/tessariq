@@ -41,7 +41,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed `manifest.json` to use `agent` instead of `adapter` and added `resolved_egress_mode` and `allowlist_source` fields per v0.1.0 spec.
 - Changed CLI approval and egress flag UX: replaced `--yolo` with `--interactive` (autonomous-by-default) and renamed `--egress-allow-reset` to `--egress-no-defaults` for clearer intent.
 - Changed prerequisite preflight UX for local CLI execution so `tessariq init`, `tessariq run`, and `tessariq attach` fail fast with actionable missing-dependency guidance before lifecycle side effects.
+- Changed `tessariq run --interactive` to fail fast for the current containerized runtime until true interactive terminal support is implemented.
 
 ### Fixed
 
 - Fixed duration default rendering in `--help` output so `--timeout` and `--grace` show normalized values (for example `30m` and `30s`) instead of padded forms.
+- Fixed detached run sessions so the host tmux session tails durable `run.log` output from the container instead of starting empty.
+- Fixed worktree cleanup after container-owned writes by repairing disposable workspace ownership before worktree removal.

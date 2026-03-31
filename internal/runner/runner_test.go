@@ -16,6 +16,8 @@ import (
 type fakeProcess struct {
 	exitCode int
 	waitCh   chan struct{} // closed when Wait should return
+	stdout   *os.File
+	stderr   *os.File
 }
 
 func newFakeProcess(exitCode int) *fakeProcess {
@@ -42,6 +44,11 @@ func (f *fakeProcess) Signal(_ os.Signal) error {
 		close(f.waitCh)
 	}
 	return nil
+}
+
+func (f *fakeProcess) SetOutput(stdout, stderr *os.File) {
+	f.stdout = stdout
+	f.stderr = stderr
 }
 
 func fixedClock(t time.Time) func() time.Time {
@@ -229,11 +236,13 @@ type fakeSession struct {
 	startErr    error
 	startCalled bool
 	sessionName string
+	command     []string
 }
 
-func (f *fakeSession) StartSession(_ context.Context, name string) error {
+func (f *fakeSession) StartSession(_ context.Context, name string, command []string) error {
 	f.startCalled = true
 	f.sessionName = name
+	f.command = append([]string(nil), command...)
 	return f.startErr
 }
 
@@ -249,6 +258,7 @@ func TestRunner_SessionStarted(t *testing.T) {
 	require.NoError(t, r.Run(context.Background()))
 	require.True(t, sess.startCalled)
 	require.Equal(t, "tessariq-TESTID", sess.sessionName)
+	require.Equal(t, []string{"tail", "-n", "+1", "-f", filepath.Join(dir, "run.log")}, sess.command)
 }
 
 func TestRunner_SessionStartFailure(t *testing.T) {
@@ -307,6 +317,20 @@ func TestRunner_SessionNamePassedThrough(t *testing.T) {
 
 	require.NoError(t, r.Run(context.Background()))
 	require.Equal(t, "custom-session-name", sess.sessionName)
+}
+
+func TestRunner_ConfiguresProcessOutputWhenSupported(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	proc := newFakeProcess(0)
+	r := newTestRunner(dir, proc)
+
+	require.NoError(t, r.Run(context.Background()))
+	require.NotNil(t, proc.stdout)
+	require.NotNil(t, proc.stderr)
+	require.Equal(t, proc.stdout.Name(), filepath.Join(dir, "run.log"))
+	require.Equal(t, proc.stderr.Name(), filepath.Join(dir, "run.log"))
 }
 
 func TestRunner_EmptySessionName_SkipsSessionStart(t *testing.T) {

@@ -21,6 +21,8 @@ import (
 type shellProcess struct {
 	command string
 	cmd     *exec.Cmd
+	stdout  *os.File
+	stderr  *os.File
 }
 
 func newShellProcess(command string) *shellProcess {
@@ -29,6 +31,8 @@ func newShellProcess(command string) *shellProcess {
 
 func (s *shellProcess) Start(ctx context.Context) error {
 	s.cmd = exec.CommandContext(ctx, "sh", "-c", s.command)
+	s.cmd.Stdout = s.stdout
+	s.cmd.Stderr = s.stderr
 	return s.cmd.Start()
 }
 
@@ -49,6 +53,11 @@ func (s *shellProcess) Signal(sig os.Signal) error {
 		return s.cmd.Process.Signal(sig)
 	}
 	return nil
+}
+
+func (s *shellProcess) SetOutput(stdout, stderr *os.File) {
+	s.stdout = stdout
+	s.stderr = stderr
 }
 
 func newIntegrationRunner(dir string, proc ProcessRunner) *Runner {
@@ -176,6 +185,19 @@ func TestRunnerIntegration_PreHookFailurePreventsProcess(t *testing.T) {
 	require.Equal(t, StateFailed, s.State)
 }
 
+func TestRunnerIntegration_ProcessOutputWrittenToRunLog(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	r := newIntegrationRunner(dir, newShellProcess("printf process-output"))
+
+	require.NoError(t, r.Run(context.Background()))
+
+	data, err := os.ReadFile(filepath.Join(dir, "run.log"))
+	require.NoError(t, err)
+	require.Contains(t, string(data), "process-output")
+}
+
 func TestRunnerIntegration_VerifyHookFailure(t *testing.T) {
 	t.Parallel()
 
@@ -243,4 +265,25 @@ func TestRunnerIntegration_TmuxSessionExistsAfterProcessFails(t *testing.T) {
 	exists, err := tmux.HasSession(ctx, sessionName)
 	require.NoError(t, err)
 	require.True(t, exists, "tmux session should persist even when process fails")
+}
+
+func TestRunnerIntegration_TmuxSessionShowsRunLogOutput(t *testing.T) {
+	t.Parallel()
+	skipIfNoTmux(t)
+
+	ctx := context.Background()
+	sessionName := "tessariq-test-runner-pane-" + t.Name()
+	t.Cleanup(func() { _ = tmux.KillSession(ctx, sessionName) })
+
+	dir := t.TempDir()
+	r := newIntegrationRunner(dir, newShellProcess("printf session-output"))
+	r.Session = &tmux.Starter{}
+	r.SessionName = sessionName
+
+	require.NoError(t, r.Run(ctx))
+
+	cmd := exec.CommandContext(ctx, "tmux", "capture-pane", "-p", "-t", sessionName)
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, "capture tmux pane: %s", out)
+	require.Contains(t, string(out), "session-output")
 }

@@ -18,7 +18,11 @@ type ProcessRunner interface {
 
 // SessionStarter creates a tmux session for the run.
 type SessionStarter interface {
-	StartSession(ctx context.Context, sessionName string) error
+	StartSession(ctx context.Context, sessionName string, command []string) error
+}
+
+type outputConfigurer interface {
+	SetOutput(stdout, stderr *os.File)
 }
 
 // Runner orchestrates the full run lifecycle.
@@ -67,7 +71,7 @@ func (r *Runner) Run(ctx context.Context) error {
 	// Create tmux session if a session starter is configured.
 	if r.Session != nil && r.SessionName != "" {
 		fmt.Fprintf(logs.RunnerLog, "[%s] creating tmux session %s\n", r.clock().UTC().Format(time.RFC3339), r.SessionName)
-		if err := r.Session.StartSession(ctx, r.SessionName); err != nil {
+		if err := r.Session.StartSession(ctx, r.SessionName, r.sessionCommand(logs.RunLog.Name())); err != nil {
 			finishedAt := r.clock()
 			fmt.Fprintf(logs.RunnerLog, "[%s] tmux session creation failed: %s\n", finishedAt.UTC().Format(time.RFC3339), err)
 			return r.writeTerminalStatus(StateFailed, startedAt, finishedAt, 1, false)
@@ -118,6 +122,10 @@ func (r *Runner) runProcess(ctx context.Context, startedAt time.Time, logs *LogF
 	fmt.Fprintf(logs.RunnerLog, "[%s] starting process (timeout=%s, grace=%s)\n",
 		r.clock().UTC().Format(time.RFC3339), r.Config.Timeout, r.Config.Grace)
 
+	if proc, ok := r.Process.(outputConfigurer); ok {
+		proc.SetOutput(logs.RunLog, logs.RunLog)
+	}
+
 	if err := r.Process.Start(timeoutCtx); err != nil {
 		fmt.Fprintf(logs.RunnerLog, "[%s] process start failed: %s\n", r.clock().UTC().Format(time.RFC3339), err)
 		return 1, false, StateFailed
@@ -158,6 +166,10 @@ func (r *Runner) runProcess(ctx context.Context, startedAt time.Time, logs *LogF
 			return -1, true, StateTimeout
 		}
 	}
+}
+
+func (r *Runner) sessionCommand(runLogPath string) []string {
+	return []string{"tail", "-n", "+1", "-f", runLogPath}
 }
 
 func (r *Runner) writeTerminalStatus(state State, startedAt, finishedAt time.Time, exitCode int, timedOut bool) error {

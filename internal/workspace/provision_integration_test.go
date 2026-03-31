@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -132,4 +133,28 @@ func TestCleanup_Integration_Idempotent(t *testing.T) {
 
 	require.NoError(t, Cleanup(ctx, repo.Dir(), wsPath))
 	require.NoError(t, Cleanup(ctx, repo.Dir(), wsPath))
+}
+
+func TestCleanup_Integration_RemovesRestrictiveContainerOwnedFiles(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo, err := containers.StartGitRepo(ctx, t)
+	require.NoError(t, err)
+
+	homeDir := t.TempDir()
+	evidenceDir := filepath.Join(t.TempDir(), "evidence")
+
+	wsPath, _, err := Provision(ctx, homeDir, repo.Dir(), "01ARZ3NDEKTSV4RRFFQ69G5FAW", evidenceDir)
+	require.NoError(t, err)
+
+	cmd := exec.CommandContext(ctx, "docker", "run", "--rm", "-v", wsPath+":/work", "alpine:latest",
+		"sh", "-c", "mkdir -p /work/private && touch /work/private/file && chmod 700 /work/private")
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, "create restrictive files: %s", out)
+
+	require.NoError(t, Cleanup(ctx, repo.Dir(), wsPath))
+
+	_, err = os.Stat(wsPath)
+	require.True(t, os.IsNotExist(err))
 }

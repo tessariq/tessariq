@@ -25,7 +25,7 @@ func TestNewSession_Integration_CreatesSession(t *testing.T) {
 	name := "tessariq-test-create-" + t.Name()
 	t.Cleanup(func() { _ = KillSession(ctx, name) })
 
-	require.NoError(t, NewSession(ctx, name))
+	require.NoError(t, NewSession(ctx, name, nil))
 
 	exists, err := HasSession(ctx, name)
 	require.NoError(t, err)
@@ -40,8 +40,8 @@ func TestNewSession_Integration_DuplicateSessionFails(t *testing.T) {
 	name := "tessariq-test-dup-" + t.Name()
 	t.Cleanup(func() { _ = KillSession(ctx, name) })
 
-	require.NoError(t, NewSession(ctx, name))
-	err := NewSession(ctx, name)
+	require.NoError(t, NewSession(ctx, name, nil))
+	err := NewSession(ctx, name, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), name)
 }

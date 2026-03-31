@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/tessariq/tessariq/internal/git"
 )
@@ -50,9 +51,13 @@ func Provision(ctx context.Context, homeDir, repoRoot, runID, evidenceDir string
 // traverse and delete files that may have been created by the container's
 // non-root user (different UID than the host user).
 func Cleanup(ctx context.Context, repoRoot, workspacePath string) error {
-	// Best-effort: reclaim traversal permissions for the host user.
-	// Agent-created files may be owned by the container's tessariq UID.
-	_ = exec.Command("chmod", "-R", "u+rwX", workspacePath).Run()
+	if _, err := os.Stat(workspacePath); os.IsNotExist(err) {
+		return nil
+	}
+
+	if err := repairWorkspaceOwnership(ctx, workspacePath); err != nil {
+		return err
+	}
 
 	if err := git.RemoveWorktree(ctx, repoRoot, workspacePath); err != nil {
 		if _, statErr := os.Stat(workspacePath); os.IsNotExist(statErr) {
@@ -61,5 +66,18 @@ func Cleanup(ctx context.Context, repoRoot, workspacePath string) error {
 		return fmt.Errorf("cleanup worktree: %w", err)
 	}
 	_ = os.RemoveAll(workspacePath)
+	return nil
+}
+
+func repairWorkspaceOwnership(ctx context.Context, workspacePath string) error {
+	uid := os.Getuid()
+	gid := os.Getgid()
+	fixCmd := fmt.Sprintf("chown -R %d:%d /work && chmod -R u+rwX /work", uid, gid)
+	cmd := exec.CommandContext(ctx,
+		"docker", "run", "--rm", "--user", "root", "-v", workspacePath+":/work", "alpine:latest", "sh", "-c", fixCmd,
+	)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("repair workspace ownership for %s: %s: %w", workspacePath, strings.TrimSpace(string(out)), err)
+	}
 	return nil
 }
