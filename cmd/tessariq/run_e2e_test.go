@@ -558,3 +558,41 @@ func TestE2E_InteractiveClaudeCodeAgentMetadata(t *testing.T) {
 	require.Equal(t, true, info.Requested["interactive"])
 	require.Equal(t, true, info.Applied["interactive"])
 }
+
+func TestE2E_ProxyModeWritesEgressEvidence(t *testing.T) {
+	bin := buildBinary(t)
+	env := setupRunEnv(t, bin, 0)
+
+	// Default egress is "auto" which resolves to "proxy".
+	code, output := runTessariq(t, env, "claude", "")
+	require.Equal(t, 0, code, "run failed: %s", output)
+
+	evidencePath := extractField(output, "evidence_path")
+	require.NotEmpty(t, evidencePath, "evidence_path must be in output")
+
+	ctx := context.Background()
+
+	// Verify egress.compiled.yaml exists and has correct schema.
+	catCode, compiledData, err := env.Exec(ctx, []string{"cat", filepath.Join(evidencePath, "egress.compiled.yaml")})
+	require.NoError(t, err)
+	require.Equal(t, 0, catCode, "egress.compiled.yaml must exist: %s", compiledData)
+	require.Contains(t, compiledData, "schema_version: 1")
+	require.Contains(t, compiledData, "allowlist_source:")
+	require.Contains(t, compiledData, "destinations:")
+
+	// Verify egress.events.jsonl exists (may be empty).
+	catCode, _, err = env.Exec(ctx, []string{"sh", "-c",
+		fmt.Sprintf("test -f %s && echo exists", filepath.Join(evidencePath, "egress.events.jsonl"))})
+	require.NoError(t, err)
+	require.Equal(t, 0, catCode, "egress.events.jsonl must exist")
+
+	// Verify evidence file permissions are 0600.
+	for _, f := range []string{"egress.compiled.yaml", "egress.events.jsonl"} {
+		fPath := filepath.Join(evidencePath, f)
+		fCode, fOut, fErr := env.Exec(ctx, []string{"sh", "-c",
+			fmt.Sprintf("stat -c '%%a' %s", fPath)})
+		require.NoError(t, fErr, "%s stat failed", f)
+		require.Equal(t, 0, fCode, "%s must exist", f)
+		require.Equal(t, "600", strings.TrimSpace(fOut), "%s must be 0600", f)
+	}
+}

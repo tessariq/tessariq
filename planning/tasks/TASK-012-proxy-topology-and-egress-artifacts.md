@@ -1,7 +1,7 @@
 ---
 id: TASK-012-proxy-topology-and-egress-artifacts
 title: Implement proxy topology and provider-aware egress evidence artifacts
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
@@ -16,7 +16,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#evidence-contract
     - specs/tessariq-v0.1.0.md#acceptance-scenarios
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-03-30T23:05:00Z"
+updated_at: "2026-03-31T19:37:40Z"
 areas:
     - networking
     - proxy
@@ -85,3 +85,4 @@ Implement proxy mode runtime topology, compiled allowlists, and egress event evi
 ## Notes
 
 - Keep low-level proxy topology implementation details informative, not user-contract primary.
+- 2026-03-31T19:37:40Z: Proxy topology: internal Docker network + Squid proxy with allowlist enforcement, egress.compiled.yaml and egress.events.jsonl evidence, blocked-destination UX. 25 unit tests, 2 integration tests, 1 e2e test, 94.29% mutation efficacy.

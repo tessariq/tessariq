@@ -7,6 +7,7 @@ import (
 	"github.com/tessariq/tessariq/internal/adapter/opencode"
 	"github.com/tessariq/tessariq/internal/authmount"
 	"github.com/tessariq/tessariq/internal/container"
+	"github.com/tessariq/tessariq/internal/proxy"
 	"github.com/tessariq/tessariq/internal/run"
 	"github.com/tessariq/tessariq/internal/runner"
 )
@@ -21,9 +22,12 @@ type AgentProcess struct {
 // NewProcess creates an AgentProcess for the agent specified in cfg.
 // The process runs inside a Docker container assembled from the agent config,
 // worktree/evidence paths, and discovered auth/config mounts.
+// When proxyEnv is non-nil, the container is attached to the proxy network
+// and HTTP_PROXY/HTTPS_PROXY environment variables are injected.
 func NewProcess(cfg run.Config, taskContent string, runID, worktreePath, evidencePath string,
 	authMounts []authmount.MountSpec, configMounts []authmount.MountSpec,
-	agentConfigMount, agentConfigMountStatus string, envVars map[string]string) (*AgentProcess, error) {
+	agentConfigMount, agentConfigMountStatus string, envVars map[string]string,
+	proxyEnv *proxy.ProxyEnv) (*AgentProcess, error) {
 
 	imageSource := "reference"
 	if cfg.Image != "" {
@@ -61,6 +65,20 @@ func NewProcess(cfg run.Config, taskContent string, runID, worktreePath, evidenc
 		return nil, fmt.Errorf("unsupported agent: %s", cfg.Agent)
 	}
 
+	// Merge proxy environment variables when proxy mode is active.
+	var networkName string
+	if proxyEnv != nil {
+		networkName = proxyEnv.NetworkName
+		agentEnvVars = mergeEnvVars(agentEnvVars, map[string]string{
+			"HTTP_PROXY":  proxyEnv.ProxyAddr,
+			"HTTPS_PROXY": proxyEnv.ProxyAddr,
+			"http_proxy":  proxyEnv.ProxyAddr,
+			"https_proxy": proxyEnv.ProxyAddr,
+			"NO_PROXY":    "localhost,127.0.0.1",
+			"no_proxy":    "localhost,127.0.0.1",
+		})
+	}
+
 	containerCfg := container.Config{
 		Name:        run.ContainerName(runID),
 		Image:       image,
@@ -70,6 +88,7 @@ func NewProcess(cfg run.Config, taskContent string, runID, worktreePath, evidenc
 		Env:         agentEnvVars,
 		Mounts:      container.AssembleMounts(worktreePath, evidencePath, authMounts, configMounts),
 		Interactive: cfg.Interactive,
+		NetworkName: networkName,
 	}
 
 	proc := container.New(containerCfg)

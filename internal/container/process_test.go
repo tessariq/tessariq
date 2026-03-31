@@ -186,6 +186,27 @@ func TestRemove_SkipsWhenNotCreated(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestBuildCreateArgs_NetworkName(t *testing.T) {
+	t.Parallel()
+	p := New(Config{Name: "c", Image: "img", NetworkName: "tessariq-net-abc123"})
+	args := p.buildCreateArgs()
+
+	netIdx := indexOf(args, "--net")
+	require.GreaterOrEqual(t, netIdx, 0, "--net must be present")
+	require.Equal(t, "tessariq-net-abc123", args[netIdx+1])
+
+	imgIdx := indexOf(args, "img")
+	require.Less(t, netIdx, imgIdx, "--net must precede image")
+}
+
+func TestBuildCreateArgs_NoNetworkName(t *testing.T) {
+	t.Parallel()
+	p := New(Config{Name: "c", Image: "img"})
+	args := p.buildCreateArgs()
+
+	require.Equal(t, -1, indexOf(args, "--net"))
+}
+
 func TestBuildCreateArgs_InteractiveFlags(t *testing.T) {
 	t.Parallel()
 	p := New(Config{Name: "c", Image: "img", Interactive: true})

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"github.com/tessariq/tessariq/internal/authmount"
 	"github.com/tessariq/tessariq/internal/git"
 	"github.com/tessariq/tessariq/internal/prereq"
+	"github.com/tessariq/tessariq/internal/proxy"
 	"github.com/tessariq/tessariq/internal/run"
 	"github.com/tessariq/tessariq/internal/runner"
 	"github.com/tessariq/tessariq/internal/tmux"
@@ -115,6 +117,26 @@ func newRunCmd() *cobra.Command {
 				return err
 			}
 
+			// Set up proxy topology in proxy mode.
+			var proxyEnv *proxy.ProxyEnv
+			if resolvedEgress == "proxy" {
+				topo := &proxy.Topology{
+					RunID:           runID,
+					EvidenceDir:     evidenceDir,
+					Destinations:    allowlistResult.Destinations,
+					AllowlistSource: allowlistResult.Source,
+				}
+				proxyEnv, err = topo.Setup(cmd.Context())
+				if err != nil {
+					return fmt.Errorf("proxy topology setup: %w", err)
+				}
+				defer func() {
+					if tdErr := topo.Teardown(context.Background()); tdErr != nil {
+						fmt.Fprintf(cmd.ErrOrStderr(), "warning: proxy topology teardown: %s\n", tdErr)
+					}
+				}()
+			}
+
 			authResult, err := authmount.Discover(cfg.Agent, homeDir, runtime.GOOS, authmount.FileExists)
 			if err != nil {
 				return err
@@ -145,7 +167,7 @@ func newRunCmd() *cobra.Command {
 			}
 
 			agentProc, err := adapter.NewProcess(cfg, string(content), runID, wsPath, evidenceDir,
-				authResult.Mounts, configMounts, agentConfigMount, agentConfigMountStatus, containerEnvVars)
+				authResult.Mounts, configMounts, agentConfigMount, agentConfigMountStatus, containerEnvVars, proxyEnv)
 			if err != nil {
 				return fmt.Errorf("create agent process: %w", err)
 			}
@@ -174,8 +196,15 @@ func newRunCmd() *cobra.Command {
 				SessionName:   sessionName,
 				ContainerName: containerName,
 			}
-			if err := r.Run(cmd.Context()); err != nil {
-				return err
+			runErr := r.Run(cmd.Context())
+
+			// Print blocked egress destinations if proxy mode was active.
+			if proxyEnv != nil {
+				printBlockedDestinations(cmd.ErrOrStderr(), evidenceDir)
+			}
+
+			if runErr != nil {
+				return runErr
 			}
 
 			printRunOutput(cmd.OutOrStdout(), runOutput{
@@ -246,4 +275,26 @@ func resolveRunAllowlist(cfg run.Config, homeDir, resolvedEgress string) (*run.A
 	}
 
 	return run.ResolveAllowlist(cfg.EgressAllow, userCfg, builtInStrings, cfg.EgressNoDefaults, resolvedEgress)
+}
+
+// printBlockedDestinations reads egress events and prints guidance for blocked destinations.
+func printBlockedDestinations(w io.Writer, evidenceDir string) {
+	events, err := proxy.ReadEventsJSONL(evidenceDir)
+	if err != nil || len(events) == 0 {
+		return
+	}
+
+	fmt.Fprintf(w, "\nBlocked egress destinations:\n")
+	seen := make(map[string]bool)
+	for _, ev := range events {
+		key := fmt.Sprintf("%s:%d", ev.Host, ev.Port)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		fmt.Fprintf(w, "  - %s (blocked: %s)\n", key, ev.Reason)
+	}
+	fmt.Fprintf(w, "\nTo allow these destinations, use --egress-allow <host:port>.\n")
+	fmt.Fprintf(w, "Or add them to ~/.config/tessariq/config.yaml under egress_allow.\n")
+	fmt.Fprintf(w, "Or rerun with --unsafe-egress to bypass proxy enforcement.\n")
 }

@@ -32,6 +32,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added full allowlist precedence resolution: CLI `--egress-allow` overrides user config, which overrides the built-in profile; `allowlist_source` in `manifest.json` now records the exact provenance (`cli`, `user_config`, or `built_in`).
 - Added Docker container isolation for agent execution: agent binaries run inside a Docker container with the worktree mounted read-write at `/work`, evidence at `/evidence`, auth files read-only at deterministic paths under `/home/tessariq/`, and optional config directories when `--mount-agent-config` is used.
 - Added Docker as a required host prerequisite for `tessariq run` with daemon-reachability preflight check and actionable guidance when Docker is missing or not running.
+- Added proxy-mode network topology: agent containers run on an internal Docker network with egress enforced through a per-run Squid proxy that allowlists destinations at `host:port` granularity via CONNECT tunneling.
+- Added `egress.compiled.yaml` evidence artifact emitted in proxy mode with `schema_version`, `allowlist_source`, and fully resolved `host:port` destinations.
+- Added `egress.events.jsonl` evidence artifact emitted in proxy mode recording blocked egress attempts with timestamp, destination, and reason.
+- Added blocked-destination UX: when proxy mode blocks egress, the CLI reports which `host:port` was denied and how to allow it via `--egress-allow`, user config, or `--unsafe-egress`.
 
 ### Security
 

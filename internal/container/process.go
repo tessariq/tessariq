@@ -191,6 +191,10 @@ func (p *Process) buildCreateArgs() []string {
 	args = append(args, "--cap-drop", "ALL")
 	args = append(args, "--security-opt", "no-new-privileges")
 
+	if p.cfg.NetworkName != "" {
+		args = append(args, "--net", p.cfg.NetworkName)
+	}
+
 	if p.cfg.Interactive {
 		args = append(args, "-i", "-t")
 	}
