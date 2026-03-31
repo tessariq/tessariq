@@ -41,7 +41,7 @@ max_retries: 2
 
 ## Task Counts
 
-- todo: 8
+- todo: 11
 - in_progress: 0
 - done: 20
 - blocked: 1

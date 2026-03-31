@@ -113,6 +113,7 @@ Required `worktree` behavior:
 - `base_sha` is the repository `HEAD` at run start
 - Tessariq MUST refuse to start a run if the repository has staged, unstaged, or untracked non-ignored files
 - dirty-repo failure MUST happen before container start and tell the user to commit, stash, or clean the repository first
+- on Linux, the worktree directory MAY be made world-accessible before container start to allow the container's non-root user to write to bind-mounted paths; this is an accepted trade-off for single-user developer machines and is safe because worktrees are disposable, single-run directories
 
 ## CLI
 
@@ -159,6 +160,13 @@ Supported flags:
 - `--verify "<cmd>"` repeatable
 - `--attach`
 
+Hook execution context:
+
+- `--pre` and `--verify` commands execute on the **host**, outside the container sandbox, with the invoking user's full privileges
+- hooks are not subject to container isolation, egress restrictions, or capability limits
+- users are responsible for reviewing and trusting hook commands before use
+- hook output is captured in `runner.log`
+
 Default tool-permission mode:
 
 - by default the agent runs autonomously inside the container sandbox without requiring human approval for tool use
@@ -175,6 +183,17 @@ Runtime-image behavior:
 - the reference runtime image MUST NOT bundle third-party agent binaries such as Claude Code or OpenCode
 - `--image` overrides the runtime image for that run
 - the selected agent binary MUST already exist in the resolved runtime image
+
+Container security posture:
+
+- Tessariq MUST create agent containers with all Linux capabilities dropped (`--cap-drop=ALL`)
+- Tessariq MUST prevent in-container privilege escalation (`--security-opt=no-new-privileges`)
+- custom seccomp profiles and container resource limits (memory, CPU, PIDs) are out of scope for v0.1.0
+
+Workspace repair containers:
+
+- when Tessariq uses a helper container to repair worktree ownership after a run, the repair image MUST be pinned by digest rather than a mutable tag
+- repair containers MUST only mount the disposable worktree path and MUST NOT broaden access to evidence, auth, or config mounts
 
 Required printed output:
 
@@ -273,6 +292,7 @@ Common runtime rules:
 - direct reuse of the macOS Keychain for Claude Code is out of scope for v0.1.0; Claude Code auth reuse on macOS is supported only when the file-backed credential mirror exists
 - Tessariq MUST NOT support auth flows that require writable credential or config mounts in v0.1.0
 - Tessariq MUST fail cleanly when the selected agent requires writable auth refresh behavior that is incompatible with the read-only mount contract
+- the confidentiality of mounted auth credentials depends on egress enforcement restricting which hosts the agent can reach; read-only auth mounts and egress restrictions are complementary controls and neither is sufficient alone
 
 ## Adapter contract
 
@@ -357,6 +377,12 @@ The following files MUST exist for every run unless marked otherwise:
 - `squid.log` optional and capped
 
 Logs MUST be capped and MUST include a truncation marker if truncated.
+
+### Evidence permissions
+
+- evidence directories MUST be created with permissions `0o700` (owner-only access)
+- evidence files MUST be created with permissions `0o600` (owner-only read/write)
+- evidence is intended for the invoking user only and MUST NOT be world-readable
 
 ### Compatibility rules
 
@@ -652,6 +678,41 @@ Bootstrap is expected to:
 - write the final `status.json`
 
 ## Specification changelog
+
+### 2026-03-31: Security hardening amendments
+
+**Changed:**
+
+1. **Hook execution context is now explicitly documented**
+   - `--pre` and `--verify` commands execute on the host, outside the container sandbox, with the invoking user's full privileges.
+   - Rationale: the spec's security model centers on the container as the safety boundary. Hooks bypass that boundary entirely, and users need to understand this trust distinction.
+
+2. **Container security posture now requires capability dropping and privilege escalation prevention**
+   - Agent containers MUST be created with `--cap-drop=ALL` and `--security-opt=no-new-privileges`.
+   - Custom seccomp profiles and resource limits (memory, CPU, PIDs) are explicitly deferred to a future release.
+   - Rationale: a non-root user alone is insufficient container hardening for a product whose core value prop is sandboxed execution.
+
+3. **Workspace repair containers MUST use pinned images**
+   - Helper containers used for worktree ownership repair MUST use images pinned by digest, not mutable tags like `:latest`.
+   - Rationale: a compromised `:latest` tag running as root with a worktree mount is a supply chain risk.
+
+4. **Evidence files MUST be owner-only accessible**
+   - Evidence directories: `0o700`. Evidence files: `0o600`.
+   - Rationale: evidence contains task content, agent output, and configuration details that should not be readable by other users on the system.
+
+5. **Credential confidentiality depends on egress enforcement**
+   - The spec now explicitly states that read-only auth mounts and egress restrictions are complementary controls, and neither is sufficient alone.
+   - Rationale: a mounted credential file is exfiltrable if the agent has unrestricted network access.
+
+6. **Worktree permission window on Linux is documented as an accepted trade-off**
+   - On Linux, worktrees may be made world-accessible before container start to allow the non-root container user to write to bind-mounted paths.
+   - This is acceptable because worktrees are disposable, single-run directories on single-user developer machines.
+
+**Tasks affected:**
+
+- New task TASK-030 for timeout signal escalation fix (SIGTERM before SIGKILL, per TASK-005 acceptance criteria).
+- New task TASK-031 for pinning the workspace repair container image by digest.
+- New task TASK-032 for container security hardening (`--cap-drop=ALL`, `--security-opt=no-new-privileges`, evidence file permissions).
 
 ### 2026-03-30: Shift v0.1.0 to the agent and runtime model
 
