@@ -11,6 +11,8 @@ Prompt guidance for deterministic tracked-work execution in Tessariq.
 - Follow the testing pyramid and repository testing rules.
 - Use Testcontainers for Go for integration and e2e collaborators; do not create custom local servers.
 - Treat mutation testing with a 70% threshold as part of normal CI-quality validation.
+- For implementation tasks, produce one conventional-commit commit per task that includes both code changes and required workflow/planning updates.
+- Do not split a task into separate implementation and chore/workflow-update commits.
 
 ## Autonomous Backlog
 

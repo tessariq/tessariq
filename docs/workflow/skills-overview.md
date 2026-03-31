@@ -24,3 +24,4 @@ Skill catalog for deterministic tracked-work execution in Tessariq.
 - all skills must respect the testing pyramid
 - integration and e2e guidance must require Testcontainers for Go and reject custom local servers
 - verification guidance must mention mutation testing and the 70% threshold
+- implementation-task guidance must require one conventional-commit commit per task (no separate implementation vs workflow-update commits)

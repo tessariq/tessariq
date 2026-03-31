@@ -107,6 +107,13 @@ Notes:
 
 - `verify --profile task` now includes a medium-severity reminder finding when user-visible code changes are detected without updating `CHANGELOG.md`; workflow-tooling-only changes (`cmd/tessariq-workflow/`, `internal/workflow/`) are excluded.
 
+## Commit Policy For Tracked Tasks
+
+- Use exactly one commit per tracked implementation task.
+- The commit must use a conventional commit message.
+- Include implementation changes, tests, and required workflow/planning artifact updates in that same commit.
+- Do not create a separate follow-up commit only for verification/planning/task metadata updates.
+
 ## Change-Type Matrix
 
 - Docs-only changes:

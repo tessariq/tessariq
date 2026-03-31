@@ -29,4 +29,6 @@ Execute one deterministic autonomous backlog cycle for Tessariq tracked work.
 - never hand-edit `planning/STATE.md` frontmatter
 - never hand-edit task status fields
 - always keep evidence paths in finish notes
+- produce exactly one conventional-commit commit per implemented task, including code/test and required workflow/planning updates together
+- do not create a second chore/workflow-only commit for the same task
 - stop after one item
