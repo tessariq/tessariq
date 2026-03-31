@@ -1,8 +1,6 @@
 package opencode
 
 import (
-	"context"
-	"os/exec"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -170,18 +168,18 @@ func TestResolveImage_Default(t *testing.T) {
 	require.NotEmpty(t, img)
 }
 
-func TestNew_ReturnsProcessWithMetadata(t *testing.T) {
+func TestNew_ReturnsConfigWithMetadata(t *testing.T) {
 	t.Parallel()
 
 	cfg := run.DefaultConfig()
 	cfg.Model = "sonnet"
-	p := New(cfg, "implement X", nil)
+	a := New(cfg, "implement X", nil)
 
-	require.Equal(t, DefaultImage, p.Image())
-	require.Equal(t, "sonnet", p.Requested()["model"])
-	require.Equal(t, false, p.Requested()["interactive"])
-	require.False(t, p.Applied()["model"], "opencode does not apply model")
-	require.False(t, p.Applied()["interactive"], "opencode does not apply interactive")
+	require.Equal(t, DefaultImage, a.Image())
+	require.Equal(t, "sonnet", a.Requested()["model"])
+	require.Equal(t, false, a.Requested()["interactive"])
+	require.False(t, a.Applied()["model"], "opencode does not apply model")
+	require.False(t, a.Applied()["interactive"], "opencode does not apply interactive")
 }
 
 func TestNew_CustomImage(t *testing.T) {
@@ -189,9 +187,9 @@ func TestNew_CustomImage(t *testing.T) {
 
 	cfg := run.DefaultConfig()
 	cfg.Image = "custom/img:v3"
-	p := New(cfg, "task", nil)
+	a := New(cfg, "task", nil)
 
-	require.Equal(t, "custom/img:v3", p.Image())
+	require.Equal(t, "custom/img:v3", a.Image())
 }
 
 func TestNew_InteractiveMode(t *testing.T) {
@@ -199,10 +197,10 @@ func TestNew_InteractiveMode(t *testing.T) {
 
 	cfg := run.DefaultConfig()
 	cfg.Interactive = true
-	p := New(cfg, "task", nil)
+	a := New(cfg, "task", nil)
 
-	require.Equal(t, true, p.Requested()["interactive"])
-	require.False(t, p.Applied()["interactive"],
+	require.Equal(t, true, a.Requested()["interactive"])
+	require.False(t, a.Applied()["interactive"],
 		"opencode does not support interactive toggle")
 }
 
@@ -210,25 +208,38 @@ func TestNew_NoModelOmitsFromMetadata(t *testing.T) {
 	t.Parallel()
 
 	cfg := run.DefaultConfig()
-	p := New(cfg, "task", nil)
+	a := New(cfg, "task", nil)
 
-	_, hasModel := p.Requested()["model"]
+	_, hasModel := a.Requested()["model"]
 	require.False(t, hasModel)
-	_, hasModelApplied := p.Applied()["model"]
+	_, hasModelApplied := a.Applied()["model"]
 	require.False(t, hasModelApplied)
 }
 
-func TestStart_BinaryNotFound_UserGuidance(t *testing.T) {
-	// Not parallel: t.Setenv modifies process environment.
-	t.Setenv("PATH", t.TempDir())
+func TestNew_Args(t *testing.T) {
+	t.Parallel()
 
 	cfg := run.DefaultConfig()
-	p := New(cfg, "task", nil)
+	a := New(cfg, "do the thing", nil)
 
-	err := p.Start(context.Background())
-	require.Error(t, err)
-	require.ErrorIs(t, err, exec.ErrNotFound)
-	require.Contains(t, err.Error(), `agent binary "opencode"`)
-	require.Contains(t, err.Error(), "container image")
-	require.Contains(t, err.Error(), "--image")
+	require.Equal(t, []string{"do the thing"}, a.Args())
+}
+
+func TestNew_WithEnvVars(t *testing.T) {
+	t.Parallel()
+
+	cfg := run.DefaultConfig()
+	envVars := map[string]string{"SOME_VAR": "value"}
+	a := New(cfg, "task", envVars)
+
+	require.Equal(t, "value", a.EnvVars()["SOME_VAR"])
+}
+
+func TestNew_NilEnvVars(t *testing.T) {
+	t.Parallel()
+
+	cfg := run.DefaultConfig()
+	a := New(cfg, "task", nil)
+
+	require.Nil(t, a.EnvVars())
 }

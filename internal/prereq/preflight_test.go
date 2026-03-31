@@ -21,9 +21,9 @@ func TestRequirementsForCommand(t *testing.T) {
 			want:    []Dependency{DependencyGit},
 		},
 		{
-			name:    "run requires git and tmux",
+			name:    "run requires git tmux and docker",
 			command: "run",
-			want:    []Dependency{DependencyGit, DependencyTmux},
+			want:    []Dependency{DependencyGit, DependencyTmux, DependencyDocker},
 		},
 		{
 			name:    "attach requires tmux",

@@ -54,12 +54,15 @@ func StartRunEnvWithScript(ctx context.Context, t *testing.T, binaryName string,
 
 	hostDir := t.TempDir()
 
+	mounts := testcontainers.Mounts(
+		testcontainers.BindMount(hostDir, "/work"),
+		testcontainers.BindMount("/var/run/docker.sock", "/var/run/docker.sock"),
+	)
+
 	req := testcontainers.ContainerRequest{
 		Image:      "alpine:latest",
 		Entrypoint: []string{"tail", "-f", "/dev/null"},
-		Mounts: testcontainers.Mounts(
-			testcontainers.BindMount(hostDir, "/work"),
-		),
+		Mounts:     mounts,
 		WaitingFor: wait.ForExec([]string{"sh", "-c", "true"}).
 			WithStartupTimeout(60 * time.Second),
 	}
@@ -85,7 +88,7 @@ func StartRunEnvWithScript(ctx context.Context, t *testing.T, binaryName string,
 
 	// Install runtime dependencies.
 	setupCmds := []string{
-		"apk add --no-cache tmux git bash",
+		"apk add --no-cache tmux git bash docker-cli",
 		"git config --global user.email test@test.com",
 		"git config --global user.name Test",
 		"git config --global init.defaultBranch main",

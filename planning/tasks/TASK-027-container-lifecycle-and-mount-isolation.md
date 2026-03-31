@@ -1,7 +1,7 @@
 ---
 id: TASK-027-container-lifecycle-and-mount-isolation
 title: Implement Docker container lifecycle and mount isolation for agent execution
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
@@ -21,7 +21,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#evidence-contract
     - specs/tessariq-v0.1.0.md#acceptance-scenarios
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-03-31T12:00:00Z"
+updated_at: "2026-03-31T12:02:33Z"
 areas:
     - container
     - runtime
@@ -94,3 +94,4 @@ Wrap agent execution in a Docker container with spec-required mount isolation, r
 - The `ProcessRunner` interface is the clean seam; no changes to `runner.Runner` are needed.
 - This task does not implement proxy networking (TASK-012 owns that); it provides the container that TASK-012 will attach to a Docker network.
 - Agent-specific packages (`claudecode/`, `opencode/`) shift from ProcessRunner implementations to config builders (args, image, metadata).
+- 2026-03-31T12:02:33Z: Container lifecycle implemented via internal/container/ package. Agent packages refactored to config builders. Docker preflight added. Tests: unit (all pass), integration (all pass), e2e (all pass), mutation (96.23% efficacy). Manual test: 12/12 pass.

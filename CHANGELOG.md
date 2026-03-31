@@ -30,8 +30,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `--egress-no-defaults` behavior that discards built-in and user-configured default allowlists, requiring explicit `--egress-allow` entries.
 - Added allowlist entry validation with hostname and port range checks, defaulting to port 443 when omitted.
 - Added full allowlist precedence resolution: CLI `--egress-allow` overrides user config, which overrides the built-in profile; `allowlist_source` in `manifest.json` now records the exact provenance (`cli`, `user_config`, or `built_in`).
+- Added Docker container isolation for agent execution: agent binaries run inside a Docker container with the worktree mounted read-write at `/work`, evidence at `/evidence`, auth files read-only at deterministic paths under `/home/tessariq/`, and optional config directories when `--mount-agent-config` is used.
+- Added Docker as a required host prerequisite for `tessariq run` with daemon-reachability preflight check and actionable guidance when Docker is missing or not running.
 
 ### Changed
+
+- Changed agent execution model from direct host `exec.CommandContext` to Docker container lifecycle (`docker create` + `docker start` + `docker wait` + `docker rm`) with deterministic container names (`tessariq-<run_id>`) and cleanup on all exit paths.
 
 - Changed evidence model from single `adapter.json` to split `agent.json` (requested/applied options) and `runtime.json` (image identity and mount-policy metadata), aligning with v0.1.0 agent-and-runtime contract.
 - Changed `manifest.json` to use `agent` instead of `adapter` and added `resolved_egress_mode` and `allowlist_source` fields per v0.1.0 spec.

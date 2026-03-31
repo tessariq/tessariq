@@ -46,7 +46,12 @@ func newRunCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg.TaskPath = args[0]
 
-			if err := prereq.NewChecker().CheckCommand("run"); err != nil {
+			checker := prereq.NewChecker()
+			if err := checker.CheckCommand("run"); err != nil {
+				return err
+			}
+
+			if err := checker.CheckDockerDaemon(cmd.Context()); err != nil {
 				return err
 			}
 
@@ -119,6 +124,7 @@ func newRunCmd() *cobra.Command {
 			agentConfigMountStatus := "disabled"
 			var containerEnvVars map[string]string
 
+			var configMounts []authmount.MountSpec
 			if cfg.MountAgentConfig {
 				agentConfigMount = "enabled"
 				configResult, configErr := authmount.DiscoverConfigDirs(cfg.Agent, homeDir, authmount.DirExists, authmount.DirReadable)
@@ -130,6 +136,7 @@ func newRunCmd() *cobra.Command {
 				switch configResult.Status {
 				case "mounted":
 					containerEnvVars = configResult.EnvVars
+					configMounts = configResult.Mounts
 				case "missing_optional":
 					fmt.Fprintf(cmd.ErrOrStderr(), "warning: optional config directory for %s not found; continuing with auth mounts only\n", cfg.Agent)
 				case "unreadable_optional":
@@ -137,7 +144,8 @@ func newRunCmd() *cobra.Command {
 				}
 			}
 
-			agentProc, err := adapter.NewProcess(cfg, string(content), len(authResult.Mounts), agentConfigMount, agentConfigMountStatus, containerEnvVars)
+			agentProc, err := adapter.NewProcess(cfg, string(content), runID, wsPath, evidenceDir,
+				authResult.Mounts, configMounts, agentConfigMount, agentConfigMountStatus, containerEnvVars)
 			if err != nil {
 				return fmt.Errorf("create agent process: %w", err)
 			}

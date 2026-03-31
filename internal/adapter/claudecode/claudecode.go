@@ -1,12 +1,6 @@
 package claudecode
 
 import (
-	"context"
-	"errors"
-	"fmt"
-	"os"
-	"os/exec"
-
 	"github.com/tessariq/tessariq/internal/run"
 )
 
@@ -19,20 +13,20 @@ const Name = "claude-code"
 // BinaryName is the expected binary name for the Claude Code agent.
 const BinaryName = "claude"
 
-// Process implements runner.ProcessRunner for the Claude Code agent.
-type Process struct {
+// AgentConfig holds agent-specific CLI arguments and metadata for Claude Code.
+// It is a config builder, not a process runner -- the container package handles execution.
+type AgentConfig struct {
 	args      []string
 	image     string
 	requested map[string]any
 	applied   map[string]bool
 	envVars   map[string]string
-	cmd       *exec.Cmd
 }
 
-// New creates a Claude Code agent process from the run configuration.
-// envVars are additional environment variables injected into the process.
-func New(cfg run.Config, taskContent string, envVars map[string]string) *Process {
-	return &Process{
+// New creates a Claude Code agent config from the run configuration.
+// envVars are additional environment variables injected into the container.
+func New(cfg run.Config, taskContent string, envVars map[string]string) *AgentConfig {
+	return &AgentConfig{
 		args:      buildArgs(cfg, taskContent),
 		image:     resolveImage(cfg),
 		requested: buildRequested(cfg),
@@ -41,59 +35,29 @@ func New(cfg run.Config, taskContent string, envVars map[string]string) *Process
 	}
 }
 
+// Args returns the CLI arguments for the agent binary.
+func (a *AgentConfig) Args() []string {
+	return a.args
+}
+
 // Image returns the resolved container image.
-func (p *Process) Image() string {
-	return p.image
+func (a *AgentConfig) Image() string {
+	return a.image
 }
 
 // Requested returns the agent options requested by the user.
-func (p *Process) Requested() map[string]any {
-	return p.requested
+func (a *AgentConfig) Requested() map[string]any {
+	return a.requested
 }
 
 // Applied returns which requested options were applied exactly.
-func (p *Process) Applied() map[string]bool {
-	return p.applied
+func (a *AgentConfig) Applied() map[string]bool {
+	return a.applied
 }
 
-// Start begins the claude process.
-func (p *Process) Start(ctx context.Context) error {
-	p.cmd = exec.CommandContext(ctx, BinaryName, p.args...)
-	if len(p.envVars) > 0 {
-		p.cmd.Env = os.Environ()
-		for k, v := range p.envVars {
-			p.cmd.Env = append(p.cmd.Env, k+"="+v)
-		}
-	}
-	err := p.cmd.Start()
-	if err != nil {
-		if errors.Is(err, exec.ErrNotFound) {
-			return fmt.Errorf("agent binary %q is not available; ensure the container image includes %s or use --image to specify a compatible image: %w", BinaryName, BinaryName, err)
-		}
-		return err
-	}
-	return nil
-}
-
-// Wait blocks until the process exits and returns the exit code.
-func (p *Process) Wait() (int, error) {
-	err := p.cmd.Wait()
-	if err != nil {
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
-			return exitErr.ExitCode(), nil
-		}
-		return -1, err
-	}
-	return 0, nil
-}
-
-// Signal sends a signal to the running process.
-func (p *Process) Signal(sig os.Signal) error {
-	if p.cmd != nil && p.cmd.Process != nil {
-		return p.cmd.Process.Signal(sig)
-	}
-	return nil
+// EnvVars returns the environment variables to inject into the container.
+func (a *AgentConfig) EnvVars() map[string]string {
+	return a.envVars
 }
 
 // buildArgs translates run.Config into claude CLI arguments.

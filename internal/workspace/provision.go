@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/tessariq/tessariq/internal/git"
@@ -44,7 +45,15 @@ func Provision(ctx context.Context, homeDir, repoRoot, runID, evidenceDir string
 
 // Cleanup removes the worktree and its directory. It is safe to call multiple
 // times — a missing worktree or directory is not an error.
+//
+// Before removal, it reclaims permissions with chmod so the host user can
+// traverse and delete files that may have been created by the container's
+// non-root user (different UID than the host user).
 func Cleanup(ctx context.Context, repoRoot, workspacePath string) error {
+	// Best-effort: reclaim traversal permissions for the host user.
+	// Agent-created files may be owned by the container's tessariq UID.
+	_ = exec.Command("chmod", "-R", "u+rwX", workspacePath).Run()
+
 	if err := git.RemoveWorktree(ctx, repoRoot, workspacePath); err != nil {
 		if _, statErr := os.Stat(workspacePath); os.IsNotExist(statErr) {
 			return nil

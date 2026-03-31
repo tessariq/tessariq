@@ -1,6 +1,7 @@
 package prereq
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os/exec"
@@ -9,8 +10,9 @@ import (
 type Dependency string
 
 const (
-	DependencyGit  Dependency = "git"
-	DependencyTmux Dependency = "tmux"
+	DependencyGit    Dependency = "git"
+	DependencyTmux   Dependency = "tmux"
+	DependencyDocker Dependency = "docker"
 )
 
 var ErrUnknownCommand = errors.New("unknown command prerequisites")
@@ -28,7 +30,7 @@ func RequirementsForCommand(command string) ([]Dependency, error) {
 	case "init":
 		return []Dependency{DependencyGit}, nil
 	case "run":
-		return []Dependency{DependencyGit, DependencyTmux}, nil
+		return []Dependency{DependencyGit, DependencyTmux, DependencyDocker}, nil
 	case "attach":
 		return []Dependency{DependencyTmux}, nil
 	default:
@@ -53,5 +55,23 @@ func (c Checker) CheckCommand(command string) error {
 		}
 	}
 
+	return nil
+}
+
+// CheckDockerDaemon verifies the Docker daemon is running and reachable
+// by executing docker info.
+func (c Checker) CheckDockerDaemon(ctx context.Context) error {
+	lookPath := c.LookPath
+	if lookPath == nil {
+		lookPath = exec.LookPath
+	}
+	dockerPath, err := lookPath("docker")
+	if err != nil {
+		return fmt.Errorf("docker is not installed; install Docker and ensure the daemon is running: %w", err)
+	}
+	cmd := exec.CommandContext(ctx, dockerPath, "info")
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("docker daemon is not reachable; ensure Docker is running: %w", err)
+	}
 	return nil
 }

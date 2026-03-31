@@ -1,10 +1,11 @@
 package adapter
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/tessariq/tessariq/internal/authmount"
+	"github.com/tessariq/tessariq/internal/container"
 	"github.com/tessariq/tessariq/internal/run"
 )
 
@@ -13,7 +14,8 @@ func TestNewProcess_ClaudeCode(t *testing.T) {
 
 	cfg := run.DefaultConfig()
 	cfg.TaskPath = "specs/task.md"
-	ap, err := NewProcess(cfg, "implement feature", 0, "disabled", "disabled", nil)
+	ap, err := NewProcess(cfg, "implement feature", "run-1", "/wt", "/ev",
+		nil, nil, "disabled", "disabled", nil)
 
 	require.NoError(t, err)
 	require.NotNil(t, ap)
@@ -30,7 +32,8 @@ func TestNewProcess_OpenCode(t *testing.T) {
 	cfg := run.DefaultConfig()
 	cfg.Agent = "opencode"
 	cfg.TaskPath = "specs/task.md"
-	ap, err := NewProcess(cfg, "implement feature", 0, "disabled", "disabled", nil)
+	ap, err := NewProcess(cfg, "implement feature", "run-1", "/wt", "/ev",
+		nil, nil, "disabled", "disabled", nil)
 
 	require.NoError(t, err)
 	require.NotNil(t, ap)
@@ -49,7 +52,8 @@ func TestNewProcess_OpenCodeWithModel(t *testing.T) {
 	cfg.Agent = "opencode"
 	cfg.TaskPath = "specs/task.md"
 	cfg.Model = "sonnet"
-	ap, err := NewProcess(cfg, "task", 0, "disabled", "disabled", nil)
+	ap, err := NewProcess(cfg, "task", "run-1", "/wt", "/ev",
+		nil, nil, "disabled", "disabled", nil)
 
 	require.NoError(t, err)
 	require.Equal(t, "sonnet", ap.AgentInfo.Requested["model"])
@@ -63,32 +67,25 @@ func TestNewProcess_CustomImageSource(t *testing.T) {
 	cfg := run.DefaultConfig()
 	cfg.TaskPath = "specs/task.md"
 	cfg.Image = "my-registry/custom:v1"
-	ap, err := NewProcess(cfg, "task", 0, "disabled", "disabled", nil)
+	ap, err := NewProcess(cfg, "task", "run-1", "/wt", "/ev",
+		nil, nil, "disabled", "disabled", nil)
 
 	require.NoError(t, err)
 	require.Equal(t, "custom", ap.RuntimeInfo.ImageSource)
 	require.Equal(t, "my-registry/custom:v1", ap.RuntimeInfo.Image)
 }
 
-func TestNewProcess_BinaryNotFoundMessageConsistency(t *testing.T) {
-	// Not parallel: t.Setenv modifies process environment.
-	t.Setenv("PATH", t.TempDir())
+func TestNewProcess_ReturnsContainerProcess(t *testing.T) {
+	t.Parallel()
 
-	for _, agent := range []string{"claude-code", "opencode"} {
-		t.Run(agent, func(t *testing.T) {
-			cfg := run.DefaultConfig()
-			cfg.Agent = agent
-			cfg.TaskPath = "specs/task.md"
-			ap, err := NewProcess(cfg, "task", 0, "disabled", "disabled", nil)
-			require.NoError(t, err)
+	cfg := run.DefaultConfig()
+	cfg.TaskPath = "specs/task.md"
+	ap, err := NewProcess(cfg, "task", "run-42", "/wt", "/ev",
+		nil, nil, "disabled", "disabled", nil)
 
-			startErr := ap.Process.Start(context.Background())
-			require.Error(t, startErr)
-			require.Contains(t, startErr.Error(), "agent binary")
-			require.Contains(t, startErr.Error(), "container image")
-			require.Contains(t, startErr.Error(), "--image")
-		})
-	}
+	require.NoError(t, err)
+	_, ok := ap.Process.(*container.Process)
+	require.True(t, ok, "process should be a *container.Process")
 }
 
 func TestNewProcess_UnknownAgent(t *testing.T) {
@@ -97,7 +94,8 @@ func TestNewProcess_UnknownAgent(t *testing.T) {
 	cfg := run.DefaultConfig()
 	cfg.Agent = "unknown-agent"
 	cfg.TaskPath = "specs/task.md"
-	_, err := NewProcess(cfg, "task", 0, "disabled", "disabled", nil)
+	_, err := NewProcess(cfg, "task", "run-1", "/wt", "/ev",
+		nil, nil, "disabled", "disabled", nil)
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unknown-agent")
@@ -109,11 +107,50 @@ func TestNewProcess_ClaudeCode_WithEnvVars(t *testing.T) {
 	cfg := run.DefaultConfig()
 	cfg.TaskPath = "specs/task.md"
 	envVars := map[string]string{"CLAUDE_CONFIG_DIR": "/home/tessariq/.claude"}
-	ap, err := NewProcess(cfg, "implement feature", 0, "enabled", "mounted", envVars)
+	ap, err := NewProcess(cfg, "implement feature", "run-1", "/wt", "/ev",
+		nil, nil, "enabled", "mounted", envVars)
 
 	require.NoError(t, err)
 	require.NotNil(t, ap)
 	require.Equal(t, "claude-code", ap.AgentInfo.Agent)
 	require.Equal(t, "enabled", ap.RuntimeInfo.AgentConfigMount)
 	require.Equal(t, "mounted", ap.RuntimeInfo.AgentConfigMountStatus)
+}
+
+func TestNewProcess_AuthMountCount(t *testing.T) {
+	t.Parallel()
+
+	cfg := run.DefaultConfig()
+	cfg.TaskPath = "specs/task.md"
+	authMounts := []authmount.MountSpec{
+		{HostPath: "/h/cred", ContainerPath: "/c/cred", ReadOnly: true},
+		{HostPath: "/h/cfg", ContainerPath: "/c/cfg", ReadOnly: true},
+	}
+	ap, err := NewProcess(cfg, "task", "run-1", "/wt", "/ev",
+		authMounts, nil, "disabled", "disabled", nil)
+
+	require.NoError(t, err)
+	require.Equal(t, 2, ap.RuntimeInfo.AuthMountCount)
+}
+
+func TestMergeEnvVars_BothNil(t *testing.T) {
+	t.Parallel()
+	require.Nil(t, mergeEnvVars(nil, nil))
+}
+
+func TestMergeEnvVars_AOnly(t *testing.T) {
+	t.Parallel()
+	m := mergeEnvVars(map[string]string{"A": "1"}, nil)
+	require.Equal(t, map[string]string{"A": "1"}, m)
+}
+
+func TestMergeEnvVars_BOverrides(t *testing.T) {
+	t.Parallel()
+	m := mergeEnvVars(
+		map[string]string{"A": "1", "B": "2"},
+		map[string]string{"B": "3", "C": "4"},
+	)
+	require.Equal(t, "1", m["A"])
+	require.Equal(t, "3", m["B"])
+	require.Equal(t, "4", m["C"])
 }

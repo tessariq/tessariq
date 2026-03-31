@@ -1,8 +1,6 @@
 package claudecode
 
 import (
-	"context"
-	"os/exec"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -211,18 +209,18 @@ func TestResolveImage_Default(t *testing.T) {
 	require.NotEmpty(t, img)
 }
 
-func TestNew_ReturnsProcessWithMetadata(t *testing.T) {
+func TestNew_ReturnsConfigWithMetadata(t *testing.T) {
 	t.Parallel()
 
 	cfg := run.DefaultConfig()
 	cfg.Model = "sonnet"
-	p := New(cfg, "implement X", nil)
+	a := New(cfg, "implement X", nil)
 
-	require.Equal(t, DefaultImage, p.Image())
-	require.Equal(t, "sonnet", p.Requested()["model"])
-	require.Equal(t, false, p.Requested()["interactive"])
-	require.True(t, p.Applied()["model"])
-	require.True(t, p.Applied()["interactive"])
+	require.Equal(t, DefaultImage, a.Image())
+	require.Equal(t, "sonnet", a.Requested()["model"])
+	require.Equal(t, false, a.Requested()["interactive"])
+	require.True(t, a.Applied()["model"])
+	require.True(t, a.Applied()["interactive"])
 }
 
 func TestNew_CustomImage(t *testing.T) {
@@ -230,9 +228,9 @@ func TestNew_CustomImage(t *testing.T) {
 
 	cfg := run.DefaultConfig()
 	cfg.Image = "custom/img:v3"
-	p := New(cfg, "task", nil)
+	a := New(cfg, "task", nil)
 
-	require.Equal(t, "custom/img:v3", p.Image())
+	require.Equal(t, "custom/img:v3", a.Image())
 }
 
 func TestNew_InteractiveMode(t *testing.T) {
@@ -240,37 +238,32 @@ func TestNew_InteractiveMode(t *testing.T) {
 
 	cfg := run.DefaultConfig()
 	cfg.Interactive = true
-	p := New(cfg, "task", nil)
+	a := New(cfg, "task", nil)
 
-	require.Equal(t, true, p.Requested()["interactive"])
-	require.True(t, p.Applied()["interactive"])
+	require.Equal(t, true, a.Requested()["interactive"])
+	require.True(t, a.Applied()["interactive"])
 }
 
 func TestNew_NoModelOmitsFromMetadata(t *testing.T) {
 	t.Parallel()
 
 	cfg := run.DefaultConfig()
-	p := New(cfg, "task", nil)
+	a := New(cfg, "task", nil)
 
-	_, hasModel := p.Requested()["model"]
+	_, hasModel := a.Requested()["model"]
 	require.False(t, hasModel)
-	_, hasModelApplied := p.Applied()["model"]
+	_, hasModelApplied := a.Applied()["model"]
 	require.False(t, hasModelApplied)
 }
 
-func TestStart_BinaryNotFound_UserGuidance(t *testing.T) {
-	// Not parallel: t.Setenv modifies process environment.
-	t.Setenv("PATH", t.TempDir())
+func TestNew_Args(t *testing.T) {
+	t.Parallel()
 
 	cfg := run.DefaultConfig()
-	p := New(cfg, "task", nil)
+	a := New(cfg, "do the thing", nil)
 
-	err := p.Start(context.Background())
-	require.Error(t, err)
-	require.ErrorIs(t, err, exec.ErrNotFound)
-	require.Contains(t, err.Error(), `agent binary "claude"`)
-	require.Contains(t, err.Error(), "container image")
-	require.Contains(t, err.Error(), "--image")
+	require.Contains(t, a.Args(), "--print")
+	require.Contains(t, a.Args(), "do the thing")
 }
 
 func TestBinaryName_IsClaudeString(t *testing.T) {
@@ -284,18 +277,18 @@ func TestNew_WithEnvVars(t *testing.T) {
 
 	cfg := run.DefaultConfig()
 	envVars := map[string]string{"CLAUDE_CONFIG_DIR": "/home/tessariq/.claude"}
-	p := New(cfg, "task", envVars)
+	a := New(cfg, "task", envVars)
 
-	require.Equal(t, DefaultImage, p.Image())
-	require.Equal(t, "/home/tessariq/.claude", p.envVars["CLAUDE_CONFIG_DIR"])
+	require.Equal(t, DefaultImage, a.Image())
+	require.Equal(t, "/home/tessariq/.claude", a.EnvVars()["CLAUDE_CONFIG_DIR"])
 }
 
 func TestNew_NilEnvVars(t *testing.T) {
 	t.Parallel()
 
 	cfg := run.DefaultConfig()
-	p := New(cfg, "task", nil)
+	a := New(cfg, "task", nil)
 
-	require.Nil(t, p.envVars)
-	require.Equal(t, DefaultImage, p.Image())
+	require.Nil(t, a.EnvVars())
+	require.Equal(t, DefaultImage, a.Image())
 }
