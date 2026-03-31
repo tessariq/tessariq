@@ -38,22 +38,31 @@ func TestNewRuntimeInfo_CustomImage(t *testing.T) {
 	require.Equal(t, "custom", info.ImageSource)
 }
 
-func TestNewRuntimeInfo_ConfigMountEnabled(t *testing.T) {
+func TestNewRuntimeInfo_ConfigMountMounted(t *testing.T) {
 	t.Parallel()
 
-	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", 0, "enabled", "enabled")
+	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", 0, "enabled", "mounted")
 
 	require.Equal(t, "enabled", info.AgentConfigMount)
-	require.Equal(t, "enabled", info.AgentConfigMountStatus)
+	require.Equal(t, "mounted", info.AgentConfigMountStatus)
 }
 
-func TestNewRuntimeInfo_ConfigMountPartial(t *testing.T) {
+func TestNewRuntimeInfo_ConfigMountMissingOptional(t *testing.T) {
 	t.Parallel()
 
-	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", 0, "enabled", "partial")
+	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", 0, "enabled", "missing_optional")
 
 	require.Equal(t, "enabled", info.AgentConfigMount)
-	require.Equal(t, "partial", info.AgentConfigMountStatus)
+	require.Equal(t, "missing_optional", info.AgentConfigMountStatus)
+}
+
+func TestNewRuntimeInfo_ConfigMountUnreadableOptional(t *testing.T) {
+	t.Parallel()
+
+	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", 0, "enabled", "unreadable_optional")
+
+	require.Equal(t, "enabled", info.AgentConfigMount)
+	require.Equal(t, "unreadable_optional", info.AgentConfigMountStatus)
 }
 
 func TestNewRuntimeInfo_ExactlySevenTopLevelKeys(t *testing.T) {

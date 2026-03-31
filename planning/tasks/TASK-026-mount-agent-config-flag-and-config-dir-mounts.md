@@ -1,7 +1,7 @@
 ---
 id: TASK-026-mount-agent-config-flag-and-config-dir-mounts
 title: Add --mount-agent-config and read-only default config-dir mounts
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-002-run-cli-flags-and-manifest-bootstrap
@@ -15,7 +15,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#evidence-contract
     - specs/tessariq-v0.1.0.md#acceptance-scenarios
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-03-30T23:05:00Z"
+updated_at: "2026-03-31T08:15:44Z"
 areas:
     - cli
     - agents
@@ -77,3 +77,4 @@ Add `--mount-agent-config` so users can opt in to read-only mounting of supporte
 ## Notes
 
 - This flag is intentionally separate from the always-on required auth reuse flow.
+- 2026-03-31T08:15:44Z: Added --mount-agent-config flag, DiscoverConfigDirs in authmount, updated adapter.NewProcess signature, runtime.json status values, integration tests with Testcontainers. Mutation efficacy 90.80%. Manual test 8/8 pass. Evidence: planning/artifacts/manual-test/TASK-026-mount-agent-config-flag-and-config-dir-mounts/20260331T100000Z/, planning/artifacts/verify/task/TASK-026-mount-agent-config-flag-and-config-dir-mounts/20260331T081538Z/

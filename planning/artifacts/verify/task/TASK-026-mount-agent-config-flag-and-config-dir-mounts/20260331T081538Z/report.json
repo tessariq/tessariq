@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "profile": "task",
+  "disposition": "hybrid",
+  "generated_at": "2026-03-31T08:15:38Z",
+  "milestone_focus": "v0.1.0",
+  "active_spec_version": "v0.1.0",
+  "active_spec_path": "specs/tessariq-v0.1.0.md",
+  "artifact_dir": "/media/felix/data/code/tessariq/planning/artifacts/verify/task/TASK-026-mount-agent-config-flag-and-config-dir-mounts/20260331T081538Z",
+  "plan_path": "/media/felix/data/code/tessariq/planning/artifacts/verify/task/TASK-026-mount-agent-config-flag-and-config-dir-mounts/20260331T081538Z/plan.md",
+  "report_path": "/media/felix/data/code/tessariq/planning/artifacts/verify/task/TASK-026-mount-agent-config-flag-and-config-dir-mounts/20260331T081538Z/report.json",
+  "findings": [],
+  "summary": {
+    "high": 0,
+    "medium": 0,
+    "low": 0
+  }
+}

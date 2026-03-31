@@ -27,6 +27,7 @@ type Config struct {
 	Pre              []string
 	Verify           []string
 	Attach           bool
+	MountAgentConfig bool
 }
 
 func DefaultConfig() Config {

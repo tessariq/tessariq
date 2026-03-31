@@ -107,7 +107,26 @@ func newRunCmd() *cobra.Command {
 				return err
 			}
 
-			adapterProc, err := adapter.NewProcess(cfg, string(content), len(authResult.Mounts))
+			agentConfigMount := "disabled"
+			agentConfigMountStatus := "disabled"
+
+			if cfg.MountAgentConfig {
+				agentConfigMount = "enabled"
+				configResult, configErr := authmount.DiscoverConfigDirs(cfg.Agent, homeDir, authmount.DirExists, authmount.DirReadable)
+				if configErr != nil {
+					return fmt.Errorf("discover agent config dirs: %w", configErr)
+				}
+				agentConfigMountStatus = configResult.Status
+
+				switch configResult.Status {
+				case "missing_optional":
+					fmt.Fprintf(cmd.ErrOrStderr(), "warning: optional config directory for %s not found; continuing with auth mounts only\n", cfg.Agent)
+				case "unreadable_optional":
+					fmt.Fprintf(cmd.ErrOrStderr(), "warning: optional config directory for %s is not readable; continuing with auth mounts only\n", cfg.Agent)
+				}
+			}
+
+			adapterProc, err := adapter.NewProcess(cfg, string(content), len(authResult.Mounts), agentConfigMount, agentConfigMountStatus)
 			if err != nil {
 				return fmt.Errorf("create adapter: %w", err)
 			}
@@ -159,6 +178,7 @@ func newRunCmd() *cobra.Command {
 	cmd.Flags().StringArrayVar(&cfg.Pre, "pre", cfg.Pre, "pre-command to run before the agent (repeatable)")
 	cmd.Flags().StringArrayVar(&cfg.Verify, "verify", cfg.Verify, "verify command to run after the agent (repeatable)")
 	cmd.Flags().BoolVar(&cfg.Attach, "attach", cfg.Attach, "attach to the run session immediately")
+	cmd.Flags().BoolVar(&cfg.MountAgentConfig, "mount-agent-config", cfg.MountAgentConfig, "mount the agent's default config directory read-only")
 
 	return cmd
 }

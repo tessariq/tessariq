@@ -96,3 +96,107 @@ func FileExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
 }
+
+// DirExists checks whether path exists and is a directory.
+func DirExists(path string) bool {
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return info.IsDir()
+}
+
+// DirReadable checks whether path exists, is a directory, and can be opened.
+func DirReadable(path string) bool {
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	if !info.IsDir() {
+		return false
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	f.Close()
+	return true
+}
+
+// ConfigDirResult holds the outcome of optional config-dir discovery for one agent.
+type ConfigDirResult struct {
+	Agent   string
+	Mounts  []MountSpec
+	Status  string            // "mounted", "missing_optional", "unreadable_optional"
+	EnvVars map[string]string // container environment variables to set
+}
+
+// DiscoverConfigDirs resolves optional config directories for the given agent.
+// dirExists checks path existence as a directory; dirReadable checks readability.
+func DiscoverConfigDirs(agent, homeDir string, dirExists, dirReadable func(string) bool) (*ConfigDirResult, error) {
+	switch agent {
+	case "claude-code":
+		return discoverClaudeCodeConfigDirs(homeDir, dirExists, dirReadable)
+	case "opencode":
+		return discoverOpenCodeConfigDirs(homeDir, dirExists, dirReadable)
+	default:
+		return nil, fmt.Errorf("unsupported agent for config dir discovery: %s", agent)
+	}
+}
+
+func discoverClaudeCodeConfigDirs(homeDir string, dirExists, dirReadable func(string) bool) (*ConfigDirResult, error) {
+	configDir := filepath.Join(homeDir, ".claude")
+	containerDir := filepath.Join(ContainerHome, ".claude")
+
+	result := &ConfigDirResult{Agent: "claude-code"}
+
+	if !dirExists(configDir) {
+		result.Status = "missing_optional"
+		return result, nil
+	}
+
+	if !dirReadable(configDir) {
+		result.Status = "unreadable_optional"
+		return result, nil
+	}
+
+	result.Status = "mounted"
+	result.Mounts = []MountSpec{
+		{
+			HostPath:      configDir,
+			ContainerPath: containerDir,
+			ReadOnly:      true,
+		},
+	}
+	result.EnvVars = map[string]string{
+		"CLAUDE_CONFIG_DIR": containerDir,
+	}
+	return result, nil
+}
+
+func discoverOpenCodeConfigDirs(homeDir string, dirExists, dirReadable func(string) bool) (*ConfigDirResult, error) {
+	configDir := filepath.Join(homeDir, ".config", "opencode")
+	containerDir := filepath.Join(ContainerHome, ".config", "opencode")
+
+	result := &ConfigDirResult{Agent: "opencode"}
+
+	if !dirExists(configDir) {
+		result.Status = "missing_optional"
+		return result, nil
+	}
+
+	if !dirReadable(configDir) {
+		result.Status = "unreadable_optional"
+		return result, nil
+	}
+
+	result.Status = "mounted"
+	result.Mounts = []MountSpec{
+		{
+			HostPath:      configDir,
+			ContainerPath: containerDir,
+			ReadOnly:      true,
+		},
+	}
+	return result, nil
+}

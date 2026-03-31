@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "profile": "task",
+  "disposition": "hybrid",
+  "generated_at": "2026-03-31T08:15:23Z",
+  "milestone_focus": "v0.1.0",
+  "active_spec_version": "v0.1.0",
+  "active_spec_path": "specs/tessariq-v0.1.0.md",
+  "artifact_dir": "/media/felix/data/code/tessariq/planning/artifacts/verify/task/TASK-026-mount-agent-config-flag-and-config-dir-mounts/20260331T081523Z",
+  "plan_path": "/media/felix/data/code/tessariq/planning/artifacts/verify/task/TASK-026-mount-agent-config-flag-and-config-dir-mounts/20260331T081523Z/plan.md",
+  "report_path": "/media/felix/data/code/tessariq/planning/artifacts/verify/task/TASK-026-mount-agent-config-flag-and-config-dir-mounts/20260331T081523Z/report.json",
+  "findings": [
+    {
+      "id": "TASK-026-mount-agent-config-flag-and-config-dir-mounts-changelog",
+      "title": "user-visible changes missing changelog update",
+      "severity": "medium",
+      "status": "open",
+      "details": "User-visible code changes detected (cmd/tessariq/run.go, internal/adapter/factory.go, internal/authmount/authmount.go, internal/run/config.go) without updating CHANGELOG.md. Add a user-facing entry under CHANGELOG.md before finishing the task.",
+      "task_id": "TASK-026-mount-agent-config-flag-and-config-dir-mounts"
+    }
+  ],
+  "summary": {
+    "high": 0,
+    "medium": 1,
+    "low": 0
+  }
+}

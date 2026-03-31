@@ -13,7 +13,7 @@ func TestNewProcess_ClaudeCode(t *testing.T) {
 
 	cfg := run.DefaultConfig()
 	cfg.TaskPath = "specs/task.md"
-	ap, err := NewProcess(cfg, "implement feature", 0)
+	ap, err := NewProcess(cfg, "implement feature", 0, "disabled", "disabled")
 
 	require.NoError(t, err)
 	require.NotNil(t, ap)
@@ -30,7 +30,7 @@ func TestNewProcess_OpenCode(t *testing.T) {
 	cfg := run.DefaultConfig()
 	cfg.Agent = "opencode"
 	cfg.TaskPath = "specs/task.md"
-	ap, err := NewProcess(cfg, "implement feature", 0)
+	ap, err := NewProcess(cfg, "implement feature", 0, "disabled", "disabled")
 
 	require.NoError(t, err)
 	require.NotNil(t, ap)
@@ -49,7 +49,7 @@ func TestNewProcess_OpenCodeWithModel(t *testing.T) {
 	cfg.Agent = "opencode"
 	cfg.TaskPath = "specs/task.md"
 	cfg.Model = "sonnet"
-	ap, err := NewProcess(cfg, "task", 0)
+	ap, err := NewProcess(cfg, "task", 0, "disabled", "disabled")
 
 	require.NoError(t, err)
 	require.Equal(t, "sonnet", ap.AgentInfo.Requested["model"])
@@ -63,7 +63,7 @@ func TestNewProcess_CustomImageSource(t *testing.T) {
 	cfg := run.DefaultConfig()
 	cfg.TaskPath = "specs/task.md"
 	cfg.Image = "my-registry/custom:v1"
-	ap, err := NewProcess(cfg, "task", 0)
+	ap, err := NewProcess(cfg, "task", 0, "disabled", "disabled")
 
 	require.NoError(t, err)
 	require.Equal(t, "custom", ap.RuntimeInfo.ImageSource)
@@ -79,7 +79,7 @@ func TestNewProcess_BinaryNotFoundMessageConsistency(t *testing.T) {
 			cfg := run.DefaultConfig()
 			cfg.Agent = agent
 			cfg.TaskPath = "specs/task.md"
-			ap, err := NewProcess(cfg, "task", 0)
+			ap, err := NewProcess(cfg, "task", 0, "disabled", "disabled")
 			require.NoError(t, err)
 
 			startErr := ap.Process.Start(context.Background())
@@ -97,7 +97,7 @@ func TestNewProcess_UnknownAgent(t *testing.T) {
 	cfg := run.DefaultConfig()
 	cfg.Agent = "unknown-agent"
 	cfg.TaskPath = "specs/task.md"
-	_, err := NewProcess(cfg, "task", 0)
+	_, err := NewProcess(cfg, "task", 0, "disabled", "disabled")
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unknown-agent")

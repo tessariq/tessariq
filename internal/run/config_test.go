@@ -24,6 +24,7 @@ func TestDefaultConfig(t *testing.T) {
 	require.Empty(t, cfg.Verify)
 	require.Empty(t, cfg.Image)
 	require.Empty(t, cfg.Model)
+	require.False(t, cfg.MountAgentConfig)
 }
 
 func TestConfig_Validate_AcceptsDefaults(t *testing.T) {
