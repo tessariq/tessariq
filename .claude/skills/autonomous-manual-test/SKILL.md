@@ -46,7 +46,7 @@ Container mode rules:
 - Write tests as `_manual_test.go` files with build tag `//go:build manual_test`.
 - Place the test file in the package closest to the code under test (e.g. `internal/adapter/claudecode/claudecode_manual_test.go`).
 - Use `_test` package suffix (external test package) so imports are explicit.
-- Use Testcontainers helpers from `internal/testutil/containers/` (`StartRunEnv`, `StartAdapterEnv`, etc.).
+- Use Testcontainers helpers from `internal/testutil/containers/` (`StartRunEnv`, `StartAgentEnv`, etc.).
 - Run via `go test -tags=manual_test ./<package>/ -run TestManual_<Name> -v -count=1`.
 - Name test functions `TestManual_<descriptive name>` for easy grep and filtering.
 - Build CLI binaries with `CGO_ENABLED=0` when they need to run inside Alpine containers.

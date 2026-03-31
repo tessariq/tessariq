@@ -9,18 +9,18 @@ import (
 	"github.com/tessariq/tessariq/internal/runner"
 )
 
-// AdapterProcess wraps a ProcessRunner with agent and runtime metadata.
-type AdapterProcess struct {
+// AgentProcess wraps a ProcessRunner with agent and runtime metadata.
+type AgentProcess struct {
 	Process     runner.ProcessRunner
 	AgentInfo   AgentInfo
 	RuntimeInfo RuntimeInfo
 }
 
-// NewProcess creates an AdapterProcess for the agent specified in cfg.
+// NewProcess creates an AgentProcess for the agent specified in cfg.
 // authMountCount is the number of auth mounts discovered by authmount.Discover.
 // agentConfigMount and agentConfigMountStatus record the config-dir mount state for runtime.json.
 // envVars are additional environment variables injected into the agent process.
-func NewProcess(cfg run.Config, taskContent string, authMountCount int, agentConfigMount, agentConfigMountStatus string, envVars map[string]string) (*AdapterProcess, error) {
+func NewProcess(cfg run.Config, taskContent string, authMountCount int, agentConfigMount, agentConfigMountStatus string, envVars map[string]string) (*AgentProcess, error) {
 	imageSource := "reference"
 	if cfg.Image != "" {
 		imageSource = "custom"
@@ -29,19 +29,19 @@ func NewProcess(cfg run.Config, taskContent string, authMountCount int, agentCon
 	switch cfg.Agent {
 	case "claude-code":
 		p := claudecode.New(cfg, taskContent, envVars)
-		return &AdapterProcess{
+		return &AgentProcess{
 			Process:     p,
-			AgentInfo:   NewAgentInfo(claudecode.AdapterName, p.Requested(), p.Applied()),
+			AgentInfo:   NewAgentInfo(claudecode.Name, p.Requested(), p.Applied()),
 			RuntimeInfo: NewRuntimeInfo(p.Image(), imageSource, authMountCount, agentConfigMount, agentConfigMountStatus),
 		}, nil
 	case "opencode":
 		p := opencode.New(cfg, taskContent, envVars)
-		return &AdapterProcess{
+		return &AgentProcess{
 			Process:     p,
-			AgentInfo:   NewAgentInfo(opencode.AdapterName, p.Requested(), p.Applied()),
+			AgentInfo:   NewAgentInfo(opencode.Name, p.Requested(), p.Applied()),
 			RuntimeInfo: NewRuntimeInfo(p.Image(), imageSource, authMountCount, agentConfigMount, agentConfigMountStatus),
 		}, nil
 	default:
-		return nil, fmt.Errorf("unsupported adapter: %s", cfg.Agent)
+		return nil, fmt.Errorf("unsupported agent: %s", cfg.Agent)
 	}
 }

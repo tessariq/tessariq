@@ -14,7 +14,7 @@ func TestClaudeCodeIntegration_BinaryNotFound(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	env, err := containers.StartAdapterEnv(ctx, t, -1)
+	env, err := containers.StartAgentEnv(ctx, t, -1)
 	require.NoError(t, err)
 
 	code, _, err := env.Exec(ctx, []string{"claude", "--print", "test"})
@@ -26,7 +26,7 @@ func TestClaudeCodeIntegration_ProcessCrash(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	env, err := containers.StartAdapterEnv(ctx, t, 7)
+	env, err := containers.StartAgentEnv(ctx, t, 7)
 	require.NoError(t, err)
 
 	code, _, err := env.Exec(ctx, []string{"claude", "--print", "crash"})
@@ -38,7 +38,7 @@ func TestClaudeCodeIntegration_SuccessfulInvocation(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	env, err := containers.StartAdapterEnv(ctx, t, 0)
+	env, err := containers.StartAgentEnv(ctx, t, 0)
 	require.NoError(t, err)
 
 	code, _, err := env.Exec(ctx, []string{"claude", "--print", "ok"})
@@ -50,7 +50,7 @@ func TestClaudeCodeIntegration_ProcessCrashNoOutput(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	env, err := containers.StartAdapterEnvWithScript(ctx, t, "kill -9 $$")
+	env, err := containers.StartAgentEnvWithScript(ctx, t, "kill -9 $$")
 	require.NoError(t, err)
 
 	code, _, err := env.Exec(ctx, []string{"claude"})
@@ -62,7 +62,7 @@ func TestClaudeCodeIntegration_EnvVarVisibleInProcess(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	env, err := containers.StartAdapterEnvWithScript(ctx, t, `echo "CONFIG_DIR=$CLAUDE_CONFIG_DIR"`)
+	env, err := containers.StartAgentEnvWithScript(ctx, t, `echo "CONFIG_DIR=$CLAUDE_CONFIG_DIR"`)
 	require.NoError(t, err)
 
 	// Set the env var inside the container and invoke the fake claude binary.

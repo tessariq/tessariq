@@ -10,16 +10,16 @@ import (
 	"github.com/tessariq/tessariq/internal/run"
 )
 
-// DefaultImage is the default container image for the Claude Code adapter.
+// DefaultImage is the default container image for the Claude Code agent.
 const DefaultImage = "ghcr.io/tessariq/claude-code:latest"
 
-// AdapterName is the adapter identifier recorded in adapter.json.
-const AdapterName = "claude-code"
+// Name is the agent identifier recorded in agent.json.
+const Name = "claude-code"
 
 // BinaryName is the expected binary name for the Claude Code agent.
 const BinaryName = "claude"
 
-// Process implements runner.ProcessRunner for the Claude Code adapter.
+// Process implements runner.ProcessRunner for the Claude Code agent.
 type Process struct {
 	args      []string
 	image     string
@@ -29,7 +29,7 @@ type Process struct {
 	cmd       *exec.Cmd
 }
 
-// New creates a Claude Code adapter process from the run configuration.
+// New creates a Claude Code agent process from the run configuration.
 // envVars are additional environment variables injected into the process.
 func New(cfg run.Config, taskContent string, envVars map[string]string) *Process {
 	return &Process{
@@ -46,7 +46,7 @@ func (p *Process) Image() string {
 	return p.image
 }
 
-// Requested returns the adapter options requested by the user.
+// Requested returns the agent options requested by the user.
 func (p *Process) Requested() map[string]any {
 	return p.requested
 }
@@ -68,7 +68,7 @@ func (p *Process) Start(ctx context.Context) error {
 	err := p.cmd.Start()
 	if err != nil {
 		if errors.Is(err, exec.ErrNotFound) {
-			return fmt.Errorf("adapter binary %q is not available; ensure the container image includes %s or use --image to specify a compatible image: %w", BinaryName, BinaryName, err)
+			return fmt.Errorf("agent binary %q is not available; ensure the container image includes %s or use --image to specify a compatible image: %w", BinaryName, BinaryName, err)
 		}
 		return err
 	}
@@ -117,7 +117,7 @@ func buildArgs(cfg run.Config, taskContent string) []string {
 	return args
 }
 
-// buildRequested records which adapter options were requested by the user.
+// buildRequested records which agent options were requested by the user.
 func buildRequested(cfg run.Config) map[string]any {
 	req := map[string]any{
 		"interactive": cfg.Interactive,
@@ -128,7 +128,7 @@ func buildRequested(cfg run.Config) map[string]any {
 	return req
 }
 
-// buildApplied records which requested options the adapter applied exactly.
+// buildApplied records which requested options the agent applied exactly.
 // Claude Code supports both --model and --interactive natively.
 func buildApplied(cfg run.Config) map[string]bool {
 	app := map[string]bool{

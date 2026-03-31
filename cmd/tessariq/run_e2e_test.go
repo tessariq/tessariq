@@ -49,7 +49,7 @@ func setupRunEnv(t *testing.T, bin string, claudeExitCode int) *containers.RunEn
 	return setupRunEnvForBinary(t, bin, "claude", claudeExitCode)
 }
 
-// setupRunEnvForBinary creates a RunEnv container with a fake adapter binary,
+// setupRunEnvForBinary creates a RunEnv container with a fake agent binary,
 // copies the tessariq binary into it, and initialises a git repo with a sample
 // task file inside the container.
 func setupRunEnvForBinary(t *testing.T, bin string, binaryName string, exitCode int) *containers.RunEnv {

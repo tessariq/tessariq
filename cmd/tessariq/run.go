@@ -137,16 +137,16 @@ func newRunCmd() *cobra.Command {
 				}
 			}
 
-			adapterProc, err := adapter.NewProcess(cfg, string(content), len(authResult.Mounts), agentConfigMount, agentConfigMountStatus, containerEnvVars)
+			agentProc, err := adapter.NewProcess(cfg, string(content), len(authResult.Mounts), agentConfigMount, agentConfigMountStatus, containerEnvVars)
 			if err != nil {
-				return fmt.Errorf("create adapter: %w", err)
+				return fmt.Errorf("create agent process: %w", err)
 			}
 
-			if err := adapter.WriteAgentInfo(evidenceDir, adapterProc.AgentInfo); err != nil {
+			if err := adapter.WriteAgentInfo(evidenceDir, agentProc.AgentInfo); err != nil {
 				return fmt.Errorf("write agent info: %w", err)
 			}
 
-			if err := adapter.WriteRuntimeInfo(evidenceDir, adapterProc.RuntimeInfo); err != nil {
+			if err := adapter.WriteRuntimeInfo(evidenceDir, agentProc.RuntimeInfo); err != nil {
 				return fmt.Errorf("write runtime info: %w", err)
 			}
 
@@ -157,7 +157,7 @@ func newRunCmd() *cobra.Command {
 				RunID:       runID,
 				EvidenceDir: evidenceDir,
 				Config:      cfg,
-				Process:     adapterProc.Process,
+				Process:     agentProc.Process,
 				Session:     &tmux.Starter{},
 				SessionName: sessionName,
 			}
@@ -178,7 +178,7 @@ func newRunCmd() *cobra.Command {
 
 	cmd.Flags().Var((*run.DurationValue)(&cfg.Timeout), "timeout", "maximum run duration")
 	cmd.Flags().Var((*run.DurationValue)(&cfg.Grace), "grace", "grace period after timeout before kill")
-	cmd.Flags().StringVar(&cfg.Agent, "agent", cfg.Agent, "agent adapter (claude-code|opencode)")
+	cmd.Flags().StringVar(&cfg.Agent, "agent", cfg.Agent, "coding agent (claude-code|opencode)")
 	cmd.Flags().StringVar(&cfg.Image, "image", cfg.Image, "container image override")
 	cmd.Flags().StringVar(&cfg.Model, "model", cfg.Model, "model identifier for the agent")
 	cmd.Flags().BoolVar(&cfg.Interactive, "interactive", cfg.Interactive, "require human approval for agent tool use (use with --attach)")

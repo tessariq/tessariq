@@ -84,7 +84,7 @@ func TestNewProcess_BinaryNotFoundMessageConsistency(t *testing.T) {
 
 			startErr := ap.Process.Start(context.Background())
 			require.Error(t, startErr)
-			require.Contains(t, startErr.Error(), "adapter binary")
+			require.Contains(t, startErr.Error(), "agent binary")
 			require.Contains(t, startErr.Error(), "container image")
 			require.Contains(t, startErr.Error(), "--image")
 		})

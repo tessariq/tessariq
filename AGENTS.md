@@ -156,7 +156,7 @@ Follow existing conventions and keep CLI UX stable.
 All reusable container helpers live in `internal/testutil/containers/`. Available helpers:
 - `StartGitRepo` — Alpine container with git for repository operation tests.
 - `StartHTTPBin` — kennethreitz/httpbin container for HTTP service tests.
-- `StartAdapterEnv` — Alpine container with a configurable fake adapter binary for adapter process lifecycle tests.
+- `StartAgentEnv` — Alpine container with a configurable fake agent binary for agent process lifecycle tests.
 - `StartRunEnv` — Alpine container with tmux, git, bash, and a fake claude binary for full CLI e2e tests.
 
 Pattern: `Start*` → `t.Cleanup()` handles teardown → use `Exec()` for commands → use bind-mounts for host-side artifact verification.

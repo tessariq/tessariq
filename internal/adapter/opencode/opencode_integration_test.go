@@ -14,7 +14,7 @@ func TestOpenCodeIntegration_BinaryNotFound(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	env, err := containers.StartAdapterEnvForBinary(ctx, t, "opencode", -1)
+	env, err := containers.StartAgentEnvForBinary(ctx, t, "opencode", -1)
 	require.NoError(t, err)
 
 	code, _, err := env.Exec(ctx, []string{"opencode", "test"})
@@ -26,7 +26,7 @@ func TestOpenCodeIntegration_ProcessCrash(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	env, err := containers.StartAdapterEnvForBinary(ctx, t, "opencode", 7)
+	env, err := containers.StartAgentEnvForBinary(ctx, t, "opencode", 7)
 	require.NoError(t, err)
 
 	code, _, err := env.Exec(ctx, []string{"opencode", "crash"})
@@ -38,7 +38,7 @@ func TestOpenCodeIntegration_SuccessfulInvocation(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	env, err := containers.StartAdapterEnvForBinary(ctx, t, "opencode", 0)
+	env, err := containers.StartAgentEnvForBinary(ctx, t, "opencode", 0)
 	require.NoError(t, err)
 
 	code, _, err := env.Exec(ctx, []string{"opencode", "ok"})
@@ -50,7 +50,7 @@ func TestOpenCodeIntegration_ProcessCrashNoOutput(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	env, err := containers.StartAdapterEnvWithScriptForBinary(ctx, t, "opencode", "kill -9 $$")
+	env, err := containers.StartAgentEnvWithScriptForBinary(ctx, t, "opencode", "kill -9 $$")
 	require.NoError(t, err)
 
 	code, _, err := env.Exec(ctx, []string{"opencode"})

@@ -268,7 +268,7 @@ func TestStart_BinaryNotFound_UserGuidance(t *testing.T) {
 	err := p.Start(context.Background())
 	require.Error(t, err)
 	require.ErrorIs(t, err, exec.ErrNotFound)
-	require.Contains(t, err.Error(), `adapter binary "claude"`)
+	require.Contains(t, err.Error(), `agent binary "claude"`)
 	require.Contains(t, err.Error(), "container image")
 	require.Contains(t, err.Error(), "--image")
 }

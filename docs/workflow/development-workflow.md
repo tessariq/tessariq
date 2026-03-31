@@ -54,7 +54,7 @@ Testcontainers standard:
 - use official wait strategies
 - keep container-backed suites on Linux CI runners with Docker available
 - all reusable container helpers live in `internal/testutil/containers/`
-- available helpers: `StartGitRepo` (git), `StartHTTPBin` (HTTP), `StartAdapterEnv` (adapter process), `StartRunEnv` (full CLI e2e with tmux+git+fake claude)
+- available helpers: `StartGitRepo` (git), `StartHTTPBin` (HTTP), `StartAgentEnv` (agent process), `StartRunEnv` (full CLI e2e with tmux+git+fake claude)
 - new process or service collaborators must get a `Start*` helper — do not create ad-hoc local fakes or depend on host-installed tools
 - e2e tests must use `StartRunEnv` so they are self-contained and CI-portable
 - build CLI binaries with `CGO_ENABLED=0` when targeting Alpine containers
