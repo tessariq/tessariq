@@ -157,7 +157,7 @@ All reusable container helpers live in `internal/testutil/containers/`. Availabl
 - `StartGitRepo` — Alpine container with git for repository operation tests.
 - `StartHTTPBin` — kennethreitz/httpbin container for HTTP service tests.
 - `StartAgentEnv` — Alpine container with a configurable fake agent binary for agent process lifecycle tests.
-- `StartRunEnv` — Alpine container with tmux, git, bash, and a fake claude binary for full CLI e2e tests.
+- `StartRunEnv` — Alpine container with tmux, git, bash, docker-cli, a Docker socket mount, and a fake claude binary for full CLI e2e tests.
 
 Pattern: `Start*` → `t.Cleanup()` handles teardown → use `Exec()` for commands → use bind-mounts for host-side artifact verification.
 
@@ -167,7 +167,8 @@ Rules:
 - When a new process or service collaborator is needed, add a new `Start*` helper to `internal/testutil/containers/` rather than creating ad-hoc local fakes.
 - Wait strategies: use `wait.ForExec` for process-based containers, `wait.ForHTTP` for service containers.
 - Build CLI binaries with `CGO_ENABLED=0` when they run inside Alpine containers (glibc vs musl).
-- Run containers as the current user (`user.Current()`) when bind-mounting host dirs, or fix ownership in cleanup to avoid `t.TempDir()` permission errors.
+- Run test containers as the current user (`user.Current()`) when bind-mounting host dirs, or fix ownership in cleanup to avoid `t.TempDir()` permission errors. This applies to test infrastructure containers, not to production agent containers (see "Container user and bind-mount permissions" above).
+- For e2e tests where tessariq creates Docker containers, see "E2e tests with sibling containers" below.
 
 ### Integration test checklist
 - Build tag: `//go:build integration`.
@@ -184,6 +185,14 @@ Rules:
 - Read evidence artifacts from inside the container via `env.Exec(ctx, []string{"cat", path})`.
 - No `skipIfNoTmux` or similar host-tool guards.
 
+### E2e tests with sibling containers
+When tessariq itself creates Docker containers (via `docker create` / `docker start`), e2e tests use the Docker socket mount pattern instead of Docker-in-Docker:
+- Mount `/var/run/docker.sock:/var/run/docker.sock` into the e2e test container. Install `docker-cli` (not full Docker Engine) via `apk add docker-cli`.
+- Containers created by tessariq inside the test container are **sibling containers** on the host daemon, not nested. Mount paths in `docker create -v` must be host-absolute paths.
+- Set `HOME` to a path under the bind mount (e.g., `/work/home`) so worktrees land in host-visible paths accessible to sibling containers.
+- Build test agent images during setup with fake binaries and pass via `--image` flag. Clean up images in `t.Cleanup`.
+- This pattern works on Linux, macOS (Docker Desktop), and GitHub Actions without `--privileged`.
+
 ### Dependency and platform practices
 - Prefer the standard library first; add dependencies only when justified.
 - Keep Linux/macOS differences explicit and runtime-guarded.
@@ -196,6 +205,20 @@ Rules:
 - Each run creates an isolated container; use deterministic container names (`tessariq-<run_id>`).
 - Prefer `docker create` + `docker start` over `docker run` for lifecycle control.
 - Always clean up containers and networks on error paths.
+
+#### Container user and bind-mount permissions
+- The agent container runs as the named `tessariq` user (non-root, non-host-user) for security isolation. Never use `--user $(id -u):$(id -g)` for production containers — running as the host user weakens the isolation boundary.
+- On Linux, Docker bind mounts preserve host UIDs with no translation. The container's `tessariq` UID typically differs from the host user's UID, causing permission-denied errors on bind-mounted directories.
+- On macOS, Docker Desktop transparently maps UIDs through VirtioFS, so this mismatch is invisible.
+- For disposable read-write mounts (worktrees): run `chmod -R a+rwX <path>` before container start so the container's `tessariq` user can write regardless of host UID.
+- For cleanup after container exit: run `chmod -R u+rwX <path>` before host-side removal so the host user can traverse and delete files created by the container's `tessariq` UID.
+- These chmod operations are safe because worktrees are disposable, single-run directories under `~/.tessariq/worktrees/`.
+
+#### Mount write scope
+- The runner (host-side tessariq process) writes all evidence artifacts: status.json, manifest.json, agent.json, runtime.json, workspace.json, run.log, runner.log, task.md, and timeout.flag. It writes directly to the host filesystem, not through the container.
+- The agent (inside the container) writes only to `/work` (the worktree mount). It modifies source code and creates new files as part of the coding task.
+- The evidence mount (`/evidence`) must be read-only from the container's perspective because the agent has no need to write there.
+- Auth and config mounts are always read-only per the spec.
 
 ### Git worktrees
 - Worktrees live under `~/.tessariq/worktrees/<repo_id>/<run_id>`.
@@ -211,6 +234,7 @@ Rules:
 - Every run must emit the required evidence files per the spec.
 - Evidence paths are deterministic: `<repo>/.tessariq/runs/<run_id>/`.
 - Status, manifest, and workspace JSON must be valid even when a run fails.
+- Evidence is written by the host-side runner process, not by the agent inside the container. The evidence mount inside the container is read-only.
 
 ## Change checklist for agents
 - Run `gofmt -w` on edited Go files.
