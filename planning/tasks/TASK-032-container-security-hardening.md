@@ -8,7 +8,7 @@ depends_on:
 milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:
-    - specs/tessariq-v0.1.0.md#container-security-posture
+    - specs/tessariq-v0.1.0.md#tessariq-run-task-path
     - specs/tessariq-v0.1.0.md#evidence-permissions
     - specs/tessariq-v0.1.0.md#evidence-contract
 updated_at: "2026-03-31T18:00:00Z"
@@ -47,7 +47,7 @@ verification:
 
 The v0.1.0 spec now requires agent containers to drop all Linux capabilities and prevent privilege escalation. Evidence files must also be owner-only accessible. This task implements both requirements.
 
-## Acceptance criteria
+## Acceptance Criteria
 
 ### Container hardening
 
@@ -64,7 +64,7 @@ The v0.1.0 spec now requires agent containers to drop all Linux capabilities and
 - All evidence-writing code paths use the restricted permissions: `manifest.json`, `status.json`, `agent.json`, `runtime.json`, `workspace.json`, `task.md`, `run.log`, `runner.log`, `egress.compiled.yaml`, and `index.jsonl`.
 - Existing evidence from prior runs is not retroactively modified.
 
-## Test expectations
+## Test Expectations
 
 - Add unit tests verifying `--cap-drop=ALL` and `--security-opt=no-new-privileges` appear in the `docker create` argument list.
 - Add unit tests verifying evidence directories are created with `0o700` and files with `0o600`.
@@ -73,13 +73,21 @@ The v0.1.0 spec now requires agent containers to drop all Linux capabilities and
 - Add a thin e2e test confirming a full run succeeds with the hardened container configuration.
 - Run mutation testing because security flag injection is safety-critical.
 
-## Files likely affected
+## TDD Plan
 
-- `internal/container/process.go` — `buildCreateArgs` to add security flags
-- `internal/container/process_test.go`
-- `internal/container/config.go` — may need security config fields
-- `internal/run/manifest.go` — evidence directory/file permissions
-- `internal/run/taskcopy.go` — task file permissions
-- `internal/runner/status.go` — status file permissions
-- `internal/runner/logs.go` — log file permissions
-- Evidence writing functions across `internal/run/` and `internal/runner/`
+1. RED: write unit test asserting `--cap-drop=ALL` and `--security-opt=no-new-privileges` appear in `docker create` args.
+2. RED: write unit test asserting evidence directories are created with `0o700`.
+3. RED: write unit test asserting evidence files are created with `0o600`.
+4. GREEN: add security flags to container create arg builder.
+5. GREEN: update evidence directory and file creation to use restricted permissions.
+6. IMPROVE: ensure repair containers are excluded from capability dropping.
+7. RED: write integration tests confirming agent starts with dropped capabilities.
+8. RED: write integration tests verifying evidence file permissions on disk.
+9. GREEN: verify integration tests pass.
+10. RED: write thin e2e test confirming a full run succeeds with hardened config.
+11. GREEN: verify e2e test passes.
+
+## Notes
+
+- Files likely affected: `internal/container/process.go` (`buildCreateArgs`), `internal/container/config.go`, `internal/run/manifest.go`, `internal/run/taskcopy.go`, `internal/runner/status.go`, `internal/runner/logs.go`, and evidence writing functions across `internal/run/` and `internal/runner/`.
+- Repair containers need root for `chown` and must NOT get `--cap-drop=ALL`.

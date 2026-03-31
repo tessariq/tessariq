@@ -50,7 +50,7 @@ TASK-005 acceptance criteria specify "grace period expiration escalation (SIGTER
 
 This task addresses a gap in TASK-005's implementation. TASK-005 is done and its acceptance criteria are correct; the implementation diverged from the stated escalation pattern.
 
-## Acceptance criteria
+## Acceptance Criteria
 
 - On timeout, the runner sends SIGTERM (via `docker stop`) to the container first, not SIGKILL.
 - After the configured grace period expires without the container exiting, the runner escalates to SIGKILL (via `docker kill`).
@@ -58,7 +58,7 @@ This task addresses a gap in TASK-005's implementation. TASK-005 is done and its
 - The terminal state for a timed-out run remains `timeout` regardless of which signal ultimately stops the container.
 - The `status.json` `timed_out` field is `true` for both graceful and forced timeout exits.
 
-## Test expectations
+## Test Expectations
 
 - Add unit tests for the two-step escalation: SIGTERM first, SIGKILL after grace period expiration.
 - Add unit tests verifying that a container that exits promptly after SIGTERM does not receive SIGKILL.
@@ -66,8 +66,17 @@ This task addresses a gap in TASK-005's implementation. TASK-005 is done and its
 - Add integration tests for timeout escalation using Testcontainers-backed collaborators only.
 - Run mutation testing because signal escalation logic is safety-critical.
 
-## Files likely affected
+## TDD Plan
 
-- `internal/runner/runner.go` — `runProcess` timeout handling (currently line 153-168)
-- `internal/runner/runner_test.go`
-- `internal/runner/runner_integration_test.go`
+1. RED: write unit test asserting SIGTERM is sent before SIGKILL on timeout.
+2. RED: write unit test asserting SIGKILL is not sent when container exits promptly after SIGTERM.
+3. RED: write unit test asserting `timeout.flag` is written before the first signal.
+4. GREEN: implement two-step escalation in `runProcess` timeout path.
+5. IMPROVE: refactor signal escalation into a testable helper if warranted.
+6. RED: write integration test for timeout escalation using Testcontainers.
+7. GREEN: verify integration test passes against real Docker.
+
+## Notes
+
+- Files likely affected: `internal/runner/runner.go` (timeout handling), `internal/runner/runner_test.go`, `internal/runner/runner_integration_test.go`.
+- The existing `docker stop` command already sends SIGTERM with a configurable grace period before SIGKILL — verify whether the current implementation already uses `docker stop` or sends `os.Kill` directly.
