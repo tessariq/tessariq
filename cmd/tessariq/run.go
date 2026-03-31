@@ -5,10 +5,12 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/tessariq/tessariq/internal/adapter"
+	"github.com/tessariq/tessariq/internal/authmount"
 	"github.com/tessariq/tessariq/internal/git"
 	"github.com/tessariq/tessariq/internal/prereq"
 	"github.com/tessariq/tessariq/internal/run"
@@ -100,7 +102,12 @@ func newRunCmd() *cobra.Command {
 				return err
 			}
 
-			adapterProc, err := adapter.NewProcess(cfg, string(content))
+			authResult, err := authmount.Discover(cfg.Agent, homeDir, runtime.GOOS, authmount.FileExists)
+			if err != nil {
+				return err
+			}
+
+			adapterProc, err := adapter.NewProcess(cfg, string(content), len(authResult.Mounts))
 			if err != nil {
 				return fmt.Errorf("create adapter: %w", err)
 			}

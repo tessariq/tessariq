@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added first-party `claude-code` adapter support integrated into run lifecycle execution and evidence output.
 - Added first-party `opencode` adapter with partial-application recording for unsupported `--model` and `--interactive` options.
 - Added actionable binary-not-found error messages for both `claude-code` and `opencode` adapters naming the missing binary and container image expectation.
+- Added per-agent auth discovery that auto-detects required auth files before agent start and fails with actionable messages when auth is missing, Keychain-only on macOS, or writable refresh is required.
 
 ### Changed
 

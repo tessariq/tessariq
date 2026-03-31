@@ -17,7 +17,8 @@ type AdapterProcess struct {
 }
 
 // NewProcess creates an AdapterProcess for the agent specified in cfg.
-func NewProcess(cfg run.Config, taskContent string) (*AdapterProcess, error) {
+// authMountCount is the number of auth mounts discovered by authmount.Discover.
+func NewProcess(cfg run.Config, taskContent string, authMountCount int) (*AdapterProcess, error) {
 	imageSource := "reference"
 	if cfg.Image != "" {
 		imageSource = "custom"
@@ -29,14 +30,14 @@ func NewProcess(cfg run.Config, taskContent string) (*AdapterProcess, error) {
 		return &AdapterProcess{
 			Process:     p,
 			AgentInfo:   NewAgentInfo(claudecode.AdapterName, p.Requested(), p.Applied()),
-			RuntimeInfo: NewRuntimeInfo(p.Image(), imageSource, "disabled", "disabled"),
+			RuntimeInfo: NewRuntimeInfo(p.Image(), imageSource, authMountCount, "disabled", "disabled"),
 		}, nil
 	case "opencode":
 		p := opencode.New(cfg, taskContent)
 		return &AdapterProcess{
 			Process:     p,
 			AgentInfo:   NewAgentInfo(opencode.AdapterName, p.Requested(), p.Applied()),
-			RuntimeInfo: NewRuntimeInfo(p.Image(), imageSource, "disabled", "disabled"),
+			RuntimeInfo: NewRuntimeInfo(p.Image(), imageSource, authMountCount, "disabled", "disabled"),
 		}, nil
 	default:
 		return nil, fmt.Errorf("unsupported adapter: %s", cfg.Agent)

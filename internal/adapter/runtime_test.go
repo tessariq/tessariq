@@ -12,7 +12,7 @@ import (
 func TestNewRuntimeInfo_RequiredFields(t *testing.T) {
 	t.Parallel()
 
-	info := NewRuntimeInfo("ghcr.io/tessariq/reference-runtime:v0.1.0", "reference", "disabled", "disabled")
+	info := NewRuntimeInfo("ghcr.io/tessariq/reference-runtime:v0.1.0", "reference", 0, "disabled", "disabled")
 
 	require.Equal(t, 1, info.SchemaVersion)
 	require.Equal(t, "ghcr.io/tessariq/reference-runtime:v0.1.0", info.Image)
@@ -25,7 +25,7 @@ func TestNewRuntimeInfo_RequiredFields(t *testing.T) {
 func TestNewRuntimeInfo_ReferenceImage(t *testing.T) {
 	t.Parallel()
 
-	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", "disabled", "disabled")
+	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", 0, "disabled", "disabled")
 
 	require.Equal(t, "reference", info.ImageSource)
 }
@@ -33,7 +33,7 @@ func TestNewRuntimeInfo_ReferenceImage(t *testing.T) {
 func TestNewRuntimeInfo_CustomImage(t *testing.T) {
 	t.Parallel()
 
-	info := NewRuntimeInfo("my-registry/custom:v1", "custom", "disabled", "disabled")
+	info := NewRuntimeInfo("my-registry/custom:v1", "custom", 0, "disabled", "disabled")
 
 	require.Equal(t, "custom", info.ImageSource)
 }
@@ -41,7 +41,7 @@ func TestNewRuntimeInfo_CustomImage(t *testing.T) {
 func TestNewRuntimeInfo_ConfigMountEnabled(t *testing.T) {
 	t.Parallel()
 
-	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", "enabled", "enabled")
+	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", 0, "enabled", "enabled")
 
 	require.Equal(t, "enabled", info.AgentConfigMount)
 	require.Equal(t, "enabled", info.AgentConfigMountStatus)
@@ -50,16 +50,16 @@ func TestNewRuntimeInfo_ConfigMountEnabled(t *testing.T) {
 func TestNewRuntimeInfo_ConfigMountPartial(t *testing.T) {
 	t.Parallel()
 
-	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", "enabled", "partial")
+	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", 0, "enabled", "partial")
 
 	require.Equal(t, "enabled", info.AgentConfigMount)
 	require.Equal(t, "partial", info.AgentConfigMountStatus)
 }
 
-func TestNewRuntimeInfo_ExactlySixTopLevelKeys(t *testing.T) {
+func TestNewRuntimeInfo_ExactlySevenTopLevelKeys(t *testing.T) {
 	t.Parallel()
 
-	info := NewRuntimeInfo("ghcr.io/tessariq/reference-runtime:v0.1.0", "reference", "disabled", "disabled")
+	info := NewRuntimeInfo("ghcr.io/tessariq/reference-runtime:v0.1.0", "reference", 0, "disabled", "disabled")
 
 	data, err := json.Marshal(info)
 	require.NoError(t, err)
@@ -72,6 +72,7 @@ func TestNewRuntimeInfo_ExactlySixTopLevelKeys(t *testing.T) {
 		"image":                     true,
 		"image_source":              true,
 		"auth_mount_mode":           true,
+		"auth_mount_count":          true,
 		"agent_config_mount":        true,
 		"agent_config_mount_status": true,
 	}
@@ -86,7 +87,7 @@ func TestWriteRuntimeInfo_CreatesDirectoryAndFile(t *testing.T) {
 	t.Parallel()
 
 	dir := filepath.Join(t.TempDir(), "evidence")
-	info := NewRuntimeInfo("ghcr.io/tessariq/reference-runtime:v0.1.0", "reference", "disabled", "disabled")
+	info := NewRuntimeInfo("ghcr.io/tessariq/reference-runtime:v0.1.0", "reference", 0, "disabled", "disabled")
 
 	require.NoError(t, WriteRuntimeInfo(dir, info))
 
@@ -101,7 +102,7 @@ func TestWriteRuntimeInfo_WritesValidJSON(t *testing.T) {
 	t.Parallel()
 
 	dir := filepath.Join(t.TempDir(), "evidence")
-	info := NewRuntimeInfo("ghcr.io/tessariq/reference-runtime:v0.1.0", "reference", "disabled", "disabled")
+	info := NewRuntimeInfo("ghcr.io/tessariq/reference-runtime:v0.1.0", "reference", 0, "disabled", "disabled")
 
 	require.NoError(t, WriteRuntimeInfo(dir, info))
 
@@ -117,7 +118,7 @@ func TestWriteRuntimeInfo_JSONMatchesSpecShape(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	info := NewRuntimeInfo("ghcr.io/tessariq/reference-runtime:v0.1.0", "reference", "disabled", "disabled")
+	info := NewRuntimeInfo("ghcr.io/tessariq/reference-runtime:v0.1.0", "reference", 0, "disabled", "disabled")
 
 	require.NoError(t, WriteRuntimeInfo(dir, info))
 

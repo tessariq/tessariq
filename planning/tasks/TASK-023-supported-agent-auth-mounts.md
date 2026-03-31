@@ -1,7 +1,7 @@
 ---
 id: TASK-023-supported-agent-auth-mounts
 title: Implement supported-agent auth discovery and read-only mounts
-status: todo
+status: done
 priority: p0
 depends_on:
     - TASK-002-run-cli-flags-and-manifest-bootstrap
@@ -15,7 +15,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#agent-and-runtime-contract
     - specs/tessariq-v0.1.0.md#acceptance-scenarios
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-03-30T23:05:00Z"
+updated_at: "2026-03-31T07:59:16Z"
 areas:
     - agents
     - runtime
@@ -85,3 +85,4 @@ Implement the generic v0.1.0 auth-mount policy for supported agents: per-agent a
 ## Notes
 
 - Agent-specific command and option integration remains in the dedicated supported-agent tasks.
+- 2026-03-31T07:59:16Z: Auth discovery in internal/authmount. Unit tests (9), integration tests (3), 89.63% mutation efficacy. Manual test 11/11 pass. Evidence: planning/artifacts/verify/task/TASK-023-supported-agent-auth-mounts/20260331T075701Z/report.json, planning/artifacts/manual-test/TASK-023-supported-agent-auth-mounts/20260331T080000Z/report.md

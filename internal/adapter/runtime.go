@@ -13,18 +13,20 @@ type RuntimeInfo struct {
 	Image                  string `json:"image"`
 	ImageSource            string `json:"image_source"`
 	AuthMountMode          string `json:"auth_mount_mode"`
+	AuthMountCount         int    `json:"auth_mount_count"`
 	AgentConfigMount       string `json:"agent_config_mount"`
 	AgentConfigMountStatus string `json:"agent_config_mount_status"`
 }
 
 // NewRuntimeInfo creates a runtime.json artifact with the given fields.
 // AuthMountMode is always "read-only" in v0.1.0.
-func NewRuntimeInfo(image, imageSource, agentConfigMount, agentConfigMountStatus string) RuntimeInfo {
+func NewRuntimeInfo(image, imageSource string, authMountCount int, agentConfigMount, agentConfigMountStatus string) RuntimeInfo {
 	return RuntimeInfo{
 		SchemaVersion:          1,
 		Image:                  image,
 		ImageSource:            imageSource,
 		AuthMountMode:          "read-only",
+		AuthMountCount:         authMountCount,
 		AgentConfigMount:       agentConfigMount,
 		AgentConfigMountStatus: agentConfigMountStatus,
 	}
