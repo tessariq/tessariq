@@ -1,7 +1,7 @@
 ---
 id: TASK-011-egress-mode-resolution-and-manifest-recording
 title: Resolve egress modes, provider-aware allowlists, and manifest recording
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-002-run-cli-flags-and-manifest-bootstrap
@@ -17,7 +17,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#networking-and-egress
     - specs/tessariq-v0.1.0.md#evidence-contract
     - specs/tessariq-v0.1.0.md#acceptance-scenarios
-updated_at: "2026-03-30T23:05:00Z"
+updated_at: "2026-03-31T09:33:02Z"
 areas:
     - networking
     - evidence
@@ -87,3 +87,4 @@ Implement requested-versus-resolved egress mode handling, user-level allowlist d
 ## Notes
 
 - Keep allowlist normalization, provider-host derivation, and provenance explicit; proxy transport details stay in `TASK-012`.
+- 2026-03-31T09:33:02Z: All acceptance criteria verified. Unit tests: go test ./... green. Mutation testing: 90.91% efficacy (>70% threshold). Manual testing: 12/12 pass. Evidence: planning/artifacts/manual-test/TASK-011-egress-mode-resolution-and-manifest-recording/20260331T093024Z/, planning/artifacts/verify/task/TASK-011-egress-mode-resolution-and-manifest-recording/20260331T093007Z/

@@ -23,10 +23,9 @@ type Manifest struct {
 	CreatedAt           string `json:"created_at"`
 }
 
-func BuildManifestSeed(cfg Config, runID, taskTitle, baseSHA string, now time.Time) Manifest {
+func BuildManifestSeed(cfg Config, runID, taskTitle, baseSHA, allowlistSource string, now time.Time) Manifest {
 	requestedEgress := cfg.ResolveEgress()
-	resolvedEgress := resolveEgressMode(requestedEgress)
-	allowlistSource := resolveAllowlistSource(cfg)
+	resolvedEgress := ResolveEgressMode(requestedEgress)
 
 	return Manifest{
 		SchemaVersion:       1,
@@ -44,21 +43,13 @@ func BuildManifestSeed(cfg Config, runID, taskTitle, baseSHA string, now time.Ti
 	}
 }
 
-// resolveEgressMode maps the requested egress mode to the actual mode.
+// ResolveEgressMode maps the requested egress mode to the actual mode.
 // In v0.1.0, "auto" resolves to "proxy" for all agents.
-func resolveEgressMode(requested string) string {
+func ResolveEgressMode(requested string) string {
 	if requested == "auto" {
 		return "proxy"
 	}
 	return requested
-}
-
-// resolveAllowlistSource determines the provenance of the egress allowlist.
-func resolveAllowlistSource(cfg Config) string {
-	if len(cfg.EgressAllow) > 0 {
-		return "cli"
-	}
-	return "built_in"
 }
 
 func WriteManifest(dir string, m Manifest) error {
@@ -79,14 +70,14 @@ func WriteManifest(dir string, m Manifest) error {
 	return nil
 }
 
-func BootstrapManifest(repoRoot string, cfg Config, taskTitle, baseSHA string, now time.Time) (string, string, error) {
+func BootstrapManifest(repoRoot string, cfg Config, taskTitle, baseSHA, allowlistSource string, now time.Time) (string, string, error) {
 	runID, err := NewRunID(now)
 	if err != nil {
 		return "", "", fmt.Errorf("generate run ID: %w", err)
 	}
 
 	evidenceDir := filepath.Join(repoRoot, ".tessariq", "runs", runID)
-	m := BuildManifestSeed(cfg, runID, taskTitle, baseSHA, now)
+	m := BuildManifestSeed(cfg, runID, taskTitle, baseSHA, allowlistSource, now)
 
 	if err := WriteManifest(evidenceDir, m); err != nil {
 		return "", "", fmt.Errorf("bootstrap manifest: %w", err)

@@ -96,3 +96,73 @@ func TestDestination_String(t *testing.T) {
 	d := Destination{Host: "api.anthropic.com", Port: 443}
 	require.Equal(t, "api.anthropic.com:443", d.String())
 }
+
+func TestBaselineEndpoints_Count(t *testing.T) {
+	t.Parallel()
+
+	endpoints := BaselineEndpoints()
+	require.Len(t, endpoints, 10)
+}
+
+func TestBaselineEndpoints_AllPort443(t *testing.T) {
+	t.Parallel()
+
+	for _, ep := range BaselineEndpoints() {
+		require.Equal(t, 443, ep.Port, "host %s should use port 443", ep.Host)
+	}
+}
+
+func TestBaselineEndpoints_RequiredHosts(t *testing.T) {
+	t.Parallel()
+
+	hosts := make(map[string]bool)
+	for _, ep := range BaselineEndpoints() {
+		hosts[ep.Host] = true
+	}
+
+	required := []string{
+		"registry.npmjs.org",
+		"pypi.org",
+		"files.pythonhosted.org",
+		"rubygems.org",
+		"crates.io",
+		"static.crates.io",
+		"proxy.golang.org",
+		"sum.golang.org",
+		"repo1.maven.org",
+		"en.wikipedia.org",
+	}
+	for _, h := range required {
+		require.True(t, hosts[h], "missing required host: %s", h)
+	}
+}
+
+func TestFullBuiltInAllowlist_ClaudeCode(t *testing.T) {
+	t.Parallel()
+
+	full := FullBuiltInAllowlist(ClaudeCodeEndpoints())
+	require.Len(t, full, 13) // 10 baseline + 3 claude-code
+}
+
+func TestFullBuiltInAllowlist_OpenCode_NonHosted(t *testing.T) {
+	t.Parallel()
+
+	full := FullBuiltInAllowlist(OpenCodeEndpoints("api.anthropic.com", false))
+	require.Len(t, full, 12) // 10 baseline + 2 opencode
+}
+
+func TestFullBuiltInAllowlist_OpenCode_Hosted(t *testing.T) {
+	t.Parallel()
+
+	full := FullBuiltInAllowlist(OpenCodeEndpoints("opencode.ai", true))
+	require.Len(t, full, 13) // 10 baseline + 3 opencode
+}
+
+func TestFullBuiltInAllowlist_PreservesOrder(t *testing.T) {
+	t.Parallel()
+
+	full := FullBuiltInAllowlist(ClaudeCodeEndpoints())
+	// First 10 should be baseline, last 3 should be agent-specific.
+	require.Equal(t, "registry.npmjs.org", full[0].Host)
+	require.Equal(t, "api.anthropic.com", full[10].Host)
+}

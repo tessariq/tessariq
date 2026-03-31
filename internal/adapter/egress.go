@@ -41,6 +41,30 @@ func OpenCodeEndpoints(providerHost string, includeOpenCodeAI bool) []Destinatio
 	return dests
 }
 
+// BaselineEndpoints returns the static package-manager and reference
+// destinations shared across all agents.
+func BaselineEndpoints() []Destination {
+	return []Destination{
+		{Host: "registry.npmjs.org", Port: 443},
+		{Host: "pypi.org", Port: 443},
+		{Host: "files.pythonhosted.org", Port: 443},
+		{Host: "rubygems.org", Port: 443},
+		{Host: "crates.io", Port: 443},
+		{Host: "static.crates.io", Port: 443},
+		{Host: "proxy.golang.org", Port: 443},
+		{Host: "sum.golang.org", Port: 443},
+		{Host: "repo1.maven.org", Port: 443},
+		{Host: "en.wikipedia.org", Port: 443},
+	}
+}
+
+// FullBuiltInAllowlist returns BaselineEndpoints combined with the provided
+// agent-specific endpoints.
+func FullBuiltInAllowlist(agentEndpoints []Destination) []Destination {
+	baseline := BaselineEndpoints()
+	return append(baseline, agentEndpoints...)
+}
+
 // ClaudeCodeEndpoints returns the built-in egress endpoints for Claude Code.
 func ClaudeCodeEndpoints() []Destination {
 	return []Destination{

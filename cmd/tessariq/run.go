@@ -84,18 +84,25 @@ func newRunCmd() *cobra.Command {
 				return err
 			}
 
-			runID, evidenceDir, err := run.BootstrapManifest(root, cfg, taskTitle, baseSHA, time.Now())
+			homeDir, err := os.UserHomeDir()
+			if err != nil {
+				return fmt.Errorf("resolve home directory: %w", err)
+			}
+
+			resolvedEgress := run.ResolveEgressMode(cfg.ResolveEgress())
+
+			allowlistResult, err := resolveRunAllowlist(cfg, homeDir, resolvedEgress)
+			if err != nil {
+				return err
+			}
+
+			runID, evidenceDir, err := run.BootstrapManifest(root, cfg, taskTitle, baseSHA, allowlistResult.Source, time.Now())
 			if err != nil {
 				return err
 			}
 
 			if err := run.CopyTaskFile(root, cfg.TaskPath, evidenceDir, content); err != nil {
 				return err
-			}
-
-			homeDir, err := os.UserHomeDir()
-			if err != nil {
-				return fmt.Errorf("resolve home directory: %w", err)
 			}
 
 			wsPath, _, err := workspace.Provision(cmd.Context(), homeDir, root, runID, evidenceDir)
@@ -106,14 +113,6 @@ func newRunCmd() *cobra.Command {
 			authResult, err := authmount.Discover(cfg.Agent, homeDir, runtime.GOOS, authmount.FileExists)
 			if err != nil {
 				return err
-			}
-
-			if cfg.Agent == "opencode" && cfg.ResolveEgress() == "auto" {
-				authPath := filepath.Join(homeDir, ".local", "share", "opencode", "auth.json")
-				configDir := filepath.Join(homeDir, ".config", "opencode")
-				if _, provErr := opencode.ResolveProviderFromPaths(authPath, configDir, os.ReadFile); provErr != nil {
-					return provErr
-				}
 			}
 
 			agentConfigMount := "disabled"
@@ -193,4 +192,45 @@ func newRunCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&cfg.MountAgentConfig, "mount-agent-config", cfg.MountAgentConfig, "mount the agent's default config directory read-only")
 
 	return cmd
+}
+
+// resolveRunAllowlist loads user config and resolves the egress allowlist
+// with full precedence: CLI > user_config > built_in.
+func resolveRunAllowlist(cfg run.Config, homeDir, resolvedEgress string) (*run.AllowlistResult, error) {
+	// Load user config from XDG paths.
+	xdgConfigHome := os.Getenv("XDG_CONFIG_HOME")
+	dirExists := func(path string) bool {
+		info, err := os.Stat(path)
+		return err == nil && info.IsDir()
+	}
+	configPath := run.UserConfigPath(xdgConfigHome, homeDir, dirExists)
+	userCfg, err := run.LoadUserConfig(configPath, os.ReadFile)
+	if err != nil {
+		return nil, err
+	}
+
+	// Build the built-in allowlist for the agent.
+	var agentEndpoints []adapter.Destination
+	switch cfg.Agent {
+	case "claude-code":
+		agentEndpoints = adapter.ClaudeCodeEndpoints()
+	case "opencode":
+		if resolvedEgress == "proxy" {
+			authPath := filepath.Join(homeDir, ".local", "share", "opencode", "auth.json")
+			configDir := filepath.Join(homeDir, ".config", "opencode")
+			provInfo, provErr := opencode.ResolveProviderFromPaths(authPath, configDir, os.ReadFile)
+			if provErr != nil {
+				return nil, provErr
+			}
+			agentEndpoints = adapter.OpenCodeEndpoints(provInfo.Host, provInfo.IsOpenCodeHosted)
+		}
+	}
+
+	fullBuiltIn := adapter.FullBuiltInAllowlist(agentEndpoints)
+	builtInStrings := make([]string, len(fullBuiltIn))
+	for i, d := range fullBuiltIn {
+		builtInStrings[i] = d.String()
+	}
+
+	return run.ResolveAllowlist(cfg.EgressAllow, userCfg, builtInStrings, cfg.EgressNoDefaults, resolvedEgress)
 }

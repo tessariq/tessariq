@@ -18,7 +18,7 @@ func TestBuildManifestSeed_RequiredFields(t *testing.T) {
 	runID := "01ARZ3NDEKTSV4RRFFQ69G5FAV"
 	now := time.Date(2026, 3, 29, 12, 0, 0, 0, time.UTC)
 
-	m := BuildManifestSeed(cfg, runID, "Example Task", "abc123def456", now)
+	m := BuildManifestSeed(cfg, runID, "Example Task", "abc123def456", "built_in", now)
 
 	require.Equal(t, 1, m.SchemaVersion)
 	require.Equal(t, "01ARZ3NDEKTSV4RRFFQ69G5FAV", m.RunID)
@@ -41,7 +41,7 @@ func TestBuildManifestSeed_ExactlyTwelveFields(t *testing.T) {
 	runID := "01ARZ3NDEKTSV4RRFFQ69G5FAV"
 	now := time.Now()
 
-	m := BuildManifestSeed(cfg, runID, "Task Title", "sha256", now)
+	m := BuildManifestSeed(cfg, runID, "Task Title", "sha256", "built_in", now)
 
 	data, err := json.Marshal(m)
 	require.NoError(t, err)
@@ -78,7 +78,7 @@ func TestBuildManifestSeed_ContainerName(t *testing.T) {
 	runID := "01ARZ3NDEKTSV4RRFFQ69G5FAV"
 	now := time.Now()
 
-	m := BuildManifestSeed(cfg, runID, "Task", "sha", now)
+	m := BuildManifestSeed(cfg, runID, "Task", "sha", "built_in", now)
 	require.Equal(t, "tessariq-01ARZ3NDEKTSV4RRFFQ69G5FAV", m.ContainerName)
 }
 
@@ -91,7 +91,7 @@ func TestBuildManifestSeed_UsesResolveEgress(t *testing.T) {
 	runID := "01ARZ3NDEKTSV4RRFFQ69G5FAV"
 	now := time.Now()
 
-	m := BuildManifestSeed(cfg, runID, "Task", "sha", now)
+	m := BuildManifestSeed(cfg, runID, "Task", "sha", "built_in", now)
 	require.Equal(t, "open", m.RequestedEgressMode)
 	require.Equal(t, "open", m.ResolvedEgressMode)
 }
@@ -104,7 +104,7 @@ func TestBuildManifestSeed_CreatedAtFormat(t *testing.T) {
 	runID := "01ARZ3NDEKTSV4RRFFQ69G5FAV"
 	now := time.Date(2026, 1, 27, 12, 0, 0, 0, time.UTC)
 
-	m := BuildManifestSeed(cfg, runID, "Task", "sha", now)
+	m := BuildManifestSeed(cfg, runID, "Task", "sha", "built_in", now)
 	require.Equal(t, "2026-01-27T12:00:00Z", m.CreatedAt)
 }
 
@@ -116,7 +116,7 @@ func TestBuildManifestSeed_RunIDFormat(t *testing.T) {
 	runID := "01ARZ3NDEKTSV4RRFFQ69G5FAV"
 	now := time.Now()
 
-	m := BuildManifestSeed(cfg, runID, "Task", "sha", now)
+	m := BuildManifestSeed(cfg, runID, "Task", "sha", "built_in", now)
 	require.True(t, IsValidRunID(m.RunID))
 }
 
@@ -128,7 +128,7 @@ func TestBuildManifestSeed_AutoResolvesToProxy(t *testing.T) {
 	runID := "01ARZ3NDEKTSV4RRFFQ69G5FAV"
 	now := time.Now()
 
-	m := BuildManifestSeed(cfg, runID, "Task", "sha", now)
+	m := BuildManifestSeed(cfg, runID, "Task", "sha", "built_in", now)
 	require.Equal(t, "auto", m.RequestedEgressMode)
 	require.Equal(t, "proxy", m.ResolvedEgressMode)
 }
@@ -142,7 +142,7 @@ func TestBuildManifestSeed_ExplicitEgressNone(t *testing.T) {
 	runID := "01ARZ3NDEKTSV4RRFFQ69G5FAV"
 	now := time.Now()
 
-	m := BuildManifestSeed(cfg, runID, "Task", "sha", now)
+	m := BuildManifestSeed(cfg, runID, "Task", "sha", "built_in", now)
 	require.Equal(t, "none", m.RequestedEgressMode)
 	require.Equal(t, "none", m.ResolvedEgressMode)
 }
@@ -156,7 +156,7 @@ func TestBuildManifestSeed_AllowlistSourceCLI(t *testing.T) {
 	runID := "01ARZ3NDEKTSV4RRFFQ69G5FAV"
 	now := time.Now()
 
-	m := BuildManifestSeed(cfg, runID, "Task", "sha", now)
+	m := BuildManifestSeed(cfg, runID, "Task", "sha", "cli", now)
 	require.Equal(t, "cli", m.AllowlistSource)
 }
 
@@ -168,8 +168,20 @@ func TestBuildManifestSeed_AllowlistSourceBuiltIn(t *testing.T) {
 	runID := "01ARZ3NDEKTSV4RRFFQ69G5FAV"
 	now := time.Now()
 
-	m := BuildManifestSeed(cfg, runID, "Task", "sha", now)
+	m := BuildManifestSeed(cfg, runID, "Task", "sha", "built_in", now)
 	require.Equal(t, "built_in", m.AllowlistSource)
+}
+
+func TestBuildManifestSeed_AllowlistSourceUserConfig(t *testing.T) {
+	t.Parallel()
+
+	cfg := DefaultConfig()
+	cfg.TaskPath = "specs/task.md"
+	runID := "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+	now := time.Now()
+
+	m := BuildManifestSeed(cfg, runID, "Task", "sha", "user_config", now)
+	require.Equal(t, "user_config", m.AllowlistSource)
 }
 
 func TestWriteManifest_CreatesDirectory(t *testing.T) {
@@ -228,7 +240,7 @@ func TestBootstrapManifest_Integration(t *testing.T) {
 	cfg.TaskPath = "specs/task.md"
 	now := time.Now()
 
-	runID, dir, err := BootstrapManifest(root, cfg, "Task Title", "abc123", now)
+	runID, dir, err := BootstrapManifest(root, cfg, "Task Title", "abc123", "built_in", now)
 	require.NoError(t, err)
 	require.True(t, IsValidRunID(runID))
 	require.Contains(t, dir, runID)
