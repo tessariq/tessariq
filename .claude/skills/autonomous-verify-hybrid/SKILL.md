@@ -23,3 +23,4 @@ Run hybrid verification for Tessariq tracked work with deterministic low-risk fi
 - auto-fix only deterministic low-risk issues such as regenerated machine-owned outputs
 - never hand-edit machine-managed state
 - never hand-edit task status
+- when code changes are made for an active task, keep them in a single conventional-commit commit that also includes required workflow/planning updates

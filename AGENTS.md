@@ -258,8 +258,10 @@ When tessariq itself creates Docker containers (via `docker create` / `docker st
 - Do include a clear PR summary with why, what changed, and test evidence.
 - Do keep commits small and descriptive, using imperative commit subjects.
 - Do use conventional commit messages.
+- Do keep each tracked task to a single commit that includes both implementation changes and any required workflow/planning artifact updates.
 - Do mention user-visible CLI changes in the PR body.
 - Don't mix unrelated refactors or formatting-only churn into feature/fix PRs.
+- Don't split one tracked task into separate "implementation" and "chore/workflow/verification-update" commits.
 - Don't rewrite the shared branch history unless explicitly requested.
 - Don't bypass CI-equivalent checks before asking for review.
 - Don't modify spec files unless the change is explicitly about spec updates.

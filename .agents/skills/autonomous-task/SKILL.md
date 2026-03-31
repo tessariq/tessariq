@@ -28,3 +28,5 @@ Execute one specified Tessariq tracked task with deterministic workflow transiti
 - do not auto-select another task
 - do not hand-edit machine-managed state
 - do not hand-edit task status
+- produce exactly one conventional-commit commit for the task, including code/test and required workflow/planning updates together
+- do not split the task into separate implementation and chore/workflow-update commits
