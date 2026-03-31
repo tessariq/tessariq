@@ -1,7 +1,7 @@
 ---
 id: TASK-029-interactive-runtime-mode-independent-of-attach
 title: Implement interactive runtime mode independently of attach
-status: todo
+status: done
 priority: p0
 depends_on:
     - TASK-018-replace-yolo-with-interactive-and-cli-polish
@@ -15,7 +15,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#agent-and-runtime-contract
     - specs/tessariq-v0.1.0.md#acceptance-scenarios
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-03-31T16:40:00Z"
+updated_at: "2026-03-31T17:33:11Z"
 areas:
     - container
     - tmux
@@ -79,3 +79,4 @@ Implement true interactive run support as a runtime feature in its own right, wi
 - The baseline contract for this task is: pause active-agent timeout accounting while the run is waiting for human approval.
 - If an overall wall-clock guard is needed in addition to the paused active-agent timeout, it must be explicit and separately documented rather than implicit.
 - `tessariq attach` may remain a useful live-run entry point, but it must not be the sole conceptual owner of interactive mode.
+- 2026-03-31T17:33:11Z: Interactive runtime mode implemented: container TTY support (-i -t flags), activity-based timeout that pauses during idle periods, agent-specific validation (opencode rejects, claude-code accepts), tmux session uses docker attach for interactive runs. Unit tests: 6 activity timer + 4 runner interactive + 2 container. Integration: all pass. E2e: 3 new interactive tests (opencode rejection, claude-code acceptance, agent metadata). Mutation: 83.28% efficacy (>70% threshold). Manual test: planning/artifacts/manual-test/TASK-029-interactive-runtime-mode-independent-of-attach/20260331T172949Z/

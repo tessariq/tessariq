@@ -3,6 +3,7 @@ package container
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strconv"
@@ -13,12 +14,14 @@ import (
 // Process implements runner.ProcessRunner by managing a Docker container lifecycle.
 // It uses docker create + docker start + docker wait + docker rm.
 type Process struct {
-	cfg      Config
-	docker   string // path to docker binary
-	created  bool
-	stdout   *os.File // optional: pipe container stdout here
-	stderr   *os.File // optional: pipe container stderr here
-	logsDone chan struct{}
+	cfg          Config
+	docker       string // path to docker binary
+	created      bool
+	stdout       *os.File  // optional: pipe container stdout here
+	stderr       *os.File  // optional: pipe container stderr here
+	stdoutWriter io.Writer // optional: io.Writer target (takes precedence over stdout)
+	stderrWriter io.Writer // optional: io.Writer target (takes precedence over stderr)
+	logsDone     chan struct{}
 }
 
 // New creates a container Process from the given configuration.
@@ -33,6 +36,13 @@ func New(cfg Config) *Process {
 func (p *Process) SetOutput(stdout, stderr *os.File) {
 	p.stdout = stdout
 	p.stderr = stderr
+}
+
+// SetOutputWriter configures io.Writer targets for container log streaming.
+// When set, these take precedence over SetOutput's *os.File targets.
+func (p *Process) SetOutputWriter(stdout, stderr io.Writer) {
+	p.stdoutWriter = stdout
+	p.stderrWriter = stderr
 }
 
 // Start creates the container and starts it, then streams logs in the background.
@@ -143,19 +153,24 @@ func (p *Process) remove(ctx context.Context) error {
 }
 
 func (p *Process) streamLogs(ctx context.Context) {
-	stdout := p.stdout
-	stderr := p.stderr
+	var stdout, stderr io.Writer
+	if p.stdoutWriter != nil {
+		stdout = p.stdoutWriter
+	} else if p.stdout != nil {
+		stdout = p.stdout
+	}
+	if p.stderrWriter != nil {
+		stderr = p.stderrWriter
+	} else if p.stderr != nil {
+		stderr = p.stderr
+	}
 	if stdout == nil && stderr == nil {
 		return
 	}
 	p.logsDone = make(chan struct{})
 	cmd := exec.CommandContext(ctx, p.docker, "logs", "--follow", p.cfg.Name)
-	if stdout != nil {
-		cmd.Stdout = stdout
-	}
-	if stderr != nil {
-		cmd.Stderr = stderr
-	}
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
 	go func() {
 		defer close(p.logsDone)
 		_ = cmd.Run()
@@ -172,6 +187,10 @@ func (p *Process) waitForLogs() {
 // buildCreateArgs assembles the full docker create argument list.
 func (p *Process) buildCreateArgs() []string {
 	args := []string{"create"}
+
+	if p.cfg.Interactive {
+		args = append(args, "-i", "-t")
+	}
 
 	args = append(args, "--name", p.cfg.Name)
 

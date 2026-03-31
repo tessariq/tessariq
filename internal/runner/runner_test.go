@@ -333,6 +333,79 @@ func TestRunner_ConfiguresProcessOutputWhenSupported(t *testing.T) {
 	require.Equal(t, proc.stderr.Name(), filepath.Join(dir, "run.log"))
 }
 
+func TestRunner_InteractiveSessionCommand(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	r := newTestRunner(dir, newFakeProcess(0))
+	r.Config.Interactive = true
+	r.ContainerName = "tessariq-RUN123"
+	sess := &fakeSession{}
+	r.Session = sess
+	r.SessionName = "tessariq-RUN123"
+
+	require.NoError(t, r.Run(context.Background()))
+	require.True(t, sess.startCalled)
+	require.Equal(t, []string{"docker", "attach", "tessariq-RUN123"}, sess.command)
+}
+
+func TestRunner_InteractiveSuccessPath(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	proc := newFakeProcess(0)
+	r := newTestRunner(dir, proc)
+	r.Config.Interactive = true
+	r.ContainerName = "tessariq-RUN123"
+
+	require.NoError(t, r.Run(context.Background()))
+
+	s, err := ReadStatus(dir)
+	require.NoError(t, err)
+	require.Equal(t, StateSuccess, s.State)
+	require.Equal(t, 0, s.ExitCode)
+	require.False(t, s.TimedOut)
+}
+
+func TestRunner_InteractiveFailedProcess(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	proc := newFakeProcess(7)
+	r := newTestRunner(dir, proc)
+	r.Config.Interactive = true
+	r.ContainerName = "tessariq-RUN123"
+
+	require.NoError(t, r.Run(context.Background()))
+
+	s, err := ReadStatus(dir)
+	require.NoError(t, err)
+	require.Equal(t, StateFailed, s.State)
+	require.Equal(t, 7, s.ExitCode)
+}
+
+func TestRunner_InteractiveTimeout(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	// Use a blocking process that won't exit on its own.
+	proc := newBlockingProcess(0)
+	r := newTestRunner(dir, proc)
+	r.Config.Interactive = true
+	r.Config.Timeout = 50 * time.Millisecond
+	r.Config.Grace = 10 * time.Millisecond
+	r.ContainerName = "tessariq-RUN123"
+	// Use real clock for timeout (no idle detection since fakeProcess doesn't produce output).
+	r.Clock = nil
+
+	require.NoError(t, r.Run(context.Background()))
+
+	s, err := ReadStatus(dir)
+	require.NoError(t, err)
+	require.Equal(t, StateTimeout, s.State)
+	require.True(t, s.TimedOut)
+}
+
 func TestRunner_EmptySessionName_SkipsSessionStart(t *testing.T) {
 	t.Parallel()
 

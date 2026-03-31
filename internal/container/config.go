@@ -2,11 +2,12 @@ package container
 
 // Config holds everything needed to create and run a Docker container.
 type Config struct {
-	Name    string            // deterministic container name: tessariq-<run_id>
-	Image   string            // resolved container image
-	Command []string          // e.g. ["claude", "--print", ...]
-	WorkDir string            // container working directory, always "/work"
-	User    string            // always "tessariq"
-	Env     map[string]string // env vars injected via docker create --env
-	Mounts  []Mount           // all bind mounts
+	Name        string            // deterministic container name: tessariq-<run_id>
+	Image       string            // resolved container image
+	Command     []string          // e.g. ["claude", "--print", ...]
+	WorkDir     string            // container working directory, always "/work"
+	User        string            // always "tessariq"
+	Env         map[string]string // env vars injected via docker create --env
+	Mounts      []Mount           // all bind mounts
+	Interactive bool              // when true, docker create uses -i -t flags for TTY
 }

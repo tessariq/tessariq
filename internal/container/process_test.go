@@ -186,6 +186,31 @@ func TestRemove_SkipsWhenNotCreated(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestBuildCreateArgs_InteractiveFlags(t *testing.T) {
+	t.Parallel()
+	p := New(Config{Name: "c", Image: "img", Interactive: true})
+	args := p.buildCreateArgs()
+
+	require.Contains(t, args, "-i")
+	require.Contains(t, args, "-t")
+
+	// -i and -t must appear before the image name.
+	imgIdx := indexOf(args, "img")
+	iIdx := indexOf(args, "-i")
+	tIdx := indexOf(args, "-t")
+	require.Less(t, iIdx, imgIdx, "-i must precede image")
+	require.Less(t, tIdx, imgIdx, "-t must precede image")
+}
+
+func TestBuildCreateArgs_NonInteractiveNoTTYFlags(t *testing.T) {
+	t.Parallel()
+	p := New(Config{Name: "c", Image: "img"})
+	args := p.buildCreateArgs()
+
+	require.Equal(t, -1, indexOf(args, "-i"))
+	require.Equal(t, -1, indexOf(args, "-t"))
+}
+
 func TestPrepareWritableMounts_ChmodsRWMounts(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()

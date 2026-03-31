@@ -68,8 +68,8 @@ func newRunCmd() *cobra.Command {
 				return err
 			}
 
-			if cfg.Interactive {
-				return fmt.Errorf("--interactive is not yet supported for containerized runs; rerun without --interactive for detached mode")
+			if cfg.Interactive && cfg.Agent == "opencode" {
+				return fmt.Errorf("--interactive is not supported by opencode; use --agent claude-code for interactive mode")
 			}
 
 			if err := git.IsClean(cmd.Context(), root); err != nil {
@@ -161,13 +161,18 @@ func newRunCmd() *cobra.Command {
 			containerName := run.ContainerName(runID)
 			sessionName := run.SessionName(runID)
 
+			if cfg.Interactive && !cfg.Attach {
+				fmt.Fprintf(cmd.ErrOrStderr(), "note: interactive mode without --attach; use 'tmux attach -t %s' to provide approval input\n", sessionName)
+			}
+
 			r := &runner.Runner{
-				RunID:       runID,
-				EvidenceDir: evidenceDir,
-				Config:      cfg,
-				Process:     agentProc.Process,
-				Session:     &tmux.Starter{},
-				SessionName: sessionName,
+				RunID:         runID,
+				EvidenceDir:   evidenceDir,
+				Config:        cfg,
+				Process:       agentProc.Process,
+				Session:       &tmux.Starter{},
+				SessionName:   sessionName,
+				ContainerName: containerName,
 			}
 			if err := r.Run(cmd.Context()); err != nil {
 				return err

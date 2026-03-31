@@ -482,12 +482,43 @@ func TestE2E_TmuxSessionShowsDetachedRunOutput(t *testing.T) {
 	require.Contains(t, runLog, "detached-output")
 }
 
-func TestE2E_InteractiveRunFailsWithActionableGuidance(t *testing.T) {
+func TestE2E_InteractiveOpenCodeFailsWithGuidance(t *testing.T) {
 	bin := buildBinary(t)
-	env := setupRunEnv(t, bin, 0)
+	env := setupRunEnvForBinary(t, bin, "opencode", 0)
+
+	code, output := runTessariq(t, env, "opencode", "--agent opencode --interactive --egress none")
+	require.NotEqual(t, 0, code)
+	require.Contains(t, output, "not supported by opencode")
+	require.NotContains(t, output, "run_id: ")
+}
+
+func TestE2E_InteractiveClaudeCodeAccepted(t *testing.T) {
+	bin := buildBinary(t)
+	env := setupRunEnvWithScript(t, bin, "claude", "echo interactive-agent-output; exit 0")
 
 	code, output := runTessariq(t, env, "claude", "--interactive")
-	require.NotEqual(t, 0, code)
-	require.Contains(t, output, "--interactive is not yet supported for containerized runs")
-	require.NotContains(t, output, "run_id: ")
+	require.Equal(t, 0, code, "interactive claude-code should succeed: %s", output)
+	require.Contains(t, output, "run_id: ")
+}
+
+func TestE2E_InteractiveClaudeCodeAgentMetadata(t *testing.T) {
+	bin := buildBinary(t)
+	env := setupRunEnvWithScript(t, bin, "claude", "echo metadata-test; exit 0")
+
+	code, output := runTessariq(t, env, "claude", "--interactive")
+	require.Equal(t, 0, code, "run failed: %s", output)
+
+	evidencePath := extractField(output, "evidence_path")
+	require.NotEmpty(t, evidencePath)
+
+	ctx := context.Background()
+	agentCode, agentJSON, err := env.Exec(ctx, []string{"cat", filepath.Join(evidencePath, "agent.json")})
+	require.NoError(t, err)
+	require.Equal(t, 0, agentCode, "agent.json must exist")
+
+	var info adapter.AgentInfo
+	require.NoError(t, json.Unmarshal([]byte(agentJSON), &info))
+
+	require.Equal(t, true, info.Requested["interactive"])
+	require.Equal(t, true, info.Applied["interactive"])
 }

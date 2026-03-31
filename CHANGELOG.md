@@ -41,7 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed `manifest.json` to use `agent` instead of `adapter` and added `resolved_egress_mode` and `allowlist_source` fields per v0.1.0 spec.
 - Changed CLI approval and egress flag UX: replaced `--yolo` with `--interactive` (autonomous-by-default) and renamed `--egress-allow-reset` to `--egress-no-defaults` for clearer intent.
 - Changed prerequisite preflight UX for local CLI execution so `tessariq init`, `tessariq run`, and `tessariq attach` fail fast with actionable missing-dependency guidance before lifecycle side effects.
-- Changed `tessariq run --interactive` to fail fast for the current containerized runtime until true interactive terminal support is implemented.
+- Changed `tessariq run --interactive` from a blanket rejection to full interactive runtime support: containers are created with TTY allocation, the tmux session attaches to the container for live terminal input, and the active-agent timeout pauses while the agent waits for human approval instead of ticking wall-clock time. OpenCode rejects `--interactive` with actionable guidance; Claude Code supports it natively.
 
 ### Fixed
 

@@ -62,13 +62,14 @@ func NewProcess(cfg run.Config, taskContent string, runID, worktreePath, evidenc
 	}
 
 	containerCfg := container.Config{
-		Name:    run.ContainerName(runID),
-		Image:   image,
-		Command: append([]string{binaryName}, args...),
-		WorkDir: "/work",
-		User:    "tessariq",
-		Env:     agentEnvVars,
-		Mounts:  container.AssembleMounts(worktreePath, evidencePath, authMounts, configMounts),
+		Name:        run.ContainerName(runID),
+		Image:       image,
+		Command:     append([]string{binaryName}, args...),
+		WorkDir:     "/work",
+		User:        "tessariq",
+		Env:         agentEnvVars,
+		Mounts:      container.AssembleMounts(worktreePath, evidencePath, authMounts, configMounts),
+		Interactive: cfg.Interactive,
 	}
 
 	proc := container.New(containerCfg)

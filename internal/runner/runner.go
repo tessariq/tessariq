@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"time"
 
@@ -25,15 +26,20 @@ type outputConfigurer interface {
 	SetOutput(stdout, stderr *os.File)
 }
 
+type outputWriterConfigurer interface {
+	SetOutputWriter(stdout, stderr io.Writer)
+}
+
 // Runner orchestrates the full run lifecycle.
 type Runner struct {
-	RunID       string
-	EvidenceDir string
-	Config      run.Config
-	Process     ProcessRunner
-	Session     SessionStarter
-	SessionName string
-	Clock       func() time.Time
+	RunID         string
+	EvidenceDir   string
+	Config        run.Config
+	Process       ProcessRunner
+	Session       SessionStarter
+	SessionName   string
+	ContainerName string // needed for interactive tmux session command
+	Clock         func() time.Time
 }
 
 func (r *Runner) clock() time.Time {
@@ -115,6 +121,13 @@ func (r *Runner) Run(ctx context.Context) error {
 }
 
 func (r *Runner) runProcess(ctx context.Context, startedAt time.Time, logs *LogFiles) (exitCode int, timedOut bool, state State) {
+	if r.Config.Interactive {
+		return r.runInteractiveProcess(ctx, startedAt, logs)
+	}
+	return r.runDetachedProcess(ctx, startedAt, logs)
+}
+
+func (r *Runner) runDetachedProcess(ctx context.Context, startedAt time.Time, logs *LogFiles) (exitCode int, timedOut bool, state State) {
 	// Create timeout context.
 	timeoutCtx, cancel := context.WithTimeout(ctx, r.Config.Timeout)
 	defer cancel()
@@ -168,7 +181,79 @@ func (r *Runner) runProcess(ctx context.Context, startedAt time.Time, logs *LogF
 	}
 }
 
+func (r *Runner) runInteractiveProcess(ctx context.Context, startedAt time.Time, logs *LogFiles) (exitCode int, timedOut bool, state State) {
+	timer := NewActivityTimer(r.Config.Timeout)
+
+	fmt.Fprintf(logs.RunnerLog, "[%s] starting interactive process (activity-timeout=%s, grace=%s)\n",
+		r.clock().UTC().Format(time.RFC3339), r.Config.Timeout, r.Config.Grace)
+
+	// Set up output with activity tracking. Prefer io.Writer path so the
+	// ActivityWriter can intercept writes; fall back to *os.File path.
+	aw := NewActivityWriter(logs.RunLog, timer)
+	if proc, ok := r.Process.(outputWriterConfigurer); ok {
+		proc.SetOutputWriter(aw, aw)
+	} else if proc, ok := r.Process.(outputConfigurer); ok {
+		proc.SetOutput(logs.RunLog, logs.RunLog)
+	}
+
+	if err := r.Process.Start(ctx); err != nil {
+		fmt.Fprintf(logs.RunnerLog, "[%s] process start failed: %s\n", r.clock().UTC().Format(time.RFC3339), err)
+		return 1, false, StateFailed
+	}
+
+	timer.Start()
+	defer timer.Stop()
+
+	// Wait for process in a goroutine.
+	type waitResult struct {
+		exitCode int
+		err      error
+	}
+	waitCh := make(chan waitResult, 1)
+	go func() {
+		code, err := r.Process.Wait()
+		waitCh <- waitResult{code, err}
+	}()
+
+	select {
+	case result := <-waitCh:
+		// Process finished before timeout.
+		if result.exitCode != 0 {
+			return result.exitCode, false, StateFailed
+		}
+		return 0, false, StateSuccess
+
+	case <-timer.Expired():
+		// Active time exceeded -- escalate.
+		fmt.Fprintf(logs.RunnerLog, "[%s] activity timeout reached (active time: %s), writing timeout flag\n",
+			r.clock().UTC().Format(time.RFC3339), timer.Elapsed())
+		_ = WriteTimeoutFlag(r.EvidenceDir)
+
+		_ = r.Process.Signal(os.Kill)
+
+		select {
+		case result := <-waitCh:
+			return result.exitCode, true, StateTimeout
+		case <-time.After(r.Config.Grace):
+			return -1, true, StateTimeout
+		}
+
+	case <-ctx.Done():
+		// Parent context cancelled.
+		_ = r.Process.Signal(os.Kill)
+		select {
+		case result := <-waitCh:
+			return result.exitCode, false, StateKilled
+		case <-time.After(r.Config.Grace):
+			return -1, false, StateKilled
+		}
+	}
+}
+
 func (r *Runner) sessionCommand(runLogPath string) []string {
+	if r.Config.Interactive && r.ContainerName != "" {
+		return []string{"docker", "attach", r.ContainerName}
+	}
 	return []string{"tail", "-n", "+1", "-f", runLogPath}
 }
 
