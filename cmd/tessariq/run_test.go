@@ -2,7 +2,9 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -10,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tessariq/tessariq/internal/adapter/opencode"
 	"github.com/tessariq/tessariq/internal/run"
+	"github.com/tessariq/tessariq/internal/runner"
 )
 
 func TestPrintRunOutput_ContainsAllFields(t *testing.T) {
@@ -242,6 +245,159 @@ func TestResolveAllowlistCore_OpenCode(t *testing.T) {
 				for _, path := range *called {
 					require.NotEqual(t, authPath, path, "provider resolution should have been skipped")
 				}
+			}
+		})
+	}
+}
+
+// writeManifestFixture writes a minimal valid manifest.json to dir.
+func writeManifestFixture(t *testing.T, dir string) {
+	t.Helper()
+	m := run.Manifest{
+		SchemaVersion: 1,
+		RunID:         "TEST01",
+		TaskPath:      "tasks/sample.md",
+		TaskTitle:     "Sample",
+		Agent:         "claude-code",
+		BaseSHA:       "abc123",
+		WorkspaceMode: "worktree",
+		CreatedAt:     "2026-01-01T00:00:00Z",
+	}
+	data, err := json.Marshal(m)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "manifest.json"), data, 0o600))
+}
+
+// writeStatusFixture writes a minimal valid status.json to dir.
+func writeStatusFixture(t *testing.T, dir string) {
+	t.Helper()
+	s := runner.Status{
+		SchemaVersion: 1,
+		State:         runner.StateSuccess,
+		StartedAt:     "2026-01-01T00:00:00Z",
+		FinishedAt:    "2026-01-01T00:01:00Z",
+	}
+	data, err := json.Marshal(s)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "status.json"), data, 0o600))
+}
+
+func TestAppendIndexEntry_Warnings(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		setup       func(t *testing.T, evidenceDir, repoRoot string)
+		wantWarning string
+	}{
+		{
+			name:        "manifest_read_failure",
+			setup:       func(t *testing.T, evidenceDir, repoRoot string) {},
+			wantWarning: "read manifest",
+		},
+		{
+			name: "status_read_failure",
+			setup: func(t *testing.T, evidenceDir, repoRoot string) {
+				writeManifestFixture(t, evidenceDir)
+			},
+			wantWarning: "read status",
+		},
+		{
+			name: "append_failure",
+			setup: func(t *testing.T, evidenceDir, repoRoot string) {
+				writeManifestFixture(t, evidenceDir)
+				writeStatusFixture(t, evidenceDir)
+				runsDir := filepath.Join(repoRoot, ".tessariq", "runs")
+				require.NoError(t, os.MkdirAll(runsDir, 0o700))
+				require.NoError(t, os.Chmod(runsDir, 0o444))
+				t.Cleanup(func() { os.Chmod(runsDir, 0o700) })
+			},
+			wantWarning: "open index file",
+		},
+		{
+			name: "success_no_warning",
+			setup: func(t *testing.T, evidenceDir, repoRoot string) {
+				writeManifestFixture(t, evidenceDir)
+				writeStatusFixture(t, evidenceDir)
+				runsDir := filepath.Join(repoRoot, ".tessariq", "runs")
+				require.NoError(t, os.MkdirAll(runsDir, 0o700))
+			},
+			wantWarning: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			evidenceDir := t.TempDir()
+			repoRoot := t.TempDir()
+			tt.setup(t, evidenceDir, repoRoot)
+
+			var buf bytes.Buffer
+			appendIndexEntry(&buf, repoRoot, evidenceDir)
+
+			if tt.wantWarning != "" {
+				require.Contains(t, buf.String(), "warning:")
+				require.Contains(t, buf.String(), tt.wantWarning)
+			} else {
+				require.Empty(t, buf.String())
+			}
+		})
+	}
+}
+
+func TestAppendRunningIndexEntry_Warnings(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		setup       func(t *testing.T, evidenceDir, repoRoot string)
+		wantWarning string
+	}{
+		{
+			name:        "manifest_read_failure",
+			setup:       func(t *testing.T, evidenceDir, repoRoot string) {},
+			wantWarning: "read manifest",
+		},
+		{
+			name: "append_failure",
+			setup: func(t *testing.T, evidenceDir, repoRoot string) {
+				writeManifestFixture(t, evidenceDir)
+				runsDir := filepath.Join(repoRoot, ".tessariq", "runs")
+				require.NoError(t, os.MkdirAll(runsDir, 0o700))
+				require.NoError(t, os.Chmod(runsDir, 0o444))
+				t.Cleanup(func() { os.Chmod(runsDir, 0o700) })
+			},
+			wantWarning: "open index file",
+		},
+		{
+			name: "success_no_warning",
+			setup: func(t *testing.T, evidenceDir, repoRoot string) {
+				writeManifestFixture(t, evidenceDir)
+				runsDir := filepath.Join(repoRoot, ".tessariq", "runs")
+				require.NoError(t, os.MkdirAll(runsDir, 0o700))
+			},
+			wantWarning: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			evidenceDir := t.TempDir()
+			repoRoot := t.TempDir()
+			tt.setup(t, evidenceDir, repoRoot)
+
+			var buf bytes.Buffer
+			appendRunningIndexEntry(&buf, repoRoot, evidenceDir)
+
+			if tt.wantWarning != "" {
+				require.Contains(t, buf.String(), "warning:")
+				require.Contains(t, buf.String(), tt.wantWarning)
+			} else {
+				require.Empty(t, buf.String())
 			}
 		})
 	}

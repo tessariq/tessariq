@@ -1218,3 +1218,25 @@ func TestE2E_CappedRunLogWithOversizedOutput(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 0, grepCode, "run.log must contain truncation marker at end")
 }
+
+func TestE2E_IndexAppendFailureEmitsWarning(t *testing.T) {
+	bin := buildBinary(t)
+	env := setupRunEnv(t, bin, 0)
+
+	ctx := context.Background()
+	hostDir := env.Dir()
+	repoPath := filepath.Join(hostDir, "repo")
+
+	// Place a directory at index.jsonl path so AppendIndex's OpenFile fails
+	// while the rest of the run succeeds normally.
+	indexPath := filepath.Join(repoPath, ".tessariq", "runs", "index.jsonl")
+	code, out, err := env.Exec(ctx, []string{"sh", "-c",
+		fmt.Sprintf("rm -f %s && mkdir %s", indexPath, indexPath)})
+	require.NoError(t, err)
+	require.Equal(t, 0, code, "index.jsonl dir setup failed: %s", out)
+
+	code, output := runTessariq(t, env, "claude", "")
+	require.Equal(t, 0, code, "run should succeed despite index failure: %s", output)
+	require.Contains(t, output, "warning: index entry skipped:",
+		"expected index warning in output: %s", output)
+}
