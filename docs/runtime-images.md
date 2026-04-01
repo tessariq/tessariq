@@ -66,8 +66,10 @@ Build and use:
 
 ```sh
 docker build -t my-claude-runtime:v1 .
-tessariq run --image my-claude-runtime:v1 --task "fix the login bug"
+tessariq run tasks/fix-login-bug.md --image my-claude-runtime:v1
 ```
+
+`<task-path>` must be a Markdown file inside the current repository.
 
 ### Example: Adding OpenCode
 
@@ -84,7 +86,7 @@ USER tessariq
 Override the runtime image for any run with `--image`:
 
 ```sh
-tessariq run --image my-registry/my-runtime:v1 --task "implement feature X"
+tessariq run tasks/implement-feature-x.md --image my-registry/my-runtime:v1
 ```
 
 The selected agent binary must be present in the specified image.
