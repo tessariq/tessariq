@@ -139,6 +139,11 @@ func (r *Runner) runDetachedProcess(ctx context.Context, startedAt time.Time, lo
 		proc.SetOutput(logs.RunLog, logs.RunLog)
 	}
 
+	fmt.Fprintf(logs.RunLog, "[%s] process output start\n", r.clock().UTC().Format(time.RFC3339))
+	defer func() {
+		fmt.Fprintf(logs.RunLog, "[%s] process output end\n", r.clock().UTC().Format(time.RFC3339))
+	}()
+
 	if err := r.Process.Start(timeoutCtx); err != nil {
 		fmt.Fprintf(logs.RunnerLog, "[%s] process start failed: %s\n", r.clock().UTC().Format(time.RFC3339), err)
 		return 1, false, StateFailed
@@ -195,6 +200,11 @@ func (r *Runner) runInteractiveProcess(ctx context.Context, startedAt time.Time,
 	} else if proc, ok := r.Process.(outputConfigurer); ok {
 		proc.SetOutput(logs.RunLog, logs.RunLog)
 	}
+
+	fmt.Fprintf(logs.RunLog, "[%s] process output start\n", r.clock().UTC().Format(time.RFC3339))
+	defer func() {
+		fmt.Fprintf(logs.RunLog, "[%s] process output end\n", r.clock().UTC().Format(time.RFC3339))
+	}()
 
 	if err := r.Process.Start(ctx); err != nil {
 		fmt.Fprintf(logs.RunnerLog, "[%s] process start failed: %s\n", r.clock().UTC().Format(time.RFC3339), err)

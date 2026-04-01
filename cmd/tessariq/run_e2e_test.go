@@ -43,14 +43,12 @@ func findModuleRoot(t *testing.T) string {
 	}
 }
 
-const repoDir = "/work/repo"
-
 // setupRunEnv creates a RunEnv container, copies the tessariq binary into it,
 // builds a test Docker image with the fake agent binary, and initialises a git
 // repo with a sample task file inside the container.
 //
-// HOME is set to /work/home so that worktree paths are under the bind mount and
-// accessible to sibling containers via the Docker socket.
+// HOME is set to <hostDir>/home so that worktree, evidence, and auth paths
+// are host-absolute and accessible to sibling containers via the Docker socket.
 func setupRunEnv(t *testing.T, bin string, claudeExitCode int) *containers.RunEnv {
 	return setupRunEnvForBinary(t, bin, "claude", claudeExitCode)
 }
@@ -67,6 +65,10 @@ func setupRunEnvForBinary(t *testing.T, bin string, binaryName string, exitCode 
 
 // setupRunEnvWithScript creates a RunEnv container with a custom fake agent
 // script, builds a test Docker image, and initialises a git repo.
+//
+// Paths for HOME and the repo use env.Dir() (the host temp dir) so that
+// tessariq-computed mount paths are host-absolute and work with the Docker
+// socket sibling container pattern.
 func setupRunEnvWithScript(t *testing.T, bin string, binaryName string, scriptBody string) *containers.RunEnv {
 	t.Helper()
 
@@ -74,16 +76,20 @@ func setupRunEnvWithScript(t *testing.T, bin string, binaryName string, scriptBo
 	env, err := containers.StartRunEnvWithScript(ctx, t, binaryName, scriptBody)
 	require.NoError(t, err)
 
+	hostDir := env.Dir()
+	repoPath := filepath.Join(hostDir, "repo")
+	homeDir := filepath.Join(hostDir, "home")
+
 	// Copy the tessariq binary into the bind-mounted dir.
 	binData, err := os.ReadFile(bin)
 	require.NoError(t, err)
-	destBin := filepath.Join(env.Dir(), "tessariq")
+	destBin := filepath.Join(hostDir, "tessariq")
 	require.NoError(t, os.WriteFile(destBin, binData, 0o755))
 
-	// Set HOME to /work/home so worktrees land under the bind mount.
+	// Set HOME to a host-absolute path so worktrees and auth paths
+	// are valid on the host Docker daemon for sibling container mounts.
 	homeSetup := []string{
-		"mkdir -p /work/home",
-		"export HOME=/work/home",
+		fmt.Sprintf("mkdir -p %s", homeDir),
 	}
 	for _, cmd := range homeSetup {
 		code, out, execErr := env.Exec(ctx, []string{"sh", "-c", cmd})
@@ -92,7 +98,7 @@ func setupRunEnvWithScript(t *testing.T, bin string, binaryName string, scriptBo
 	}
 
 	// Build a test Docker image with the fake agent binary.
-	// The image includes a tessariq user matching the reference image contract.
+	// docker-cli reads from the container filesystem, so /work paths are fine.
 	buildCmds := []string{
 		fmt.Sprintf(`cat > /work/Dockerfile.test <<'DEOF'
 FROM alpine:latest
@@ -122,14 +128,14 @@ DEOF`, binaryName, binaryName),
 	switch binaryName {
 	case "claude":
 		authCmds = []string{
-			"mkdir -p /work/home/.claude",
-			`printf '{"token":"fake"}' > /work/home/.claude/.credentials.json`,
-			`printf '{}' > /work/home/.claude.json`,
+			fmt.Sprintf("mkdir -p %s/.claude", homeDir),
+			fmt.Sprintf(`printf '{"token":"fake"}' > %s/.claude/.credentials.json`, homeDir),
+			fmt.Sprintf(`printf '{}' > %s/.claude.json`, homeDir),
 		}
 	case "opencode":
 		authCmds = []string{
-			"mkdir -p /work/home/.local/share/opencode",
-			`printf '{"token":"fake","provider":"https://api.example.com"}' > /work/home/.local/share/opencode/auth.json`,
+			fmt.Sprintf("mkdir -p %s/.local/share/opencode", homeDir),
+			fmt.Sprintf(`printf '{"token":"fake","provider":"https://api.example.com"}' > %s/.local/share/opencode/auth.json`, homeDir),
 		}
 	}
 	for _, cmd := range authCmds {
@@ -139,17 +145,18 @@ DEOF`, binaryName, binaryName),
 	}
 
 	// Init a git repo inside the container.
+	binPath := filepath.Join(hostDir, "tessariq")
 	cmds := []string{
-		"mkdir -p " + repoDir + "/tasks",
-		"git init " + repoDir,
-		"git -C " + repoDir + " config user.email test@test.com",
-		"git -C " + repoDir + " config user.name Test",
-		"printf '# Sample Task\\n\\nDo something.\\n' > " + repoDir + "/tasks/sample.md",
-		"git -C " + repoDir + " add -A",
-		"git -C " + repoDir + " commit -m initial",
-		"cd " + repoDir + " && HOME=/work/home /work/tessariq init",
-		"git -C " + repoDir + " add -A",
-		"git -C " + repoDir + " commit -m 'add tessariq config'",
+		fmt.Sprintf("mkdir -p %s/tasks", repoPath),
+		fmt.Sprintf("git init %s", repoPath),
+		fmt.Sprintf("git -C %s config user.email test@test.com", repoPath),
+		fmt.Sprintf("git -C %s config user.name Test", repoPath),
+		fmt.Sprintf("printf '# Sample Task\\n\\nDo something.\\n' > %s/tasks/sample.md", repoPath),
+		fmt.Sprintf("git -C %s add -A", repoPath),
+		fmt.Sprintf("git -C %s commit -m initial", repoPath),
+		fmt.Sprintf("cd %s && HOME=%s %s init", repoPath, homeDir, binPath),
+		fmt.Sprintf("git -C %s add -A", repoPath),
+		fmt.Sprintf("git -C %s commit -m 'add tessariq config'", repoPath),
 	}
 
 	for _, cmd := range cmds {
@@ -166,8 +173,12 @@ DEOF`, binaryName, binaryName),
 func runTessariq(t *testing.T, env *containers.RunEnv, binaryName, extraFlags string) (int, string) {
 	t.Helper()
 	ctx := context.Background()
+	hostDir := env.Dir()
+	repoPath := filepath.Join(hostDir, "repo")
+	homeDir := filepath.Join(hostDir, "home")
+	binPath := filepath.Join(hostDir, "tessariq")
 	imgFlag := fmt.Sprintf("--image tessariq-test-agent-%s", binaryName)
-	cmd := fmt.Sprintf("cd %s && HOME=/work/home /work/tessariq run %s %s tasks/sample.md", repoDir, imgFlag, extraFlags)
+	cmd := fmt.Sprintf("cd %s && HOME=%s %s run %s %s tasks/sample.md", repoPath, homeDir, binPath, imgFlag, extraFlags)
 	code, output, err := env.Exec(ctx, []string{"sh", "-c", cmd})
 	require.NoError(t, err)
 	return code, output
@@ -295,15 +306,19 @@ func TestE2E_OpenCodeEgressAutoFailsWhenProviderUnresolvable(t *testing.T) {
 	env, err := containers.StartRunEnvForBinary(ctx, t, "opencode", 0)
 	require.NoError(t, err)
 
+	hostDir := env.Dir()
+	repoPath := filepath.Join(hostDir, "repo")
+	homeDir := filepath.Join(hostDir, "home")
+	binPath := filepath.Join(hostDir, "tessariq")
+
 	// Copy the tessariq binary.
 	binData, readErr := os.ReadFile(bin)
 	require.NoError(t, readErr)
-	destBin := filepath.Join(env.Dir(), "tessariq")
-	require.NoError(t, os.WriteFile(destBin, binData, 0o755))
+	require.NoError(t, os.WriteFile(binPath, binData, 0o755))
 
 	// Setup HOME under bind mount.
 	setupCmds := []string{
-		"mkdir -p /work/home",
+		fmt.Sprintf("mkdir -p %s", homeDir),
 	}
 	for _, cmd := range setupCmds {
 		code, out, execErr := env.Exec(ctx, []string{"sh", "-c", cmd})
@@ -313,8 +328,8 @@ func TestE2E_OpenCodeEgressAutoFailsWhenProviderUnresolvable(t *testing.T) {
 
 	// Create auth.json WITHOUT provider info.
 	authCmds := []string{
-		"mkdir -p /work/home/.local/share/opencode",
-		`printf '{"token":"fake"}' > /work/home/.local/share/opencode/auth.json`,
+		fmt.Sprintf("mkdir -p %s/.local/share/opencode", homeDir),
+		fmt.Sprintf(`printf '{"token":"fake"}' > %s/.local/share/opencode/auth.json`, homeDir),
 	}
 	for _, cmd := range authCmds {
 		code, out, execErr := env.Exec(ctx, []string{"sh", "-c", cmd})
@@ -324,16 +339,16 @@ func TestE2E_OpenCodeEgressAutoFailsWhenProviderUnresolvable(t *testing.T) {
 
 	// Init git repo.
 	cmds := []string{
-		"mkdir -p " + repoDir + "/tasks",
-		"git init " + repoDir,
-		"git -C " + repoDir + " config user.email test@test.com",
-		"git -C " + repoDir + " config user.name Test",
-		"printf '# Sample Task\\n\\nDo something.\\n' > " + repoDir + "/tasks/sample.md",
-		"git -C " + repoDir + " add -A",
-		"git -C " + repoDir + " commit -m initial",
-		"cd " + repoDir + " && HOME=/work/home /work/tessariq init",
-		"git -C " + repoDir + " add -A",
-		"git -C " + repoDir + " commit -m 'add tessariq config'",
+		fmt.Sprintf("mkdir -p %s/tasks", repoPath),
+		fmt.Sprintf("git init %s", repoPath),
+		fmt.Sprintf("git -C %s config user.email test@test.com", repoPath),
+		fmt.Sprintf("git -C %s config user.name Test", repoPath),
+		fmt.Sprintf("printf '# Sample Task\\n\\nDo something.\\n' > %s/tasks/sample.md", repoPath),
+		fmt.Sprintf("git -C %s add -A", repoPath),
+		fmt.Sprintf("git -C %s commit -m initial", repoPath),
+		fmt.Sprintf("cd %s && HOME=%s %s init", repoPath, homeDir, binPath),
+		fmt.Sprintf("git -C %s add -A", repoPath),
+		fmt.Sprintf("git -C %s commit -m 'add tessariq config'", repoPath),
 	}
 	for _, cmd := range cmds {
 		code, out, execErr := env.Exec(ctx, []string{"sh", "-c", cmd})
@@ -343,7 +358,7 @@ func TestE2E_OpenCodeEgressAutoFailsWhenProviderUnresolvable(t *testing.T) {
 
 	// Run with --agent opencode (default egress=auto) — should fail before container start.
 	code, output, err := env.Exec(ctx, []string{"sh", "-c",
-		"cd " + repoDir + " && HOME=/work/home /work/tessariq run --agent opencode tasks/sample.md"})
+		fmt.Sprintf("cd %s && HOME=%s %s run --agent opencode tasks/sample.md", repoPath, homeDir, binPath)})
 	require.NoError(t, err)
 	require.NotEqual(t, 0, code, "run should fail when provider unresolvable")
 	require.Contains(t, output, "configure the provider")
@@ -354,11 +369,17 @@ func TestE2E_InitFailsWithActionableGuidanceWhenGitMissing(t *testing.T) {
 	bin := buildBinary(t)
 	env := setupRunEnv(t, bin, 0)
 
+	hostDir := env.Dir()
+	repoPath := filepath.Join(hostDir, "repo")
+	homeDir := filepath.Join(hostDir, "home")
+	binPath := filepath.Join(hostDir, "tessariq")
+
 	ctx := context.Background()
 	_, _, err := env.Exec(ctx, []string{"sh", "-c", "mkdir -p /work/bin-empty"})
 	require.NoError(t, err)
 
-	code, output, err := env.Exec(ctx, []string{"sh", "-c", "cd " + repoDir + " && PATH=/work/bin-empty HOME=/work/home /work/tessariq init"})
+	code, output, err := env.Exec(ctx, []string{"sh", "-c",
+		fmt.Sprintf("cd %s && PATH=/work/bin-empty HOME=%s %s init", repoPath, homeDir, binPath)})
 	require.NoError(t, err)
 	require.NotEqual(t, 0, code)
 	require.Contains(t, output, "required host prerequisite \"git\" is missing or unavailable")
@@ -397,13 +418,19 @@ func TestE2E_RunFailsWithActionableGuidanceWhenTmuxMissing(t *testing.T) {
 	bin := buildBinary(t)
 	env := setupRunEnv(t, bin, 0)
 
+	hostDir := env.Dir()
+	repoPath := filepath.Join(hostDir, "repo")
+	homeDir := filepath.Join(hostDir, "home")
+	binPath := filepath.Join(hostDir, "tessariq")
+
 	ctx := context.Background()
 	// Create a bin dir with only git and docker but not tmux.
 	_, _, err := env.Exec(ctx, []string{"sh", "-c",
 		"mkdir -p /work/bin && ln -sf $(command -v git) /work/bin/git && ln -sf $(command -v docker) /work/bin/docker"})
 	require.NoError(t, err)
 
-	code, output, err := env.Exec(ctx, []string{"sh", "-c", "cd " + repoDir + " && PATH=/work/bin HOME=/work/home /work/tessariq run tasks/sample.md"})
+	code, output, err := env.Exec(ctx, []string{"sh", "-c",
+		fmt.Sprintf("cd %s && PATH=/work/bin HOME=%s %s run tasks/sample.md", repoPath, homeDir, binPath)})
 	require.NoError(t, err)
 	require.NotEqual(t, 0, code)
 	require.Contains(t, output, "required host prerequisite \"tmux\" is missing or unavailable")
@@ -417,13 +444,19 @@ func TestE2E_RunFailsWithActionableGuidanceWhenDockerMissing(t *testing.T) {
 	bin := buildBinary(t)
 	env := setupRunEnv(t, bin, 0)
 
+	hostDir := env.Dir()
+	repoPath := filepath.Join(hostDir, "repo")
+	homeDir := filepath.Join(hostDir, "home")
+	binPath := filepath.Join(hostDir, "tessariq")
+
 	ctx := context.Background()
 	// Create a bin dir with git and tmux but not docker.
 	_, _, err := env.Exec(ctx, []string{"sh", "-c",
 		"mkdir -p /work/bin && ln -sf $(command -v git) /work/bin/git && ln -sf $(command -v tmux) /work/bin/tmux"})
 	require.NoError(t, err)
 
-	code, output, err := env.Exec(ctx, []string{"sh", "-c", "cd " + repoDir + " && PATH=/work/bin HOME=/work/home /work/tessariq run tasks/sample.md"})
+	code, output, err := env.Exec(ctx, []string{"sh", "-c",
+		fmt.Sprintf("cd %s && PATH=/work/bin HOME=%s %s run tasks/sample.md", repoPath, homeDir, binPath)})
 	require.NoError(t, err)
 	require.NotEqual(t, 0, code)
 	require.Contains(t, output, "required host prerequisite \"docker\" is missing or unavailable")
@@ -594,5 +627,108 @@ func TestE2E_ProxyModeWritesEgressEvidence(t *testing.T) {
 		require.NoError(t, fErr, "%s stat failed", f)
 		require.Equal(t, 0, fCode, "%s must exist", f)
 		require.Equal(t, "600", strings.TrimSpace(fOut), "%s must be 0600", f)
+	}
+}
+
+func TestE2E_DiffArtifactsWrittenWhenChangesExist(t *testing.T) {
+	bin := buildBinary(t)
+	// Agent script creates a file in the worktree to produce a diff.
+	env := setupRunEnvWithScript(t, bin, "claude", "echo hello > /work/newfile.txt; exit 0")
+
+	code, output := runTessariq(t, env, "claude", "--egress open")
+	require.Equal(t, 0, code, "run failed: %s", output)
+
+	evidencePath := extractField(output, "evidence_path")
+	require.NotEmpty(t, evidencePath)
+
+	ctx := context.Background()
+
+	// diff.patch should exist and contain the new file.
+	catCode, patchData, err := env.Exec(ctx, []string{"cat", filepath.Join(evidencePath, "diff.patch")})
+	require.NoError(t, err)
+	require.Equal(t, 0, catCode, "diff.patch must exist: %s", patchData)
+	require.Contains(t, patchData, "newfile.txt")
+
+	// diffstat.txt should exist and reference the new file.
+	catCode, statData, err := env.Exec(ctx, []string{"cat", filepath.Join(evidencePath, "diffstat.txt")})
+	require.NoError(t, err)
+	require.Equal(t, 0, catCode, "diffstat.txt must exist: %s", statData)
+	require.Contains(t, statData, "newfile.txt")
+
+	// Verify 0600 permissions.
+	for _, f := range []string{"diff.patch", "diffstat.txt"} {
+		fPath := filepath.Join(evidencePath, f)
+		fCode, fOut, fErr := env.Exec(ctx, []string{"sh", "-c",
+			fmt.Sprintf("stat -c '%%a' %s", fPath)})
+		require.NoError(t, fErr, "%s stat failed", f)
+		require.Equal(t, 0, fCode, "%s must exist", f)
+		require.Equal(t, "600", strings.TrimSpace(fOut), "%s must be 0600", f)
+	}
+}
+
+func TestE2E_DiffArtifactsAbsentWhenNoChanges(t *testing.T) {
+	bin := buildBinary(t)
+	// Agent exits immediately with no changes.
+	env := setupRunEnv(t, bin, 0)
+
+	code, output := runTessariq(t, env, "claude", "--egress open")
+	require.Equal(t, 0, code, "run failed: %s", output)
+
+	evidencePath := extractField(output, "evidence_path")
+	require.NotEmpty(t, evidencePath)
+
+	ctx := context.Background()
+
+	// diff.patch should NOT exist.
+	catCode, _, _ := env.Exec(ctx, []string{"sh", "-c",
+		fmt.Sprintf("test -f %s", filepath.Join(evidencePath, "diff.patch"))})
+	require.NotEqual(t, 0, catCode, "diff.patch must not exist when there are no changes")
+
+	// diffstat.txt should NOT exist.
+	catCode, _, _ = env.Exec(ctx, []string{"sh", "-c",
+		fmt.Sprintf("test -f %s", filepath.Join(evidencePath, "diffstat.txt"))})
+	require.NotEqual(t, 0, catCode, "diffstat.txt must not exist when there are no changes")
+}
+
+func TestE2E_EvidenceCompletenessAllRequiredFiles(t *testing.T) {
+	bin := buildBinary(t)
+	env := setupRunEnv(t, bin, 0)
+
+	code, output := runTessariq(t, env, "claude", "--egress open")
+	require.Equal(t, 0, code, "run failed: %s", output)
+
+	evidencePath := extractField(output, "evidence_path")
+	require.NotEmpty(t, evidencePath)
+
+	ctx := context.Background()
+
+	// All 8 required evidence files must exist and be non-empty.
+	requiredFiles := []string{
+		"manifest.json", "status.json", "agent.json",
+		"runtime.json", "run.log", "runner.log", "task.md",
+		"workspace.json",
+	}
+	for _, f := range requiredFiles {
+		fPath := filepath.Join(evidencePath, f)
+		catCode, data, err := env.Exec(ctx, []string{"cat", fPath})
+		require.NoError(t, err, "%s exec failed", f)
+		require.Equal(t, 0, catCode, "%s must exist", f)
+		require.NotEmpty(t, data, "%s must be non-empty", f)
+	}
+
+	// JSON artifacts must have schema_version: 1.
+	jsonFiles := []string{"manifest.json", "status.json", "agent.json", "runtime.json", "workspace.json"}
+	for _, f := range jsonFiles {
+		fPath := filepath.Join(evidencePath, f)
+		_, data, err := env.Exec(ctx, []string{"cat", fPath})
+		require.NoError(t, err)
+
+		var raw map[string]json.RawMessage
+		require.NoError(t, json.Unmarshal([]byte(data), &raw), "%s must be valid JSON", f)
+		require.Contains(t, raw, "schema_version", "%s must have schema_version", f)
+
+		var version int
+		require.NoError(t, json.Unmarshal(raw["schema_version"], &version), "%s schema_version must be int", f)
+		require.Equal(t, 1, version, "%s schema_version must be 1", f)
 	}
 }
