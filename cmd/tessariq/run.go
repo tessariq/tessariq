@@ -196,7 +196,7 @@ func newRunCmd() *cobra.Command {
 
 			containerName := run.ContainerName(runID)
 			sessionName := run.SessionName(runID)
-			appendRunningIndexEntry(root, evidenceDir)
+			appendRunningIndexEntry(cmd.ErrOrStderr(), root, evidenceDir)
 
 			if agentProc.AgentInfo.Applied["interactive"] && !cfg.Attach {
 				fmt.Fprintf(cmd.ErrOrStderr(), "note: interactive mode without --attach; use 'tmux attach -t %s' to provide approval input\n", sessionName)
@@ -217,7 +217,7 @@ func newRunCmd() *cobra.Command {
 			_ = runner.WriteDiffArtifacts(cmd.Context(), evidenceDir, wsPath, baseSHA)
 
 			// Append index entry after run completes (even on failure).
-			appendIndexEntry(root, evidenceDir)
+			appendIndexEntry(cmd.ErrOrStderr(), root, evidenceDir)
 
 			// Print blocked egress destinations if proxy mode was active.
 			if proxyEnv != nil {
@@ -322,34 +322,41 @@ func resolveRunAllowlist(cfg run.Config, homeDir, resolvedEgress string) (*run.A
 
 // appendRunningIndexEntry appends the initial running entry so attach can
 // resolve live runs through the shared repository index.
-func appendRunningIndexEntry(repoRoot, evidenceDir string) {
+func appendRunningIndexEntry(w io.Writer, repoRoot, evidenceDir string) {
 	manifest, err := run.ReadManifest(evidenceDir)
 	if err != nil {
+		fmt.Fprintf(w, "warning: index entry skipped: %s\n", err)
 		return
 	}
 
 	entry := run.IndexEntryFromManifest(manifest, string(runner.StateRunning))
 	runsDir := filepath.Join(repoRoot, ".tessariq", "runs")
-	_ = run.AppendIndex(runsDir, entry)
+	if err := run.AppendIndex(runsDir, entry); err != nil {
+		fmt.Fprintf(w, "warning: index entry skipped: %s\n", err)
+	}
 }
 
 // appendIndexEntry reads the manifest and status from the evidence directory
-// and appends an entry to index.jsonl. Errors are silently ignored because
-// the index is supplementary to the primary evidence artifacts.
-func appendIndexEntry(repoRoot, evidenceDir string) {
+// and appends an entry to index.jsonl. The index is supplementary to primary
+// evidence artifacts, so failures emit a warning instead of failing the run.
+func appendIndexEntry(w io.Writer, repoRoot, evidenceDir string) {
 	manifest, err := run.ReadManifest(evidenceDir)
 	if err != nil {
+		fmt.Fprintf(w, "warning: index entry skipped: %s\n", err)
 		return
 	}
 
 	status, err := runner.ReadStatus(evidenceDir)
 	if err != nil {
+		fmt.Fprintf(w, "warning: index entry skipped: %s\n", err)
 		return
 	}
 
 	entry := run.IndexEntryFromManifest(manifest, string(status.State))
 	runsDir := filepath.Join(repoRoot, ".tessariq", "runs")
-	_ = run.AppendIndex(runsDir, entry)
+	if err := run.AppendIndex(runsDir, entry); err != nil {
+		fmt.Fprintf(w, "warning: index entry skipped: %s\n", err)
+	}
 }
 
 // printBlockedDestinations reads egress events and prints guidance for blocked destinations.

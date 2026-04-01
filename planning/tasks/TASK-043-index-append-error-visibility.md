@@ -1,7 +1,7 @@
 ---
 id: TASK-043-index-append-error-visibility
 title: Make run index append failures visible to users
-status: todo
+status: done
 priority: p0
 depends_on:
     - TASK-014-run-index-and-run-ref-resolution
@@ -12,7 +12,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#tessariq-attach-run-ref
     - specs/tessariq-v0.1.0.md#tessariq-promote-run-ref
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-04-01T13:05:00Z"
+updated_at: "2026-04-01T18:06:11Z"
 areas:
     - indexing
     - cli
@@ -73,3 +73,4 @@ verification:
 ## Notes
 
 - Likely files: `cmd/tessariq/run.go` and associated tests for run command output/error handling.
+- 2026-04-01T18:06:11Z: appendIndexEntry and appendRunningIndexEntry now emit warnings to stderr on manifest/status read and index append failures; unit tests cover all failure branches plus success path; e2e test confirms warning visible in full CLI run; CHANGELOG updated
