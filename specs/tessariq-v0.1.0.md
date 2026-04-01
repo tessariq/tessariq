@@ -406,7 +406,7 @@ Minimum `manifest.json` shape:
   "workspace_mode": "worktree",
   "requested_egress_mode": "auto",
   "resolved_egress_mode": "proxy",
-  "allowlist_source": "auto",
+  "allowlist_source": "built_in",
   "container_name": "tessariq-01J...",
   "created_at": "2026-01-27T12:00:00Z"
 }
@@ -446,7 +446,7 @@ Required proxy-mode `egress.compiled.yaml` fields:
 
 ```yaml
 schema_version: 1
-allowlist_source: auto
+allowlist_source: built_in
 destinations:
   - host: registry.npmjs.org
     port: 443
