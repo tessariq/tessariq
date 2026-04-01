@@ -6,6 +6,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -50,6 +52,76 @@ func (f *fakeProcess) Signal(_ os.Signal) error {
 func (f *fakeProcess) SetOutputWriter(stdout, stderr io.Writer) {
 	f.stdoutWriter = stdout
 	f.stderrWriter = stderr
+}
+
+// signalRecordingProcess records signals and controls exit behavior per signal type.
+// - exitOnTERM: if true, process exits immediately on SIGTERM; otherwise ignores it.
+// - Always exits on SIGKILL.
+type signalRecordingProcess struct {
+	mu         sync.Mutex
+	signals    []os.Signal
+	exitCode   int
+	exitOnTERM bool
+	waitCh     chan struct{}
+	stdout     *os.File
+	stderr     *os.File
+	onSignal   func(os.Signal) // optional hook called inside Signal before acting
+}
+
+func newSignalRecordingProcess(exitCode int, exitOnTERM bool) *signalRecordingProcess {
+	return &signalRecordingProcess{
+		exitCode:   exitCode,
+		exitOnTERM: exitOnTERM,
+		waitCh:     make(chan struct{}),
+	}
+}
+
+func (s *signalRecordingProcess) Start(_ context.Context) error { return nil }
+
+func (s *signalRecordingProcess) Wait() (int, error) {
+	<-s.waitCh
+	return s.exitCode, nil
+}
+
+func (s *signalRecordingProcess) Signal(sig os.Signal) error {
+	s.mu.Lock()
+	s.signals = append(s.signals, sig)
+	if s.onSignal != nil {
+		s.onSignal(sig)
+	}
+	s.mu.Unlock()
+
+	switch sig {
+	case syscall.SIGTERM:
+		if s.exitOnTERM {
+			select {
+			case <-s.waitCh:
+			default:
+				close(s.waitCh)
+			}
+		}
+		// If !exitOnTERM, do nothing — process stays alive.
+	case syscall.SIGKILL, os.Kill:
+		select {
+		case <-s.waitCh:
+		default:
+			close(s.waitCh)
+		}
+	}
+	return nil
+}
+
+func (s *signalRecordingProcess) SetOutput(stdout, stderr *os.File) {
+	s.stdout = stdout
+	s.stderr = stderr
+}
+
+func (s *signalRecordingProcess) Signals() []os.Signal {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	result := make([]os.Signal, len(s.signals))
+	copy(result, s.signals)
+	return result
 }
 
 func fixedClock(t time.Time) func() time.Time {
@@ -421,4 +493,94 @@ func TestRunner_EmptySessionName_SkipsSessionStart(t *testing.T) {
 
 	require.NoError(t, r.Run(context.Background()))
 	require.False(t, sess.startCalled)
+}
+
+func TestRunner_TimeoutSendsSIGTERMBeforeSIGKILL(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	proc := newSignalRecordingProcess(0, false) // ignores SIGTERM
+	r := newTestRunner(dir, proc)
+	r.Config.Timeout = 50 * time.Millisecond
+	r.Config.Grace = 30 * time.Millisecond
+
+	require.NoError(t, r.Run(context.Background()))
+
+	s, err := ReadStatus(dir)
+	require.NoError(t, err)
+	require.Equal(t, StateTimeout, s.State)
+	require.True(t, s.TimedOut)
+
+	signals := proc.Signals()
+	require.Len(t, signals, 2, "expected two signals: SIGTERM then SIGKILL")
+	require.Equal(t, syscall.SIGTERM, signals[0], "first signal must be SIGTERM")
+	require.Equal(t, os.Kill, signals[1], "second signal must be SIGKILL")
+}
+
+func TestRunner_TimeoutNoSIGKILLWhenProcessExitsAfterSIGTERM(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	proc := newSignalRecordingProcess(0, true) // exits on SIGTERM
+	r := newTestRunner(dir, proc)
+	r.Config.Timeout = 50 * time.Millisecond
+	r.Config.Grace = 100 * time.Millisecond
+
+	require.NoError(t, r.Run(context.Background()))
+
+	s, err := ReadStatus(dir)
+	require.NoError(t, err)
+	require.Equal(t, StateTimeout, s.State)
+	require.True(t, s.TimedOut)
+
+	signals := proc.Signals()
+	require.Len(t, signals, 1, "expected only SIGTERM, no SIGKILL")
+	require.Equal(t, syscall.SIGTERM, signals[0], "only signal must be SIGTERM")
+}
+
+func TestRunner_TimeoutFlagWrittenBeforeFirstSignal(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	proc := newSignalRecordingProcess(0, true) // exits on SIGTERM
+
+	flagExistedAtSignalTime := false
+	proc.onSignal = func(sig os.Signal) {
+		if sig == syscall.SIGTERM {
+			_, err := os.Stat(filepath.Join(dir, "timeout.flag"))
+			flagExistedAtSignalTime = (err == nil)
+		}
+	}
+
+	r := newTestRunner(dir, proc)
+	r.Config.Timeout = 50 * time.Millisecond
+	r.Config.Grace = 100 * time.Millisecond
+
+	require.NoError(t, r.Run(context.Background()))
+	require.True(t, flagExistedAtSignalTime, "timeout.flag must exist before first signal is sent")
+}
+
+func TestRunner_InteractiveTimeoutSendsSIGTERMFirst(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	proc := newSignalRecordingProcess(0, false) // ignores SIGTERM
+	r := newTestRunner(dir, proc)
+	r.Config.Interactive = true
+	r.Config.Timeout = 50 * time.Millisecond
+	r.Config.Grace = 30 * time.Millisecond
+	r.ContainerName = "tessariq-RUN123"
+	r.Clock = nil // real clock for activity timer
+
+	require.NoError(t, r.Run(context.Background()))
+
+	s, err := ReadStatus(dir)
+	require.NoError(t, err)
+	require.Equal(t, StateTimeout, s.State)
+	require.True(t, s.TimedOut)
+
+	signals := proc.Signals()
+	require.Len(t, signals, 2, "expected two signals: SIGTERM then SIGKILL")
+	require.Equal(t, syscall.SIGTERM, signals[0], "first signal must be SIGTERM")
+	require.Equal(t, os.Kill, signals[1], "second signal must be SIGKILL")
 }

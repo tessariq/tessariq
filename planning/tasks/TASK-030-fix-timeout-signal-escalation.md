@@ -1,7 +1,7 @@
 ---
 id: TASK-030-fix-timeout-signal-escalation
 title: Fix timeout signal escalation to send SIGTERM before SIGKILL
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
@@ -11,7 +11,7 @@ spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#lifecycle-rules
     - specs/tessariq-v0.1.0.md#runner-responsibilities
-updated_at: "2026-03-31T18:00:00Z"
+updated_at: "2026-04-01T10:57:36Z"
 areas:
     - runner
     - container
@@ -80,3 +80,4 @@ This task addresses a gap in TASK-005's implementation. TASK-005 is done and its
 
 - Files likely affected: `internal/runner/runner.go` (timeout handling), `internal/runner/runner_test.go`, `internal/runner/runner_integration_test.go`.
 - The existing `docker stop` command already sends SIGTERM with a configurable grace period before SIGKILL — verify whether the current implementation already uses `docker stop` or sends `os.Kill` directly.
+- 2026-04-01T10:57:36Z: Implemented two-step timeout signal escalation (SIGTERM then SIGKILL). 4 unit tests, 2 integration tests, 5 manual tests all pass. Mutation testing at 85.15% efficacy.
