@@ -198,9 +198,7 @@ func newRunCmd() *cobra.Command {
 			sessionName := run.SessionName(runID)
 			appendRunningIndexEntry(cmd.ErrOrStderr(), root, evidenceDir)
 
-			if agentProc.AgentInfo.Applied["interactive"] && !cfg.Attach {
-				fmt.Fprintf(cmd.ErrOrStderr(), "note: interactive mode without --attach; use 'tmux attach -t %s' to provide approval input\n", sessionName)
-			}
+			printInteractiveNote(cmd.ErrOrStderr(), cfg.Interactive, cfg.Attach, sessionName)
 
 			r := &runner.Runner{
 				RunID:         runID,
@@ -356,6 +354,14 @@ func appendIndexEntry(w io.Writer, repoRoot, evidenceDir string) {
 	runsDir := filepath.Join(repoRoot, ".tessariq", "runs")
 	if err := run.AppendIndex(runsDir, entry); err != nil {
 		fmt.Fprintf(w, "warning: index entry skipped: %s\n", err)
+	}
+}
+
+// printInteractiveNote emits a stderr hint when the user explicitly requested
+// --interactive without --attach, so they know how to reach the session.
+func printInteractiveNote(w io.Writer, interactive, attach bool, sessionName string) {
+	if interactive && !attach {
+		fmt.Fprintf(w, "note: interactive mode without --attach; use 'tmux attach -t %s' to provide approval input\n", sessionName)
 	}
 }
 

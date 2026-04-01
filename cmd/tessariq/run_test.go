@@ -69,6 +69,50 @@ func TestPrintRunOutput_AttachCommandUsesRunID(t *testing.T) {
 	require.Contains(t, output, "tessariq promote MYRUNID")
 }
 
+func TestPrintInteractiveNote(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		interactive bool
+		attach      bool
+		wantNote    bool
+	}{
+		{
+			name:        "default_run_no_note",
+			interactive: false,
+			attach:      false,
+			wantNote:    false,
+		},
+		{
+			name:        "explicit_interactive_without_attach_emits_note",
+			interactive: true,
+			attach:      false,
+			wantNote:    true,
+		},
+		{
+			name:        "interactive_with_attach_no_note",
+			interactive: true,
+			attach:      true,
+			wantNote:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			var buf bytes.Buffer
+			printInteractiveNote(&buf, tt.interactive, tt.attach, "test-session")
+			if tt.wantNote {
+				require.Contains(t, buf.String(), "note: interactive mode without --attach")
+				require.Contains(t, buf.String(), "test-session")
+			} else {
+				require.Empty(t, buf.String())
+			}
+		})
+	}
+}
+
 // fakeReadFile returns a readFile func that serves canned content keyed by
 // suffix match on the path, and tracks which paths were actually read.
 func fakeReadFile(files map[string]string) (func(string) ([]byte, error), *[]string) {
