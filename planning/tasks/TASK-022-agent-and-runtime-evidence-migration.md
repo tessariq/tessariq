@@ -72,4 +72,4 @@ Replace the superseded adapter-centric evidence model with `agent.json`, `runtim
 ## Notes
 
 - This task supersedes the old adapter-evidence model without rewriting the historical done task that introduced it.
-- 2026-03-30T22:06:40Z: Replaced adapter.json with agent.json + runtime.json per v0.1.0 spec. Manifest uses agent field with resolved_egress_mode and allowlist_source. All unit tests pass, e2e tests updated. Evidence: planning/artifacts/verify/task/TASK-022-agent-and-runtime-evidence-migration/20260330T220600Z/report.json, planning/artifacts/manual-test/TASK-022-agent-and-runtime-evidence-migration/20260331T000500Z/report.md
+- 2026-03-30T22:06:40Z: Replaced adapter.json with agent.json + runtime.json per v0.1.0 spec. Manifest uses agent field with resolved_egress_mode and allowlist_source. All unit tests pass, e2e tests updated. Local-only verification and manual-test artifacts generated.

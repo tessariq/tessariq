@@ -68,4 +68,4 @@ Create detached worktrees under `~/.tessariq/worktrees/...` and emit `workspace.
 
 - Keep host path handling portable across Linux and macOS.
 - Mount wiring for `/work` and the separate evidence mount is intentionally owned by later runner/bootstrap tasks.
-- 2026-03-29T19:45:01Z: Worktree provisioning implemented with TDD. Evidence: unit tests (internal/workspace/repoid_test.go, metadata_test.go), integration tests (internal/git/head_integration_test.go, worktree_integration_test.go, internal/workspace/provision_integration_test.go), mutation testing 97.62% efficacy, manual test pass (planning/artifacts/manual-test/TASK-004-.../20260329T194142Z/report.md), verification pass (planning/artifacts/verify/task/TASK-004-.../20260329T194453Z/report.json)
+- 2026-03-29T19:45:01Z: Worktree provisioning implemented with TDD. Evidence: unit tests (internal/workspace/repoid_test.go, metadata_test.go), integration tests (internal/git/head_integration_test.go, worktree_integration_test.go, internal/workspace/provision_integration_test.go), mutation testing 97.62% efficacy, local-only manual-test pass, local-only verification pass.

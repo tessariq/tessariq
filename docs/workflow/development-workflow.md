@@ -75,7 +75,7 @@ After automated test tiers pass, run the `autonomous-manual-test` skill to exerc
    - **Container mode**: `_manual_test.go` files with `//go:build manual_test` tag for tests needing tmux, fake adapter binaries, or full CLI lifecycle.
 3. Failures are classified by severity (critical, major, minor) and resolved inline when possible.
 4. A structured report records all outcomes.
-5. Artifacts are written to `planning/artifacts/manual-test/<task-id>/<timestamp>/`.
+5. Local-only artifacts are written to `planning/artifacts/manual-test/<task-id>/<timestamp>/`.
 
 Container mode manual tests:
 - Place `_manual_test.go` files in the package closest to the code under test.
@@ -86,10 +86,12 @@ Container mode manual tests:
 - Never substitute automated e2e test results for manual test evidence.
 
 Cleanup (critical):
-- Manual test code is **ephemeral** — only artifacts (plan.md, report.md) are persisted.
+- Manual test code is **ephemeral** and `planning/artifacts/` is gitignored.
 - After the report is written, delete all `_manual_test.go` files and `cmd/manual-test-*/` directories.
-- `.gitignore` blocks these patterns as a safety net, but agents must still clean up explicitly.
+- Keep only the local `plan.md` and `report.md` artifacts on disk.
+- `.gitignore` blocks these patterns and `planning/artifacts/` as a safety net, but agents must still clean up explicitly.
 - Never commit manual test code.
+- Never commit files under `planning/artifacts/`.
 
 Manual testing is required before running verification and before finishing a task as `done`.
 
@@ -106,12 +108,13 @@ Manual testing is required before running verification and before finishing a ta
 Notes:
 
 - `verify --profile task` now includes a medium-severity reminder finding when user-visible code changes are detected without updating `CHANGELOG.md`; workflow-tooling-only changes (`cmd/tessariq-workflow/`, `internal/workflow/`) are excluded.
+- `followups` resolves the last verification report from local gitignored artifacts; rerun `verify` first if those local artifacts are missing.
 
 ## Commit Policy For Tracked Tasks
 
 - Use exactly one commit per tracked implementation task.
 - The commit must use a conventional commit message.
-- Include implementation changes, tests, and required workflow/planning artifact updates in that same commit.
+- Include implementation changes, tests, and required workflow/planning metadata updates in that same commit, but do not commit files under `planning/artifacts/`.
 - Do not create a separate follow-up commit only for verification/planning/task metadata updates.
 
 ## Change-Type Matrix

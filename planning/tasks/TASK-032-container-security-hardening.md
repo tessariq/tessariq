@@ -91,4 +91,4 @@ The v0.1.0 spec now requires agent containers to drop all Linux capabilities and
 
 - Files likely affected: `internal/container/process.go` (`buildCreateArgs`), `internal/container/config.go`, `internal/run/manifest.go`, `internal/run/taskcopy.go`, `internal/runner/status.go`, `internal/runner/logs.go`, and evidence writing functions across `internal/run/` and `internal/runner/`.
 - Repair containers need root for `chown` and must NOT get `--cap-drop=ALL`.
-- 2026-03-31T18:00:37Z: Container hardening: --cap-drop=ALL, --security-opt=no-new-privileges added to buildCreateArgs. Evidence permissions: dirs 0o700, files 0o600. Tests: 2 unit + 2 integration (container), 11 unit (permissions), 1 e2e. Mutation testing: 83.48% efficacy. Manual test: planning/artifacts/manual-test/TASK-032-container-security-hardening/20260331T175937Z/
+- 2026-03-31T18:00:37Z: Container hardening: --cap-drop=ALL, --security-opt=no-new-privileges added to buildCreateArgs. Evidence permissions: dirs 0o700, files 0o600. Tests: 2 unit + 2 integration (container), 11 unit (permissions), 1 e2e. Mutation testing: 83.48% efficacy. Local-only manual-test artifacts generated.

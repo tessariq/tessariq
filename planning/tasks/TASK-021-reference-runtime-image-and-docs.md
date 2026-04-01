@@ -77,4 +77,4 @@ Publish the official minimal Tessariq reference runtime image for v0.1.0 and doc
 ## Notes
 
 - This task is intentionally about the safe baseline runtime and its documentation, not upstream third-party agent version tracking.
-- 2026-03-30T22:35:18Z: Dockerfile at runtime/reference/Dockerfile; integration tests at internal/runtime/reference_integration_test.go (3 tests, all pass); docs at docs/runtime-images.md; manual test artifacts at planning/artifacts/manual-test/TASK-021-reference-runtime-image-and-docs/20260331T003300Z/; verification: 0 findings
+- 2026-03-30T22:35:18Z: Dockerfile at runtime/reference/Dockerfile; integration tests at internal/runtime/reference_integration_test.go (3 tests, all pass); docs at docs/runtime-images.md; local-only manual-test artifacts generated; verification: 0 findings

@@ -71,4 +71,4 @@ Implement the first-party `opencode` adapter on top of the shared adapter contra
 ## Notes
 
 - Preserve the evidence contract even when the adapter cannot apply an option exactly.
-- 2026-03-30T18:41:18Z: Implemented opencode adapter with unit tests (18), integration tests (4), e2e tests (2), manual test (1). Binary-not-found wrapping added to both adapters for consistency. Mutation efficacy 94.94%. Evidence: planning/artifacts/verify/task/TASK-010-opencode-adapter/20260330T183958Z/, planning/artifacts/manual-test/TASK-010-opencode-adapter/20260330T204000Z/
+- 2026-03-30T18:41:18Z: Implemented opencode adapter with unit tests (18), integration tests (4), e2e tests (2), manual test (1). Binary-not-found wrapping added to both adapters for consistency. Mutation efficacy 94.94%. Local-only verification and manual-test artifacts generated.

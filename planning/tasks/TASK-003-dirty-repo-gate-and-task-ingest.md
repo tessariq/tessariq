@@ -71,4 +71,4 @@ Fail early on dirty repositories and copy the task file into evidence with stabl
 ## Notes
 
 - Task-path validation is intentionally owned by `TASK-002`; this task stays focused on dirty-repo gating and task ingestion.
-- 2026-03-29T14:46:33Z: Implemented dirty-repo gate (git.IsClean) and task ingestion (ExtractTaskTitle, CopyTaskFile). All 5 acceptance criteria met. Unit tests: 27 passing. Integration tests: 8 passing. Mutation testing: 97.44% efficacy. Verification: 0 findings. Manual test: planning/artifacts/manual-test/TASK-003-dirty-repo-gate-and-task-ingest/2026-03-29T144500Z/
+- 2026-03-29T14:46:33Z: Implemented dirty-repo gate (git.IsClean) and task ingestion (ExtractTaskTitle, CopyTaskFile). All 5 acceptance criteria met. Unit tests: 27 passing. Integration tests: 8 passing. Mutation testing: 97.44% efficacy. Verification: 0 findings. Local-only manual-test artifacts generated.

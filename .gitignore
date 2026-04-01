@@ -48,5 +48,5 @@ docs/superpowers/
 *_manual_test.go
 cmd/manual-test-*/
 
-# Local workflow verification artifacts
+# Local workflow artifacts (gitignored; never committed)
 planning/artifacts/

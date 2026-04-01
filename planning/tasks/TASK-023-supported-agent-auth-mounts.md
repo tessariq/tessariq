@@ -85,4 +85,4 @@ Implement the generic v0.1.0 auth-mount policy for supported agents: per-agent a
 ## Notes
 
 - Agent-specific command and option integration remains in the dedicated supported-agent tasks.
-- 2026-03-31T07:59:16Z: Auth discovery in internal/authmount. Unit tests (9), integration tests (3), 89.63% mutation efficacy. Manual test 11/11 pass. Evidence: planning/artifacts/verify/task/TASK-023-supported-agent-auth-mounts/20260331T075701Z/report.json, planning/artifacts/manual-test/TASK-023-supported-agent-auth-mounts/20260331T080000Z/report.md
+- 2026-03-31T07:59:16Z: Auth discovery in internal/authmount. Unit tests (9), integration tests (3), 89.63% mutation efficacy. Manual test 11/11 pass. Local-only verification and manual-test artifacts generated.

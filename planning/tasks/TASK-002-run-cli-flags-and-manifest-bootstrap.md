@@ -77,5 +77,5 @@ Add `tessariq run <task-path>` command wiring, supported flags, task-path valida
 ## Notes
 
 - Keep printed output and preflight failures aligned with the spec once the run flow becomes executable.
-- 2026-03-29T14:23:26Z: All acceptance criteria met. Unit tests pass (44 scenarios across runid/config/taskpath/manifest), mutation efficacy 83.33%, manual test 11/11 pass. Evidence: planning/artifacts/manual-test/TASK-002-run-cli-flags-and-manifest-bootstrap/2026-03-29T1400Z/report.md, planning/artifacts/verify/task/TASK-002-run-cli-flags-and-manifest-bootstrap/20260329T142309Z/report.json
+- 2026-03-29T14:23:26Z: All acceptance criteria met. Unit tests pass (44 scenarios across runid/config/taskpath/manifest), mutation efficacy 83.33%, manual test 11/11 pass. Local-only manual-test and verification artifacts generated.
 - 2026-03-29T17:30:00Z: Spec changelog renamed `--yolo` to `--interactive` (inverted default) and `--egress-allow-reset` to `--egress-no-defaults`. Code updates are tracked in TASK-018.

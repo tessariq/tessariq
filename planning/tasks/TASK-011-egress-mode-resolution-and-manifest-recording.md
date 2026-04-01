@@ -87,4 +87,4 @@ Implement requested-versus-resolved egress mode handling, user-level allowlist d
 ## Notes
 
 - Keep allowlist normalization, provider-host derivation, and provenance explicit; proxy transport details stay in `TASK-012`.
-- 2026-03-31T09:33:02Z: All acceptance criteria verified. Unit tests: go test ./... green. Mutation testing: 90.91% efficacy (>70% threshold). Manual testing: 12/12 pass. Evidence: planning/artifacts/manual-test/TASK-011-egress-mode-resolution-and-manifest-recording/20260331T093024Z/, planning/artifacts/verify/task/TASK-011-egress-mode-resolution-and-manifest-recording/20260331T093007Z/
+- 2026-03-31T09:33:02Z: All acceptance criteria verified. Unit tests: go test ./... green. Mutation testing: 90.91% efficacy (>70% threshold). Manual testing: 12/12 pass. Local-only manual-test and verification artifacts generated.

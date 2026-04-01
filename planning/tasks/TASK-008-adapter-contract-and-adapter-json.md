@@ -66,4 +66,4 @@ Create shared adapter abstractions and `adapter.json` emission rules for v0.1.0.
 ## Notes
 
 - Keep schema_version stable at `1` for v0.1.0 artifacts.
-- 2026-03-30T15:34:54Z: adapter contract implemented in internal/adapter/info.go; 8 unit tests, 91.25% mutation efficacy, 0 verification findings; manual test artifacts at planning/artifacts/manual-test/TASK-008-adapter-contract-and-adapter-json/20260330T153217Z/
+- 2026-03-30T15:34:54Z: adapter contract implemented in internal/adapter/info.go; 8 unit tests, 91.25% mutation efficacy, 0 verification findings; local-only manual-test artifacts generated.

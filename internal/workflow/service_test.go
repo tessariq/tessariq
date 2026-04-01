@@ -1,6 +1,7 @@
 package workflow
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -460,6 +461,132 @@ func TestCheckManualTestArtifactsSkipsForNonDoneStatus(t *testing.T) {
 	// invokes checkManualTestArtifacts for status "done".
 	err := checkManualTestArtifacts(base, taskID)
 	require.Error(t, err, "the function itself always checks; the caller gates on status")
+}
+
+func TestVerifyDoesNotPersistArtifactPathsInState(t *testing.T) {
+	t.Parallel()
+
+	svc, paths := newTestService(t)
+
+	result, err := svc.Verify(VerifyInput{Profile: "spec", Disposition: "report"})
+	require.NoError(t, err)
+	require.NotEmpty(t, result.ReportPath)
+
+	stateData, err := os.ReadFile(paths.StateFile)
+	require.NoError(t, err)
+	require.NotContains(t, string(stateData), "validation_plan")
+	require.NotContains(t, string(stateData), "validation_report")
+	require.Contains(t, string(stateData), "validation_last_run")
+	require.Contains(t, string(stateData), "validation_checked_at")
+}
+
+func TestCreateFollowupsLoadsLatestLocalReportForRecordedRun(t *testing.T) {
+	t.Parallel()
+
+	svc, paths := newTestService(t)
+	state, err := svc.loadState()
+	require.NoError(t, err)
+
+	generatedAt := "2026-04-01T16:00:00Z"
+	state.Frontmatter.ValidationLastRun = generatedAt
+	state.Frontmatter.ValidationStatus = "failed"
+	state.Frontmatter.ValidationScope = "task:v0.1.0"
+	state.Frontmatter.ValidationCheckedAt = generatedAt
+	require.NoError(t, svc.saveState(state))
+
+	artifactDir := filepath.Join(paths.ArtifactsDir, "verify", "task", "TASK-001-example", "20260401T160000Z")
+	require.NoError(t, os.MkdirAll(artifactDir, 0o755))
+	report := VerificationReport{
+		SchemaVersion:     reportSchemaVersion,
+		Profile:           "task",
+		Disposition:       "report",
+		GeneratedAt:       generatedAt,
+		MilestoneFocus:    "v0.1.0",
+		ActiveSpecVersion: "v0.1.0",
+		ActiveSpecPath:    "specs/tessariq-v0.1.0.md",
+		ArtifactDir:       artifactDir,
+		PlanPath:          filepath.Join(artifactDir, "plan.md"),
+		ReportPath:        filepath.Join(artifactDir, "report.json"),
+		Findings: []Finding{{
+			ID:          "missing-changelog",
+			Title:       "Missing changelog",
+			Severity:    "medium",
+			Status:      "open",
+			SpecVersion: "v0.1.0",
+			SpecRefs:    []string{"specs/tessariq-v0.1.0.md#cli-run"},
+			Details:     "update changelog",
+		}},
+	}
+	reportJSON, err := json.MarshalIndent(report, "", "  ")
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(report.ReportPath, reportJSON, 0o644))
+
+	result, err := svc.CreateFollowups(FollowupsInput{Mode: "create", MinSeverity: "medium"})
+	require.NoError(t, err)
+	require.Equal(t, relPath(paths.RepoRoot, report.ReportPath), result.ReportPath)
+	require.Len(t, result.CreatedTaskIDs, 1)
+
+	createdTask := filepath.Join(paths.TasksDir, result.CreatedTaskIDs[0]+".md")
+	_, err = os.Stat(createdTask)
+	require.NoError(t, err)
+}
+
+func newTestService(t *testing.T) (*Service, Paths) {
+	t.Helper()
+
+	repoRoot := t.TempDir()
+	planningDir := filepath.Join(repoRoot, "planning")
+	tasksDir := filepath.Join(planningDir, "tasks")
+	artifactsDir := filepath.Join(planningDir, "artifacts")
+	specsDir := filepath.Join(repoRoot, "specs")
+	require.NoError(t, os.MkdirAll(tasksDir, 0o755))
+	require.NoError(t, os.MkdirAll(artifactsDir, 0o755))
+	require.NoError(t, os.MkdirAll(specsDir, 0o755))
+
+	specData, err := os.ReadFile(filepath.Join(testRepoRoot(t), "specs", "tessariq-v0.1.0.md"))
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(specsDir, "tessariq-v0.1.0.md"), specData, 0o644))
+
+	state := &State{Frontmatter: StateFrontmatter{
+		SchemaVersion:       stateSchemaVersion,
+		UpdatedAt:           "2026-04-01T15:00:00Z",
+		Mode:                "user_request",
+		RepoState:           "idle",
+		SelectionReason:     "next eligible todo by priority",
+		MilestoneFocus:      "v0.1.0",
+		ActiveSpecVersion:   "v0.1.0",
+		ActiveSpecPath:      "specs/tessariq-v0.1.0.md",
+		StaleAfterMinutes:   180,
+		MaxRetries:          2,
+		ValidationStatus:    "not_run",
+		ValidationCheckedAt: "",
+		NextTasks:           []string{"TASK-001-example"},
+	}}
+	state.Body = renderStateSnapshot(state.Frontmatter, []*Task{taskForTest("TASK-001-example", "todo", "p1", nil)})
+	stateData, err := marshalFrontmatter(state.Frontmatter, state.Body)
+	require.NoError(t, err)
+
+	stateFile := filepath.Join(planningDir, "STATE.md")
+	require.NoError(t, os.WriteFile(stateFile, stateData, 0o644))
+
+	task := taskForTest("TASK-001-example", "todo", "p1", nil)
+	task.Filename = filepath.Join(tasksDir, task.Frontmatter.ID+".md")
+	taskData, err := marshalFrontmatter(task.Frontmatter, task.Body)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(task.Filename, taskData, 0o644))
+
+	paths := Paths{
+		RepoRoot:     repoRoot,
+		PlanningDir:  planningDir,
+		StateFile:    stateFile,
+		TasksDir:     tasksDir,
+		ArtifactsDir: artifactsDir,
+		AgentSkills:  filepath.Join(repoRoot, ".agents", "skills"),
+		ClaudeSkills: filepath.Join(repoRoot, ".claude", "skills"),
+		PrimarySpec:  filepath.Join(specsDir, "tessariq-v0.1.0.md"),
+	}
+
+	return &Service{paths: paths}, paths
 }
 
 func taskForTest(id, status, priority string, refs []string) *Task {

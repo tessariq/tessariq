@@ -13,9 +13,9 @@ Run deterministic verification against Tessariq tracked-work acceptance criteria
 1. Run `go run ./cmd/tessariq-workflow validate-state`.
 2. Choose `task`, `implemented`, or `spec` profile.
 3. Run `go run ./cmd/tessariq-workflow verify --profile <profile> --disposition report --json`.
-4. Confirm plan and report artifacts were written under `planning/artifacts/verify/`.
+4. Confirm local gitignored plan and report artifacts were written under `planning/artifacts/verify/`.
 5. Review unresolved findings.
-6. Run `go run ./cmd/tessariq-workflow followups --mode create --min-severity medium --json` when findings deserve backlog treatment.
+6. Run `go run ./cmd/tessariq-workflow followups --mode create --min-severity medium --json` when findings deserve backlog treatment. If the local verification artifacts are missing, rerun `verify` first.
 7. Run `go run ./cmd/tessariq-workflow refresh-state`.
 
 ## Rules
