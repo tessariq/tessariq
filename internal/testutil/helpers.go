@@ -68,3 +68,11 @@ func WithTestTimeout(t *testing.T, d time.Duration) context.Context {
 	t.Cleanup(cancel)
 	return ctx
 }
+
+// WaitFor polls condition every 200ms until it returns true or timeout
+// elapses, then fails the test. Use this instead of time.Sleep when
+// waiting for an async condition — bare sleeps are fragile and waste time.
+func WaitFor(t *testing.T, timeout time.Duration, condition func() bool, msgAndArgs ...any) {
+	t.Helper()
+	require.Eventually(t, condition, timeout, 200*time.Millisecond, msgAndArgs...)
+}

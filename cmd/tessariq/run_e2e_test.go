@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tessariq/tessariq/internal/adapter"
 	"github.com/tessariq/tessariq/internal/runner"
+	"github.com/tessariq/tessariq/internal/testutil"
 	"github.com/tessariq/tessariq/internal/testutil/containers"
 )
 
@@ -674,10 +675,10 @@ func TestE2E_TmuxSessionShowsDetachedRunOutput(t *testing.T) {
 	require.NotEmpty(t, evidencePath)
 
 	ctx := context.Background()
-	time.Sleep(500 * time.Millisecond)
-	hasSessionCode, hasSessionOutput, err := env.Exec(ctx, []string{"sh", "-c", "tmux has-session -t " + sessionName})
-	require.NoError(t, err)
-	require.Equal(t, 0, hasSessionCode, "tmux session should exist: %s", hasSessionOutput)
+	testutil.WaitFor(t, 5*time.Second, func() bool {
+		code, _, _ := env.Exec(ctx, []string{"sh", "-c", "tmux has-session -t " + sessionName})
+		return code == 0
+	}, "tmux session %s should exist after run completes", sessionName)
 
 	logCode, runLog, err := env.Exec(ctx, []string{"cat", filepath.Join(evidencePath, "run.log")})
 	require.NoError(t, err)
