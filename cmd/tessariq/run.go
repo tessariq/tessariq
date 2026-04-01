@@ -205,6 +205,9 @@ func newRunCmd() *cobra.Command {
 			// Generate diff artifacts when changes exist in the worktree.
 			_ = runner.WriteDiffArtifacts(cmd.Context(), evidenceDir, wsPath, baseSHA)
 
+			// Append index entry after run completes (even on failure).
+			appendIndexEntry(root, evidenceDir)
+
 			// Print blocked egress destinations if proxy mode was active.
 			if proxyEnv != nil {
 				printBlockedDestinations(cmd.ErrOrStderr(), evidenceDir)
@@ -282,6 +285,25 @@ func resolveRunAllowlist(cfg run.Config, homeDir, resolvedEgress string) (*run.A
 	}
 
 	return run.ResolveAllowlist(cfg.EgressAllow, userCfg, builtInStrings, cfg.EgressNoDefaults, resolvedEgress)
+}
+
+// appendIndexEntry reads the manifest and status from the evidence directory
+// and appends an entry to index.jsonl. Errors are silently ignored because
+// the index is supplementary to the primary evidence artifacts.
+func appendIndexEntry(repoRoot, evidenceDir string) {
+	manifest, err := run.ReadManifest(evidenceDir)
+	if err != nil {
+		return
+	}
+
+	status, err := runner.ReadStatus(evidenceDir)
+	if err != nil {
+		return
+	}
+
+	entry := run.IndexEntryFromManifest(manifest, string(status.State))
+	runsDir := filepath.Join(repoRoot, ".tessariq", "runs")
+	_ = run.AppendIndex(runsDir, entry)
 }
 
 // printBlockedDestinations reads egress events and prints guidance for blocked destinations.

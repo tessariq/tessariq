@@ -52,6 +52,21 @@ func ResolveEgressMode(requested string) string {
 	return requested
 }
 
+// ReadManifest reads the manifest from the evidence directory.
+func ReadManifest(evidenceDir string) (Manifest, error) {
+	data, err := os.ReadFile(filepath.Join(evidenceDir, "manifest.json"))
+	if err != nil {
+		return Manifest{}, fmt.Errorf("read manifest: %w", err)
+	}
+
+	var m Manifest
+	if err := json.Unmarshal(data, &m); err != nil {
+		return Manifest{}, fmt.Errorf("parse manifest: %w", err)
+	}
+
+	return m, nil
+}
+
 func WriteManifest(dir string, m Manifest) error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("create evidence directory: %w", err)
