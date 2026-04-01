@@ -1,7 +1,7 @@
 ---
 id: TASK-044-spec-example-allowlist-source-consistency
 title: Align manifest example allowlist_source with normative values
-status: todo
+status: done
 priority: p2
 depends_on:
     - TASK-011-egress-mode-resolution-and-manifest-recording
@@ -9,7 +9,7 @@ milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#evidence-contract
-updated_at: "2026-04-01T13:05:00Z"
+updated_at: "2026-04-01T17:35:54Z"
 areas:
     - specification
     - docs
@@ -64,3 +64,4 @@ The minimum `manifest.json` example in the v0.1.0 spec currently uses `"allowlis
 ## Notes
 
 - This is intentionally a spec-doc task (not an implementation behavior change).
+- 2026-04-01T17:35:54Z: Fixed allowlist_source in manifest.json example (line 409) and egress.compiled.yaml example (line 449) from 'auto' to 'built_in' to match normative text at line 317. Manual test: 3/3 pass. Verification: 0 findings.
