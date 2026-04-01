@@ -152,6 +152,43 @@ func TestRunnerIntegration_EvidenceDurability(t *testing.T) {
 	}
 }
 
+func TestRunnerIntegration_EvidenceCompletenessAllRequired(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+
+	// Write the artifacts that the runner does NOT produce (they come from
+	// other parts of the pipeline: manifest, agent, runtime, workspace, task).
+	extraFiles := map[string]string{
+		"manifest.json":  `{"schema_version":1}`,
+		"agent.json":     `{"schema_version":1}`,
+		"runtime.json":   `{"schema_version":1}`,
+		"workspace.json": `{"schema_version":1}`,
+		"task.md":        "# Task\nDo something.",
+	}
+	for name, content := range extraFiles {
+		require.NoError(t, os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600))
+	}
+
+	r := newIntegrationRunner(dir, newShellProcess("printf test-output"))
+	require.NoError(t, r.Run(context.Background()))
+
+	// All 8 required files must be present and non-empty.
+	err := CheckEvidenceCompleteness(dir)
+	require.NoError(t, err)
+
+	// Validate JSON schema_version on all JSON artifacts.
+	jsonFiles := []string{"manifest.json", "status.json", "agent.json", "runtime.json", "workspace.json"}
+	for _, name := range jsonFiles {
+		data, readErr := os.ReadFile(filepath.Join(dir, name))
+		require.NoError(t, readErr, "%s read", name)
+
+		var raw map[string]json.RawMessage
+		require.NoError(t, json.Unmarshal(data, &raw), "%s JSON parse", name)
+		require.Contains(t, raw, "schema_version", "%s must have schema_version", name)
+	}
+}
+
 func TestRunnerIntegration_PreHookWithRealProcess(t *testing.T) {
 	t.Parallel()
 

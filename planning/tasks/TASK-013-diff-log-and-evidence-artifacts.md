@@ -1,7 +1,7 @@
 ---
 id: TASK-013-diff-log-and-evidence-artifacts
 title: Emit diff, log, agent, and runtime evidence artifacts
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
@@ -13,7 +13,7 @@ spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#evidence-contract
     - specs/tessariq-v0.1.0.md#acceptance-scenarios
-updated_at: "2026-03-30T22:10:00Z"
+updated_at: "2026-03-31T23:04:49Z"
 areas:
     - evidence
     - diff
@@ -74,3 +74,4 @@ Finish required v0.1.0 evidence artifact emission, including diff outputs, cappe
 
 - Required JSON artifacts must keep `schema_version: 1`.
 - Proxy artifact production is owned by `TASK-012`; this task enforces completeness, diff outputs, and capped-log behavior at the end of the run pipeline.
+- 2026-03-31T23:04:49Z: Implemented diff.patch/diffstat.txt generation, log capping with truncation markers, evidence completeness check. All unit tests pass. Manual test: planning/artifacts/manual-test/TASK-013-diff-log-and-evidence-artifacts/20260331T230201Z/report.md. Verification: planning/artifacts/verify/task/TASK-013-diff-log-and-evidence-artifacts/20260331T230442Z/report.json (0 findings).

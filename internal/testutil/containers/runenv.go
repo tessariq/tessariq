@@ -56,6 +56,7 @@ func StartRunEnvWithScript(ctx context.Context, t *testing.T, binaryName string,
 
 	mounts := testcontainers.Mounts(
 		testcontainers.BindMount(hostDir, "/work"),
+		testcontainers.BindMount(hostDir, testcontainers.ContainerMountTarget(hostDir)),
 		testcontainers.BindMount("/var/run/docker.sock", "/var/run/docker.sock"),
 	)
 
