@@ -58,7 +58,9 @@ func StartGitRepo(ctx context.Context, t *testing.T) (*GitRepo, error) {
 	}
 
 	t.Cleanup(func() {
-		_ = container.Terminate(context.Background())
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		_ = container.Terminate(ctx)
 	})
 
 	g := &GitRepo{

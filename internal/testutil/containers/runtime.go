@@ -53,7 +53,9 @@ func StartReferenceRuntime(ctx context.Context, t *testing.T) (*RuntimeEnv, erro
 	}
 
 	t.Cleanup(func() {
-		_ = container.Terminate(context.Background())
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		_ = container.Terminate(ctx)
 	})
 
 	return &RuntimeEnv{Container: container}, nil
