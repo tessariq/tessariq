@@ -163,7 +163,7 @@ Pattern: `Start*` → `t.Cleanup()` handles teardown → use `Exec()` for comman
 
 Rules:
 - Never use local fake binaries, custom local servers, or host-installed tools as process collaborators in integration or e2e tests.
-- Never use `skipIfNoTmux` or similar host-tool guards — the container must provide everything.
+- Never use `skipIfNoTmux` or similar host-tool guards in e2e tests or tests that simulate full CLI flows — the container must provide everything. Host-tool guards are acceptable in package-level integration tests that exercise a specific package's functions against the real tool (e.g., `tmux` package tests, `runner` tmux session tests).
 - When a new process or service collaborator is needed, add a new `Start*` helper to `internal/testutil/containers/` rather than creating ad-hoc local fakes.
 - Wait strategies: use `wait.ForExec` for process-based containers, `wait.ForHTTP` for service containers.
 - Build CLI binaries with `CGO_ENABLED=0` when they run inside Alpine containers (glibc vs musl).
@@ -183,7 +183,7 @@ Rules:
 - Build the CLI binary on the host with `CGO_ENABLED=0`, copy into bind-mount.
 - Run CLI commands inside the container via `env.Exec(ctx, []string{"sh", "-c", "cd /repo && /work/binary ..."})`.
 - Read evidence artifacts from inside the container via `env.Exec(ctx, []string{"cat", path})`.
-- No `skipIfNoTmux` or similar host-tool guards.
+- No `skipIfNoTmux` or similar host-tool guards (containers provide all runtime dependencies).
 
 ### E2e tests with sibling containers
 When tessariq itself creates Docker containers (via `docker create` / `docker start`), e2e tests use the Docker socket mount pattern instead of Docker-in-Docker:

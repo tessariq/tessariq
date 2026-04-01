@@ -3,30 +3,17 @@
 package container_test
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"syscall"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 	"github.com/tessariq/tessariq/internal/container"
+	"github.com/tessariq/tessariq/internal/testutil"
 )
-
-func skipIfNoDocker(t *testing.T) {
-	t.Helper()
-	if _, err := exec.LookPath("docker"); err != nil {
-		t.Skip("docker not available")
-	}
-}
-
-func uniqueName(t *testing.T) string {
-	t.Helper()
-	return fmt.Sprintf("tessariq-test-%d", time.Now().UnixNano())
-}
 
 func cleanupContainer(t *testing.T, name string) {
 	t.Helper()
@@ -37,9 +24,9 @@ func cleanupContainer(t *testing.T, name string) {
 
 func TestContainerLifecycle_CreateStartWait(t *testing.T) {
 	t.Parallel()
-	skipIfNoDocker(t)
+	testutil.SkipIfNoDocker(t)
 
-	name := uniqueName(t)
+	name := testutil.UniqueName(t)
 	cleanupContainer(t, name)
 
 	p := container.New(container.Config{
@@ -58,9 +45,9 @@ func TestContainerLifecycle_CreateStartWait(t *testing.T) {
 
 func TestContainerLifecycle_NonZeroExit(t *testing.T) {
 	t.Parallel()
-	skipIfNoDocker(t)
+	testutil.SkipIfNoDocker(t)
 
-	name := uniqueName(t)
+	name := testutil.UniqueName(t)
 	cleanupContainer(t, name)
 
 	p := container.New(container.Config{
@@ -79,9 +66,9 @@ func TestContainerLifecycle_NonZeroExit(t *testing.T) {
 
 func TestContainerLifecycle_CleanupAfterWait(t *testing.T) {
 	t.Parallel()
-	skipIfNoDocker(t)
+	testutil.SkipIfNoDocker(t)
 
-	name := uniqueName(t)
+	name := testutil.UniqueName(t)
 
 	p := container.New(container.Config{
 		Name:    name,
@@ -102,9 +89,9 @@ func TestContainerLifecycle_CleanupAfterWait(t *testing.T) {
 
 func TestContainerLifecycle_MountVisibility(t *testing.T) {
 	t.Parallel()
-	skipIfNoDocker(t)
+	testutil.SkipIfNoDocker(t)
 
-	name := uniqueName(t)
+	name := testutil.UniqueName(t)
 	cleanupContainer(t, name)
 
 	hostDir := t.TempDir()
@@ -131,9 +118,9 @@ func TestContainerLifecycle_MountVisibility(t *testing.T) {
 
 func TestContainerLifecycle_MountWriteFromContainer(t *testing.T) {
 	t.Parallel()
-	skipIfNoDocker(t)
+	testutil.SkipIfNoDocker(t)
 
-	name := uniqueName(t)
+	name := testutil.UniqueName(t)
 	cleanupContainer(t, name)
 
 	hostDir := t.TempDir()
@@ -162,9 +149,9 @@ func TestContainerLifecycle_MountWriteFromContainer(t *testing.T) {
 
 func TestContainerLifecycle_ReadOnlyMount(t *testing.T) {
 	t.Parallel()
-	skipIfNoDocker(t)
+	testutil.SkipIfNoDocker(t)
 
-	name := uniqueName(t)
+	name := testutil.UniqueName(t)
 	cleanupContainer(t, name)
 
 	hostDir := t.TempDir()
@@ -189,9 +176,9 @@ func TestContainerLifecycle_ReadOnlyMount(t *testing.T) {
 
 func TestContainerLifecycle_DeterministicName(t *testing.T) {
 	t.Parallel()
-	skipIfNoDocker(t)
+	testutil.SkipIfNoDocker(t)
 
-	name := uniqueName(t)
+	name := testutil.UniqueName(t)
 	cleanupContainer(t, name)
 
 	p := container.New(container.Config{
@@ -213,9 +200,9 @@ func TestContainerLifecycle_DeterministicName(t *testing.T) {
 
 func TestContainerLifecycle_EnvVarsVisible(t *testing.T) {
 	t.Parallel()
-	skipIfNoDocker(t)
+	testutil.SkipIfNoDocker(t)
 
-	name := uniqueName(t)
+	name := testutil.UniqueName(t)
 	cleanupContainer(t, name)
 
 	hostDir := t.TempDir()
@@ -248,20 +235,15 @@ func TestContainerLifecycle_EnvVarsVisible(t *testing.T) {
 // after prepareWritableMounts makes it world-writable.
 func TestContainerLifecycle_NonRootUserCanWriteAfterPrepare(t *testing.T) {
 	t.Parallel()
-	skipIfNoDocker(t)
+	testutil.SkipIfNoDocker(t)
 
 	// Build a minimal image with a tessariq user.
-	imgName := fmt.Sprintf("tessariq-test-nonroot-%d", time.Now().UnixNano())
-	buildCmd := exec.Command("docker", "build", "-t", imgName, "-f", "-", ".")
-	buildCmd.Stdin = strings.NewReader(`FROM alpine:latest
+	imgName := testutil.BuildTestImage(t, "nonroot", `FROM alpine:latest
 RUN addgroup -S tessariq && adduser -S tessariq -G tessariq -h /home/tessariq
 USER tessariq
 `)
-	out, err := buildCmd.CombinedOutput()
-	require.NoError(t, err, "image build failed: %s", out)
-	t.Cleanup(func() { _ = exec.Command("docker", "rmi", "-f", imgName).Run() })
 
-	name := uniqueName(t)
+	name := testutil.UniqueName(t)
 	cleanupContainer(t, name)
 
 	hostDir := t.TempDir()
@@ -280,7 +262,7 @@ USER tessariq
 	})
 
 	// Start calls prepareWritableMounts internally.
-	err = p.Start(t.Context())
+	err := p.Start(t.Context())
 	require.NoError(t, err)
 
 	code, err := p.Wait()
@@ -295,9 +277,9 @@ USER tessariq
 
 func TestContainerLifecycle_SignalStop(t *testing.T) {
 	t.Parallel()
-	skipIfNoDocker(t)
+	testutil.SkipIfNoDocker(t)
 
-	name := uniqueName(t)
+	name := testutil.UniqueName(t)
 	cleanupContainer(t, name)
 
 	p := container.New(container.Config{
@@ -323,9 +305,9 @@ func TestContainerLifecycle_SignalStop(t *testing.T) {
 
 func TestContainerLifecycle_SignalKill(t *testing.T) {
 	t.Parallel()
-	skipIfNoDocker(t)
+	testutil.SkipIfNoDocker(t)
 
-	name := uniqueName(t)
+	name := testutil.UniqueName(t)
 	cleanupContainer(t, name)
 
 	p := container.New(container.Config{
@@ -349,9 +331,9 @@ func TestContainerLifecycle_SignalKill(t *testing.T) {
 
 func TestContainerLifecycle_DroppedCapabilities(t *testing.T) {
 	t.Parallel()
-	skipIfNoDocker(t)
+	testutil.SkipIfNoDocker(t)
 
-	name := uniqueName(t)
+	name := testutil.UniqueName(t)
 	cleanupContainer(t, name)
 
 	hostDir := t.TempDir()
@@ -380,9 +362,9 @@ func TestContainerLifecycle_DroppedCapabilities(t *testing.T) {
 
 func TestContainerLifecycle_NoNewPrivileges(t *testing.T) {
 	t.Parallel()
-	skipIfNoDocker(t)
+	testutil.SkipIfNoDocker(t)
 
-	name := uniqueName(t)
+	name := testutil.UniqueName(t)
 	cleanupContainer(t, name)
 
 	hostDir := t.TempDir()
@@ -411,9 +393,9 @@ func TestContainerLifecycle_NoNewPrivileges(t *testing.T) {
 
 func TestContainerLifecycle_WorkDir(t *testing.T) {
 	t.Parallel()
-	skipIfNoDocker(t)
+	testutil.SkipIfNoDocker(t)
 
-	name := uniqueName(t)
+	name := testutil.UniqueName(t)
 	cleanupContainer(t, name)
 
 	hostDir := t.TempDir()

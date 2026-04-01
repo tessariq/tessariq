@@ -77,13 +77,17 @@ func StartRunEnvWithScript(ctx context.Context, t *testing.T, binaryName string,
 	}
 
 	t.Cleanup(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
 		// Fix ownership of bind-mounted files so t.TempDir() cleanup succeeds.
 		// The container runs as root but the test process runs as the current user.
+		// Use a separate context so a slow chown cannot starve terminate.
+		chownCtx, chownCancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer chownCancel()
 		chownCmd := fmt.Sprintf("chown -R %s:%s /work", u.Uid, u.Gid)
-		_, _, _ = container.Exec(ctx, []string{"sh", "-c", chownCmd}, tcexec.Multiplexed())
-		_ = container.Terminate(ctx)
+		_, _, _ = container.Exec(chownCtx, []string{"sh", "-c", chownCmd}, tcexec.Multiplexed())
+
+		termCtx, termCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer termCancel()
+		_ = container.Terminate(termCtx)
 	})
 
 	binPath := fmt.Sprintf("/usr/local/bin/%s", binaryName)
