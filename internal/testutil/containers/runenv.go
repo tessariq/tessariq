@@ -91,7 +91,7 @@ func StartRunEnvWithScript(ctx context.Context, t *testing.T, binaryName string,
 
 	// Install runtime dependencies.
 	setupCmds := []string{
-		"apk add --no-cache tmux git bash docker-cli",
+		"apk add --no-cache tmux git bash docker-cli docker-cli-buildx",
 		"git config --global user.email test@test.com",
 		"git config --global user.name Test",
 		"git config --global init.defaultBranch main",
