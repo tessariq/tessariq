@@ -77,4 +77,4 @@ Add `--mount-agent-config` so users can opt in to read-only mounting of supporte
 ## Notes
 
 - This flag is intentionally separate from the always-on required auth reuse flow.
-- 2026-03-31T08:15:44Z: Added --mount-agent-config flag, DiscoverConfigDirs in authmount, updated adapter.NewProcess signature, runtime.json status values, integration tests with Testcontainers. Mutation efficacy 90.80%. Manual test 8/8 pass. Evidence: planning/artifacts/manual-test/TASK-026-mount-agent-config-flag-and-config-dir-mounts/20260331T100000Z/, planning/artifacts/verify/task/TASK-026-mount-agent-config-flag-and-config-dir-mounts/20260331T081538Z/
+- 2026-03-31T08:15:44Z: Added --mount-agent-config flag, DiscoverConfigDirs in authmount, updated adapter.NewProcess signature, runtime.json status values, integration tests with Testcontainers. Mutation efficacy 90.80%. Manual test 8/8 pass. Local-only manual-test and verification artifacts generated.

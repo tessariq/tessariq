@@ -261,8 +261,6 @@ func (s *Service) Verify(input VerifyInput) (VerifyResult, error) {
 	state.Frontmatter.ValidationLastRun = report.GeneratedAt
 	state.Frontmatter.ValidationStatus = validationStatus(report.Summary)
 	state.Frontmatter.ValidationScope = verificationScopeLabel(report)
-	state.Frontmatter.ValidationPlan = relPath(s.paths.RepoRoot, report.PlanPath)
-	state.Frontmatter.ValidationReport = relPath(s.paths.RepoRoot, report.ReportPath)
 	state.Frontmatter.ValidationCheckedAt = report.GeneratedAt
 	state.Body = renderStateSnapshot(state.Frontmatter, tasks)
 
@@ -293,19 +291,13 @@ func (s *Service) CreateFollowups(input FollowupsInput) (FollowupsResult, error)
 	if err != nil {
 		return FollowupsResult{}, err
 	}
-	if strings.TrimSpace(state.Frontmatter.ValidationReport) == "" {
-		return FollowupsResult{}, errors.New("no validation report recorded in state")
+	if strings.TrimSpace(state.Frontmatter.ValidationLastRun) == "" {
+		return FollowupsResult{}, errors.New("no validation run recorded in state")
 	}
 
-	reportPath := filepath.Join(s.paths.RepoRoot, state.Frontmatter.ValidationReport)
-	data, err := os.ReadFile(reportPath)
+	report, reportPath, err := s.loadVerificationReport(state.Frontmatter.ValidationLastRun)
 	if err != nil {
-		return FollowupsResult{}, fmt.Errorf("read validation report: %w", err)
-	}
-
-	var report VerificationReport
-	if err := json.Unmarshal(data, &report); err != nil {
-		return FollowupsResult{}, fmt.Errorf("parse validation report: %w", err)
+		return FollowupsResult{}, err
 	}
 
 	created := make([]string, 0)
@@ -325,7 +317,7 @@ func (s *Service) CreateFollowups(input FollowupsInput) (FollowupsResult, error)
 	if len(created) == 0 {
 		return FollowupsResult{
 			CreatedTaskIDs: nil,
-			ReportPath:     state.Frontmatter.ValidationReport,
+			ReportPath:     relPath(s.paths.RepoRoot, reportPath),
 		}, nil
 	}
 
@@ -335,7 +327,7 @@ func (s *Service) CreateFollowups(input FollowupsInput) (FollowupsResult, error)
 
 	return FollowupsResult{
 		CreatedTaskIDs: created,
-		ReportPath:     state.Frontmatter.ValidationReport,
+		ReportPath:     relPath(s.paths.RepoRoot, reportPath),
 	}, nil
 }
 
@@ -509,6 +501,52 @@ func (s *Service) writeVerificationArtifacts(report VerificationReport) error {
 		return fmt.Errorf("write verification plan: %w", err)
 	}
 	return nil
+}
+
+func (s *Service) loadVerificationReport(generatedAt string) (VerificationReport, string, error) {
+	verifyDir := filepath.Join(s.paths.ArtifactsDir, "verify")
+	if _, err := os.Stat(verifyDir); err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return VerificationReport{}, "", fmt.Errorf("no local verification artifacts found for validation run %s; rerun verify before followups", generatedAt)
+		}
+		return VerificationReport{}, "", fmt.Errorf("stat verification artifacts dir: %w", err)
+	}
+
+	var matchedPath string
+	var matchedReport VerificationReport
+	err := filepath.WalkDir(verifyDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() || d.Name() != "report.json" {
+			return nil
+		}
+
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("read verification report %s: %w", path, err)
+		}
+
+		var report VerificationReport
+		if err := json.Unmarshal(data, &report); err != nil {
+			return fmt.Errorf("parse verification report %s: %w", path, err)
+		}
+		if report.GeneratedAt != generatedAt {
+			return nil
+		}
+
+		matchedPath = path
+		matchedReport = report
+		return fs.SkipAll
+	})
+	if err != nil {
+		return VerificationReport{}, "", fmt.Errorf("load verification report: %w", err)
+	}
+	if matchedPath == "" {
+		return VerificationReport{}, "", fmt.Errorf("no local verification artifacts found for validation run %s; rerun verify before followups", generatedAt)
+	}
+
+	return matchedReport, matchedPath, nil
 }
 
 func validateStateAndTasks(state *State, tasks []*Task, now time.Time, repoRoot string) []string {

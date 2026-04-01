@@ -20,6 +20,8 @@ How a human developer should work when Tessariq tracked-work state exists.
 - Integration and e2e tests may use temp files and temp workspaces, but collaborators must come from Testcontainers for Go.
 - Do not spin up custom HTTP or TCP servers in integration or e2e tests.
 - Mutation testing is required for non-trivial logic changes and CI enforces a 70% threshold.
+- `planning/artifacts/` is local-only workflow evidence and is gitignored.
+- If `followups` cannot find a local verification report for the recorded validation run, rerun `verify` before creating follow-up tasks.
 
 ## Recovery
 

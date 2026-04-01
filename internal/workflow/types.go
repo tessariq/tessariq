@@ -35,8 +35,6 @@ type StateFrontmatter struct {
 	ValidationLastRun   string   `yaml:"validation_last_run"`
 	ValidationStatus    string   `yaml:"validation_status"`
 	ValidationScope     string   `yaml:"validation_scope"`
-	ValidationPlan      string   `yaml:"validation_plan"`
-	ValidationReport    string   `yaml:"validation_report"`
 	ValidationCheckedAt string   `yaml:"validation_checked_at"`
 	MilestoneFocus      string   `yaml:"milestone_focus"`
 	ActiveSpecVersion   string   `yaml:"active_spec_version"`

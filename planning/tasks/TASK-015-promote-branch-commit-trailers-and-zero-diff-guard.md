@@ -80,4 +80,4 @@ Implement `tessariq promote <run-ref>` with branch creation, exactly one commit,
 ## Notes
 
 - Use `git add -A` during promote and keep user-visible failures actionable.
-- 2026-04-01T15:35:06Z: implemented tessariq promote with unit/integration/e2e coverage; manual test: planning/artifacts/manual-test/TASK-015-promote-branch-commit-trailers-and-zero-diff-guard/20260401T152040Z/report.md; verify: planning/artifacts/verify/task/TASK-015-promote-branch-commit-trailers-and-zero-diff-guard/20260401T153432Z/report.json
+- 2026-04-01T15:35:06Z: implemented tessariq promote with unit/integration/e2e coverage; manual test completed with local-only artifacts; verification completed with local-only artifacts

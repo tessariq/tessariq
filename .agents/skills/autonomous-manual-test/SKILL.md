@@ -12,7 +12,7 @@ Generate and execute a manual test plan against task acceptance criteria, then p
 
 1. Run `go run ./cmd/tessariq-workflow validate-state`.
 2. Read the target task file and extract acceptance criteria.
-3. Create a manual test plan at `planning/artifacts/manual-test/<task-id>/<timestamp>/plan.md`.
+3. Create a local-only manual test plan at `planning/artifacts/manual-test/<task-id>/<timestamp>/plan.md`.
    - Each acceptance criterion becomes one or more numbered test steps (MT-001, MT-002, ...).
    - Each step has: ID, description, command(s) to run, expected outcome, and severity (critical, major, minor).
 4. Choose the right test mode for each step (see Test Modes below).
@@ -21,7 +21,7 @@ Generate and execute a manual test plan against task acceptance criteria, then p
    - **Critical**: fix the code and re-run the step. If the fix fails after one attempt, stop testing and write the report.
    - **Major**: attempt one fix and re-run. If the fix fails, log the failure and continue to the next step.
    - **Minor**: log the observation and continue to the next step.
-7. Write `planning/artifacts/manual-test/<task-id>/<timestamp>/report.md` with per-step results and a summary verdict.
+7. Write the local-only `planning/artifacts/manual-test/<task-id>/<timestamp>/report.md` with per-step results and a summary verdict.
 8. Clean up any sandbox directories created during testing.
 
 ## Test Modes
@@ -127,9 +127,10 @@ Container mode rules:
 
 ### Cleanup (critical)
 
-Manual test code is **ephemeral tooling** — only the artifacts (plan.md, report.md) are persisted. Test code must never be committed.
+Manual test code is **ephemeral tooling**. The `plan.md` and `report.md` artifacts remain only as local gitignored evidence under `planning/artifacts/`. Test code must never be committed.
 
 - Sandbox mode: delete `cmd/manual-test-NNN/` and `/tmp/tessariq-manual-test-<task-id>/` after the report is written.
 - Container mode: delete `_manual_test.go` files after the report is written.
-- `.gitignore` blocks `*_manual_test.go` and `cmd/manual-test-*/` as a safety net, but the agent must still clean up explicitly.
+- `.gitignore` blocks `*_manual_test.go`, `cmd/manual-test-*/`, and `planning/artifacts/` as a safety net, but the agent must still clean up explicitly.
 - If manual test code is found in a commit, remove it immediately.
+- Never commit files under `planning/artifacts/`.

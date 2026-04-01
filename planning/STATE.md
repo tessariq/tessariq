@@ -1,6 +1,6 @@
 ---
 schema_version: 1
-updated_at: "2026-04-01T15:35:06Z"
+updated_at: "2026-04-01T16:33:48Z"
 mode: user_request
 run_id: wf-20260401T150556Z
 agent_id: opencode
@@ -22,12 +22,10 @@ repo_state: idle
 last_transition: finish
 last_transition_at: "2026-04-01T15:35:06Z"
 selection_reason: next eligible todo by priority
-validation_last_run: "2026-04-01T15:34:32Z"
+validation_last_run: "2026-04-01T16:33:48Z"
 validation_status: passed
-validation_scope: task:v0.1.0
-validation_plan: planning/artifacts/verify/task/TASK-015-promote-branch-commit-trailers-and-zero-diff-guard/20260401T153432Z/plan.md
-validation_report: planning/artifacts/verify/task/TASK-015-promote-branch-commit-trailers-and-zero-diff-guard/20260401T153432Z/report.json
-validation_checked_at: "2026-04-01T15:34:32Z"
+validation_scope: spec:v0.1.0
+validation_checked_at: "2026-04-01T16:33:48Z"
 milestone_focus: v0.1.0
 active_spec_version: v0.1.0
 active_spec_path: specs/tessariq-v0.1.0.md

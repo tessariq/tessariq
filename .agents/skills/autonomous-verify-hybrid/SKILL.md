@@ -12,7 +12,7 @@ Run hybrid verification for Tessariq tracked work with deterministic low-risk fi
 
 1. Run `go run ./cmd/tessariq-workflow validate-state`.
 2. Run `go run ./cmd/tessariq-workflow verify --profile <profile> --disposition hybrid --json`.
-3. Confirm plan and report artifacts were written under `planning/artifacts/verify/`.
+3. Confirm local gitignored plan and report artifacts were written under `planning/artifacts/verify/`.
 4. Run mutation testing when logic-confidence evidence is otherwise weak; CI enforces a 70% threshold.
 5. If unresolved findings remain, run `go run ./cmd/tessariq-workflow followups --mode create --min-severity medium --json`.
 6. If an active task exists, finish as `blocked` when unresolved high-severity findings remain; otherwise finish as `done`.
@@ -23,4 +23,4 @@ Run hybrid verification for Tessariq tracked work with deterministic low-risk fi
 - auto-fix only deterministic low-risk issues such as regenerated machine-owned outputs
 - never hand-edit machine-managed state
 - never hand-edit task status
-- when code changes are made for an active task, keep them in a single conventional-commit commit that also includes required workflow/planning updates
+- when code changes are made for an active task, keep them in a single conventional-commit commit that also includes required workflow/planning metadata updates

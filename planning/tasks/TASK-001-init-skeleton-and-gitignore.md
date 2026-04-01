@@ -68,4 +68,4 @@ Create `tessariq init` behavior for the repo skeleton and `.gitignore` update.
 ## Notes
 
 - Keep the implementation behavior-preserving outside the new `init` command.
-- 2026-03-29T13:39:40Z: Unit tests pass (8 scenarios), mutation efficacy 76.92% (>70% threshold), manual test 6/6 pass. Evidence: planning/artifacts/manual-test/TASK-001-init-skeleton-and-gitignore/2026-03-29T1340Z/report.md, planning/artifacts/verify/task/TASK-001-init-skeleton-and-gitignore/20260329T133934Z/report.json
+- 2026-03-29T13:39:40Z: Unit tests pass (8 scenarios), mutation efficacy 76.92% (>70% threshold), manual test 6/6 pass. Local-only manual-test and verification artifacts generated.

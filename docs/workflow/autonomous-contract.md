@@ -42,10 +42,11 @@ Rules:
 - `task` profile also emits a medium-severity finding when user-visible code changes are present without a `CHANGELOG.md` update; workflow-tooling-only changes (`cmd/tessariq-workflow/`, `internal/workflow/`) are excluded.
 - `implemented` profile checks completed items for retained verification metadata.
 - `spec` profile checks seeded task coverage against `specs/tessariq-v0.1.0.md`.
-- Verification writes plan and report artifacts under `planning/artifacts/verify/`.
+- Verification writes local gitignored plan and report artifacts under `planning/artifacts/verify/`.
 - Unresolved medium-or-higher findings can be converted into tracked follow-up items through `followups --mode create`.
-- Manual test artifacts (plan and report) must exist under `planning/artifacts/manual-test/<task-id>/` before a task can be finished as `done`.
+- Manual test artifacts (plan and report) must exist locally under `planning/artifacts/manual-test/<task-id>/` before a task can be finished as `done`.
 - `finish --status done` validates the presence of these artifacts.
+- `followups --mode create` reads the last validation report from local artifacts for `validation_last_run`; rerun `verify` if they are missing.
 
 ## Safety Rules
 
@@ -54,5 +55,5 @@ Rules:
 - Keep workflow commands non-interactive and scriptable.
 - Completion notes must point to concrete evidence.
 - Code-changing work must follow TDD and repository testing rules.
-- For implementation tasks, commit all task-related changes (product code, tests, and required planning/workflow artifact updates) in a single conventional-commit commit.
+- For implementation tasks, commit all task-related changes (product code, tests, and required planning/workflow metadata updates) in a single conventional-commit commit; never commit files under `planning/artifacts/`.
 - Do not create a second commit only for task/workflow/verification metadata updates.

@@ -79,4 +79,4 @@ Integrate `claude-code` with the v0.1.0 agent/runtime model, including runtime-b
 ## Notes
 
 - This task supersedes the old adapter-specific implementation task without rewriting that completed task.
-- 2026-03-31T08:45:39Z: BinaryName constants, CLAUDE_CONFIG_DIR env var wiring, Claude Code egress endpoints, full test coverage, 100% mutation efficacy. Evidence: planning/artifacts/verify/task/TASK-024-claude-code-agent-runtime-integration/20260331T084425Z/report.json
+- 2026-03-31T08:45:39Z: BinaryName constants, CLAUDE_CONFIG_DIR env var wiring, Claude Code egress endpoints, full test coverage, 100% mutation efficacy. Local-only verification artifact generated.

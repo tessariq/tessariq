@@ -75,4 +75,4 @@ Implement bootstrap and runner lifecycle ownership for `status.json`, timeout ha
 ## Notes
 
 - Preserve durable evidence even on failure paths.
-- 2026-03-29T20:09:22Z: All ACs met. status.json with 6 required fields, 5 terminal states, timeout.flag+escalation, container_name in manifest.json, durable run.log+runner.log. Unit tests (11 runner, 10 status, 3 signal, 3 timeout, 5 logs, 8 hooks, 3 container), integration tests (7 runner, 4 hooks), mutation efficacy 91.43%. Manual test: 6/6 pass. Evidence: planning/artifacts/manual-test/TASK-005-runner-bootstrap-timeout-and-status-lifecycle/20260329T200616Z/report.md, planning/artifacts/verify/task/TASK-005-runner-bootstrap-timeout-and-status-lifecycle/20260329T200548Z/report.json
+- 2026-03-29T20:09:22Z: All ACs met. status.json with 6 required fields, 5 terminal states, timeout.flag+escalation, container_name in manifest.json, durable run.log+runner.log. Unit tests (11 runner, 10 status, 3 signal, 3 timeout, 5 logs, 8 hooks, 3 container), integration tests (7 runner, 4 hooks), mutation efficacy 91.43%. Manual test: 6/6 pass. Local-only manual-test and verification artifacts generated.

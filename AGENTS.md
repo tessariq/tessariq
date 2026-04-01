@@ -249,8 +249,8 @@ When tessariq itself creates Docker containers (via `docker create` / `docker st
 - Update `README.md` when CLI flags/commands/behavior change.
 - Update `CHANGELOG.md` for user-visible behavior changes; keep entries user-facing and skip internal-only maintenance noise.
 - Verify evidence file contracts are maintained when changing run or promote logic.
-- Run manual testing against the task's acceptance criteria before verification; artifacts must exist under `planning/artifacts/manual-test/<task-id>/` before finishing as `done`.
-- After manual testing, delete all manual test code (`_manual_test.go` files and `cmd/manual-test-*/` directories); only artifacts (plan.md, report.md) are committed.
+- Run manual testing against the task's acceptance criteria before verification; local artifacts must exist under `planning/artifacts/manual-test/<task-id>/` before finishing as `done`.
+- After manual testing, delete all manual test code (`_manual_test.go` files and `cmd/manual-test-*/` directories); keep only the local-only `plan.md` and `report.md` artifacts on disk and never commit files under `planning/artifacts/`.
 - Update specs in `specs/` only when explicitly requested; specs are normative.
 
 ## Agent do/don'ts (PR + commits)
@@ -258,7 +258,7 @@ When tessariq itself creates Docker containers (via `docker create` / `docker st
 - Do include a clear PR summary with why, what changed, and test evidence.
 - Do keep commits small and descriptive, using imperative commit subjects.
 - Do use conventional commit messages.
-- Do keep each tracked task to a single commit that includes both implementation changes and any required workflow/planning artifact updates.
+- Do keep each tracked task to a single commit that includes both implementation changes and any required workflow/planning metadata updates; do not commit files under `planning/artifacts/`.
 - Do mention user-visible CLI changes in the PR body.
 - Don't mix unrelated refactors or formatting-only churn into feature/fix PRs.
 - Don't split one tracked task into separate "implementation" and "chore/workflow/verification-update" commits.

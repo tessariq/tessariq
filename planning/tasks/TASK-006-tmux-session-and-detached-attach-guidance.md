@@ -69,4 +69,4 @@ Launch live `tmux` sessions for runs and print attach and promote guidance in de
 ## Notes
 
 - Keep stdout output script-friendly.
-- 2026-03-30T15:21:26Z: evidence: planning/artifacts/verify/task/TASK-006-tmux-session-and-detached-attach-guidance/20260330T151246Z/report.json (0 findings), planning/artifacts/manual-test/TASK-006-tmux-session-and-detached-attach-guidance/20260330T151321Z/report.md (9/9 pass)
+- 2026-03-30T15:21:26Z: evidence: local-only verification artifact (0 findings), local-only manual-test artifact (9/9 pass)
