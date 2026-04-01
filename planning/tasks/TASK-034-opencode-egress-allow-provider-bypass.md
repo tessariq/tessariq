@@ -1,7 +1,7 @@
 ---
 id: TASK-034-opencode-egress-allow-provider-bypass
 title: Honor --egress-allow precedence when OpenCode provider host auto-resolution fails
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-011-egress-mode-resolution-and-manifest-recording
@@ -11,7 +11,7 @@ spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#networking-and-egress
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-03-31T20:30:00Z"
+updated_at: "2026-04-01T12:15:52Z"
 areas:
     - egress
     - opencode
@@ -79,3 +79,4 @@ OpenCode provider auto-resolution currently runs before allowlist precedence can
 
 - Likely files: `cmd/tessariq/run.go`, `cmd/tessariq/run_test.go`, `internal/adapter/opencode/provider_test.go`, and e2e coverage in `cmd/tessariq/run_e2e_test.go`.
 - Keep error wording aligned with current Failure UX language.
+- 2026-04-01T12:15:52Z: CLI allowlist guard added to resolveAllowlistCore; unit tests, e2e tests, mutation testing (85% efficacy), manual tests all pass

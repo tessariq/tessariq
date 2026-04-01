@@ -60,6 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed timeout signal escalation to send SIGTERM before SIGKILL, giving containers a grace period for clean shutdown before forced termination.
 - Fixed `--agent opencode --interactive` being rejected at CLI validation instead of proceeding with requested/applied evidence recording; `agent.json` now correctly records `requested.interactive=true` and `applied.interactive=false`.
+- Fixed `--egress-allow` being ignored for OpenCode when provider auto-resolution fails: explicit CLI allowlist entries now take precedence, skipping provider detection entirely so runs proceed without requiring auth state.
 - Fixed duration default rendering in `--help` output so `--timeout` and `--grace` show normalized values (for example `30m` and `30s`) instead of padded forms.
 - Fixed detached run sessions so the host tmux session tails durable `run.log` output from the container instead of starting empty.
 - Fixed worktree cleanup after container-owned writes by repairing disposable workspace ownership before worktree removal.
