@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "profile": "task",
+  "disposition": "hybrid",
+  "generated_at": "2026-04-01T10:55:26Z",
+  "milestone_focus": "v0.1.0",
+  "active_spec_version": "v0.1.0",
+  "active_spec_path": "specs/tessariq-v0.1.0.md",
+  "artifact_dir": "/media/felix/data/code/tessariq/.claude/worktrees/gentle-waddling-petal/planning/artifacts/verify/task/TASK-030-fix-timeout-signal-escalation/20260401T105526Z",
+  "plan_path": "/media/felix/data/code/tessariq/.claude/worktrees/gentle-waddling-petal/planning/artifacts/verify/task/TASK-030-fix-timeout-signal-escalation/20260401T105526Z/plan.md",
+  "report_path": "/media/felix/data/code/tessariq/.claude/worktrees/gentle-waddling-petal/planning/artifacts/verify/task/TASK-030-fix-timeout-signal-escalation/20260401T105526Z/report.json",
+  "findings": [
+    {
+      "id": "TASK-030-fix-timeout-signal-escalation-changelog",
+      "title": "user-visible changes missing changelog update",
+      "severity": "medium",
+      "status": "open",
+      "details": "User-visible code changes detected (internal/runner/runner.go) without updating CHANGELOG.md. Add a user-facing entry under CHANGELOG.md before finishing the task.",
+      "task_id": "TASK-030-fix-timeout-signal-escalation"
+    }
+  ],
+  "summary": {
+    "high": 0,
+    "medium": 1,
+    "low": 0
+  }
+}

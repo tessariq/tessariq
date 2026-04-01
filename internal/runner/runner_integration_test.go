@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -31,8 +32,12 @@ func newShellProcess(command string) *shellProcess {
 	return &shellProcess{command: command}
 }
 
-func (s *shellProcess) Start(ctx context.Context) error {
-	s.cmd = exec.CommandContext(ctx, "sh", "-c", s.command)
+func (s *shellProcess) Start(_ context.Context) error {
+	// Use exec.Command (not CommandContext) so the process lifecycle is
+	// controlled exclusively by Signal, matching production container behavior
+	// where docker stop/kill are the only shutdown mechanism.
+	s.cmd = exec.Command("sh", "-c", s.command)
+	s.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	s.cmd.Stdout = s.stdoutWriter
 	s.cmd.Stderr = s.stderrWriter
 	return s.cmd.Start()
@@ -51,10 +56,12 @@ func (s *shellProcess) Wait() (int, error) {
 }
 
 func (s *shellProcess) Signal(sig os.Signal) error {
-	if s.cmd != nil && s.cmd.Process != nil {
-		return s.cmd.Process.Signal(sig)
+	if s.cmd == nil || s.cmd.Process == nil {
+		return nil
 	}
-	return nil
+	// Send signal to the process group so child processes also receive it,
+	// mirroring docker stop/kill behavior on container process trees.
+	return syscall.Kill(-s.cmd.Process.Pid, sig.(syscall.Signal))
 }
 
 func (s *shellProcess) SetOutputWriter(stdout, stderr io.Writer) {
@@ -119,6 +126,51 @@ func TestRunnerIntegration_TimeoutWritesFlag(t *testing.T) {
 
 	_, err = os.Stat(filepath.Join(dir, "timeout.flag"))
 	require.NoError(t, err, "timeout.flag must exist")
+}
+
+func TestRunnerIntegration_TimeoutSIGTERMExitsGracefully(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	// sleep exits on SIGTERM — process should stop without SIGKILL.
+	r := newIntegrationRunner(dir, newShellProcess("sleep 60"))
+	r.Config.Timeout = 100 * time.Millisecond
+	r.Config.Grace = 2 * time.Second
+
+	require.NoError(t, r.Run(context.Background()))
+
+	s, err := ReadStatus(dir)
+	require.NoError(t, err)
+	require.Equal(t, StateTimeout, s.State)
+	require.True(t, s.TimedOut)
+
+	// Verify runner log shows SIGTERM was sent.
+	logData, err := os.ReadFile(filepath.Join(dir, "runner.log"))
+	require.NoError(t, err)
+	require.Contains(t, string(logData), "sending SIGTERM")
+}
+
+func TestRunnerIntegration_TimeoutEscalationToSIGKILL(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	// trap '' TERM makes the process ignore SIGTERM, forcing SIGKILL escalation.
+	r := newIntegrationRunner(dir, newShellProcess("trap '' TERM; sleep 60"))
+	r.Config.Timeout = 100 * time.Millisecond
+	r.Config.Grace = 200 * time.Millisecond
+
+	require.NoError(t, r.Run(context.Background()))
+
+	s, err := ReadStatus(dir)
+	require.NoError(t, err)
+	require.Equal(t, StateTimeout, s.State)
+	require.True(t, s.TimedOut)
+
+	// Verify runner log shows both SIGTERM and SIGKILL.
+	logData, err := os.ReadFile(filepath.Join(dir, "runner.log"))
+	require.NoError(t, err)
+	require.Contains(t, string(logData), "sending SIGTERM")
+	require.Contains(t, string(logData), "sending SIGKILL")
 }
 
 func TestRunnerIntegration_EvidenceDurability(t *testing.T) {

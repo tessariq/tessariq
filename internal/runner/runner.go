@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"syscall"
 	"time"
 
 	"github.com/tessariq/tessariq/internal/run"
@@ -166,19 +167,28 @@ func (r *Runner) runDetachedProcess(ctx context.Context, startedAt time.Time, lo
 		return 0, false, StateSuccess
 
 	case <-timeoutCtx.Done():
-		// Timeout expired -- escalate.
+		// Timeout expired -- escalate with SIGTERM then SIGKILL.
 		fmt.Fprintf(logs.RunnerLog, "[%s] timeout reached, writing timeout flag\n", r.clock().UTC().Format(time.RFC3339))
 		_ = WriteTimeoutFlag(r.EvidenceDir)
 
-		// Send signal and wait for grace period.
-		_ = r.Process.Signal(os.Kill)
+		// Step 1: graceful SIGTERM.
+		fmt.Fprintf(logs.RunnerLog, "[%s] sending SIGTERM\n", r.clock().UTC().Format(time.RFC3339))
+		_ = r.Process.Signal(syscall.SIGTERM)
 
 		select {
 		case result := <-waitCh:
+			// Exited after SIGTERM — no SIGKILL needed.
 			return result.exitCode, true, StateTimeout
 		case <-time.After(r.Config.Grace):
-			// Grace expired, force kill already sent.
-			return -1, true, StateTimeout
+			// Grace expired — escalate to SIGKILL.
+			fmt.Fprintf(logs.RunnerLog, "[%s] grace period expired, sending SIGKILL\n", r.clock().UTC().Format(time.RFC3339))
+			_ = r.Process.Signal(os.Kill)
+			select {
+			case result := <-waitCh:
+				return result.exitCode, true, StateTimeout
+			case <-time.After(5 * time.Second):
+				return -1, true, StateTimeout
+			}
 		}
 	}
 }
@@ -228,28 +238,46 @@ func (r *Runner) runInteractiveProcess(ctx context.Context, startedAt time.Time,
 		return 0, false, StateSuccess
 
 	case <-timer.Expired():
-		// Active time exceeded -- escalate.
+		// Active time exceeded -- escalate with SIGTERM then SIGKILL.
 		fmt.Fprintf(logs.RunnerLog, "[%s] activity timeout reached (active time: %s), writing timeout flag\n",
 			r.clock().UTC().Format(time.RFC3339), timer.Elapsed())
 		_ = WriteTimeoutFlag(r.EvidenceDir)
 
-		_ = r.Process.Signal(os.Kill)
+		// Step 1: graceful SIGTERM.
+		fmt.Fprintf(logs.RunnerLog, "[%s] sending SIGTERM\n", r.clock().UTC().Format(time.RFC3339))
+		_ = r.Process.Signal(syscall.SIGTERM)
 
 		select {
 		case result := <-waitCh:
 			return result.exitCode, true, StateTimeout
 		case <-time.After(r.Config.Grace):
-			return -1, true, StateTimeout
+			// Grace expired — escalate to SIGKILL.
+			fmt.Fprintf(logs.RunnerLog, "[%s] grace period expired, sending SIGKILL\n", r.clock().UTC().Format(time.RFC3339))
+			_ = r.Process.Signal(os.Kill)
+			select {
+			case result := <-waitCh:
+				return result.exitCode, true, StateTimeout
+			case <-time.After(5 * time.Second):
+				return -1, true, StateTimeout
+			}
 		}
 
 	case <-ctx.Done():
-		// Parent context cancelled.
-		_ = r.Process.Signal(os.Kill)
+		// Parent context cancelled — still use graceful escalation.
+		fmt.Fprintf(logs.RunnerLog, "[%s] context cancelled, sending SIGTERM\n", r.clock().UTC().Format(time.RFC3339))
+		_ = r.Process.Signal(syscall.SIGTERM)
 		select {
 		case result := <-waitCh:
 			return result.exitCode, false, StateKilled
 		case <-time.After(r.Config.Grace):
-			return -1, false, StateKilled
+			fmt.Fprintf(logs.RunnerLog, "[%s] grace period expired, sending SIGKILL\n", r.clock().UTC().Format(time.RFC3339))
+			_ = r.Process.Signal(os.Kill)
+			select {
+			case result := <-waitCh:
+				return result.exitCode, false, StateKilled
+			case <-time.After(5 * time.Second):
+				return -1, false, StateKilled
+			}
 		}
 	}
 }
