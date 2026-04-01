@@ -269,13 +269,16 @@ func (s *Service) Verify(input VerifyInput) (VerifyResult, error) {
 	}
 
 	return VerifyResult{
-		Profile:     report.Profile,
-		Disposition: report.Disposition,
-		ArtifactDir: relPath(s.paths.RepoRoot, report.ArtifactDir),
-		PlanPath:    relPath(s.paths.RepoRoot, report.PlanPath),
-		ReportPath:  relPath(s.paths.RepoRoot, report.ReportPath),
-		Summary:     report.Summary,
-		Findings:    report.Findings,
+		Profile:           report.Profile,
+		Disposition:       report.Disposition,
+		MilestoneFocus:    report.MilestoneFocus,
+		ActiveSpecVersion: report.ActiveSpecVersion,
+		ActiveSpecPath:    report.ActiveSpecPath,
+		ArtifactDir:       relPath(s.paths.RepoRoot, report.ArtifactDir),
+		PlanPath:          relPath(s.paths.RepoRoot, report.PlanPath),
+		ReportPath:        relPath(s.paths.RepoRoot, report.ReportPath),
+		Summary:           report.Summary,
+		Findings:          report.Findings,
 	}, nil
 }
 
@@ -1117,6 +1120,9 @@ func buildSpecFindings(tasks []*Task, scope specScope, scopeViolations []string)
 	for _, task := range tasks {
 		for _, ref := range task.Frontmatter.SpecRefs {
 			covered[ref] = true
+			if resolved := resolveSpecRefAlias(ref, scope.Version); resolved != ref {
+				covered[resolved] = true
+			}
 		}
 	}
 

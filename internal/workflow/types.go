@@ -169,13 +169,16 @@ type VerifyInput struct {
 }
 
 type VerifyResult struct {
-	Profile     string              `json:"profile"`
-	Disposition string              `json:"disposition"`
-	ArtifactDir string              `json:"artifact_dir"`
-	PlanPath    string              `json:"plan_path"`
-	ReportPath  string              `json:"report_path"`
-	Summary     VerificationSummary `json:"summary"`
-	Findings    []Finding           `json:"findings"`
+	Profile           string              `json:"profile"`
+	Disposition       string              `json:"disposition"`
+	MilestoneFocus    string              `json:"milestone_focus,omitempty"`
+	ActiveSpecVersion string              `json:"active_spec_version,omitempty"`
+	ActiveSpecPath    string              `json:"active_spec_path,omitempty"`
+	ArtifactDir       string              `json:"artifact_dir"`
+	PlanPath          string              `json:"plan_path"`
+	ReportPath        string              `json:"report_path"`
+	Summary           VerificationSummary `json:"summary"`
+	Findings          []Finding           `json:"findings"`
 }
 
 type FollowupsInput struct {

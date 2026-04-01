@@ -130,6 +130,6 @@ Notes:
 - Tracked-work system changes:
   workflow validation, skill parity check, and spec verification
 - Spec or planning edits:
-  `validate-state` and `verify --profile spec` are hard failure gates and must pass before review
+  `validate-state` and `verify --profile spec` are hard failure gates in CI; any violation or high-severity finding causes a non-zero exit and blocks the pipeline
 - All code changes:
   manual testing against task acceptance criteria before verification
