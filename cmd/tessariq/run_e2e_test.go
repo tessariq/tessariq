@@ -259,6 +259,9 @@ func TestE2E_DetachedRunPrintsGuidance(t *testing.T) {
 	require.Contains(t, output, "container_name: ")
 	require.Contains(t, output, "attach: tessariq attach ")
 	require.Contains(t, output, "promote: tessariq promote ")
+
+	// Default run (no --interactive) must NOT print the interactive note.
+	require.NotContains(t, output, "note: interactive mode without --attach")
 }
 
 func TestE2E_AgentAndRuntimeJSONWritten(t *testing.T) {
@@ -773,6 +776,9 @@ func TestE2E_InteractiveClaudeCodeAccepted(t *testing.T) {
 	code, output := runTessariq(t, env, "claude", "--interactive")
 	require.Equal(t, 0, code, "interactive claude-code should succeed: %s", output)
 	require.Contains(t, output, "run_id: ")
+
+	// Explicit --interactive without --attach must print the note.
+	require.Contains(t, output, "note: interactive mode without --attach")
 }
 
 func TestE2E_ContainerSecurityHardening(t *testing.T) {

@@ -1,7 +1,7 @@
 ---
 id: TASK-040-interactive-note-only-when-requested
 title: Gate interactive-without-attach note on explicit user request
-status: todo
+status: done
 priority: p2
 depends_on:
     - TASK-018-replace-yolo-with-interactive-and-cli-polish
@@ -12,7 +12,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#tessariq-run-task-path
     - specs/tessariq-v0.1.0.md#acceptance-scenarios
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-04-01T13:05:00Z"
+updated_at: "2026-04-01T18:20:23Z"
 areas:
     - cli
     - runtime
@@ -74,3 +74,4 @@ Default Claude Code runs currently emit an interactive-without-attach note even 
 ## Notes
 
 - Likely files: `cmd/tessariq/run.go` and relevant command/e2e test files.
+- 2026-04-01T18:20:23Z: fix: gate interactive note on cfg.Interactive instead of Applied[interactive]; unit tests for 3 flag combos + e2e assertions for both paths; manual test verdict: pass
