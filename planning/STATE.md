@@ -10,7 +10,15 @@ active_task_started_at: ""
 attempt: 0
 last_completed: TASK-034-opencode-egress-allow-provider-bypass
 next_tasks:
+    - TASK-041-opencode-proxy-user-config-allowlist-without-auth
+    - TASK-043-index-append-error-visibility
+    - TASK-042-opencode-auth-missing-actionable-error
     - TASK-007-attach-command-live-run-resolution
+    - TASK-015-promote-branch-commit-trailers-and-zero-diff-guard
+    - TASK-016-v0-1-0-spec-conformity-verification
+    - TASK-017-v0-1-0-spec-conformity-closeout
+    - TASK-040-interactive-note-only-when-requested
+    - TASK-044-spec-example-allowlist-source-consistency
 repo_state: idle
 last_transition: finish
 last_transition_at: "2026-04-01T12:15:52Z"
@@ -35,11 +43,19 @@ max_retries: 2
 - Validation status: warnings
 - Active spec: v0.1.0 (specs/tessariq-v0.1.0.md)
 - Next tasks:
+  - TASK-041-opencode-proxy-user-config-allowlist-without-auth
+  - TASK-043-index-append-error-visibility
+  - TASK-042-opencode-auth-missing-actionable-error
   - TASK-007-attach-command-live-run-resolution
+  - TASK-015-promote-branch-commit-trailers-and-zero-diff-guard
+  - TASK-016-v0-1-0-spec-conformity-verification
+  - TASK-017-v0-1-0-spec-conformity-closeout
+  - TASK-040-interactive-note-only-when-requested
+  - TASK-044-spec-example-allowlist-source-consistency
 
 ## Task Counts
 
-- todo: 9
+- todo: 14
 - in_progress: 0
 - done: 29
 - blocked: 1
