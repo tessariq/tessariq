@@ -4,12 +4,15 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -19,29 +22,74 @@ import (
 	"github.com/tessariq/tessariq/internal/testutil/containers"
 )
 
-func buildBinary(t *testing.T) string {
-	t.Helper()
-	bin := filepath.Join(t.TempDir(), "tessariq")
-	cmd := exec.Command("go", "build", "-o", bin, "./cmd/tessariq")
-	cmd.Dir = findModuleRoot(t)
-	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
-	out, err := cmd.CombinedOutput()
-	require.NoError(t, err, "build failed: %s", out)
-	return bin
+// sharedBinaryDir holds the temp directory for the shared binary so TestMain
+// can clean it up after all tests complete.
+var sharedBinaryDir string
+
+func TestMain(m *testing.M) {
+	code := m.Run()
+	if sharedBinaryDir != "" {
+		os.RemoveAll(sharedBinaryDir)
+	}
+	os.Exit(code)
 }
 
-func findModuleRoot(t *testing.T) string {
+var (
+	sharedBinary     string
+	sharedBinaryOnce sync.Once
+	sharedBinaryErr  error
+)
+
+// buildBinary builds the tessariq CLI binary once and returns the path. The
+// binary is shared across all tests in the package to avoid rebuilding 23 times.
+func buildBinary(t *testing.T) string {
 	t.Helper()
+	sharedBinaryOnce.Do(func() {
+		dir, err := os.MkdirTemp("", "tessariq-e2e-*")
+		if err != nil {
+			sharedBinaryErr = err
+			return
+		}
+		sharedBinaryDir = dir
+		bin := filepath.Join(dir, "tessariq")
+		cmd := exec.Command("go", "build", "-o", bin, "./cmd/tessariq")
+		cmd.Dir = findModuleRoot()
+		cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			sharedBinaryErr = fmt.Errorf("build failed: %s: %w", out, err)
+			return
+		}
+		sharedBinary = bin
+	})
+	require.NoError(t, sharedBinaryErr, "shared binary build")
+	return sharedBinary
+}
+
+func findModuleRoot() string {
 	dir, err := os.Getwd()
-	require.NoError(t, err)
+	if err != nil {
+		panic(err)
+	}
 	for {
 		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
 			return dir
 		}
 		parent := filepath.Dir(dir)
-		require.NotEqual(t, dir, parent, "could not find go.mod")
+		if dir == parent {
+			panic("could not find go.mod")
+		}
 		dir = parent
 	}
+}
+
+// testImageTag returns a short, Docker-safe suffix derived from t.Name() for
+// unique-per-test Docker image names. This prevents races when tests run in
+// parallel and build their own test images.
+func testImageTag(t *testing.T) string {
+	t.Helper()
+	h := sha256.Sum256([]byte(t.Name()))
+	return hex.EncodeToString(h[:6])
 }
 
 // setupRunEnv creates a RunEnv container, copies the tessariq binary into it,
@@ -100,6 +148,7 @@ func setupRunEnvWithScript(t *testing.T, bin string, binaryName string, scriptBo
 
 	// Build a test Docker image with the fake agent binary.
 	// docker-cli reads from the container filesystem, so /work paths are fine.
+	imgName := fmt.Sprintf("tessariq-test-agent-%s-%s", binaryName, testImageTag(t))
 	buildCmds := []string{
 		fmt.Sprintf(`cat > /work/Dockerfile.test <<'DEOF'
 FROM alpine:latest
@@ -111,7 +160,7 @@ WORKDIR /work
 DEOF`, binaryName, binaryName),
 		fmt.Sprintf(`printf '#!/bin/sh\n%s\n' > /work/fake-agent.sh && chmod +x /work/fake-agent.sh`,
 			strings.ReplaceAll(scriptBody, "'", "'\\''")),
-		fmt.Sprintf("docker build -t tessariq-test-agent-%s -f /work/Dockerfile.test /work", binaryName),
+		fmt.Sprintf("docker build -t %s -f /work/Dockerfile.test /work", imgName),
 	}
 
 	for _, cmd := range buildCmds {
@@ -121,7 +170,7 @@ DEOF`, binaryName, binaryName),
 	}
 
 	t.Cleanup(func() {
-		_ = exec.Command("docker", "rmi", "-f", fmt.Sprintf("tessariq-test-agent-%s", binaryName)).Run()
+		_ = exec.Command("docker", "rmi", "-f", imgName).Run()
 	})
 
 	// Create fake auth files for the agent so auth discovery succeeds.
@@ -178,7 +227,7 @@ func runTessariq(t *testing.T, env *containers.RunEnv, binaryName, extraFlags st
 	repoPath := filepath.Join(hostDir, "repo")
 	homeDir := filepath.Join(hostDir, "home")
 	binPath := filepath.Join(hostDir, "tessariq")
-	imgFlag := fmt.Sprintf("--image tessariq-test-agent-%s", binaryName)
+	imgFlag := fmt.Sprintf("--image tessariq-test-agent-%s-%s", binaryName, testImageTag(t))
 	cmd := fmt.Sprintf("cd %s && HOME=%s %s run %s %s tasks/sample.md", repoPath, homeDir, binPath, imgFlag, extraFlags)
 	code, output, err := env.Exec(ctx, []string{"sh", "-c", cmd})
 	require.NoError(t, err)
@@ -197,6 +246,7 @@ func extractField(output, key string) string {
 }
 
 func TestE2E_DetachedRunPrintsGuidance(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	env := setupRunEnv(t, bin, 0)
 
@@ -212,6 +262,7 @@ func TestE2E_DetachedRunPrintsGuidance(t *testing.T) {
 }
 
 func TestE2E_AgentAndRuntimeJSONWritten(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	env := setupRunEnv(t, bin, 0)
 
@@ -249,6 +300,7 @@ func TestE2E_AgentAndRuntimeJSONWritten(t *testing.T) {
 }
 
 func TestE2E_OpenCodeDetachedRunPrintsGuidance(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	env := setupRunEnvForBinary(t, bin, "opencode", 0)
 
@@ -264,6 +316,7 @@ func TestE2E_OpenCodeDetachedRunPrintsGuidance(t *testing.T) {
 }
 
 func TestE2E_OpenCodeAgentAndRuntimeJSONWritten(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	env := setupRunEnvForBinary(t, bin, "opencode", 0)
 
@@ -301,6 +354,7 @@ func TestE2E_OpenCodeAgentAndRuntimeJSONWritten(t *testing.T) {
 }
 
 func TestE2E_OpenCodeEgressAutoFailsWhenProviderUnresolvable(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	ctx := context.Background()
@@ -367,6 +421,7 @@ func TestE2E_OpenCodeEgressAutoFailsWhenProviderUnresolvable(t *testing.T) {
 }
 
 func TestE2E_InitFailsWithActionableGuidanceWhenGitMissing(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	env := setupRunEnv(t, bin, 0)
 
@@ -388,6 +443,7 @@ func TestE2E_InitFailsWithActionableGuidanceWhenGitMissing(t *testing.T) {
 }
 
 func TestE2E_MountAgentConfigSetsClaudeConfigDir(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	env := setupRunEnv(t, bin, 0)
 
@@ -416,6 +472,7 @@ func TestE2E_MountAgentConfigSetsClaudeConfigDir(t *testing.T) {
 }
 
 func TestE2E_RunFailsWithActionableGuidanceWhenTmuxMissing(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	env := setupRunEnv(t, bin, 0)
 
@@ -442,6 +499,7 @@ func TestE2E_RunFailsWithActionableGuidanceWhenTmuxMissing(t *testing.T) {
 }
 
 func TestE2E_RunFailsWithActionableGuidanceWhenDockerMissing(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	env := setupRunEnv(t, bin, 0)
 
@@ -465,6 +523,7 @@ func TestE2E_RunFailsWithActionableGuidanceWhenDockerMissing(t *testing.T) {
 }
 
 func TestE2E_AgentExecutesInsideContainer(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	env := setupRunEnv(t, bin, 0)
 
@@ -492,6 +551,7 @@ func TestE2E_AgentExecutesInsideContainer(t *testing.T) {
 }
 
 func TestE2E_TmuxSessionShowsDetachedRunOutput(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	env := setupRunEnvWithScript(t, bin, "claude", `echo detached-output`)
 
@@ -517,6 +577,7 @@ func TestE2E_TmuxSessionShowsDetachedRunOutput(t *testing.T) {
 }
 
 func TestE2E_InteractiveOpenCodeFailsWithGuidance(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	env := setupRunEnvForBinary(t, bin, "opencode", 0)
 
@@ -527,6 +588,7 @@ func TestE2E_InteractiveOpenCodeFailsWithGuidance(t *testing.T) {
 }
 
 func TestE2E_InteractiveClaudeCodeAccepted(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	env := setupRunEnvWithScript(t, bin, "claude", "echo interactive-agent-output; exit 0")
 
@@ -536,6 +598,7 @@ func TestE2E_InteractiveClaudeCodeAccepted(t *testing.T) {
 }
 
 func TestE2E_ContainerSecurityHardening(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	env := setupRunEnv(t, bin, 0)
 
@@ -572,6 +635,7 @@ func TestE2E_ContainerSecurityHardening(t *testing.T) {
 }
 
 func TestE2E_InteractiveClaudeCodeAgentMetadata(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	env := setupRunEnvWithScript(t, bin, "claude", "echo metadata-test; exit 0")
 
@@ -594,6 +658,7 @@ func TestE2E_InteractiveClaudeCodeAgentMetadata(t *testing.T) {
 }
 
 func TestE2E_ProxyModeWritesEgressEvidence(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	env := setupRunEnv(t, bin, 0)
 
@@ -632,6 +697,7 @@ func TestE2E_ProxyModeWritesEgressEvidence(t *testing.T) {
 }
 
 func TestE2E_DiffArtifactsWrittenWhenChangesExist(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	// Agent script creates a file in the worktree to produce a diff.
 	env := setupRunEnvWithScript(t, bin, "claude", "echo hello > /work/newfile.txt; exit 0")
@@ -668,6 +734,7 @@ func TestE2E_DiffArtifactsWrittenWhenChangesExist(t *testing.T) {
 }
 
 func TestE2E_DiffArtifactsAbsentWhenNoChanges(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	// Agent exits immediately with no changes.
 	env := setupRunEnv(t, bin, 0)
@@ -717,7 +784,7 @@ func setupRunEnvNoBinary(t *testing.T, bin string, agentBinary string) *containe
 	require.Equal(t, 0, code, "home setup exited %d: %s", code, out)
 
 	// Build a bare Docker image WITHOUT the agent binary.
-	imgName := fmt.Sprintf("tessariq-test-no-%s", agentBinary)
+	imgName := fmt.Sprintf("tessariq-test-no-%s-%s", agentBinary, testImageTag(t))
 	buildCmds := []string{
 		fmt.Sprintf(`cat > /work/Dockerfile.bare <<'DEOF'
 FROM alpine:latest
@@ -781,6 +848,7 @@ DEOF`),
 }
 
 func TestE2E_MissingAgentBinaryFailsWithGuidance(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	env := setupRunEnvNoBinary(t, bin, "claude")
 
@@ -790,9 +858,10 @@ func TestE2E_MissingAgentBinaryFailsWithGuidance(t *testing.T) {
 	homeDir := filepath.Join(hostDir, "home")
 	binPath := filepath.Join(hostDir, "tessariq")
 
+	imgName := fmt.Sprintf("tessariq-test-no-claude-%s", testImageTag(t))
 	code, output, err := env.Exec(ctx, []string{"sh", "-c",
-		fmt.Sprintf("cd %s && HOME=%s %s run --image tessariq-test-no-claude --egress none tasks/sample.md",
-			repoPath, homeDir, binPath)})
+		fmt.Sprintf("cd %s && HOME=%s %s run --image %s --egress none tasks/sample.md",
+			repoPath, homeDir, binPath, imgName)})
 	require.NoError(t, err)
 	require.NotEqual(t, 0, code, "run should fail when agent binary missing")
 	require.Contains(t, output, `"claude"`, "error must name the missing binary")
@@ -802,6 +871,7 @@ func TestE2E_MissingAgentBinaryFailsWithGuidance(t *testing.T) {
 }
 
 func TestE2E_MissingOpenCodeBinaryFailsWithGuidance(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	env := setupRunEnvNoBinary(t, bin, "opencode")
 
@@ -811,9 +881,10 @@ func TestE2E_MissingOpenCodeBinaryFailsWithGuidance(t *testing.T) {
 	homeDir := filepath.Join(hostDir, "home")
 	binPath := filepath.Join(hostDir, "tessariq")
 
+	imgName := fmt.Sprintf("tessariq-test-no-opencode-%s", testImageTag(t))
 	code, output, err := env.Exec(ctx, []string{"sh", "-c",
-		fmt.Sprintf("cd %s && HOME=%s %s run --agent opencode --image tessariq-test-no-opencode --egress none tasks/sample.md",
-			repoPath, homeDir, binPath)})
+		fmt.Sprintf("cd %s && HOME=%s %s run --agent opencode --image %s --egress none tasks/sample.md",
+			repoPath, homeDir, binPath, imgName)})
 	require.NoError(t, err)
 	require.NotEqual(t, 0, code, "run should fail when agent binary missing")
 	require.Contains(t, output, `"opencode"`, "error must name the missing binary")
@@ -823,6 +894,7 @@ func TestE2E_MissingOpenCodeBinaryFailsWithGuidance(t *testing.T) {
 }
 
 func TestE2E_FailedRunCleansUpWorktree(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 
 	ctx := context.Background()
@@ -890,6 +962,7 @@ func TestE2E_FailedRunCleansUpWorktree(t *testing.T) {
 }
 
 func TestE2E_EvidenceCompletenessAllRequiredFiles(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	env := setupRunEnv(t, bin, 0)
 
@@ -933,6 +1006,7 @@ func TestE2E_EvidenceCompletenessAllRequiredFiles(t *testing.T) {
 }
 
 func TestE2E_CappedRunLogWithOversizedOutput(t *testing.T) {
+	t.Parallel()
 	bin := buildBinary(t)
 	// Agent generates 52 MiB of text output, exceeding the 50 MiB default cap.
 	env := setupRunEnvWithScript(t, bin, "claude", `yes | head -c 54525952`)
