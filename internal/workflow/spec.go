@@ -24,20 +24,30 @@ type specDocument struct {
 	Anchors map[string]string
 }
 
+// specRefAliases maps historical spec-ref anchors to their normative replacements.
+// Completed tasks that reference the alias are treated as covering the normative anchor.
+var specRefAliases = map[string]map[string]string{
+	"v0.1.0": {
+		"adapter-contract": "agent-and-runtime-contract",
+	},
+}
+
 var requiredSpecCoverageByVersion = map[string][]requiredSpecCoverage{
 	"v0.1.0": {
 		{Ref: "specs/tessariq-v0.1.0.md#release-intent", Title: "release intent", SpecVersion: "v0.1.0"},
 		{Ref: "specs/tessariq-v0.1.0.md#product-intent", Title: "product intent", SpecVersion: "v0.1.0"},
 		{Ref: "specs/tessariq-v0.1.0.md#repository-model", Title: "repository model", SpecVersion: "v0.1.0"},
 		{Ref: "specs/tessariq-v0.1.0.md#workspace-guarantees", Title: "workspace guarantees", SpecVersion: "v0.1.0"},
+		{Ref: "specs/tessariq-v0.1.0.md#host-prerequisites", Title: "host prerequisites", SpecVersion: "v0.1.0"},
 		{Ref: "specs/tessariq-v0.1.0.md#tessariq-init", Title: "tessariq init", SpecVersion: "v0.1.0"},
 		{Ref: "specs/tessariq-v0.1.0.md#tessariq-run-task-path", Title: "tessariq run", SpecVersion: "v0.1.0"},
 		{Ref: "specs/tessariq-v0.1.0.md#tessariq-attach-run-ref", Title: "tessariq attach", SpecVersion: "v0.1.0"},
 		{Ref: "specs/tessariq-v0.1.0.md#tessariq-promote-run-ref", Title: "tessariq promote", SpecVersion: "v0.1.0"},
 		{Ref: "specs/tessariq-v0.1.0.md#lifecycle-rules", Title: "lifecycle rules", SpecVersion: "v0.1.0"},
-		{Ref: "specs/tessariq-v0.1.0.md#adapter-contract", Title: "adapter contract", SpecVersion: "v0.1.0"},
+		{Ref: "specs/tessariq-v0.1.0.md#agent-and-runtime-contract", Title: "agent and runtime contract", SpecVersion: "v0.1.0"},
 		{Ref: "specs/tessariq-v0.1.0.md#networking-and-egress", Title: "networking and egress", SpecVersion: "v0.1.0"},
 		{Ref: "specs/tessariq-v0.1.0.md#evidence-contract", Title: "evidence contract", SpecVersion: "v0.1.0"},
+		{Ref: "specs/tessariq-v0.1.0.md#compatibility-rules", Title: "compatibility rules", SpecVersion: "v0.1.0"},
 		{Ref: "specs/tessariq-v0.1.0.md#acceptance-scenarios", Title: "acceptance scenarios", SpecVersion: "v0.1.0"},
 		{Ref: "specs/tessariq-v0.1.0.md#failure-ux", Title: "failure UX", SpecVersion: "v0.1.0"},
 	},
@@ -163,4 +173,19 @@ func specVersionFromPath(specPath string) string {
 		return strings.TrimSuffix(strings.TrimPrefix(base, "tessariq-"), ".md")
 	}
 	return ""
+}
+
+func resolveSpecRefAlias(ref string, specVersion string) string {
+	aliases, ok := specRefAliases[specVersion]
+	if !ok {
+		return ref
+	}
+	path, anchor, err := splitSpecRef(ref)
+	if err != nil {
+		return ref
+	}
+	if replacement, ok := aliases[anchor]; ok {
+		return path + "#" + replacement
+	}
+	return ref
 }

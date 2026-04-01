@@ -1,7 +1,7 @@
 ---
 id: TASK-016-v0-1-0-spec-conformity-verification
 title: Harden tracked-work validation and active-spec verification gates
-status: todo
+status: done
 priority: p0
 depends_on:
     - TASK-001-init-skeleton-and-gitignore
@@ -41,9 +41,10 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#tessariq-attach-run-ref
     - specs/tessariq-v0.1.0.md#tessariq-promote-run-ref
     - specs/tessariq-v0.1.0.md#evidence-contract
+    - specs/tessariq-v0.1.0.md#compatibility-rules
     - specs/tessariq-v0.1.0.md#acceptance-scenarios
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-03-30T22:10:00Z"
+updated_at: "2026-04-01T19:05:03Z"
 areas:
     - verification
     - spec
@@ -101,3 +102,4 @@ Harden `validate-state` and `verify --profile spec` so broken task/spec links, s
 ## Notes
 
 - This task makes the planning/spec validation gate trustworthy before the final v0.1.0 closeout sweep.
+- 2026-04-01T19:05:03Z: Hardened validate-state and verify --profile spec gates: replaced adapter-contract with agent-and-runtime-contract in required coverage, added host-prerequisites and compatibility-rules, implemented spec-ref alias resolution for historical completed-task references, added scope metadata to VerifyResult JSON output, added regression fixtures for dead-anchor, missing-file, and missing-coverage scenarios, strengthened hard-failure-gate documentation. Tests: go test -race (all pass), gremlins 85% efficacy, validate-state valid, verify --profile spec zero findings.

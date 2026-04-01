@@ -589,6 +589,104 @@ func newTestService(t *testing.T) (*Service, Paths) {
 	return &Service{paths: paths}, paths
 }
 
+func TestValidateStateAndTasksRejectsMissingSpecFile(t *testing.T) {
+	t.Parallel()
+
+	state := &State{
+		Frontmatter: StateFrontmatter{
+			SchemaVersion:     1,
+			UpdatedAt:         time.Now().UTC().Format(timeLayout),
+			MilestoneFocus:    "v0.1.0",
+			ActiveSpecVersion: "v0.1.0",
+			ActiveSpecPath:    "specs/tessariq-v0.1.0.md",
+			StaleAfterMinutes: 180,
+			MaxRetries:        2,
+		},
+	}
+	task := taskForTest("TASK-001-a", "todo", "p1", []string{"specs/tessariq-v9.9.9.md#release-intent"})
+	task.Frontmatter.SpecVersion = "v9.9.9"
+
+	violations := validateStateAndTasks(state, []*Task{task}, time.Now().UTC(), testRepoRoot(t))
+	joined := strings.Join(violations, "\n")
+	require.Contains(t, joined, "read spec")
+}
+
+func TestVerifySpecProfileIncludesScopeMetadata(t *testing.T) {
+	t.Parallel()
+
+	svc, _ := newTestService(t)
+
+	result, err := svc.Verify(VerifyInput{Profile: "spec", Disposition: "report"})
+	require.NoError(t, err)
+
+	require.Equal(t, "v0.1.0", result.MilestoneFocus)
+	require.Equal(t, "v0.1.0", result.ActiveSpecVersion)
+	require.Equal(t, "specs/tessariq-v0.1.0.md", result.ActiveSpecPath)
+
+	data, err := json.Marshal(result)
+	require.NoError(t, err)
+	require.Contains(t, string(data), `"milestone_focus":"v0.1.0"`)
+	require.Contains(t, string(data), `"active_spec_version":"v0.1.0"`)
+	require.Contains(t, string(data), `"active_spec_path":"specs/tessariq-v0.1.0.md"`)
+}
+
+func TestBuildSpecFindingsAcceptsHistoricalAdapterAlias(t *testing.T) {
+	t.Parallel()
+
+	// Collect all normative refs except agent-and-runtime-contract.
+	var refsWithoutAgent []string
+	for _, req := range requiredSpecCoverageByVersion["v0.1.0"] {
+		if req.Ref != "specs/tessariq-v0.1.0.md#agent-and-runtime-contract" {
+			refsWithoutAgent = append(refsWithoutAgent, req.Ref)
+		}
+	}
+
+	tasks := []*Task{
+		taskForTest("TASK-001-modern", "todo", "p1", refsWithoutAgent),
+		// Completed task uses the historical alias.
+		taskForTest("TASK-002-legacy", "done", "p1", []string{"specs/tessariq-v0.1.0.md#adapter-contract"}),
+	}
+
+	findings := buildSpecFindings(tasks, specScope{
+		Milestone: "v0.1.0",
+		Version:   "v0.1.0",
+		Path:      "specs/tessariq-v0.1.0.md",
+	}, nil)
+
+	require.Empty(t, findings, "adapter-contract alias should satisfy agent-and-runtime-contract coverage")
+}
+
+func TestBuildSpecFindingsReportsAllUncoveredNormativeSections(t *testing.T) {
+	t.Parallel()
+
+	tasks := []*Task{
+		taskForTest("TASK-001-a", "todo", "p1", []string{"specs/tessariq-v0.1.0.md#release-intent"}),
+	}
+
+	findings := buildSpecFindings(tasks, specScope{
+		Milestone: "v0.1.0",
+		Version:   "v0.1.0",
+		Path:      "specs/tessariq-v0.1.0.md",
+	}, nil)
+
+	expectedCount := len(requiredSpecCoverageByVersion["v0.1.0"]) - 1
+	require.Len(t, findings, expectedCount)
+	for _, f := range findings {
+		require.Equal(t, "high", f.Severity)
+		require.Equal(t, "missing spec coverage", f.Title)
+	}
+
+	details := make(map[string]bool)
+	for _, f := range findings {
+		details[f.Details] = true
+	}
+	require.True(t, details["No tracked task covers host prerequisites."])
+	require.True(t, details["No tracked task covers compatibility rules."])
+	require.True(t, details["No tracked task covers agent and runtime contract."])
+	require.True(t, details["No tracked task covers acceptance scenarios."])
+	require.True(t, details["No tracked task covers failure UX."])
+}
+
 func taskForTest(id, status, priority string, refs []string) *Task {
 	if refs == nil {
 		refs = []string{"specs/tessariq-v0.1.0.md#tessariq-run-task-path"}

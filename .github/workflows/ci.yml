@@ -44,13 +44,13 @@ jobs:
       - name: Check dependency licenses
         run: go-licenses check ./cmd/tessariq --allowed_licenses=Apache-2.0,MIT,BSD-3-Clause,ISC,AGPL-3.0
 
-      - name: Validate tracked-work state and live spec refs
+      - name: Validate tracked-work state and live spec refs  # hard failure gate
         run: go run ./cmd/tessariq-workflow validate-state
 
       - name: Verify mirrored workflow skills
         run: go run ./cmd/tessariq-workflow check-skills
 
-      - name: Verify active milestone spec coverage
+      - name: Verify active milestone spec coverage  # hard failure gate
         run: go run ./cmd/tessariq-workflow verify --profile spec --disposition report --json
 
       - name: Validate GoReleaser config
