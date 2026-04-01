@@ -19,7 +19,7 @@ Execute one specified Tessariq tracked task with deterministic workflow transiti
 7. Run mutation testing for non-trivial logic changes with the 70% threshold in mind.
 8. Run manual testing using the `autonomous-manual-test` skill against the task's acceptance criteria.
 9. Run `go run ./cmd/tessariq-workflow verify --profile task --task <task-id> --disposition hybrid --json`.
-10. Create follow-up items when unresolved findings deserve backlog treatment.
+10. When unresolved medium-or-higher findings deserve backlog treatment, run `go run ./cmd/tessariq-workflow followups --mode create --min-severity medium --json`.
 11. Finish as `blocked` when unresolved high-severity findings remain; otherwise finish as `done`.
 12. Run `go run ./cmd/tessariq-workflow refresh-state`.
 
