@@ -14,12 +14,14 @@ type ActivityTimer struct {
 	idleThreshold time.Duration
 	tickInterval  time.Duration
 
-	mu         sync.Mutex
-	elapsed    time.Duration
-	lastActive time.Time
-	expired    chan struct{}
-	stopped    chan struct{}
-	clock      func() time.Time
+	mu             sync.Mutex
+	elapsed        time.Duration
+	lastActive     time.Time
+	lastCheckpoint time.Time
+	fired          bool
+	expired        chan struct{}
+	stopped        chan struct{}
+	clock          func() time.Time
 }
 
 // ActivityTimerOption configures an ActivityTimer.
@@ -62,13 +64,18 @@ func NewActivityTimer(timeout time.Duration, opts ...ActivityTimerOption) *Activ
 // Start begins the timer loop. Call Stop() to clean up.
 func (t *ActivityTimer) Start() {
 	t.mu.Lock()
-	t.lastActive = t.clock()
+	now := t.clock()
+	t.lastActive = now
+	t.lastCheckpoint = now
 	t.mu.Unlock()
 	go t.loop()
 }
 
 // Stop terminates the timer loop without firing expiry.
 func (t *ActivityTimer) Stop() {
+	t.mu.Lock()
+	t.fired = true
+	t.mu.Unlock()
 	select {
 	case <-t.stopped:
 	default:
@@ -83,9 +90,17 @@ func (t *ActivityTimer) Expired() <-chan struct{} {
 }
 
 // RecordActivity notifies the timer that the agent produced output.
+// It also advances the elapsed counter and fires expiry if the
+// accumulated active time exceeds the timeout.
 func (t *ActivityTimer) RecordActivity() {
+	now := t.clock()
 	t.mu.Lock()
-	t.lastActive = t.clock()
+	t.lastActive = now
+	expired := t.advanceElapsedLocked(now)
+	if expired {
+		t.fired = true
+		close(t.expired)
+	}
 	t.mu.Unlock()
 }
 
@@ -96,11 +111,23 @@ func (t *ActivityTimer) Elapsed() time.Duration {
 	return t.elapsed
 }
 
+// advanceElapsedLocked updates elapsed time if the timer is active.
+// Returns true if the timer has expired. Caller must hold t.mu.
+func (t *ActivityTimer) advanceElapsedLocked(now time.Time) bool {
+	if t.fired {
+		return false
+	}
+	sinceLastActive := now.Sub(t.lastActive)
+	if sinceLastActive <= t.idleThreshold {
+		t.elapsed += now.Sub(t.lastCheckpoint)
+	}
+	t.lastCheckpoint = now
+	return t.elapsed >= t.timeout
+}
+
 func (t *ActivityTimer) loop() {
 	ticker := time.NewTicker(t.tickInterval)
 	defer ticker.Stop()
-
-	lastTick := t.clock()
 
 	for {
 		select {
@@ -109,19 +136,18 @@ func (t *ActivityTimer) loop() {
 		case <-ticker.C:
 			now := t.clock()
 			t.mu.Lock()
-			sinceLastActive := now.Sub(t.lastActive)
-			if sinceLastActive <= t.idleThreshold {
-				t.elapsed += now.Sub(lastTick)
-			}
-			expired := t.elapsed >= t.timeout
-			t.mu.Unlock()
-
-			lastTick = now
-
-			if expired {
-				close(t.expired)
+			if t.fired {
+				t.mu.Unlock()
 				return
 			}
+			expired := t.advanceElapsedLocked(now)
+			if expired {
+				t.fired = true
+				close(t.expired)
+				t.mu.Unlock()
+				return
+			}
+			t.mu.Unlock()
 		}
 	}
 }

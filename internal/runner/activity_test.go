@@ -37,7 +37,6 @@ func TestActivityTimer_ExpiresAfterContinuousActivity(t *testing.T) {
 	for i := 0; i < 120; i++ {
 		advance(10 * time.Millisecond)
 		timer.RecordActivity()
-		time.Sleep(1 * time.Millisecond) // let ticker fire
 	}
 
 	select {
@@ -76,12 +75,10 @@ func TestActivityTimer_PausesDuringIdle(t *testing.T) {
 	for i := 0; i < 20; i++ {
 		advance(10 * time.Millisecond)
 		timer.RecordActivity()
-		time.Sleep(1 * time.Millisecond)
 	}
 
 	// Go idle for 2s (well past idle threshold).
 	advance(2 * time.Second)
-	time.Sleep(20 * time.Millisecond) // let ticks fire during idle
 
 	// Timer should NOT have expired (only ~200ms of active time, timeout=500ms).
 	select {
@@ -98,7 +95,6 @@ func TestActivityTimer_PausesDuringIdle(t *testing.T) {
 	for i := 0; i < 40; i++ {
 		advance(10 * time.Millisecond)
 		timer.RecordActivity()
-		time.Sleep(1 * time.Millisecond)
 	}
 
 	select {
@@ -172,13 +168,10 @@ func TestActivityTimer_ElapsedAccuracy(t *testing.T) {
 	for i := 0; i < 30; i++ {
 		advance(10 * time.Millisecond)
 		timer.RecordActivity()
-		time.Sleep(1 * time.Millisecond)
 	}
-	time.Sleep(20 * time.Millisecond) // let ticks catch up
 
 	// Go idle for 1s.
 	advance(1 * time.Second)
-	time.Sleep(20 * time.Millisecond)
 
 	elapsed := timer.Elapsed()
 	// Should be approximately 300ms (active time only), not 1.3s.
