@@ -1,7 +1,7 @@
 ---
 id: TASK-037-prestart-agent-binary-validation
 title: Validate selected agent binary in runtime image before agent start
-status: todo
+status: done
 priority: p0
 depends_on:
     - TASK-024-claude-code-agent-runtime-integration
@@ -12,7 +12,7 @@ spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#acceptance-scenarios
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-03-31T20:30:00Z"
+updated_at: "2026-04-01T09:10:15Z"
 areas:
     - agents
     - runtime
@@ -78,3 +78,4 @@ The run path currently detects missing agent binaries reactively via container e
 
 - Likely files: `internal/adapter/factory.go`, `internal/container/process.go` (or helper), `cmd/tessariq/run.go`, and agent integration/e2e tests.
 - Avoid introducing host-tool dependencies; use containerized checks consistent with existing architecture.
+- 2026-04-01T09:10:15Z: Pre-start agent binary validation: ProbeImageBinary in container package probes Docker image before agent start. BinaryNotFoundError includes binary name, agent, --image guidance. Unit/integration/e2e/mutation/manual tests pass.

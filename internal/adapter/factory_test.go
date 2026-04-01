@@ -25,6 +25,7 @@ func TestNewProcess_ClaudeCode(t *testing.T) {
 	require.Equal(t, 1, ap.AgentInfo.SchemaVersion)
 	require.Equal(t, 1, ap.RuntimeInfo.SchemaVersion)
 	require.Equal(t, "reference", ap.RuntimeInfo.ImageSource)
+	require.Equal(t, "claude", ap.BinaryName)
 }
 
 func TestNewProcess_OpenCode(t *testing.T) {
@@ -44,6 +45,7 @@ func TestNewProcess_OpenCode(t *testing.T) {
 	require.False(t, ap.AgentInfo.Applied["interactive"],
 		"opencode does not apply interactive")
 	require.Equal(t, "reference", ap.RuntimeInfo.ImageSource)
+	require.Equal(t, "opencode", ap.BinaryName)
 }
 
 func TestNewProcess_OpenCodeWithModel(t *testing.T) {

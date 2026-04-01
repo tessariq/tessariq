@@ -17,6 +17,7 @@ type AgentProcess struct {
 	Process     runner.ProcessRunner
 	AgentInfo   AgentInfo
 	RuntimeInfo RuntimeInfo
+	BinaryName  string // agent binary name inside the container image
 }
 
 // NewProcess creates an AgentProcess for the agent specified in cfg.
@@ -97,6 +98,7 @@ func NewProcess(cfg run.Config, taskContent string, runID, worktreePath, evidenc
 		Process:     proc,
 		AgentInfo:   NewAgentInfo(agentName, requested, applied),
 		RuntimeInfo: NewRuntimeInfo(image, imageSource, len(authMounts), agentConfigMount, agentConfigMountStatus),
+		BinaryName:  binaryName,
 	}, nil
 }
 
