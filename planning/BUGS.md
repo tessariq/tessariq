@@ -5,9 +5,9 @@ Automated adversarial testing against done tasks.
 | Key | Value |
 |-----|-------|
 | Started | 2026-03-31 |
-| Iteration | 12 |
-| Last bug found | iteration 12 |
-| Clean iterations | 0 / 11 |
+| Iteration | 13 |
+| Last bug found | iteration 13 |
+| Clean iterations | 0 / 12 |
 | Status | In progress |
 
 ---
@@ -262,11 +262,23 @@ BUG-001 through BUG-007 were all fixed by TASK-030 through TASK-039 (done).
 | BUG-005 | HIGH | `factory.go:67` | Agent binary not validated before container start | **Fixed** (TASK-037) |
 | BUG-006 | CRITICAL | `run.go:113-179` | No cleanup defer — worktree leaked on post-provision errors | **Fixed** (TASK-038) |
 | BUG-007 | HIGH | `logs.go:16-29` | Logs not capped, no truncation marker | **Fixed** (TASK-039) |
-| BUG-008 | HIGH | `run.go:200` | Spurious "interactive mode without --attach" note on every default claude-code run | **Open** |
-| BUG-009 | HIGH | `run.go:288` | OpenCode + proxy + user_config allowlist fails if auth.json missing | **Open** |
-| BUG-010 | MEDIUM | `run.go:288` | OpenCode auth-missing produces raw I/O error instead of actionable message | **Open** |
-| BUG-011 | MEDIUM | `run.go:324` | `appendIndexEntry` silently drops all errors; run can complete without an index entry | **Open** |
-| BUG-012 | LOW | `specs/tessariq-v0.1.0.md` | Manifest example uses `"allowlist_source": "auto"` which contradicts normative text | **Open (spec doc)** |
+| BUG-008 | HIGH | `run.go:200` | Spurious "interactive mode without --attach" note on every default claude-code run | **Fixed** |
+| BUG-009 | HIGH | `run.go:288` | OpenCode + proxy + user_config allowlist fails if auth.json missing | **Fixed** |
+| BUG-010 | MEDIUM | `run.go:288` | OpenCode auth-missing produces raw I/O error instead of actionable message | **Fixed** |
+| BUG-011 | MEDIUM | `run.go:324` | `appendIndexEntry` silently drops all errors; run can complete without an index entry | **Fixed** |
+| BUG-012 | LOW | `specs/tessariq-v0.1.0.md` | Manifest example uses `"allowlist_source": "auto"` which contradicts normative text | **Fixed (spec doc)** |
+| BUG-013 | CRITICAL | `index.go`, `promote.go` | `promote` trusts forged `evidence_path` entries and can promote out-of-repo evidence | **Open** |
+| BUG-014 | HIGH | `completeness.go`, `promote.go` | `promote` ignores missing `diffstat.txt` even though spec requires it when changes exist | **Open** |
+| BUG-015 | HIGH | `promote.go` | `promote` allows manifest tampering to rewrite branch identity and commit trailers | **Open** |
+| BUG-016 | HIGH | `attach.go` | `attach` trusts forged `evidence_path` entries from outside the repo | **Open** |
+| BUG-017 | HIGH | `attach.go` | `attach` does not verify evidence directory belongs to the same `run_id` | **Open** |
+| BUG-018 | HIGH | `preflight.go` | `attach` depends on `git` but does not preflight it as a required prerequisite | **Open** |
+| BUG-019 | HIGH | `run.go` | `run` loads user config even when explicit CLI egress settings should bypass it | **Open** |
+| BUG-020 | HIGH | `runref.go` | `last-N` resolves index lines, not runs; duplicate entries break previous-run selection | **Open** |
+| BUG-021 | HIGH | `index.go`, `runref.go` | `ReadIndex` accepts partial JSON objects as valid runs | **Open** |
+| BUG-022 | HIGH | `taskpath.go` | `run` accepts symlinked task path whose real target is outside the repository | **Open** |
+| BUG-023 | CRITICAL | `run.go`, `factory.go`, `process.go` | `--egress none` does not disable networking; container gets full internet access | **Open** |
+| BUG-024 | MEDIUM | `run.go:216` | `WriteDiffArtifacts` error silently discarded; run completes without diff evidence | **Open** |
 
 ---
 
@@ -786,3 +798,113 @@ agent claude-code: binary "claude" not found in runtime image ghcr.io/tessariq/c
 | `..` relative-escape rejection | Existing `ValidateTaskPathLogic_RelativeEscape` coverage plus codepath review | CLEAN |
 | Non-Markdown task rejection | Existing `ValidateTaskPathLogic_NotMarkdown` coverage plus codepath review | CLEAN |
 | Ordinary in-repo Markdown task acceptance | Existing `ValidateTaskPath_ValidFile` coverage | CLEAN |
+
+---
+
+## Iteration 13
+
+Scope: broad adversarial review of version, init, evidence contracts, container security, egress enforcement, hooks, dirty-repo checks, and promote edge cases. Verified status of all previously open bugs (BUG-008 through BUG-022). Two new bugs found.
+
+### Previously open bugs — status update
+
+BUG-008 through BUG-012 are now **fixed**:
+- **BUG-008**: `printInteractiveNote` now uses `cfg.Interactive` (the user's flag) instead of `agentProc.AgentInfo.Applied["interactive"]`. See `run.go:366`.
+- **BUG-009**: Provider resolution guard at `run.go:288-289` now includes `(userCfg == nil || len(userCfg.EgressAllow) == 0)`.
+- **BUG-010**: Auth-missing error at `run.go:294-296` now wraps `os.ErrNotExist` as `&authmount.AuthMissingError{Agent: "opencode"}`.
+- **BUG-011**: `appendIndexEntry` at `run.go:344-361` now emits `fmt.Fprintf(w, "warning: index entry skipped: %s\n", err)` instead of silent drops.
+- **BUG-012**: Spec manifest example at `specs/tessariq-v0.1.0.md:417` now uses `"allowlist_source": "built_in"`.
+
+BUG-013 through BUG-022 are all **still open** — confirmed by code review.
+
+### BUG-023: `--egress none` does not disable networking; container gets full internet access
+
+**Severity:** CRITICAL
+**Files:** `cmd/tessariq/run.go:133`, `internal/adapter/factory.go:70-81`, `internal/container/process.go:194-196`
+
+**Spec says** (line 313, plus spec changelog line 803):
+> Modes: `none`, `proxy`, `open`, `auto`
+
+The `--egress-no-defaults` rename rationale describes `--egress none` as the mode "which disables all network access." The spec lists `none` as a distinct mode from `open`, with `open` requiring explicit opt-in. `none` is the most restrictive mode.
+
+**Code does:** Only `proxy` mode configures container networking. Both `none` and `open` fall through with `proxyEnv == nil`, leaving `networkName` as `""`. In `process.go:194-196`, when `NetworkName` is empty, no `--net` flag is emitted to `docker create`, so the container lands on the default Docker bridge network with **full unrestricted internet access**.
+
+```go
+// run.go:133 — only proxy mode sets up networking
+if resolvedEgress == "proxy" { ... }
+
+// factory.go:70 — networkName stays empty for none/open
+var networkName string
+if proxyEnv != nil {
+    networkName = proxyEnv.NetworkName
+}
+
+// process.go:194 — empty NetworkName means default bridge
+if p.cfg.NetworkName != "" {
+    args = append(args, "--net", p.cfg.NetworkName)
+}
+```
+
+**Impact:** Users relying on `--egress none` for air-gapped, fully isolated runs unknowingly give the agent container full internet access. This is a security issue because the user chose the most restrictive mode but gets the most permissive network posture (equivalent to `--egress open`).
+
+**Fix direction:** When `resolvedEgress == "none"`, set `NetworkName` to `"none"` in the container config. Docker's built-in `none` network provides loopback only — no external connectivity.
+
+---
+
+### BUG-024: `WriteDiffArtifacts` error silently discarded; run can complete without required diff evidence
+
+**Severity:** MEDIUM
+**File:** `cmd/tessariq/run.go:216`
+
+**Spec says** (line 373-374):
+> `diff.patch` when there are changes
+> `diffstat.txt` when there are changes
+
+These are **required** artifacts per the evidence contract.
+
+**Code does:**
+
+```go
+_ = runner.WriteDiffArtifacts(cmd.Context(), evidenceDir, wsPath, baseSHA)
+```
+
+The error return is silently discarded with `_`. If `git diff` fails (e.g., corrupted worktree, git crash, disk full), a run with actual code changes will complete with neither `diff.patch` nor `diffstat.txt`. The user sees no warning.
+
+Combined with BUG-014 (completeness check doesn't validate conditional artifacts), and the separate `appendIndexEntry` path, a run can complete, appear in the index, and even be promotable despite missing required diff evidence.
+
+**Fix direction:** At minimum, emit a warning to stderr when `WriteDiffArtifacts` returns an error:
+```go
+if err := runner.WriteDiffArtifacts(cmd.Context(), evidenceDir, wsPath, baseSHA); err != nil {
+    fmt.Fprintf(cmd.ErrOrStderr(), "warning: diff artifacts not written: %s\n", err)
+}
+```
+
+---
+
+### Areas tested (clean)
+
+| Area | Probe | Result |
+|------|-------|--------|
+| `tessariq version` | Both invocation forms, output format, no-repo context, no prerequisites | CLEAN |
+| `tessariq --version` | Byte-for-byte identical to `tessariq version` | CLEAN |
+| `tessariq init` | Idempotency, .gitignore handling, permissions 0o700, git-unavailable failure | CLEAN |
+| Init edge cases | CRLF .gitignore, subdirectory invocation, read-only .gitignore, no commits | CLEAN |
+| Evidence JSON schemas | All 5 artifacts: schema_version=1, required fields present | CLEAN |
+| Evidence file permissions | All files 0o600, all dirs 0o700 | CLEAN |
+| Log capping (BUG-007 fix) | CappedWriter at 50 MiB with truncation marker | CLEAN |
+| Container security | cap-drop=ALL, no-new-privileges, non-root user, repair image pinned | CLEAN |
+| Evidence mount read-only | Confirmed via AssembleMounts | CLEAN |
+| Auth/config mounts read-only | All auth and config mounts set ReadOnly: true | CLEAN |
+| HOST HOME isolation | Never mounted; container HOME is /home/tessariq | CLEAN |
+| Hook execution | Runs on host via sh -c, output captured in runner.log | CLEAN |
+| Pre-hook failure | Aborts run, writes StateFailed | CLEAN |
+| Verify-hook failure | Records StateFailed, runs all verify commands | CLEAN |
+| `--egress open` contract | Explicit opt-in, recorded in manifest, default bridge networking | CLEAN |
+| `--unsafe-egress` alias | Maps to "open", validated against --egress conflicts | CLEAN |
+| Built-in allowlist profile | npm, PyPI, RubyGems, crates.io, Go proxy, Maven, Wikipedia — all on 443 | CLEAN |
+| Agent endpoints | Claude Code: 3 endpoints correct; OpenCode: provider-aware, conditional opencode.ai | CLEAN |
+| Allowlist precedence | CLI > user_config > built_in, --egress-no-defaults | CLEAN |
+| egress.compiled.yaml | schema_version=1, allowlist_source, destinations with host+port | CLEAN |
+| Dirty-repo check | Staged, unstaged, untracked, .gitignored, submodules, before container start | CLEAN |
+| Dirty-repo error message | Matches spec: "commit, stash, or clean the repository first" | CLEAN |
+| Promote edge cases | Branch-exists, unfinished-run, --no-trailers, --branch, git add -A, zero-diff | CLEAN |
+| Promote terminal state check | All 5 terminal states accepted, running rejected | CLEAN |
