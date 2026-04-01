@@ -1,7 +1,7 @@
 ---
 id: TASK-033-opencode-interactive-request-recording
 title: Allow OpenCode interactive requests and record not-applied semantics in agent evidence
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-025-opencode-agent-runtime-integration
@@ -11,7 +11,7 @@ spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#agent-and-runtime-contract
     - specs/tessariq-v0.1.0.md#evidence-contract
-updated_at: "2026-03-31T20:30:00Z"
+updated_at: "2026-04-01T11:04:41Z"
 areas:
     - cli
     - opencode
@@ -79,3 +79,4 @@ verification:
 
 - Likely files: `cmd/tessariq/run.go`, `cmd/tessariq/run_test.go`, `internal/adapter/opencode/opencode_test.go`, and run integration/e2e tests.
 - Keep this task behavior-preserving outside the interactive gating change.
+- 2026-04-01T11:04:41Z: Removed premature CLI hard-gate for opencode+interactive. OpenCode adapter already recorded requested/applied correctly; gate prevented it from running. Added non-fatal stderr warning, updated attach note to check Applied map, added factory unit test, transformed e2e test from failure to evidence assertion. All tests pass: unit, integration, e2e, mutation (84.95%). Manual tests 5/5 pass.

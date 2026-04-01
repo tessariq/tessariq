@@ -64,6 +64,23 @@ func TestNewProcess_OpenCodeWithModel(t *testing.T) {
 		"opencode does not apply model")
 }
 
+func TestNewProcess_OpenCodeInteractive(t *testing.T) {
+	t.Parallel()
+
+	cfg := run.DefaultConfig()
+	cfg.Agent = "opencode"
+	cfg.TaskPath = "specs/task.md"
+	cfg.Interactive = true
+	ap, err := NewProcess(cfg, "task", "run-1", "/wt", "/ev",
+		nil, nil, "disabled", "disabled", nil, nil)
+
+	require.NoError(t, err)
+	require.Equal(t, true, ap.AgentInfo.Requested["interactive"],
+		"interactive must be recorded as requested")
+	require.False(t, ap.AgentInfo.Applied["interactive"],
+		"opencode does not apply interactive")
+}
+
 func TestNewProcess_CustomImageSource(t *testing.T) {
 	t.Parallel()
 

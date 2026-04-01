@@ -1,26 +1,26 @@
 ---
 schema_version: 1
-updated_at: "2026-04-01T10:57:40Z"
+updated_at: "2026-04-01T11:04:46Z"
 mode: user_request
-run_id: wf-20260401T104916Z
+run_id: wf-20260401T105224Z
 agent_id: claude-code
-model: claude-opus-4-6
+model: opus-4.6
 active_task: ""
 active_task_started_at: ""
 attempt: 0
-last_completed: TASK-030-fix-timeout-signal-escalation
+last_completed: TASK-033-opencode-interactive-request-recording
 next_tasks:
     - TASK-007-attach-command-live-run-resolution
 repo_state: idle
 last_transition: finish
-last_transition_at: "2026-04-01T10:57:36Z"
+last_transition_at: "2026-04-01T11:04:41Z"
 selection_reason: next eligible todo by priority
-validation_last_run: "2026-04-01T10:55:46Z"
+validation_last_run: "2026-04-01T11:04:33Z"
 validation_status: passed
 validation_scope: task:v0.1.0
-validation_plan: planning/artifacts/verify/task/TASK-030-fix-timeout-signal-escalation/20260401T105546Z/plan.md
-validation_report: planning/artifacts/verify/task/TASK-030-fix-timeout-signal-escalation/20260401T105546Z/report.json
-validation_checked_at: "2026-04-01T10:55:46Z"
+validation_plan: planning/artifacts/verify/task/TASK-033-opencode-interactive-request-recording/20260401T110433Z/plan.md
+validation_report: planning/artifacts/verify/task/TASK-033-opencode-interactive-request-recording/20260401T110433Z/report.json
+validation_checked_at: "2026-04-01T11:04:33Z"
 milestone_focus: v0.1.0
 active_spec_version: v0.1.0
 active_spec_path: specs/tessariq-v0.1.0.md
@@ -31,7 +31,7 @@ max_retries: 2
 ## Machine Snapshot
 
 - Active task: none
-- Last completed: TASK-030-fix-timeout-signal-escalation
+- Last completed: TASK-033-opencode-interactive-request-recording
 - Validation status: passed
 - Active spec: v0.1.0 (specs/tessariq-v0.1.0.md)
 - Next tasks:

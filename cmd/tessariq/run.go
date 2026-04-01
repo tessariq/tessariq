@@ -72,7 +72,8 @@ func newRunCmd() *cobra.Command {
 			}
 
 			if cfg.Interactive && cfg.Agent == "opencode" {
-				return fmt.Errorf("--interactive is not supported by opencode; use --agent claude-code for interactive mode")
+				fmt.Fprintf(cmd.ErrOrStderr(),
+					"note: --interactive is not natively supported by opencode; option recorded in agent.json as not applied\n")
 			}
 
 			if err := git.IsClean(cmd.Context(), root); err != nil {
@@ -196,7 +197,7 @@ func newRunCmd() *cobra.Command {
 			containerName := run.ContainerName(runID)
 			sessionName := run.SessionName(runID)
 
-			if cfg.Interactive && !cfg.Attach {
+			if agentProc.AgentInfo.Applied["interactive"] && !cfg.Attach {
 				fmt.Fprintf(cmd.ErrOrStderr(), "note: interactive mode without --attach; use 'tmux attach -t %s' to provide approval input\n", sessionName)
 			}
 
