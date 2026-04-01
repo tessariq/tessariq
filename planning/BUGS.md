@@ -5,9 +5,9 @@ Automated adversarial testing against done tasks.
 | Key | Value |
 |-----|-------|
 | Started | 2026-03-31 |
-| Iteration | 7 |
-| Last bug found | iteration 7 |
-| Clean iterations | 0 / 6 |
+| Iteration | 12 |
+| Last bug found | iteration 12 |
+| Clean iterations | 0 / 11 |
 | Status | In progress |
 
 ---
@@ -414,3 +414,375 @@ if err != nil {
 The implementation correctly uses `built_in` as the fallback source. The spec example is wrong and may mislead readers or automated validators.
 
 **Fix direction:** Change the example value from `"auto"` to `"built_in"` in the spec.
+
+---
+
+## Iteration 8
+
+Scope: adversarial review of `tessariq promote` against the v0.1.0 spec.
+
+### BUG-013: `promote` trusts forged `evidence_path` entries and can promote out-of-repo evidence
+
+**Severity:** CRITICAL  
+**Files:** `internal/run/index.go:77-108`, `internal/promote/promote.go:42-49`, `internal/promote/promote.go:64-99`
+
+**Spec references:**
+- `specs/tessariq-v0.1.0.md:68`
+- `specs/tessariq-v0.1.0.md:214-246`
+- `specs/tessariq-v0.1.0.md:482-494`
+
+**Why this is a bug:**
+- The spec defines run evidence as repo-local under `<repo>/.tessariq/runs/<run_id>/`.
+- `promote` resolves a run from `index.jsonl` and then trusts `evidence_path` verbatim.
+- If `evidence_path` is absolute, it is used as-is. If it is relative, it is joined to the repo root without checking that it remains under `.tessariq/runs/`.
+- A forged or corrupted index entry can therefore point at attacker-controlled evidence outside the repo and still produce a real branch and commit.
+
+**Adversarial test:**
+1. Create a clean repo with a valid base commit.
+2. Append an `index.jsonl` entry whose `evidence_path` points to an absolute temp directory outside the repo.
+3. In that temp directory, create fake `manifest.json`, terminal `status.json`, required stub evidence files, and a `diff.patch` that adds a file.
+4. Run `tessariq promote <run-id>`.
+5. Expected by spec: fail because the run evidence is not repo-local.
+6. Actual from code: the command can create a branch and commit from the external patch.
+
+---
+
+### BUG-014: `promote` ignores missing `diffstat.txt` even though v0.1.0 requires it when changes exist
+
+**Severity:** HIGH  
+**Files:** `internal/runner/completeness.go:10-21`, `internal/promote/promote.go:47-49`, `internal/promote/promote.go:64-71`
+
+**Spec references:**
+- `specs/tessariq-v0.1.0.md:363-374`
+- `specs/tessariq-v0.1.0.md:246`
+- `specs/tessariq-v0.1.0.md:516`
+- `specs/tessariq-v0.1.0.md:540`
+
+**Why this is a bug:**
+- The spec says both `diff.patch` and `diffstat.txt` are required when a run has changes.
+- Evidence completeness checks only the fixed evidence file set and does not require `diffstat.txt`.
+- `promote` separately checks only whether `diff.patch` exists and is non-empty.
+- A changed run with missing `diffstat.txt` still promotes successfully, which violates the required-evidence contract.
+
+**Adversarial test:**
+1. Create evidence for a finished run with a valid non-empty `diff.patch`.
+2. Delete `diffstat.txt`.
+3. Run `tessariq promote <run-id>`.
+4. Expected by spec: fail and identify the missing artifact.
+5. Actual from code: `promote` can still succeed.
+
+---
+
+### BUG-015: `promote` allows manifest tampering to rewrite branch identity and commit trailers
+
+**Severity:** HIGH  
+**Files:** `internal/run/manifest.go:55-67`, `internal/promote/promote.go:51-61`, `internal/promote/promote.go:73-82`, `internal/promote/promote.go:157-167`
+
+**Spec references:**
+- `specs/tessariq-v0.1.0.md:65-78`
+- `specs/tessariq-v0.1.0.md:219-234`
+
+**Why this is a bug:**
+- `promote <run-ref>` should promote that run and link the resulting commit back to the same run.
+- The implementation reads `manifest.json` and trusts its values for `run_id`, `base_sha`, `task_path`, branch naming, and trailers.
+- There is no consistency check between the resolved run reference, the index entry, the evidence directory name, and the manifest contents.
+- If `manifest.json` is tampered with, `promote RUN_A` can create a branch and commit that claim to come from `RUN_B` or a different task path.
+
+**Adversarial test:**
+1. Create a valid indexed run `RUN_A`.
+2. Edit `.tessariq/runs/RUN_A/manifest.json` so `run_id` becomes `RUN_B` and `task_path` becomes `evil.md`.
+3. Keep a valid `base_sha` and `diff.patch`.
+4. Run `tessariq promote RUN_A`.
+5. Expected by spec: fail because the run identity in evidence is inconsistent.
+6. Actual from code: the created branch and trailers follow the forged manifest values.
+
+---
+
+## Iteration 9
+
+Scope: adversarial review of `tessariq attach` against the v0.1.0 spec.
+
+### BUG-016: `attach` trusts forged `evidence_path` entries and can validate liveness from outside the repo
+
+**Severity:** HIGH  
+**Files:** `internal/attach/attach.go:46-66`
+
+**Spec references:**
+- `specs/tessariq-v0.1.0.md:65-68`
+- `specs/tessariq-v0.1.0.md:93`
+- `specs/tessariq-v0.1.0.md:207-212`
+- `specs/tessariq-v0.1.0.md:482-494`
+
+**Why this is a bug:**
+- v0.1.0 defines run evidence as repo-local under `<repo>/.tessariq/runs/<run_id>/`.
+- `attach` resolves a run from `index.jsonl` and then trusts `entry.EvidencePath` verbatim.
+- Absolute paths are accepted as-is, and relative paths are only joined to `repoRoot`; there is no check that the final path remains under `.tessariq/runs/<run_id>`.
+- A forged or corrupted index entry can therefore make `attach` read `status.json` from arbitrary host paths outside the repository.
+
+**Adversarial test:**
+1. Build the current binary: `go build -o /tmp/tessariq-attach-adversarial ./cmd/tessariq`.
+2. Create a temp git repo and a forged `.tessariq/runs/index.jsonl` entry whose `evidence_path` is an absolute temp directory outside the repo.
+3. Place a fake `status.json` with `"state": "running"` in that external directory.
+4. Start a tmux session named `tessariq-<run_id>`.
+5. Run `tessariq attach last` under `script` so tmux has a terminal.
+6. Expected by spec: fail, because the referenced run evidence is not repo-local.
+7. Actual from code: the attach client connects; `tmux list-clients` showed `tessariq-01ARZ3NDEKTSV4RRFFQ69G5FAV` for the forged run.
+
+**Fix direction:** Derive the evidence directory from `run_id`, or at minimum reject absolute paths and verify the cleaned path stays under `<repo>/.tessariq/runs/<run_id>` before reading `status.json`.
+
+---
+
+### BUG-017: `attach` does not verify that the evidence directory belongs to the same `run_id`
+
+**Severity:** HIGH  
+**Files:** `internal/attach/attach.go:46-66`
+
+**Spec references:**
+- `specs/tessariq-v0.1.0.md:65-69`
+- `specs/tessariq-v0.1.0.md:207-212`
+- `specs/tessariq-v0.1.0.md:245`
+- `specs/tessariq-v0.1.0.md:482-494`
+
+**Why this is a bug:**
+- A run is identified by one `run_id` and one evidence folder under `.tessariq/runs/<run_id>/`.
+- `attach` uses `entry.RunID` to derive the tmux session name, but it uses `entry.EvidencePath` independently to decide whether the run is live.
+- There is no consistency check that `entry.EvidencePath` actually points to the evidence directory for `entry.RunID`.
+- A forged index entry can therefore authorize `attach RUN_A` using `RUN_B`'s running `status.json`, then attach to the tmux session for `RUN_A`.
+
+**Adversarial test:**
+1. Create a temp repo with an index entry for `RUN_A`.
+2. Set that entry's `evidence_path` to `.tessariq/runs/RUN_B`.
+3. Write `status.json` with `"state": "running"` only for `RUN_B`.
+4. Start tmux session `tessariq-RUN_A`.
+5. Run `tessariq attach RUN_A`.
+6. Expected by spec: fail, because `RUN_A` does not have its own live evidence.
+7. Actual from code: the attach client connects; `tmux list-clients` showed `tessariq-01ARZ3NDEKTSV4RRFFQ69G5FAA` even though only `RUN_B` had running evidence.
+
+**Fix direction:** Enforce `entry.EvidencePath == .tessariq/runs/<entry.RunID>` or validate the resolved evidence directory name against `entry.RunID` before status/session checks.
+
+### Areas tested (clean)
+
+| Area | Probe | Result |
+|------|-------|--------|
+| Attach unit coverage | `go test ./internal/attach ./cmd/tessariq -run 'Attach|ResolveLiveRun'` | CLEAN |
+| Attach integration baseline | `go test -tags=integration ./cmd/tessariq -run '^TestIntegration_Attach'` | CLEAN |
+| Spec-required finished-run failure | Existing integration coverage plus codepath review | CLEAN |
+| Spec-required missing-tmux guidance | Existing unit/e2e coverage plus codepath review | CLEAN |
+
+---
+
+## Iteration 10
+
+Scope: adversarial review of prerequisite enforcement and egress-config precedence in `tessariq attach` and `tessariq run` against the v0.1.0 spec.
+
+### BUG-018: `attach` depends on `git` for repo resolution but does not preflight it as a required host prerequisite
+
+**Severity:** HIGH  
+**Files:** `internal/prereq/preflight.go:34-35`, `cmd/tessariq/attach.go:35-42`, `cmd/tessariq/init.go:35-38`
+
+**Spec references:**
+- `specs/tessariq-v0.1.0.md:54-60`
+- `specs/tessariq-v0.1.0.md:207-212`
+- `specs/tessariq-v0.1.0.md:530`
+
+**Why this is a bug:**
+- The spec defines `git` as a required host prerequisite for repository discovery.
+- `tessariq attach` resolves the current repository via `git rev-parse --show-toplevel`.
+- `RequirementsForCommand("attach")` only checks for `tmux`, so the command can pass prerequisite validation and then fail later with a raw missing-binary error from `repoRoot()`.
+- That violates the requirement that prerequisite failures happen before dependent work and identify the missing dependency with actionable guidance.
+
+**Adversarial test:**
+1. Build the current binary: `go build -o /tmp/tessariq-adversarial ./cmd/tessariq`
+2. Create a temp git repo.
+3. Create a temp `PATH` directory containing only `tmux`.
+4. Run `PATH=/tmp/tessariq-adv-attach-bin /tmp/tessariq-adversarial attach last`.
+5. Expected by spec: fail as a prerequisite error that identifies missing `git` and tells the user to install or enable it.
+6. Actual from code:
+
+```text
+resolve repository root: exec: "git": executable file not found in $PATH
+```
+
+**Fix direction:** Add `git` to `RequirementsForCommand("attach")`, or otherwise preflight repository-discovery dependencies before calling `repoRoot()`.
+
+---
+
+### BUG-019: `run` loads user config even when explicit CLI egress settings should bypass it entirely
+
+**Severity:** HIGH  
+**Files:** `cmd/tessariq/run.go:270-305`, `internal/run/userconfig.go:35-54`
+
+**Spec references:**
+- `specs/tessariq-v0.1.0.md:96-98`
+- `specs/tessariq-v0.1.0.md:321-324`
+- `specs/tessariq-v0.1.0.md:352-356`
+
+**Why this is a bug:**
+- v0.1.0 limits user-level config to default allowlist selection for proxy-based egress flows.
+- CLI flags are the per-run source of truth and must override user defaults.
+- `resolveAllowlistCore()` unconditionally loads and parses `config.yaml` before checking whether the run already has an explicit CLI egress mode or CLI `--egress-allow` entries that make user config irrelevant.
+- A malformed or unreadable user config therefore blocks runs that should not need that config at all.
+
+**Adversarial tests:**
+1. Create a clean temp repo with a committed `task.md`.
+2. Create malformed user config at `/tmp/tessariq-adv-xdg-open/tessariq/config.yaml`.
+3. Run `XDG_CONFIG_HOME=/tmp/tessariq-adv-xdg-open /tmp/tessariq-adversarial run --egress open task.md`.
+4. Expected by spec: ignore user config for explicit `open` egress and continue past config loading.
+5. Actual from code:
+
+```text
+malformed config file /tmp/tessariq-adv-xdg-open/tessariq/config.yaml: yaml: line 1: did not find expected ',' or ']'; check YAML syntax
+```
+
+6. Run `XDG_CONFIG_HOME=/tmp/tessariq-adv-xdg-open /tmp/tessariq-adversarial run --egress proxy --egress-allow example.com:443 task.md`.
+7. Expected by spec: CLI `--egress-allow` overrides user defaults, so malformed user config should not block allowlist resolution.
+8. Actual from code: the same config-parse failure occurs before CLI precedence is applied.
+
+**Fix direction:** Skip loading user config when the resolved mode does not consult defaults (`open`, `none`), and also skip it when CLI inputs already fully determine the allowlist (`--egress-allow`, or `--egress-no-defaults` with non-proxy egress).
+
+---
+
+## Iteration 11
+
+Scope: adversarial review of the run-index contract and `run-ref` resolution semantics against the v0.1.0 spec.
+
+### BUG-020: `last-N` resolves index lines, not runs, so duplicate entries for the latest run break previous-run selection
+
+**Severity:** HIGH  
+**Files:** `cmd/tessariq/run.go:199`, `cmd/tessariq/run.go:218`, `internal/run/runref.go:42-56`
+
+**Spec references:**
+- `specs/tessariq-v0.1.0.md:242-255`
+- `specs/tessariq-v0.1.0.md:393`
+- `specs/tessariq-v0.1.0.md:482-494`
+
+**Why this is a bug:**
+- The spec defines `last` and `last-N` as run references against the repository's run index.
+- The same spec also says `index.jsonl` is append-only and that each line represents one run.
+- The implementation appends one line when a run enters `running` and appends another line for the same `run_id` when the run finishes.
+- `ResolveRunRef()` counts raw lines, not unique runs, so `last-1` can resolve to an earlier lifecycle entry for the latest run instead of the previous run.
+
+**Adversarial test:**
+1. Build the current binary: `go build -o /tmp/tessariq-adversarial ./cmd/tessariq`
+2. Create a temp repo with an initial commit.
+3. Create finished evidence for `RUN_A` and `RUN_B`.
+4. Write `.tessariq/runs/index.jsonl` with these three lines in order: `RUN_A success`, `RUN_B running`, `RUN_B success`.
+5. Run `/tmp/tessariq-adversarial promote last-1`.
+6. Expected by spec: resolve the previous run, `RUN_A`.
+7. Actual from code:
+
+```text
+branch: tessariq/01BRZ3NDEKTSV4RRFFQ69G5FAV
+commit: b17cf9478980ab2773a459c3b6d99a192608b913
+```
+
+The produced commit was for `Task B` and added `from-run-b.txt`, proving that `last-1` selected the latest run again instead of the previous run.
+
+**Fix direction:** Make `run-ref` resolution operate on unique `run_id` values rather than raw index lines, or stop emitting duplicate index entries for the same run.
+
+---
+
+### BUG-021: `ReadIndex` accepts partial JSON objects as valid runs, so `attach last` can target repo-root pseudo-evidence
+
+**Severity:** HIGH  
+**Files:** `internal/run/index.go:98-102`, `internal/run/runref.go:42-56`, `internal/attach/attach.go:46-53`
+
+**Spec references:**
+- `specs/tessariq-v0.1.0.md:254`
+- `specs/tessariq-v0.1.0.md:391`
+- `specs/tessariq-v0.1.0.md:482-494`
+- `specs/tessariq-v0.1.0.md:538`
+
+**Why this is a bug:**
+- The spec requires the minimum `index.jsonl` shape fields to be present.
+- `ReadIndex()` treats any syntactically valid JSON object as an `IndexEntry`, even when required fields such as `evidence_path`, `state`, and `created_at` are missing.
+- `ResolveRunRef("last")` can therefore return a partial zero-value entry as if it were a real run.
+- `attach` then joins the empty `evidence_path` to `repoRoot`, causing it to probe `/repo/status.json` as though the repository root itself were the run evidence directory.
+
+**Adversarial test:**
+1. Build the current binary: `go build -o /tmp/tessariq-adversarial ./cmd/tessariq`
+2. Create a temp git repo.
+3. Write `.tessariq/runs/index.jsonl` containing only:
+
+```json
+{"run_id":"01CRZ3NDEKTSV4RRFFQ69G5FAV"}
+```
+
+4. Run `/tmp/tessariq-adversarial attach last`.
+5. Expected by spec: reject the corrupted index entry and fail as though no valid run was found.
+6. Actual from code:
+
+```text
+run is not live: run 01CRZ3NDEKTSV4RRFFQ69G5FAV is not live; evidence path: /tmp/tessariq-adv-index-partial: read status: open /tmp/tessariq-adv-index-partial/status.json: no such file or directory
+```
+
+That output proves the partial line was treated as a real run and that `attach` read from the repository root instead of rejecting the invalid index entry.
+
+**Fix direction:** Validate required `IndexEntry` fields before accepting an index line, and reject or ignore semantically incomplete entries during `ReadIndex()` / `ResolveRunRef()`.
+
+### Areas tested (clean)
+
+| Area | Probe | Result |
+|------|-------|--------|
+| Explicit `run_id` resolution | Codepath review plus existing `internal/run/runref_test.go` coverage | CLEAN |
+| `last` / `last-N` basic indexing | Existing `internal/run/runref_test.go` happy-path coverage | CLEAN |
+| Missing index file handling | Existing `ErrEmptyIndex` coverage plus command behavior review | CLEAN |
+| Promote branch creation from valid finished evidence | Adversarial repo setup succeeded aside from the `last-1` selection bug | CLEAN |
+
+---
+
+## Iteration 12
+
+Scope: adversarial review of `tessariq run <task-path>` path validation against the v0.1.0 repository-boundary contract.
+
+### BUG-022: `run` accepts a symlinked task path whose real target is outside the repository
+
+**Severity:** HIGH  
+**Files:** `internal/run/taskpath.go:15-28`, `cmd/tessariq/run.go:66-84`, `internal/run/taskcopy.go:9-20`
+
+**Spec references:**
+- `specs/tessariq-v0.1.0.md:86-89`
+- `specs/tessariq-v0.1.0.md:244`
+- `specs/tessariq-v0.1.0.md:528`
+
+**Why this is a bug:**
+- The spec says `tessariq run <task-path>` accepts a Markdown file inside the current repository.
+- `ValidateTaskPathLogic()` only validates the lexical path string after `filepath.Join`, not the real filesystem target.
+- `ValidateTaskPath()` then uses `os.Stat`, which follows symlinks, so a repo-local symlink to an external Markdown file is treated as a valid in-repo regular file.
+- `run` then reads that external file and copies its content into evidence as `task.md`, violating the repo-boundary contract.
+
+**Adversarial test:**
+1. Build the current binary: `go build -o /tmp/tessariq-adversarial ./cmd/tessariq`
+2. Create `/tmp/tessariq-adv-external-task/outside.md` with `# External Task`.
+3. Create a temp git repo whose tracked `specs/task.md` is a symlink to that external file.
+4. Run `/tmp/tessariq-adversarial run --egress open specs/task.md`.
+5. Expected by spec: fail before container start and say the task path is outside the repository.
+6. Actual from code: task validation succeeds and the command proceeds until a later, unrelated runtime-image check:
+
+```text
+agent claude-code: binary "claude" not found in runtime image ghcr.io/tessariq/claude-code:latest; use a compatible runtime image or specify --image to override
+```
+
+7. The created evidence proves the external file was accepted:
+
+`manifest.json`
+```json
+"task_path": "specs/task.md",
+"task_title": "External Task"
+```
+
+`task.md`
+```markdown
+# External Task
+```
+
+**Fix direction:** Resolve the task path with `filepath.EvalSymlinks` or equivalent before boundary checks, and reject any task whose real target escapes the repository root.
+
+### Areas tested (clean)
+
+| Area | Probe | Result |
+|------|-------|--------|
+| Absolute task path rejection | Existing `ValidateTaskPathLogic_OutsideRepo` coverage plus codepath review | CLEAN |
+| `..` relative-escape rejection | Existing `ValidateTaskPathLogic_RelativeEscape` coverage plus codepath review | CLEAN |
+| Non-Markdown task rejection | Existing `ValidateTaskPathLogic_NotMarkdown` coverage plus codepath review | CLEAN |
+| Ordinary in-repo Markdown task acceptance | Existing `ValidateTaskPath_ValidFile` coverage | CLEAN |
