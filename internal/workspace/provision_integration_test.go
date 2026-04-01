@@ -29,6 +29,13 @@ func TestWorkspacePath_Layout(t *testing.T) {
 	require.Contains(t, p, RepoID(repoRoot))
 }
 
+func resolveHead(t *testing.T, ctx context.Context, repo *containers.GitRepo) string {
+	t.Helper()
+	sha, err := repo.ExecOutput(ctx, "rev-parse", "HEAD")
+	require.NoError(t, err)
+	return sha
+}
+
 func TestProvision_Integration_CreatesWorktree(t *testing.T) {
 	t.Parallel()
 
@@ -36,21 +43,18 @@ func TestProvision_Integration_CreatesWorktree(t *testing.T) {
 	repo, err := containers.StartGitRepo(ctx, t)
 	require.NoError(t, err)
 
+	headSHA := resolveHead(t, ctx, repo)
 	homeDir := t.TempDir()
 	evidenceDir := filepath.Join(t.TempDir(), "evidence")
 	runID := "01ARZ3NDEKTSV4RRFFQ69G5FAV"
 
-	wsPath, baseSHA, err := Provision(ctx, homeDir, repo.Dir(), runID, evidenceDir)
+	wsPath, err := Provision(ctx, homeDir, repo.Dir(), runID, evidenceDir, headSHA)
 	require.NoError(t, err)
 
 	// Worktree directory exists
 	info, err := os.Stat(wsPath)
 	require.NoError(t, err)
 	require.True(t, info.IsDir())
-
-	// Base SHA is a valid 40-char hex
-	require.Len(t, baseSHA, 40)
-	require.Regexp(t, `^[0-9a-f]{40}$`, baseSHA)
 }
 
 func TestProvision_Integration_WritesWorkspaceJSON(t *testing.T) {
@@ -60,11 +64,12 @@ func TestProvision_Integration_WritesWorkspaceJSON(t *testing.T) {
 	repo, err := containers.StartGitRepo(ctx, t)
 	require.NoError(t, err)
 
+	headSHA := resolveHead(t, ctx, repo)
 	homeDir := t.TempDir()
 	evidenceDir := filepath.Join(t.TempDir(), "evidence")
 	runID := "01ARZ3NDEKTSV4RRFFQ69G5FAV"
 
-	wsPath, baseSHA, err := Provision(ctx, homeDir, repo.Dir(), runID, evidenceDir)
+	wsPath, err := Provision(ctx, homeDir, repo.Dir(), runID, evidenceDir, headSHA)
 	require.NoError(t, err)
 
 	data, err := os.ReadFile(filepath.Join(evidenceDir, "workspace.json"))
@@ -75,29 +80,68 @@ func TestProvision_Integration_WritesWorkspaceJSON(t *testing.T) {
 
 	require.Equal(t, 1, m.SchemaVersion)
 	require.Equal(t, "worktree", m.WorkspaceMode)
-	require.Equal(t, baseSHA, m.BaseSHA)
+	require.Equal(t, headSHA, m.BaseSHA)
 	require.Equal(t, wsPath, m.WorkspacePath)
 	require.Equal(t, "rw", m.RepoMountMode)
 	require.True(t, m.RepoClean)
 	require.Equal(t, "strong", m.Reproducibility)
 }
 
-func TestProvision_Integration_MatchesContainerSHA(t *testing.T) {
+func TestProvision_Integration_WorktreeCheckedOutAtProvidedSHA(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
 	repo, err := containers.StartGitRepo(ctx, t)
 	require.NoError(t, err)
 
-	expected, err := repo.ExecOutput(ctx, "rev-parse", "HEAD")
+	headSHA := resolveHead(t, ctx, repo)
+	homeDir := t.TempDir()
+	evidenceDir := filepath.Join(t.TempDir(), "evidence")
+
+	wsPath, err := Provision(ctx, homeDir, repo.Dir(), "01ARZ3NDEKTSV4RRFFQ69G5FAV", evidenceDir, headSHA)
 	require.NoError(t, err)
+
+	// Verify the worktree is checked out at the provided SHA.
+	out, err := exec.CommandContext(ctx, "git", "-C", wsPath, "rev-parse", "HEAD").Output()
+	require.NoError(t, err)
+	require.Equal(t, headSHA, strings.TrimSpace(string(out)))
+}
+
+func TestProvision_Integration_UsesCallerProvidedSHA(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo, err := containers.StartGitRepo(ctx, t)
+	require.NoError(t, err)
+
+	// Capture the first commit SHA.
+	firstSHA := resolveHead(t, ctx, repo)
+
+	// Advance HEAD with a second commit so HEAD != firstSHA.
+	_, err = repo.ExecOutput(ctx, "commit", "--allow-empty", "-m", "second commit")
+	require.NoError(t, err)
+	secondSHA := resolveHead(t, ctx, repo)
+	require.NotEqual(t, firstSHA, secondSHA, "HEAD must have advanced")
 
 	homeDir := t.TempDir()
 	evidenceDir := filepath.Join(t.TempDir(), "evidence")
 
-	_, baseSHA, err := Provision(ctx, homeDir, repo.Dir(), "01ARZ3NDEKTSV4RRFFQ69G5FAV", evidenceDir)
+	// Pass the OLD SHA — Provision must use it, not current HEAD.
+	wsPath, err := Provision(ctx, homeDir, repo.Dir(), "01ARZ3NDEKTSV4RRFFQ69G5FAV", evidenceDir, firstSHA)
 	require.NoError(t, err)
-	require.Equal(t, expected, baseSHA)
+
+	// workspace.json must record the caller-provided SHA.
+	data, err := os.ReadFile(filepath.Join(evidenceDir, "workspace.json"))
+	require.NoError(t, err)
+
+	var m Metadata
+	require.NoError(t, json.Unmarshal(data, &m))
+	require.Equal(t, firstSHA, m.BaseSHA)
+
+	// The worktree must be checked out at the caller-provided SHA.
+	out, err := exec.CommandContext(ctx, "git", "-C", wsPath, "rev-parse", "HEAD").Output()
+	require.NoError(t, err)
+	require.Equal(t, firstSHA, strings.TrimSpace(string(out)))
 }
 
 func TestCleanup_Integration_RemovesWorktree(t *testing.T) {
@@ -107,10 +151,11 @@ func TestCleanup_Integration_RemovesWorktree(t *testing.T) {
 	repo, err := containers.StartGitRepo(ctx, t)
 	require.NoError(t, err)
 
+	headSHA := resolveHead(t, ctx, repo)
 	homeDir := t.TempDir()
 	evidenceDir := filepath.Join(t.TempDir(), "evidence")
 
-	wsPath, _, err := Provision(ctx, homeDir, repo.Dir(), "01ARZ3NDEKTSV4RRFFQ69G5FAV", evidenceDir)
+	wsPath, err := Provision(ctx, homeDir, repo.Dir(), "01ARZ3NDEKTSV4RRFFQ69G5FAV", evidenceDir, headSHA)
 	require.NoError(t, err)
 
 	require.NoError(t, Cleanup(ctx, repo.Dir(), wsPath))
@@ -126,10 +171,11 @@ func TestCleanup_Integration_Idempotent(t *testing.T) {
 	repo, err := containers.StartGitRepo(ctx, t)
 	require.NoError(t, err)
 
+	headSHA := resolveHead(t, ctx, repo)
 	homeDir := t.TempDir()
 	evidenceDir := filepath.Join(t.TempDir(), "evidence")
 
-	wsPath, _, err := Provision(ctx, homeDir, repo.Dir(), "01ARZ3NDEKTSV4RRFFQ69G5FAV", evidenceDir)
+	wsPath, err := Provision(ctx, homeDir, repo.Dir(), "01ARZ3NDEKTSV4RRFFQ69G5FAV", evidenceDir, headSHA)
 	require.NoError(t, err)
 
 	require.NoError(t, Cleanup(ctx, repo.Dir(), wsPath))
@@ -143,10 +189,11 @@ func TestCleanup_Integration_GitWorktreeListClean(t *testing.T) {
 	repo, err := containers.StartGitRepo(ctx, t)
 	require.NoError(t, err)
 
+	headSHA := resolveHead(t, ctx, repo)
 	homeDir := t.TempDir()
 	evidenceDir := filepath.Join(t.TempDir(), "evidence")
 
-	wsPath, _, err := Provision(ctx, homeDir, repo.Dir(), "01ARZ3NDEKTSV4RRFFQ69G5FAX", evidenceDir)
+	wsPath, err := Provision(ctx, homeDir, repo.Dir(), "01ARZ3NDEKTSV4RRFFQ69G5FAX", evidenceDir, headSHA)
 	require.NoError(t, err)
 
 	require.NoError(t, Cleanup(ctx, repo.Dir(), wsPath))
@@ -171,10 +218,11 @@ func TestCleanup_Integration_RemovesRestrictiveContainerOwnedFiles(t *testing.T)
 	repo, err := containers.StartGitRepo(ctx, t)
 	require.NoError(t, err)
 
+	headSHA := resolveHead(t, ctx, repo)
 	homeDir := t.TempDir()
 	evidenceDir := filepath.Join(t.TempDir(), "evidence")
 
-	wsPath, _, err := Provision(ctx, homeDir, repo.Dir(), "01ARZ3NDEKTSV4RRFFQ69G5FAW", evidenceDir)
+	wsPath, err := Provision(ctx, homeDir, repo.Dir(), "01ARZ3NDEKTSV4RRFFQ69G5FAW", evidenceDir, headSHA)
 	require.NoError(t, err)
 
 	cmd := exec.CommandContext(ctx, "docker", "run", "--rm", "-v", wsPath+":/work", "alpine:latest",

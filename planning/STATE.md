@@ -1,26 +1,26 @@
 ---
 schema_version: 1
-updated_at: "2026-04-01T12:05:10Z"
+updated_at: "2026-04-01T12:09:24Z"
 mode: user_request
-run_id: wf-20260401T120205Z
+run_id: wf-20260401T120527Z
 agent_id: claude-code
-model: opus-4.6
+model: claude-opus-4-6
 active_task: ""
 active_task_started_at: ""
 attempt: 0
-last_completed: TASK-035-init-evidence-parent-directory-permissions
+last_completed: TASK-036-base-sha-consistency-between-manifest-and-workspace
 next_tasks:
     - TASK-007-attach-command-live-run-resolution
 repo_state: idle
 last_transition: finish
-last_transition_at: "2026-04-01T12:05:06Z"
+last_transition_at: "2026-04-01T12:09:20Z"
 selection_reason: next eligible todo by priority
-validation_last_run: "2026-04-01T12:03:26Z"
+validation_last_run: "2026-04-01T12:07:34Z"
 validation_status: warnings
 validation_scope: task:v0.1.0
-validation_plan: planning/artifacts/verify/task/TASK-035-init-evidence-parent-directory-permissions/20260401T120326Z/plan.md
-validation_report: planning/artifacts/verify/task/TASK-035-init-evidence-parent-directory-permissions/20260401T120326Z/report.json
-validation_checked_at: "2026-04-01T12:03:26Z"
+validation_plan: planning/artifacts/verify/task/TASK-036-base-sha-consistency-between-manifest-and-workspace/20260401T120734Z/plan.md
+validation_report: planning/artifacts/verify/task/TASK-036-base-sha-consistency-between-manifest-and-workspace/20260401T120734Z/report.json
+validation_checked_at: "2026-04-01T12:07:34Z"
 milestone_focus: v0.1.0
 active_spec_version: v0.1.0
 active_spec_path: specs/tessariq-v0.1.0.md
@@ -31,7 +31,7 @@ max_retries: 2
 ## Machine Snapshot
 
 - Active task: none
-- Last completed: TASK-035-init-evidence-parent-directory-permissions
+- Last completed: TASK-036-base-sha-consistency-between-manifest-and-workspace
 - Validation status: warnings
 - Active spec: v0.1.0 (specs/tessariq-v0.1.0.md)
 - Next tasks:

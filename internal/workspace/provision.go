@@ -23,30 +23,25 @@ func WorkspacePath(homeDir, repoRoot, runID string) string {
 }
 
 // Provision creates a detached worktree at the computed workspace path and
-// writes workspace.json into the evidence directory. It returns the workspace
-// path and the base SHA used.
-func Provision(ctx context.Context, homeDir, repoRoot, runID, evidenceDir string) (string, string, error) {
-	baseSHA, err := git.HeadSHA(ctx, repoRoot)
-	if err != nil {
-		return "", "", fmt.Errorf("resolve base sha: %w", err)
-	}
-
+// writes workspace.json into the evidence directory. The caller must supply the
+// base SHA so that all evidence artifacts use a single, consistent value.
+func Provision(ctx context.Context, homeDir, repoRoot, runID, evidenceDir, baseSHA string) (string, error) {
 	wsPath := WorkspacePath(homeDir, repoRoot, runID)
 
 	if err := os.MkdirAll(filepath.Dir(wsPath), 0o755); err != nil {
-		return "", "", fmt.Errorf("create worktree parent: %w", err)
+		return "", fmt.Errorf("create worktree parent: %w", err)
 	}
 
 	if err := git.AddWorktree(ctx, repoRoot, wsPath, baseSHA); err != nil {
-		return "", "", fmt.Errorf("provision worktree: %w", err)
+		return "", fmt.Errorf("provision worktree: %w", err)
 	}
 
 	m := BuildMetadata(baseSHA, wsPath)
 	if err := WriteMetadata(evidenceDir, m); err != nil {
-		return "", "", fmt.Errorf("write workspace metadata: %w", err)
+		return "", fmt.Errorf("write workspace metadata: %w", err)
 	}
 
-	return wsPath, baseSHA, nil
+	return wsPath, nil
 }
 
 // Cleanup removes the worktree and its directory. It is safe to call multiple

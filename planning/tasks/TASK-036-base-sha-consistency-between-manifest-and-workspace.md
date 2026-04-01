@@ -1,7 +1,7 @@
 ---
 id: TASK-036-base-sha-consistency-between-manifest-and-workspace
 title: Eliminate base_sha race between manifest and workspace evidence
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-004-worktree-provisioning-and-workspace-metadata
@@ -11,7 +11,7 @@ spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#workspace-guarantees
     - specs/tessariq-v0.1.0.md#evidence-contract
-updated_at: "2026-03-31T20:30:00Z"
+updated_at: "2026-04-01T12:09:20Z"
 areas:
     - workspace
     - run
@@ -75,3 +75,4 @@ verification:
 
 - Likely files: `cmd/tessariq/run.go`, `internal/workspace/provision.go`, and associated tests.
 - Keep API changes minimal and localized to avoid broad churn.
+- 2026-04-01T12:09:20Z: Centralized base SHA resolution: Provision now accepts caller-provided baseSHA instead of re-reading HEAD. New integration test TestProvision_Integration_UsesCallerProvidedSHA verifies the contract. Mutation efficacy 85.03%.
