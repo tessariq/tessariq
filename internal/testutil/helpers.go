@@ -11,28 +11,34 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// SkipIfNoDocker skips the test if docker is not available on the host.
-func SkipIfNoDocker(t *testing.T) {
+// RequireDocker fails the test immediately if docker is not available on the
+// host. Integration tests behind the integration build tag must not silently
+// skip when a required dependency is missing — the build tag is the opt-in.
+func RequireDocker(t *testing.T) {
 	t.Helper()
 	if _, err := exec.LookPath("docker"); err != nil {
-		t.Skip("docker not available")
+		t.Fatal("docker is required for integration tests but not found in PATH")
 	}
 }
 
-// SkipIfNoTmux skips the test if tmux is not available on the host.
-func SkipIfNoTmux(t *testing.T) {
+// RequireTmux fails the test immediately if tmux is not available on the
+// host. Integration tests behind the integration build tag must not silently
+// skip when a required dependency is missing — the build tag is the opt-in.
+func RequireTmux(t *testing.T) {
 	t.Helper()
 	if _, err := exec.LookPath("tmux"); err != nil {
-		t.Skip("tmux not available")
+		t.Fatal("tmux is required for integration tests but not found in PATH")
 	}
 }
 
-// UniqueName returns a Docker-safe name derived from the test name with a
-// nanosecond suffix for collision resistance across parallel runs.
+// UniqueName returns a Docker-safe, DNS-safe name derived from the test name
+// with a nanosecond suffix for collision resistance across parallel runs.
+// The name is suitable as a Docker container name or run ID that may be
+// further prefixed by domain code (e.g. proxy.SquidContainerName).
 func UniqueName(t *testing.T) string {
 	t.Helper()
-	safe := strings.NewReplacer("/", "-", " ", "-").Replace(t.Name())
-	return fmt.Sprintf("tessariq-test-%s-%d", strings.ToLower(safe), time.Now().UnixNano()%1_000_000)
+	safe := strings.NewReplacer("/", "-", " ", "-", "_", "-").Replace(t.Name())
+	return fmt.Sprintf("%s-%d", strings.ToLower(safe), time.Now().UnixNano()%1_000_000)
 }
 
 // BuildTestImage builds a Docker image from an inline Dockerfile string and

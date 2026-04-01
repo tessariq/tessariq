@@ -24,7 +24,7 @@ func cleanupContainer(t *testing.T, name string) {
 
 func TestContainerLifecycle_CreateStartWait(t *testing.T) {
 	t.Parallel()
-	testutil.SkipIfNoDocker(t)
+	testutil.RequireDocker(t)
 
 	name := testutil.UniqueName(t)
 	cleanupContainer(t, name)
@@ -45,7 +45,7 @@ func TestContainerLifecycle_CreateStartWait(t *testing.T) {
 
 func TestContainerLifecycle_NonZeroExit(t *testing.T) {
 	t.Parallel()
-	testutil.SkipIfNoDocker(t)
+	testutil.RequireDocker(t)
 
 	name := testutil.UniqueName(t)
 	cleanupContainer(t, name)
@@ -66,7 +66,7 @@ func TestContainerLifecycle_NonZeroExit(t *testing.T) {
 
 func TestContainerLifecycle_CleanupAfterWait(t *testing.T) {
 	t.Parallel()
-	testutil.SkipIfNoDocker(t)
+	testutil.RequireDocker(t)
 
 	name := testutil.UniqueName(t)
 
@@ -89,7 +89,7 @@ func TestContainerLifecycle_CleanupAfterWait(t *testing.T) {
 
 func TestContainerLifecycle_MountVisibility(t *testing.T) {
 	t.Parallel()
-	testutil.SkipIfNoDocker(t)
+	testutil.RequireDocker(t)
 
 	name := testutil.UniqueName(t)
 	cleanupContainer(t, name)
@@ -118,7 +118,7 @@ func TestContainerLifecycle_MountVisibility(t *testing.T) {
 
 func TestContainerLifecycle_MountWriteFromContainer(t *testing.T) {
 	t.Parallel()
-	testutil.SkipIfNoDocker(t)
+	testutil.RequireDocker(t)
 
 	name := testutil.UniqueName(t)
 	cleanupContainer(t, name)
@@ -149,7 +149,7 @@ func TestContainerLifecycle_MountWriteFromContainer(t *testing.T) {
 
 func TestContainerLifecycle_ReadOnlyMount(t *testing.T) {
 	t.Parallel()
-	testutil.SkipIfNoDocker(t)
+	testutil.RequireDocker(t)
 
 	name := testutil.UniqueName(t)
 	cleanupContainer(t, name)
@@ -176,7 +176,7 @@ func TestContainerLifecycle_ReadOnlyMount(t *testing.T) {
 
 func TestContainerLifecycle_DeterministicName(t *testing.T) {
 	t.Parallel()
-	testutil.SkipIfNoDocker(t)
+	testutil.RequireDocker(t)
 
 	name := testutil.UniqueName(t)
 	cleanupContainer(t, name)
@@ -200,7 +200,7 @@ func TestContainerLifecycle_DeterministicName(t *testing.T) {
 
 func TestContainerLifecycle_EnvVarsVisible(t *testing.T) {
 	t.Parallel()
-	testutil.SkipIfNoDocker(t)
+	testutil.RequireDocker(t)
 
 	name := testutil.UniqueName(t)
 	cleanupContainer(t, name)
@@ -235,7 +235,7 @@ func TestContainerLifecycle_EnvVarsVisible(t *testing.T) {
 // after prepareWritableMounts makes it world-writable.
 func TestContainerLifecycle_NonRootUserCanWriteAfterPrepare(t *testing.T) {
 	t.Parallel()
-	testutil.SkipIfNoDocker(t)
+	testutil.RequireDocker(t)
 
 	// Build a minimal image with a tessariq user.
 	imgName := testutil.BuildTestImage(t, "nonroot", `FROM alpine:latest
@@ -277,7 +277,7 @@ USER tessariq
 
 func TestContainerLifecycle_SignalStop(t *testing.T) {
 	t.Parallel()
-	testutil.SkipIfNoDocker(t)
+	testutil.RequireDocker(t)
 
 	name := testutil.UniqueName(t)
 	cleanupContainer(t, name)
@@ -305,7 +305,7 @@ func TestContainerLifecycle_SignalStop(t *testing.T) {
 
 func TestContainerLifecycle_SignalKill(t *testing.T) {
 	t.Parallel()
-	testutil.SkipIfNoDocker(t)
+	testutil.RequireDocker(t)
 
 	name := testutil.UniqueName(t)
 	cleanupContainer(t, name)
@@ -331,7 +331,7 @@ func TestContainerLifecycle_SignalKill(t *testing.T) {
 
 func TestContainerLifecycle_DroppedCapabilities(t *testing.T) {
 	t.Parallel()
-	testutil.SkipIfNoDocker(t)
+	testutil.RequireDocker(t)
 
 	name := testutil.UniqueName(t)
 	cleanupContainer(t, name)
@@ -362,7 +362,7 @@ func TestContainerLifecycle_DroppedCapabilities(t *testing.T) {
 
 func TestContainerLifecycle_NoNewPrivileges(t *testing.T) {
 	t.Parallel()
-	testutil.SkipIfNoDocker(t)
+	testutil.RequireDocker(t)
 
 	name := testutil.UniqueName(t)
 	cleanupContainer(t, name)
@@ -393,7 +393,7 @@ func TestContainerLifecycle_NoNewPrivileges(t *testing.T) {
 
 func TestContainerLifecycle_WorkDir(t *testing.T) {
 	t.Parallel()
-	testutil.SkipIfNoDocker(t)
+	testutil.RequireDocker(t)
 
 	name := testutil.UniqueName(t)
 	cleanupContainer(t, name)
