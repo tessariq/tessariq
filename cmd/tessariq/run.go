@@ -13,6 +13,7 @@ import (
 	"github.com/tessariq/tessariq/internal/adapter"
 	"github.com/tessariq/tessariq/internal/adapter/opencode"
 	"github.com/tessariq/tessariq/internal/authmount"
+	"github.com/tessariq/tessariq/internal/container"
 	"github.com/tessariq/tessariq/internal/git"
 	"github.com/tessariq/tessariq/internal/prereq"
 	"github.com/tessariq/tessariq/internal/proxy"
@@ -170,6 +171,10 @@ func newRunCmd() *cobra.Command {
 				authResult.Mounts, configMounts, agentConfigMount, agentConfigMountStatus, containerEnvVars, proxyEnv)
 			if err != nil {
 				return fmt.Errorf("create agent process: %w", err)
+			}
+
+			if err := container.ProbeImageBinary(cmd.Context(), agentProc.RuntimeInfo.Image, agentProc.BinaryName); err != nil {
+				return fmt.Errorf("agent %s: %w", agentProc.AgentInfo.Agent, err)
 			}
 
 			if err := adapter.WriteAgentInfo(evidenceDir, agentProc.AgentInfo); err != nil {
