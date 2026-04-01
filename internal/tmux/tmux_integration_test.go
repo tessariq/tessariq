@@ -12,7 +12,7 @@ import (
 
 func TestNewSession_Integration_CreatesSession(t *testing.T) {
 	t.Parallel()
-	testutil.SkipIfNoTmux(t)
+	testutil.RequireTmux(t)
 
 	ctx := context.Background()
 	name := "tessariq-test-create-" + t.Name()
@@ -27,7 +27,7 @@ func TestNewSession_Integration_CreatesSession(t *testing.T) {
 
 func TestNewSession_Integration_DuplicateSessionFails(t *testing.T) {
 	t.Parallel()
-	testutil.SkipIfNoTmux(t)
+	testutil.RequireTmux(t)
 
 	ctx := context.Background()
 	name := "tessariq-test-dup-" + t.Name()
@@ -41,7 +41,7 @@ func TestNewSession_Integration_DuplicateSessionFails(t *testing.T) {
 
 func TestHasSession_Integration_ReturnsFalseForMissing(t *testing.T) {
 	t.Parallel()
-	testutil.SkipIfNoTmux(t)
+	testutil.RequireTmux(t)
 
 	ctx := context.Background()
 	exists, err := HasSession(ctx, "tessariq-test-nonexistent-session")
@@ -51,7 +51,7 @@ func TestHasSession_Integration_ReturnsFalseForMissing(t *testing.T) {
 
 func TestKillSession_Integration_NoErrorOnMissing(t *testing.T) {
 	t.Parallel()
-	testutil.SkipIfNoTmux(t)
+	testutil.RequireTmux(t)
 
 	ctx := context.Background()
 	require.NoError(t, KillSession(ctx, "tessariq-test-nonexistent-kill"))

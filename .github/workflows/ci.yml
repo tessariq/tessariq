@@ -122,7 +122,7 @@ jobs:
       - name: Cleanup orphaned Docker resources
         if: always()
         run: |
-          docker ps -aq --filter "name=tessariq-test-" | xargs -r docker rm -f || true
+          docker ps -aq --filter "name=tessariq-" | xargs -r docker rm -f || true
           docker network ls --filter "name=tessariq-" -q | xargs -r docker network rm || true
           docker images --filter "reference=tessariq-test-*" -q | xargs -r docker rmi -f || true
 
@@ -145,7 +145,7 @@ jobs:
       - name: Cleanup orphaned Docker resources
         if: always()
         run: |
-          docker ps -aq --filter "name=tessariq-test-" | xargs -r docker rm -f || true
+          docker ps -aq --filter "name=tessariq-" | xargs -r docker rm -f || true
           docker network ls --filter "name=tessariq-" -q | xargs -r docker network rm || true
           docker images --filter "reference=tessariq-test-*" -q | xargs -r docker rmi -f || true
 

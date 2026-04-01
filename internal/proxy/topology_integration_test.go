@@ -50,7 +50,7 @@ func forceCleanup(t *testing.T, runID string) {
 
 func TestIntegration_TopologySetupAndTeardown(t *testing.T) {
 	t.Parallel()
-	testutil.SkipIfNoDocker(t)
+	testutil.RequireDocker(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
@@ -114,7 +114,7 @@ func TestIntegration_TopologySetupAndTeardown(t *testing.T) {
 
 func TestIntegration_ProxyAllowsAndBlocks(t *testing.T) {
 	t.Parallel()
-	testutil.SkipIfNoDocker(t)
+	testutil.RequireDocker(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()

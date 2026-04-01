@@ -314,7 +314,7 @@ func TestRunnerIntegration_TmuxSessionCreated(t *testing.T) {
 	// session management against the real host binary, not a container. Full
 	// CLI e2e tests use containers.StartRunEnv which provides tmux inside the
 	// container. See AGENTS.md for the distinction.
-	testutil.SkipIfNoTmux(t)
+	testutil.RequireTmux(t)
 
 	ctx := context.Background()
 	sessionName := "tessariq-test-runner-tmux-" + t.Name()
@@ -337,7 +337,7 @@ func TestRunnerIntegration_TmuxSessionCreated(t *testing.T) {
 }
 
 func TestRunnerIntegration_TmuxSessionExistsAfterProcessFails(t *testing.T) {
-	testutil.SkipIfNoTmux(t)
+	testutil.RequireTmux(t)
 
 	ctx := context.Background()
 	sessionName := "tessariq-test-runner-fail-" + t.Name()
@@ -360,7 +360,7 @@ func TestRunnerIntegration_TmuxSessionExistsAfterProcessFails(t *testing.T) {
 }
 
 func TestRunnerIntegration_TmuxSessionShowsRunLogOutput(t *testing.T) {
-	testutil.SkipIfNoTmux(t)
+	testutil.RequireTmux(t)
 
 	ctx := context.Background()
 	sessionName := "tessariq-test-runner-pane-" + t.Name()
