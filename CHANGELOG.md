@@ -42,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added container security hardening: agent containers are now created with `--cap-drop=ALL` and `--security-opt=no-new-privileges` to drop all Linux capabilities and prevent privilege escalation.
 - Changed evidence file permissions from world-readable (`0644`/`0755`) to owner-only (`0600`/`0700`) for all evidence directories and files.
 - Pinned workspace repair container image by digest (`alpine@sha256:...`) instead of mutable `alpine:latest` tag to prevent supply-chain attacks on the root-privileged ownership-fix container.
+- Changed `tessariq init` to create `.tessariq/` and `.tessariq/runs/` with owner-only permissions (`0700`) and tighten existing directories on re-run.
 
 ### Changed
 

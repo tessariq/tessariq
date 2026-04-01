@@ -9,12 +9,24 @@ import (
 
 const gitignoreEntry = ".tessariq/"
 
+// evidenceDirMode is the permission mode for evidence parent directories.
+// Owner-only access per the evidence permission contract.
+const evidenceDirMode = 0o700
+
 // Run creates the tessariq runtime state directory and ensures .tessariq/ is
-// in .gitignore. It is idempotent.
+// in .gitignore. It is idempotent and tightens permissions on re-run.
 func Run(repoRoot string) error {
-	runsDir := filepath.Join(repoRoot, ".tessariq", "runs")
-	if err := os.MkdirAll(runsDir, 0o755); err != nil {
+	tessariqDir := filepath.Join(repoRoot, ".tessariq")
+	runsDir := filepath.Join(tessariqDir, "runs")
+	if err := os.MkdirAll(runsDir, evidenceDirMode); err != nil {
 		return fmt.Errorf("create .tessariq/runs: %w", err)
+	}
+	// Explicit chmod ensures idempotent tightening: MkdirAll only sets mode
+	// on newly created directories, so re-runs on existing dirs need this.
+	for _, d := range []string{tessariqDir, runsDir} {
+		if err := os.Chmod(d, evidenceDirMode); err != nil {
+			return fmt.Errorf("set permissions on %s: %w", d, err)
+		}
 	}
 
 	if err := ensureGitignoreEntry(repoRoot); err != nil {

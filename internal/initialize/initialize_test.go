@@ -166,6 +166,55 @@ func TestRun_IdempotentOnRerun(t *testing.T) {
 	require.True(t, info.IsDir())
 }
 
+func TestRun_DirectoryPermissions(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+
+	err := Run(root)
+	require.NoError(t, err)
+
+	for _, rel := range []string{".tessariq", ".tessariq/runs"} {
+		info, err := os.Stat(filepath.Join(root, rel))
+		require.NoError(t, err)
+		require.Equal(t, os.FileMode(0o700), info.Mode().Perm(),
+			"%s must be owner-only", rel)
+	}
+}
+
+func TestRun_IdempotentPreservesSecurePermissions(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+
+	require.NoError(t, Run(root))
+	require.NoError(t, Run(root))
+
+	for _, rel := range []string{".tessariq", ".tessariq/runs"} {
+		info, err := os.Stat(filepath.Join(root, rel))
+		require.NoError(t, err)
+		require.Equal(t, os.FileMode(0o700), info.Mode().Perm(),
+			"%s must remain owner-only after re-run", rel)
+	}
+}
+
+func TestRun_TightensRelaxedPermissions(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+
+	// Pre-create directories with overly permissive mode.
+	tessariqDir := filepath.Join(root, ".tessariq")
+	runsDir := filepath.Join(tessariqDir, "runs")
+	require.NoError(t, os.MkdirAll(runsDir, 0o755))
+
+	require.NoError(t, Run(root))
+
+	for _, rel := range []string{".tessariq", ".tessariq/runs"} {
+		info, err := os.Stat(filepath.Join(root, rel))
+		require.NoError(t, err)
+		require.Equal(t, os.FileMode(0o700), info.Mode().Perm(),
+			"%s must be tightened to owner-only", rel)
+	}
+}
+
 func TestRun_DoesNotCreateSpecsDir(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()

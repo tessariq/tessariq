@@ -1,7 +1,7 @@
 ---
 id: TASK-035-init-evidence-parent-directory-permissions
 title: Harden init-created evidence parent directories to owner-only permissions
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-001-init-skeleton-and-gitignore
@@ -11,7 +11,7 @@ spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#evidence-permissions
     - specs/tessariq-v0.1.0.md#evidence-contract
-updated_at: "2026-03-31T20:30:00Z"
+updated_at: "2026-04-01T12:05:06Z"
 areas:
     - init
     - evidence
@@ -74,3 +74,4 @@ verification:
 
 - Likely files: `internal/initialize/initialize.go` and `internal/initialize/initialize_test.go`.
 - Be explicit about platform mode-mask interactions in tests (normalize with `Perm()` checks).
+- 2026-04-01T12:05:06Z: Changed init directory permissions from 0o755 to 0o700 with idempotent chmod. Added 3 unit tests (permissions, idempotency, tightening). All tests pass, mutation efficacy 85%. Manual tests 4/4 pass.
