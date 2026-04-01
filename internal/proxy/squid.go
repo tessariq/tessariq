@@ -104,7 +104,9 @@ func StartSquid(ctx context.Context, cfg SquidConfig) error {
 }
 
 // waitForSquid probes Squid's listen port inside the container up to 10 seconds
-// with 500ms intervals. It uses a shell TCP check which works on any base image.
+// with 500ms intervals. It checks /proc/net/tcp for the listen port, which is
+// portable across all Linux images (bash /dev/tcp is not available on
+// Debian/Ubuntu where bash is compiled with --disable-net-redirections).
 func waitForSquid(ctx context.Context, containerName string) error {
 	const (
 		timeout  = 10 * time.Second
@@ -116,7 +118,7 @@ func waitForSquid(ctx context.Context, containerName string) error {
 
 	for time.Now().Before(deadline) {
 		cmd := exec.CommandContext(ctx, "docker", "exec", containerName,
-			"bash", "-c", fmt.Sprintf("echo > /dev/tcp/127.0.0.1/%d", squidListenPort),
+			"sh", "-c", fmt.Sprintf("grep -q ':%04X' /proc/net/tcp /proc/net/tcp6 2>/dev/null", squidListenPort),
 		)
 		if _, err := cmd.CombinedOutput(); err != nil {
 			lastErr = err
