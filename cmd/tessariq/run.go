@@ -114,7 +114,7 @@ func newRunCmd() *cobra.Command {
 				return err
 			}
 
-			wsPath, _, err := workspace.Provision(cmd.Context(), homeDir, root, runID, evidenceDir)
+			wsPath, err := workspace.Provision(cmd.Context(), homeDir, root, runID, evidenceDir, baseSHA)
 			if err != nil {
 				return err
 			}
