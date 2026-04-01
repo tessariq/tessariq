@@ -1,7 +1,7 @@
 ---
 id: TASK-031-pin-repair-container-image
 title: Pin workspace repair container image by digest
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-028-container-session-streaming-and-cleanup-hardening
@@ -10,7 +10,7 @@ spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#tessariq-run-task-path
     - specs/tessariq-v0.1.0.md#workspace-guarantees
-updated_at: "2026-03-31T18:00:00Z"
+updated_at: "2026-04-01T10:56:08Z"
 areas:
     - workspace
     - security
@@ -74,3 +74,4 @@ This task addresses a gap in TASK-028's implementation. TASK-028 correctly scope
 
 - Files likely affected: `internal/workspace/provision.go` (`repairWorkspaceOwnership`), `internal/workspace/provision_test.go`, `internal/workspace/provision_integration_test.go`.
 - Use `docker pull alpine:latest && docker inspect --format='{{index .RepoDigests 0}}' alpine:latest` to obtain the current digest for pinning.
+- 2026-04-01T10:56:08Z: Pinned repair image by digest (alpine@sha256:25109184c71b...), extracted buildRepairArgs for testability, 6 unit tests + 3 integration tests pass, all 6 manual test steps pass

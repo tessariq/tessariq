@@ -11,6 +11,11 @@ import (
 	"github.com/tessariq/tessariq/internal/git"
 )
 
+// repairImage is the container image used to fix workspace file ownership.
+// Pinned by digest to prevent supply-chain attacks — update the digest when
+// upgrading Alpine.
+const repairImage = "alpine@sha256:25109184c71bdad752c8312a8623239686a9a2071e8825f20acb8f2198c3f659"
+
 // WorkspacePath computes the deterministic path for a worktree workspace:
 // <homeDir>/.tessariq/worktrees/<repo_id>/<run_id>
 func WorkspacePath(homeDir, repoRoot, runID string) string {
@@ -69,13 +74,21 @@ func Cleanup(ctx context.Context, repoRoot, workspacePath string) error {
 	return nil
 }
 
-func repairWorkspaceOwnership(ctx context.Context, workspacePath string) error {
+// buildRepairArgs assembles the docker run arguments for workspace ownership repair.
+func buildRepairArgs(workspacePath string) []string {
 	uid := os.Getuid()
 	gid := os.Getgid()
 	fixCmd := fmt.Sprintf("chown -R %d:%d /work && chmod -R u+rwX /work", uid, gid)
-	cmd := exec.CommandContext(ctx,
-		"docker", "run", "--rm", "--user", "root", "-v", workspacePath+":/work", "alpine:latest", "sh", "-c", fixCmd,
-	)
+	return []string{
+		"run", "--rm", "--user", "root",
+		"-v", workspacePath + ":/work",
+		repairImage, "sh", "-c", fixCmd,
+	}
+}
+
+func repairWorkspaceOwnership(ctx context.Context, workspacePath string) error {
+	args := buildRepairArgs(workspacePath)
+	cmd := exec.CommandContext(ctx, "docker", args...)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("repair workspace ownership for %s: %s: %w", workspacePath, strings.TrimSpace(string(out)), err)
 	}
