@@ -45,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Changed agent binary validation from reactive (container exit code 127) to proactive pre-start detection: `tessariq run` now probes the resolved runtime image for the selected agent binary before starting the container, failing with an actionable message that names the missing binary, the selected agent, and `--image` override guidance.
+- Changed log capping from post-run file truncation to write-time enforcement via `CappedWriter`, so `run.log` and `runner.log` never exceed the configured limit during execution and include a `[truncated]` marker when capped.
 - Changed agent execution model from direct host `exec.CommandContext` to Docker container lifecycle (`docker create` + `docker start` + `docker wait` + `docker rm`) with deterministic container names (`tessariq-<run_id>`) and cleanup on all exit paths.
 
 - Changed evidence model from single `adapter.json` to split `agent.json` (requested/applied options) and `runtime.json` (image identity and mount-policy metadata), aligning with v0.1.0 agent-and-runtime contract.

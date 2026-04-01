@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -14,10 +15,10 @@ import (
 
 // fakeProcess simulates a process for unit testing.
 type fakeProcess struct {
-	exitCode int
-	waitCh   chan struct{} // closed when Wait should return
-	stdout   *os.File
-	stderr   *os.File
+	exitCode     int
+	waitCh       chan struct{} // closed when Wait should return
+	stdoutWriter io.Writer
+	stderrWriter io.Writer
 }
 
 func newFakeProcess(exitCode int) *fakeProcess {
@@ -46,9 +47,9 @@ func (f *fakeProcess) Signal(_ os.Signal) error {
 	return nil
 }
 
-func (f *fakeProcess) SetOutput(stdout, stderr *os.File) {
-	f.stdout = stdout
-	f.stderr = stderr
+func (f *fakeProcess) SetOutputWriter(stdout, stderr io.Writer) {
+	f.stdoutWriter = stdout
+	f.stderrWriter = stderr
 }
 
 func fixedClock(t time.Time) func() time.Time {
@@ -327,10 +328,13 @@ func TestRunner_ConfiguresProcessOutputWhenSupported(t *testing.T) {
 	r := newTestRunner(dir, proc)
 
 	require.NoError(t, r.Run(context.Background()))
-	require.NotNil(t, proc.stdout)
-	require.NotNil(t, proc.stderr)
-	require.Equal(t, proc.stdout.Name(), filepath.Join(dir, "run.log"))
-	require.Equal(t, proc.stderr.Name(), filepath.Join(dir, "run.log"))
+	require.NotNil(t, proc.stdoutWriter)
+	require.NotNil(t, proc.stderrWriter)
+
+	// Both stdout and stderr should be the same CappedWriter for run.log.
+	cw, ok := proc.stdoutWriter.(*CappedWriter)
+	require.True(t, ok, "stdout writer should be a *CappedWriter")
+	require.Same(t, cw, proc.stderrWriter, "stdout and stderr should share the same writer")
 }
 
 func TestRunner_InteractiveSessionCommand(t *testing.T) {
