@@ -496,6 +496,92 @@ func TestE2E_OpenCodeEgressAllowBypassesProviderResolution(t *testing.T) {
 	}
 }
 
+func TestE2E_OpenCodeUserConfigAllowlistBypassesProviderResolution(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+
+	ctx := context.Background()
+	env, err := containers.StartRunEnvForBinary(ctx, t, "opencode", 0)
+	require.NoError(t, err)
+
+	hostDir := env.Dir()
+	repoPath := filepath.Join(hostDir, "repo")
+	homeDir := filepath.Join(hostDir, "home")
+	binPath := filepath.Join(hostDir, "tessariq")
+
+	// Copy the tessariq binary.
+	binData, readErr := os.ReadFile(bin)
+	require.NoError(t, readErr)
+	require.NoError(t, os.WriteFile(binPath, binData, 0o755))
+
+	// Setup HOME under bind mount.
+	code, out, execErr := env.Exec(ctx, []string{"sh", "-c", fmt.Sprintf("mkdir -p %s", homeDir)})
+	require.NoError(t, execErr, "home setup: %s", out)
+	require.Equal(t, 0, code, "home setup exited %d: %s", code, out)
+
+	// Create auth.json WITHOUT provider info — would normally fail provider resolution.
+	authCmds := []string{
+		fmt.Sprintf("mkdir -p %s/.local/share/opencode", homeDir),
+		fmt.Sprintf(`printf '{"token":"fake"}' > %s/.local/share/opencode/auth.json`, homeDir),
+	}
+	for _, cmd := range authCmds {
+		code, out, execErr := env.Exec(ctx, []string{"sh", "-c", cmd})
+		require.NoError(t, execErr, "auth setup %q: %s", cmd, out)
+		require.Equal(t, 0, code, "auth setup %q exited %d: %s", cmd, code, out)
+	}
+
+	// Create user config with egress_allow — should bypass provider resolution.
+	configCmds := []string{
+		fmt.Sprintf("mkdir -p %s/.config/tessariq", homeDir),
+		fmt.Sprintf(`printf 'egress_allow:\n  - api.example.com:443\n' > %s/.config/tessariq/config.yaml`, homeDir),
+	}
+	for _, cmd := range configCmds {
+		code, out, execErr := env.Exec(ctx, []string{"sh", "-c", cmd})
+		require.NoError(t, execErr, "config setup %q: %s", cmd, out)
+		require.Equal(t, 0, code, "config setup %q exited %d: %s", cmd, code, out)
+	}
+
+	// Init git repo.
+	cmds := []string{
+		fmt.Sprintf("mkdir -p %s/tasks", repoPath),
+		fmt.Sprintf("git init %s", repoPath),
+		fmt.Sprintf("git -C %s config user.email test@test.com", repoPath),
+		fmt.Sprintf("git -C %s config user.name Test", repoPath),
+		fmt.Sprintf("printf '# Sample Task\\n\\nDo something.\\n' > %s/tasks/sample.md", repoPath),
+		fmt.Sprintf("git -C %s add -A", repoPath),
+		fmt.Sprintf("git -C %s commit -m initial", repoPath),
+		fmt.Sprintf("cd %s && HOME=%s %s init", repoPath, homeDir, binPath),
+		fmt.Sprintf("git -C %s add -A", repoPath),
+		fmt.Sprintf("git -C %s commit -m 'add tessariq config'", repoPath),
+	}
+	for _, cmd := range cmds {
+		code, out, execErr := env.Exec(ctx, []string{"sh", "-c", cmd})
+		require.NoError(t, execErr, "cmd %q failed: %s", cmd, out)
+		require.Equal(t, 0, code, "cmd %q exited %d: %s", cmd, code, out)
+	}
+
+	// Run with --agent opencode and NO --egress-allow — user config should suffice.
+	code, output, err := env.Exec(ctx, []string{"sh", "-c",
+		fmt.Sprintf("cd %s && HOME=%s %s run --agent opencode tasks/sample.md",
+			repoPath, homeDir, binPath)})
+	require.NoError(t, err)
+
+	// Must NOT contain the provider-unresolvable error.
+	require.NotContains(t, output, "configure the provider",
+		"user-config allowlist should bypass provider resolution; got: %s", output)
+	require.NotContains(t, output, "cannot determine the OpenCode provider",
+		"user-config allowlist should bypass provider resolution; got: %s", output)
+
+	// If evidence was written, verify allowlist_source is user_config.
+	evidenceGlob := fmt.Sprintf("%s/.tessariq/runs/*/manifest.json", repoPath)
+	lsCode, lsOut, _ := env.Exec(ctx, []string{"sh", "-c", fmt.Sprintf("ls %s 2>/dev/null", evidenceGlob)})
+	if lsCode == 0 && strings.TrimSpace(lsOut) != "" {
+		manifestPath := strings.TrimSpace(strings.Split(lsOut, "\n")[0])
+		_, manifest, _ := env.Exec(ctx, []string{"cat", manifestPath})
+		require.Contains(t, manifest, `"allowlist_source": "user_config"`)
+	}
+}
+
 func TestE2E_InitFailsWithActionableGuidanceWhenGitMissing(t *testing.T) {
 	t.Parallel()
 	bin := buildBinary(t)

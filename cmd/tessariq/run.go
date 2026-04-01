@@ -278,15 +278,16 @@ func resolveAllowlistCore(cfg run.Config, homeDir, resolvedEgress string, deps r
 	}
 
 	// Build the built-in allowlist for the agent.
-	// Skip provider resolution when CLI allowlist entries exist, because
-	// ResolveAllowlist returns immediately with source="cli" and never
-	// consults the built-in list.
+	// Skip provider resolution when a higher-precedence allowlist source
+	// (CLI or user config) already determines egress destinations, because
+	// ResolveAllowlist will return before consulting the built-in list.
 	var agentEndpoints []adapter.Destination
 	switch cfg.Agent {
 	case "claude-code":
 		agentEndpoints = adapter.ClaudeCodeEndpoints()
 	case "opencode":
-		if resolvedEgress == "proxy" && len(cfg.EgressAllow) == 0 && !cfg.EgressNoDefaults {
+		if resolvedEgress == "proxy" && len(cfg.EgressAllow) == 0 && !cfg.EgressNoDefaults &&
+			(userCfg == nil || len(userCfg.EgressAllow) == 0) {
 			authPath := filepath.Join(homeDir, ".local", "share", "opencode", "auth.json")
 			configDir := filepath.Join(homeDir, ".config", "opencode")
 			provInfo, provErr := opencode.ResolveProviderFromPaths(authPath, configDir, deps.readFile)

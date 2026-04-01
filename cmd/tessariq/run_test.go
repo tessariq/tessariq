@@ -94,6 +94,7 @@ func TestResolveAllowlistCore_OpenCode(t *testing.T) {
 		egress          string
 		cliAllow        []string
 		noDefaults      bool
+		configDirExists bool // if true, dirExists returns true so user config is loaded
 		files           map[string]string
 		wantSource      string
 		wantErr         string
@@ -156,6 +157,36 @@ func TestResolveAllowlistCore_OpenCode(t *testing.T) {
 			files:      map[string]string{},
 			wantErr:    "proxy mode requires at least one",
 		},
+		{
+			name:            "user_config_allowlist_bypasses_unresolvable_provider",
+			agent:           "opencode",
+			egress:          "proxy",
+			configDirExists: true,
+			files: map[string]string{
+				"config.yaml": "egress_allow:\n  - api.example.com:443\n",
+			},
+			wantSource:      "user_config",
+			wantProvSkipped: true,
+		},
+		{
+			name:    "no_user_config_no_cli_missing_auth_errors",
+			agent:   "opencode",
+			egress:  "proxy",
+			files:   map[string]string{}, // no auth.json, no user config
+			wantErr: "file not found",
+		},
+		{
+			name:            "cli_wins_over_user_config_and_skips_provider",
+			agent:           "opencode",
+			egress:          "proxy",
+			cliAllow:        []string{"override.host:443"},
+			configDirExists: true,
+			files: map[string]string{
+				"config.yaml": "egress_allow:\n  - api.example.com:443\n",
+			},
+			wantSource:      "cli",
+			wantProvSkipped: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -165,7 +196,7 @@ func TestResolveAllowlistCore_OpenCode(t *testing.T) {
 			readFile, called := fakeReadFile(tt.files)
 			deps := resolveAllowlistDeps{
 				xdgConfigHome: "",
-				dirExists:     func(string) bool { return false },
+				dirExists:     func(string) bool { return tt.configDirExists },
 				readFile:      readFile,
 			}
 

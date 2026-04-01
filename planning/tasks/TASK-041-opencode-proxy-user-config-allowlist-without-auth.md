@@ -1,7 +1,7 @@
 ---
 id: TASK-041-opencode-proxy-user-config-allowlist-without-auth
 title: Skip OpenCode provider resolution when user-config allowlist already resolves proxy egress
-status: todo
+status: done
 priority: p0
 depends_on:
     - TASK-011-egress-mode-resolution-and-manifest-recording
@@ -13,7 +13,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#tessariq-run-task-path
     - specs/tessariq-v0.1.0.md#networking-and-egress
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-04-01T13:05:00Z"
+updated_at: "2026-04-01T17:41:52Z"
 areas:
     - egress
     - opencode
@@ -82,3 +82,4 @@ OpenCode proxy runs currently resolve provider host from auth/config even when a
 
 - Do not change auth-missing error wording for cases where provider resolution is genuinely required (tracked by TASK-042).
 - Do not alter allowlist precedence semantics beyond skipping unnecessary provider resolution.
+- 2026-04-01T17:41:52Z: User-config allowlist now skips provider resolution; unit, integration, e2e, and mutation tests pass
