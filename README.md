@@ -40,6 +40,7 @@ The project is built around durable primitives: Git for history and review, and 
 The current CLI covers the core detached workflow:
 
 - `tessariq init`: initialize repo-local runtime state under `.tessariq/`.
+- `tessariq version`: print the CLI version.
 - `tessariq run <task-path>`: run a task from a Markdown file in the current repository.
 - `tessariq attach <run-ref>`: attach to a live run's `tmux` session.
 - `tessariq promote <run-ref>`: promote a finished run into exactly one branch and one commit.
@@ -74,6 +75,7 @@ Build from source:
 git clone https://github.com/tessariq/tessariq.git
 cd tessariq
 go install ./cmd/tessariq
+tessariq version
 tessariq --help
 ```
 
@@ -81,6 +83,7 @@ If you prefer a local binary in the repository directory:
 
 ```sh
 go build ./cmd/tessariq
+./tessariq version
 ./tessariq --help
 ```
 

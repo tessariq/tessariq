@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/tessariq/tessariq/internal/version"
 )
 
 func main() {
@@ -21,9 +22,13 @@ func newRootCmd() *cobra.Command {
 		Short:         "Git-native, sandboxed CLI for running coding agents against repositories",
 		SilenceUsage:  true,
 		SilenceErrors: true,
+		Version:       version.Version,
 	}
 
+	cmd.SetVersionTemplate("{{.Name}} v{{.Version}}\n")
+
 	cmd.AddCommand(newInitCmd())
+	cmd.AddCommand(newVersionCmd())
 	cmd.AddCommand(newRunCmd())
 	cmd.AddCommand(newAttachCmd())
 	cmd.AddCommand(newPromoteCmd())

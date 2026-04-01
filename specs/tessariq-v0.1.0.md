@@ -129,6 +129,14 @@ It MUST add `.tessariq/` to `.gitignore`.
 
 It MUST fail cleanly if `git` is unavailable.
 
+### `tessariq version`
+
+- prints `tessariq v<version>` to stdout
+- supports both `tessariq version` and `tessariq --version`
+- both invocation forms MUST produce identical output
+- MUST work without repository context or generated Tessariq state
+- MUST NOT require `git`, `tmux`, or `docker`
+
 ### `tessariq run <task-path>`
 
 Detached by default.
@@ -508,6 +516,7 @@ Minimum `index.jsonl` entry shape:
 - `run` fails cleanly when the selected agent binary is missing from the resolved runtime image
 - `run` fails cleanly when required supported agent auth state is missing
 - `run` fails cleanly when the selected agent requires writable auth refresh behavior
+- `version` succeeds without repository context and prints the expected version line
 - `init` fails cleanly with actionable guidance when `git` is unavailable
 - `attach` works for a live run and fails cleanly for a finished run
 - `attach` fails cleanly with actionable guidance when `tmux` is unavailable
@@ -678,6 +687,16 @@ Bootstrap is expected to:
 - write the final `status.json`
 
 ## Specification changelog
+
+### 2026-04-01: Add version command contract to v0.1.0
+
+**Changed:**
+
+1. **v0.1.0 now includes a small version-reporting command**
+   - `tessariq version` is part of the normative CLI surface.
+   - The root command also supports `tessariq --version`.
+   - Both invocation forms print the same `tessariq v<version>` line.
+   - Rationale: version reporting is a basic CLI capability that should not require repository context or run-state setup.
 
 ### 2026-03-31: Security hardening amendments
 

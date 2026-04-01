@@ -32,12 +32,24 @@ depends_on:
     - TASK-037-prestart-agent-binary-validation
     - TASK-038-guaranteed-worktree-cleanup-on-run-failure
     - TASK-039-capped-log-writers-and-truncation-markers
+    - TASK-045-validate-index-entry-shape-before-resolution
+    - TASK-046-unique-run-aware-last-run-resolution
+    - TASK-047-promote-repo-local-evidence-path-validation
+    - TASK-048-promote-manifest-run-identity-consistency
+    - TASK-049-promote-require-diffstat-for-changed-runs
+    - TASK-050-attach-preflight-git-prerequisite
+    - TASK-051-attach-repo-local-evidence-path-validation
+    - TASK-052-attach-run-id-evidence-path-consistency
+    - TASK-053-bypass-user-config-when-cli-egress-is-explicit
+    - TASK-054-reject-symlinked-external-task-paths
+    - TASK-055-version-command-and-root-version-flag
 milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#release-intent
     - specs/tessariq-v0.1.0.md#product-intent
     - specs/tessariq-v0.1.0.md#host-prerequisites
+    - specs/tessariq-v0.1.0.md#tessariq-version
     - specs/tessariq-v0.1.0.md#tessariq-run-task-path
     - specs/tessariq-v0.1.0.md#agent-and-runtime-contract
     - specs/tessariq-v0.1.0.md#tessariq-attach-run-ref
@@ -88,6 +100,7 @@ Run the final v0.1.0 conformity sweep against the normative spec after the stren
 - The closeout explicitly records each v0.1.0 success metric as met, not yet measurable, or follow-up required; it must not silently ignore the section.
 - Regenerated verification artifacts and `planning/STATE.md` validation metadata point at the final passing sweep.
 - The closeout sweep explicitly covers the v0.1.0 runtime-image contract, read-only supported-agent auth reuse, `--mount-agent-config`, agent-aware `auto` egress, and the `agent.json` plus `runtime.json` evidence split.
+- The closeout sweep explicitly covers `tessariq version` and root `--version` as repository-independent CLI behavior.
 
 ## Test Expectations
 

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added `tessariq version` and root `tessariq --version`, both printing the same single-line build version without requiring repository context.
 - Added `tessariq init` repository bootstrap that creates `.tessariq/runs/` and idempotently updates `.gitignore` to keep runtime state untracked.
 - Added `tessariq run <task-path>` CLI wiring with initial flag surface, task-path validation, and manifest bootstrap with stable preflight fields.
 - Added pre-run clean-repository gating and task ingestion so runs fail early on dirty repos and record copied task context (`task.md`) plus derived task title metadata.

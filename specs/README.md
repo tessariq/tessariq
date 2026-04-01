@@ -27,7 +27,7 @@ Reasoning:
 Primary scope:
 - `worktree` workspace only
 - clean-repo-only execution
-- core CLI only: `init`, `run`, `attach`, `promote`
+- core CLI only: `init`, `version`, `run`, `attach`, `promote`
 - first-party agents: `claude-code`, `opencode`
 - one official minimal reference runtime image
 

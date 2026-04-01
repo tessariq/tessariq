@@ -40,6 +40,7 @@ var requiredSpecCoverageByVersion = map[string][]requiredSpecCoverage{
 		{Ref: "specs/tessariq-v0.1.0.md#workspace-guarantees", Title: "workspace guarantees", SpecVersion: "v0.1.0"},
 		{Ref: "specs/tessariq-v0.1.0.md#host-prerequisites", Title: "host prerequisites", SpecVersion: "v0.1.0"},
 		{Ref: "specs/tessariq-v0.1.0.md#tessariq-init", Title: "tessariq init", SpecVersion: "v0.1.0"},
+		{Ref: "specs/tessariq-v0.1.0.md#tessariq-version", Title: "tessariq version", SpecVersion: "v0.1.0"},
 		{Ref: "specs/tessariq-v0.1.0.md#tessariq-run-task-path", Title: "tessariq run", SpecVersion: "v0.1.0"},
 		{Ref: "specs/tessariq-v0.1.0.md#tessariq-attach-run-ref", Title: "tessariq attach", SpecVersion: "v0.1.0"},
 		{Ref: "specs/tessariq-v0.1.0.md#tessariq-promote-run-ref", Title: "tessariq promote", SpecVersion: "v0.1.0"},
