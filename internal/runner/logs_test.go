@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -12,7 +13,7 @@ func TestOpenLogs_FilePermissions(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	lf, err := OpenLogs(dir)
+	lf, err := OpenLogs(dir, 0)
 	require.NoError(t, err)
 	defer lf.Close()
 
@@ -31,7 +32,7 @@ func TestOpenLogs_CreatesBothFiles(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	lf, err := OpenLogs(dir)
+	lf, err := OpenLogs(dir, 0)
 	require.NoError(t, err)
 	defer lf.Close()
 
@@ -45,13 +46,13 @@ func TestOpenLogs_FilesAreWritable(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	lf, err := OpenLogs(dir)
+	lf, err := OpenLogs(dir, 0)
 	require.NoError(t, err)
 	defer lf.Close()
 
-	_, err = lf.RunLog.WriteString("agent output\n")
+	_, err = io.WriteString(lf.RunLog, "agent output\n")
 	require.NoError(t, err)
-	_, err = lf.RunnerLog.WriteString("lifecycle event\n")
+	_, err = io.WriteString(lf.RunnerLog, "lifecycle event\n")
 	require.NoError(t, err)
 }
 
@@ -59,7 +60,7 @@ func TestOpenLogs_CloseIdempotent(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	lf, err := OpenLogs(dir)
+	lf, err := OpenLogs(dir, 0)
 	require.NoError(t, err)
 
 	require.NoError(t, lf.Close())
@@ -70,7 +71,7 @@ func TestOpenLogs_CloseIdempotent(t *testing.T) {
 func TestOpenLogs_NonexistentDir(t *testing.T) {
 	t.Parallel()
 
-	_, err := OpenLogs(filepath.Join(t.TempDir(), "missing"))
+	_, err := OpenLogs(filepath.Join(t.TempDir(), "missing"), 0)
 	require.Error(t, err)
 }
 
@@ -78,12 +79,12 @@ func TestOpenLogs_ContentPersistsAfterClose(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	lf, err := OpenLogs(dir)
+	lf, err := OpenLogs(dir, 0)
 	require.NoError(t, err)
 
-	_, err = lf.RunLog.WriteString("hello run\n")
+	_, err = io.WriteString(lf.RunLog, "hello run\n")
 	require.NoError(t, err)
-	_, err = lf.RunnerLog.WriteString("hello runner\n")
+	_, err = io.WriteString(lf.RunnerLog, "hello runner\n")
 	require.NoError(t, err)
 	require.NoError(t, lf.Close())
 

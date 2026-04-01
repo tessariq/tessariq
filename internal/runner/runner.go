@@ -22,10 +22,6 @@ type SessionStarter interface {
 	StartSession(ctx context.Context, sessionName string, command []string) error
 }
 
-type outputConfigurer interface {
-	SetOutput(stdout, stderr *os.File)
-}
-
 type outputWriterConfigurer interface {
 	SetOutputWriter(stdout, stderr io.Writer)
 }
@@ -40,6 +36,7 @@ type Runner struct {
 	SessionName   string
 	ContainerName string // needed for interactive tmux session command
 	Clock         func() time.Time
+	LogCapBytes   int64 // 0 uses DefaultLogCapBytes
 }
 
 func (r *Runner) clock() time.Time {
@@ -65,8 +62,8 @@ func (r *Runner) Run(ctx context.Context) error {
 		return fmt.Errorf("write initial status: %w", err)
 	}
 
-	// Open durable log files.
-	logs, err := OpenLogs(r.EvidenceDir)
+	// Open durable log files with write-time capping.
+	logs, err := OpenLogs(r.EvidenceDir, r.LogCapBytes)
 	if err != nil {
 		return fmt.Errorf("open logs: %w", err)
 	}
@@ -77,7 +74,7 @@ func (r *Runner) Run(ctx context.Context) error {
 	// Create tmux session if a session starter is configured.
 	if r.Session != nil && r.SessionName != "" {
 		fmt.Fprintf(logs.RunnerLog, "[%s] creating tmux session %s\n", r.clock().UTC().Format(time.RFC3339), r.SessionName)
-		if err := r.Session.StartSession(ctx, r.SessionName, r.sessionCommand(logs.RunLog.Name())); err != nil {
+		if err := r.Session.StartSession(ctx, r.SessionName, r.sessionCommand(logs.RunLogPath())); err != nil {
 			finishedAt := r.clock()
 			fmt.Fprintf(logs.RunnerLog, "[%s] tmux session creation failed: %s\n", finishedAt.UTC().Format(time.RFC3339), err)
 			return r.writeTerminalStatus(StateFailed, startedAt, finishedAt, 1, false)
@@ -135,8 +132,8 @@ func (r *Runner) runDetachedProcess(ctx context.Context, startedAt time.Time, lo
 	fmt.Fprintf(logs.RunnerLog, "[%s] starting process (timeout=%s, grace=%s)\n",
 		r.clock().UTC().Format(time.RFC3339), r.Config.Timeout, r.Config.Grace)
 
-	if proc, ok := r.Process.(outputConfigurer); ok {
-		proc.SetOutput(logs.RunLog, logs.RunLog)
+	if proc, ok := r.Process.(outputWriterConfigurer); ok {
+		proc.SetOutputWriter(logs.RunLog, logs.RunLog)
 	}
 
 	fmt.Fprintf(logs.RunLog, "[%s] process output start\n", r.clock().UTC().Format(time.RFC3339))
@@ -192,13 +189,10 @@ func (r *Runner) runInteractiveProcess(ctx context.Context, startedAt time.Time,
 	fmt.Fprintf(logs.RunnerLog, "[%s] starting interactive process (activity-timeout=%s, grace=%s)\n",
 		r.clock().UTC().Format(time.RFC3339), r.Config.Timeout, r.Config.Grace)
 
-	// Set up output with activity tracking. Prefer io.Writer path so the
-	// ActivityWriter can intercept writes; fall back to *os.File path.
+	// Set up output with activity tracking via the capped writer.
 	aw := NewActivityWriter(logs.RunLog, timer)
 	if proc, ok := r.Process.(outputWriterConfigurer); ok {
 		proc.SetOutputWriter(aw, aw)
-	} else if proc, ok := r.Process.(outputConfigurer); ok {
-		proc.SetOutput(logs.RunLog, logs.RunLog)
 	}
 
 	fmt.Fprintf(logs.RunLog, "[%s] process output start\n", r.clock().UTC().Format(time.RFC3339))

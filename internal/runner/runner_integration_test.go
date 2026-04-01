@@ -6,9 +6,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -19,10 +21,10 @@ import (
 
 // shellProcess runs a shell command as the ProcessRunner for integration tests.
 type shellProcess struct {
-	command string
-	cmd     *exec.Cmd
-	stdout  *os.File
-	stderr  *os.File
+	command      string
+	cmd          *exec.Cmd
+	stdoutWriter io.Writer
+	stderrWriter io.Writer
 }
 
 func newShellProcess(command string) *shellProcess {
@@ -31,8 +33,8 @@ func newShellProcess(command string) *shellProcess {
 
 func (s *shellProcess) Start(ctx context.Context) error {
 	s.cmd = exec.CommandContext(ctx, "sh", "-c", s.command)
-	s.cmd.Stdout = s.stdout
-	s.cmd.Stderr = s.stderr
+	s.cmd.Stdout = s.stdoutWriter
+	s.cmd.Stderr = s.stderrWriter
 	return s.cmd.Start()
 }
 
@@ -55,9 +57,9 @@ func (s *shellProcess) Signal(sig os.Signal) error {
 	return nil
 }
 
-func (s *shellProcess) SetOutput(stdout, stderr *os.File) {
-	s.stdout = stdout
-	s.stderr = stderr
+func (s *shellProcess) SetOutputWriter(stdout, stderr io.Writer) {
+	s.stdoutWriter = stdout
+	s.stderrWriter = stderr
 }
 
 func newIntegrationRunner(dir string, proc ProcessRunner) *Runner {
@@ -323,4 +325,24 @@ func TestRunnerIntegration_TmuxSessionShowsRunLogOutput(t *testing.T) {
 	out, err := cmd.CombinedOutput()
 	require.NoError(t, err, "capture tmux pane: %s", out)
 	require.Contains(t, string(out), "session-output")
+}
+
+func TestRunnerIntegration_CappedRunLog(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	// Process emits 1000 bytes; cap at 256 (includes the bracketing lines).
+	r := newIntegrationRunner(dir, newShellProcess("printf '"+strings.Repeat("x", 1000)+"'"))
+	r.LogCapBytes = 256
+
+	require.NoError(t, r.Run(context.Background()))
+
+	data, err := os.ReadFile(filepath.Join(dir, "run.log"))
+	require.NoError(t, err)
+
+	// CappedWriter allows exactly capBytes of content + the marker.
+	require.Equal(t, 256+len(TruncationMarker), len(data),
+		"run.log must be exactly cap + marker size")
+	require.True(t, strings.HasSuffix(string(data), TruncationMarker),
+		"run.log must end with truncation marker")
 }

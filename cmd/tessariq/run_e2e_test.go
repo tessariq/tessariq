@@ -15,6 +15,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/tessariq/tessariq/internal/adapter"
+	"github.com/tessariq/tessariq/internal/runner"
 	"github.com/tessariq/tessariq/internal/testutil/containers"
 )
 
@@ -929,4 +930,39 @@ func TestE2E_EvidenceCompletenessAllRequiredFiles(t *testing.T) {
 		require.NoError(t, json.Unmarshal(raw["schema_version"], &version), "%s schema_version must be int", f)
 		require.Equal(t, 1, version, "%s schema_version must be 1", f)
 	}
+}
+
+func TestE2E_CappedRunLogWithOversizedOutput(t *testing.T) {
+	bin := buildBinary(t)
+	// Agent generates 52 MiB of text output, exceeding the 50 MiB default cap.
+	env := setupRunEnvWithScript(t, bin, "claude", `yes | head -c 54525952`)
+
+	code, output := runTessariq(t, env, "claude", "")
+	require.Equal(t, 0, code, "run failed: %s", output)
+
+	evidencePath := extractField(output, "evidence_path")
+	require.NotEmpty(t, evidencePath)
+
+	ctx := context.Background()
+
+	// Check run.log file size.
+	statCode, statOut, err := env.Exec(ctx, []string{"sh", "-c",
+		fmt.Sprintf("stat -c '%%s' %s", filepath.Join(evidencePath, "run.log"))})
+	require.NoError(t, err)
+	require.Equal(t, 0, statCode, "run.log must exist")
+
+	var fileSize int64
+	_, parseErr := fmt.Sscanf(strings.TrimSpace(statOut), "%d", &fileSize)
+	require.NoError(t, parseErr)
+
+	maxAllowed := runner.DefaultLogCapBytes + int64(len(runner.TruncationMarker))
+	require.LessOrEqual(t, fileSize, maxAllowed,
+		"run.log must not exceed cap + marker (got %d, max %d)", fileSize, maxAllowed)
+
+	// Verify truncation marker at end of file.
+	// Use grep to check for the marker; tail -c loses newlines in shell.
+	grepCode, _, err := env.Exec(ctx, []string{"sh", "-c",
+		fmt.Sprintf("tail -c 20 %s | grep -q '\\[truncated\\]'", filepath.Join(evidencePath, "run.log"))})
+	require.NoError(t, err)
+	require.Equal(t, 0, grepCode, "run.log must contain truncation marker at end")
 }

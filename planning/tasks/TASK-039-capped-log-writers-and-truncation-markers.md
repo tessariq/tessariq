@@ -1,7 +1,7 @@
 ---
 id: TASK-039-capped-log-writers-and-truncation-markers
 title: Enforce capped run logs with explicit truncation markers
-status: todo
+status: done
 priority: p0
 depends_on:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
@@ -12,7 +12,7 @@ spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#evidence-contract
     - specs/tessariq-v0.1.0.md#acceptance-scenarios
-updated_at: "2026-03-31T20:30:00Z"
+updated_at: "2026-04-01T09:23:30Z"
 areas:
     - runner
     - logs
@@ -79,3 +79,4 @@ Current run log handling streams unbounded output into evidence files without an
 
 - Likely files: `internal/runner/logs.go`, `internal/runner/runner.go`, `internal/container/process.go`, and associated tests.
 - Ensure marker insertion does not race with concurrent stdout/stderr writes.
+- 2026-04-01T09:23:30Z: Implemented write-time CappedWriter enforcing log size limits during execution. CappedWriter wraps io.Writer with mutex-protected byte tracking, appends truncation marker at cap boundary, and silently discards subsequent writes. Wired into LogFiles so both run.log and runner.log are capped at 50 MiB. Removed post-run CapLogFile calls. All unit/integration/e2e/mutation/manual tests pass.

@@ -2,7 +2,9 @@ package runner
 
 import (
 	"fmt"
+	"io"
 	"os"
+	"sync"
 )
 
 const (
@@ -12,6 +14,63 @@ const (
 	// TruncationMarker is appended to log files that exceed the cap.
 	TruncationMarker = "\n[truncated]\n"
 )
+
+// CappedWriter is a thread-safe io.Writer that enforces a byte cap.
+// Once the cap is reached it appends a truncation marker and silently
+// discards all subsequent writes.
+type CappedWriter struct {
+	mu       sync.Mutex
+	inner    io.Writer
+	maxBytes int64
+	written  int64
+	capped   bool
+}
+
+// NewCappedWriter creates a writer that caps output at maxBytes.
+func NewCappedWriter(inner io.Writer, maxBytes int64) *CappedWriter {
+	return &CappedWriter{inner: inner, maxBytes: maxBytes}
+}
+
+// Write implements io.Writer. After the cap is reached, writes are
+// silently discarded (returning len(p), nil) to avoid breaking
+// upstream io.Copy or exec.Cmd pipelines.
+func (cw *CappedWriter) Write(p []byte) (int, error) {
+	cw.mu.Lock()
+	defer cw.mu.Unlock()
+
+	if cw.capped {
+		return len(p), nil
+	}
+
+	remaining := cw.maxBytes - cw.written
+	if int64(len(p)) <= remaining {
+		n, err := cw.inner.Write(p)
+		cw.written += int64(n)
+		return n, err
+	}
+
+	// Partial write up to the cap.
+	if remaining > 0 {
+		n, err := cw.inner.Write(p[:remaining])
+		cw.written += int64(n)
+		if err != nil {
+			return n, err
+		}
+	}
+
+	// Append the truncation marker and cap further writes.
+	_, _ = io.WriteString(cw.inner, TruncationMarker)
+	cw.capped = true
+
+	return len(p), nil
+}
+
+// Capped reports whether the writer has been truncated.
+func (cw *CappedWriter) Capped() bool {
+	cw.mu.Lock()
+	defer cw.mu.Unlock()
+	return cw.capped
+}
 
 // CapLogFile truncates a log file in-place if it exceeds maxBytes,
 // appending a truncation marker. Returns whether the file was truncated.

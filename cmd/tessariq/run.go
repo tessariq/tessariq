@@ -211,10 +211,6 @@ func newRunCmd() *cobra.Command {
 			}
 			runErr := r.Run(cmd.Context())
 
-			// Cap log files (evidence is written even on failure).
-			_, _ = runner.CapLogFile(filepath.Join(evidenceDir, "run.log"), runner.DefaultLogCapBytes)
-			_, _ = runner.CapLogFile(filepath.Join(evidenceDir, "runner.log"), runner.DefaultLogCapBytes)
-
 			// Generate diff artifacts when changes exist in the worktree.
 			_ = runner.WriteDiffArtifacts(cmd.Context(), evidenceDir, wsPath, baseSHA)
 
