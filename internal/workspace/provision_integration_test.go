@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -133,6 +134,34 @@ func TestCleanup_Integration_Idempotent(t *testing.T) {
 
 	require.NoError(t, Cleanup(ctx, repo.Dir(), wsPath))
 	require.NoError(t, Cleanup(ctx, repo.Dir(), wsPath))
+}
+
+func TestCleanup_Integration_GitWorktreeListClean(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo, err := containers.StartGitRepo(ctx, t)
+	require.NoError(t, err)
+
+	homeDir := t.TempDir()
+	evidenceDir := filepath.Join(t.TempDir(), "evidence")
+
+	wsPath, _, err := Provision(ctx, homeDir, repo.Dir(), "01ARZ3NDEKTSV4RRFFQ69G5FAX", evidenceDir)
+	require.NoError(t, err)
+
+	require.NoError(t, Cleanup(ctx, repo.Dir(), wsPath))
+
+	// git worktree list must show only the main worktree after cleanup.
+	out, err := exec.CommandContext(ctx, "git", "-C", repo.Dir(), "worktree", "list", "--porcelain").CombinedOutput()
+	require.NoError(t, err, "git worktree list: %s", out)
+
+	worktreeCount := 0
+	for _, line := range strings.Split(string(out), "\n") {
+		if strings.HasPrefix(line, "worktree ") {
+			worktreeCount++
+		}
+	}
+	require.Equal(t, 1, worktreeCount, "only the main worktree should remain after cleanup, got: %s", out)
 }
 
 func TestCleanup_Integration_RemovesRestrictiveContainerOwnedFiles(t *testing.T) {
