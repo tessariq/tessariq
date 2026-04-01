@@ -258,31 +258,37 @@ func newRunCmd() *cobra.Command {
 	return cmd
 }
 
-// resolveRunAllowlist loads user config and resolves the egress allowlist
-// with full precedence: CLI > user_config > built_in.
-func resolveRunAllowlist(cfg run.Config, homeDir, resolvedEgress string) (*run.AllowlistResult, error) {
+// resolveAllowlistDeps holds injectable dependencies for allowlist resolution.
+type resolveAllowlistDeps struct {
+	xdgConfigHome string
+	dirExists     func(string) bool
+	readFile      func(string) ([]byte, error)
+}
+
+// resolveAllowlistCore loads user config and resolves the egress allowlist
+// with full precedence: CLI > user_config > built_in. Dependencies are
+// injected via deps for testability.
+func resolveAllowlistCore(cfg run.Config, homeDir, resolvedEgress string, deps resolveAllowlistDeps) (*run.AllowlistResult, error) {
 	// Load user config from XDG paths.
-	xdgConfigHome := os.Getenv("XDG_CONFIG_HOME")
-	dirExists := func(path string) bool {
-		info, err := os.Stat(path)
-		return err == nil && info.IsDir()
-	}
-	configPath := run.UserConfigPath(xdgConfigHome, homeDir, dirExists)
-	userCfg, err := run.LoadUserConfig(configPath, os.ReadFile)
+	configPath := run.UserConfigPath(deps.xdgConfigHome, homeDir, deps.dirExists)
+	userCfg, err := run.LoadUserConfig(configPath, deps.readFile)
 	if err != nil {
 		return nil, err
 	}
 
 	// Build the built-in allowlist for the agent.
+	// Skip provider resolution when CLI allowlist entries exist, because
+	// ResolveAllowlist returns immediately with source="cli" and never
+	// consults the built-in list.
 	var agentEndpoints []adapter.Destination
 	switch cfg.Agent {
 	case "claude-code":
 		agentEndpoints = adapter.ClaudeCodeEndpoints()
 	case "opencode":
-		if resolvedEgress == "proxy" {
+		if resolvedEgress == "proxy" && len(cfg.EgressAllow) == 0 && !cfg.EgressNoDefaults {
 			authPath := filepath.Join(homeDir, ".local", "share", "opencode", "auth.json")
 			configDir := filepath.Join(homeDir, ".config", "opencode")
-			provInfo, provErr := opencode.ResolveProviderFromPaths(authPath, configDir, os.ReadFile)
+			provInfo, provErr := opencode.ResolveProviderFromPaths(authPath, configDir, deps.readFile)
 			if provErr != nil {
 				return nil, provErr
 			}
@@ -297,6 +303,19 @@ func resolveRunAllowlist(cfg run.Config, homeDir, resolvedEgress string) (*run.A
 	}
 
 	return run.ResolveAllowlist(cfg.EgressAllow, userCfg, builtInStrings, cfg.EgressNoDefaults, resolvedEgress)
+}
+
+// resolveRunAllowlist loads user config and resolves the egress allowlist
+// with full precedence: CLI > user_config > built_in.
+func resolveRunAllowlist(cfg run.Config, homeDir, resolvedEgress string) (*run.AllowlistResult, error) {
+	return resolveAllowlistCore(cfg, homeDir, resolvedEgress, resolveAllowlistDeps{
+		xdgConfigHome: os.Getenv("XDG_CONFIG_HOME"),
+		dirExists: func(path string) bool {
+			info, err := os.Stat(path)
+			return err == nil && info.IsDir()
+		},
+		readFile: os.ReadFile,
+	})
 }
 
 // appendIndexEntry reads the manifest and status from the evidence directory

@@ -2,10 +2,14 @@ package main
 
 import (
 	"bytes"
+	"errors"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/tessariq/tessariq/internal/adapter/opencode"
+	"github.com/tessariq/tessariq/internal/run"
 )
 
 func TestPrintRunOutput_ContainsAllFields(t *testing.T) {
@@ -60,4 +64,154 @@ func TestPrintRunOutput_AttachCommandUsesRunID(t *testing.T) {
 	output := buf.String()
 	require.Contains(t, output, "tessariq attach MYRUNID")
 	require.Contains(t, output, "tessariq promote MYRUNID")
+}
+
+// fakeReadFile returns a readFile func that serves canned content keyed by
+// suffix match on the path, and tracks which paths were actually read.
+func fakeReadFile(files map[string]string) (func(string) ([]byte, error), *[]string) {
+	var called []string
+	fn := func(path string) ([]byte, error) {
+		called = append(called, path)
+		for suffix, content := range files {
+			if strings.HasSuffix(path, suffix) {
+				return []byte(content), nil
+			}
+		}
+		return nil, errors.New("file not found: " + path)
+	}
+	return fn, &called
+}
+
+func TestResolveAllowlistCore_OpenCode(t *testing.T) {
+	t.Parallel()
+
+	validAuth := `{"provider":"https://api.example.com/v1"}`
+	noProviderAuth := `{"token":"fake"}`
+
+	tests := []struct {
+		name            string
+		agent           string
+		egress          string
+		cliAllow        []string
+		noDefaults      bool
+		files           map[string]string
+		wantSource      string
+		wantErr         string
+		wantErrType     any
+		wantProvSkipped bool // true if auth.json should NOT be read
+	}{
+		{
+			name:            "cli_bypasses_unresolvable_provider",
+			agent:           "opencode",
+			egress:          "proxy",
+			cliAllow:        []string{"custom.host:443"},
+			files:           map[string]string{}, // no auth.json at all
+			wantSource:      "cli",
+			wantProvSkipped: true,
+		},
+		{
+			name:        "no_cli_unresolvable_provider_errors",
+			agent:       "opencode",
+			egress:      "proxy",
+			files:       map[string]string{"auth.json": noProviderAuth},
+			wantErrType: &opencode.ProviderUnresolvableError{},
+		},
+		{
+			name:            "cli_wins_even_when_provider_resolvable",
+			agent:           "opencode",
+			egress:          "proxy",
+			cliAllow:        []string{"override.host:8443"},
+			files:           map[string]string{"auth.json": validAuth},
+			wantSource:      "cli",
+			wantProvSkipped: true,
+		},
+		{
+			name:       "claude_code_cli",
+			agent:      "claude-code",
+			egress:     "proxy",
+			cliAllow:   []string{"my.api:443"},
+			files:      map[string]string{},
+			wantSource: "cli",
+		},
+		{
+			name:            "opencode_non_proxy_skips_resolution",
+			agent:           "opencode",
+			egress:          "open",
+			files:           map[string]string{},
+			wantSource:      "built_in",
+			wantProvSkipped: true,
+		},
+		{
+			name:       "opencode_proxy_provider_resolvable_uses_built_in",
+			agent:      "opencode",
+			egress:     "proxy",
+			files:      map[string]string{"auth.json": validAuth},
+			wantSource: "built_in",
+		},
+		{
+			name:       "no_defaults_no_cli_proxy_errors",
+			agent:      "opencode",
+			egress:     "proxy",
+			noDefaults: true,
+			files:      map[string]string{},
+			wantErr:    "proxy mode requires at least one",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			readFile, called := fakeReadFile(tt.files)
+			deps := resolveAllowlistDeps{
+				xdgConfigHome: "",
+				dirExists:     func(string) bool { return false },
+				readFile:      readFile,
+			}
+
+			cfg := run.Config{
+				Agent:            tt.agent,
+				EgressAllow:      tt.cliAllow,
+				EgressNoDefaults: tt.noDefaults,
+			}
+
+			result, err := resolveAllowlistCore(cfg, "/fakehome", tt.egress, deps)
+
+			if tt.wantErrType != nil {
+				require.Error(t, err)
+				require.ErrorAs(t, err, &tt.wantErrType)
+				return
+			}
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.wantErr)
+				return
+			}
+
+			require.NoError(t, err)
+			require.Equal(t, tt.wantSource, result.Source)
+
+			if tt.wantSource == "cli" {
+				// CLI destinations should match input.
+				for _, entry := range tt.cliAllow {
+					host, _, _ := run.ParseDestination(entry)
+					found := false
+					for _, d := range result.Destinations {
+						if strings.HasPrefix(d, host) {
+							found = true
+							break
+						}
+					}
+					require.True(t, found, "expected CLI destination %q in result", entry)
+				}
+			}
+
+			if tt.wantProvSkipped {
+				authPath := filepath.Join("/fakehome", ".local", "share", "opencode", "auth.json")
+				for _, path := range *called {
+					require.NotEqual(t, authPath, path, "provider resolution should have been skipped")
+				}
+			}
+		})
+	}
 }
