@@ -23,7 +23,7 @@ The core idea is to make agent execution reproducible, inspectable, and usable i
 
 This repository is currently spec-first. The current target release is `v0.1.0`, and the next planned release is `v0.2.0`.
 
-- The current CLI includes `init`, `run`, and `promote` for the core detached workflow.
+- The current CLI includes `init`, `run`, `attach`, and `promote` for the core detached workflow.
 - `v0.1.0` focuses on proving the core local workflow with one workspace model.
 - `v0.2.0` expands Tessariq to the required additional workspace modes and same-mode resume behavior.
 - Later versions are expected to add operator and admin commands such as `inspect`, `logs`, and `doctor`.

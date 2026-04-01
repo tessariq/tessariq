@@ -76,4 +76,3 @@ When OpenCode provider resolution cannot find auth state, Tessariq currently sur
 
 - Do not make missing auth non-fatal when OpenCode built-in provider endpoint derivation is required.
 - Do not duplicate or re-implement user-config allowlist bypass logic from TASK-041.
-

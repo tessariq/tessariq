@@ -62,7 +62,8 @@ func resolveByID(runsDir, runID string) (IndexEntry, error) {
 		return IndexEntry{}, err
 	}
 
-	for _, e := range entries {
+	for i := len(entries) - 1; i >= 0; i-- {
+		e := entries[i]
 		if e.RunID == runID {
 			return e, nil
 		}

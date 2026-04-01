@@ -98,6 +98,20 @@ func TestResolveRunRef_UnknownRunID(t *testing.T) {
 	require.ErrorIs(t, err, ErrRunNotFound)
 }
 
+func TestResolveRunRef_ExplicitRunIDReturnsLatestEntry(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	earlier := sampleEntry(testRunID1)
+	earlier.State = "running"
+	later := earlier
+	later.State = "success"
+	writeIndexEntries(t, dir, earlier, sampleEntry(testRunID2), later)
+
+	got, err := ResolveRunRef(dir, testRunID1)
+	require.NoError(t, err)
+	require.Equal(t, later, got)
+}
+
 func TestResolveRunRef_MalformedLinesSkipped(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()

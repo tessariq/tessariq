@@ -196,6 +196,7 @@ func newRunCmd() *cobra.Command {
 
 			containerName := run.ContainerName(runID)
 			sessionName := run.SessionName(runID)
+			appendRunningIndexEntry(root, evidenceDir)
 
 			if agentProc.AgentInfo.Applied["interactive"] && !cfg.Attach {
 				fmt.Fprintf(cmd.ErrOrStderr(), "note: interactive mode without --attach; use 'tmux attach -t %s' to provide approval input\n", sessionName)
@@ -316,6 +317,19 @@ func resolveRunAllowlist(cfg run.Config, homeDir, resolvedEgress string) (*run.A
 		},
 		readFile: os.ReadFile,
 	})
+}
+
+// appendRunningIndexEntry appends the initial running entry so attach can
+// resolve live runs through the shared repository index.
+func appendRunningIndexEntry(repoRoot, evidenceDir string) {
+	manifest, err := run.ReadManifest(evidenceDir)
+	if err != nil {
+		return
+	}
+
+	entry := run.IndexEntryFromManifest(manifest, string(runner.StateRunning))
+	runsDir := filepath.Join(repoRoot, ".tessariq", "runs")
+	_ = run.AppendIndex(runsDir, entry)
 }
 
 // appendIndexEntry reads the manifest and status from the evidence directory
