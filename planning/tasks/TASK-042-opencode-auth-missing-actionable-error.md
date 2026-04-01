@@ -1,7 +1,7 @@
 ---
 id: TASK-042-opencode-auth-missing-actionable-error
 title: Surface actionable auth-missing guidance for OpenCode provider resolution
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-023-supported-agent-auth-mounts
@@ -11,7 +11,7 @@ spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#failure-ux
     - specs/tessariq-v0.1.0.md#tessariq-run-task-path
-updated_at: "2026-04-01T13:05:00Z"
+updated_at: "2026-04-01T18:21:48Z"
 areas:
     - egress
     - opencode
@@ -76,3 +76,4 @@ When OpenCode provider resolution cannot find auth state, Tessariq currently sur
 
 - Do not make missing auth non-fatal when OpenCode built-in provider endpoint derivation is required.
 - Do not duplicate or re-implement user-config allowlist bypass logic from TASK-041.
+- 2026-04-01T18:21:48Z: mapped os.ErrNotExist from provider resolution to AuthMissingError; unit tests, integration tests, and manual tests all pass

@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/tessariq/tessariq/internal/adapter/opencode"
+	"github.com/tessariq/tessariq/internal/authmount"
 	"github.com/tessariq/tessariq/internal/run"
 	"github.com/tessariq/tessariq/internal/runner"
 )
@@ -124,7 +125,7 @@ func fakeReadFile(files map[string]string) (func(string) ([]byte, error), *[]str
 				return []byte(content), nil
 			}
 		}
-		return nil, errors.New("file not found: " + path)
+		return nil, &os.PathError{Op: "open", Path: path, Err: os.ErrNotExist}
 	}
 	return fn, &called
 }
@@ -220,7 +221,7 @@ func TestResolveAllowlistCore_OpenCode(t *testing.T) {
 			agent:   "opencode",
 			egress:  "proxy",
 			files:   map[string]string{}, // no auth.json, no user config
-			wantErr: "file not found",
+			wantErr: "authenticate opencode locally first",
 		},
 		{
 			name:            "cli_wins_over_user_config_and_skips_provider",
@@ -292,6 +293,35 @@ func TestResolveAllowlistCore_OpenCode(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestResolveAllowlistCore_OpenCode_PermissionDenied(t *testing.T) {
+	t.Parallel()
+
+	readFile := func(path string) ([]byte, error) {
+		if strings.HasSuffix(path, "auth.json") {
+			return nil, &os.PathError{Op: "open", Path: path, Err: os.ErrPermission}
+		}
+		return nil, &os.PathError{Op: "open", Path: path, Err: os.ErrNotExist}
+	}
+
+	deps := resolveAllowlistDeps{
+		xdgConfigHome: "",
+		dirExists:     func(string) bool { return false },
+		readFile:      readFile,
+	}
+
+	cfg := run.Config{
+		Agent: "opencode",
+	}
+
+	_, err := resolveAllowlistCore(cfg, "/fakehome", "proxy", deps)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "read auth file")
+
+	var authMissing *authmount.AuthMissingError
+	require.False(t, errors.As(err, &authMissing),
+		"permission denied should not be mapped to AuthMissingError")
 }
 
 // writeManifestFixture writes a minimal valid manifest.json to dir.

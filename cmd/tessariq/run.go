@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -290,6 +291,9 @@ func resolveAllowlistCore(cfg run.Config, homeDir, resolvedEgress string, deps r
 			configDir := filepath.Join(homeDir, ".config", "opencode")
 			provInfo, provErr := opencode.ResolveProviderFromPaths(authPath, configDir, deps.readFile)
 			if provErr != nil {
+				if errors.Is(provErr, os.ErrNotExist) {
+					return nil, &authmount.AuthMissingError{Agent: "opencode"}
+				}
 				return nil, provErr
 			}
 			agentEndpoints = adapter.OpenCodeEndpoints(provInfo.Host, provInfo.IsOpenCodeHosted)
