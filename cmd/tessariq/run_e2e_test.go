@@ -92,37 +92,36 @@ func testImageTag(t *testing.T) string {
 	return hex.EncodeToString(h[:6])
 }
 
-// setupRunEnv creates a RunEnv container, copies the tessariq binary into it,
-// builds a test Docker image with the fake agent binary, and initialises a git
-// repo with a sample task file inside the container.
+// e2eSetupOpts controls which parts of the standard e2e setup are executed.
+// Zero values produce the default behavior (build image, create auth, no extras).
+type e2eSetupOpts struct {
+	binaryName string                        // agent binary name; defaults to "claude"
+	scriptBody string                        // fake agent script body; defaults to "exit 0"
+	skipAuth   bool                          // skip creating auth files (for auth-failure tests)
+	skipImage  bool                          // skip building test Docker image (for pre-container-failure tests)
+	bareImage  bool                          // build image WITHOUT agent binary (for missing-binary tests)
+	authFn     func(homeDir string) []string // custom auth commands; receives homeDir, replaces default auth
+	extraFn    func(homeDir string) []string // extra commands run after auth, before git init; receives homeDir
+}
+
+// setupRunEnvCustom is the single source of truth for e2e test environment setup.
+// It creates a RunEnv container, copies the tessariq binary, optionally builds a
+// test Docker image, optionally creates auth files, and initialises a git repo.
 //
 // HOME is set to <hostDir>/home so that worktree, evidence, and auth paths
 // are host-absolute and accessible to sibling containers via the Docker socket.
-func setupRunEnv(t *testing.T, bin string, claudeExitCode int) *containers.RunEnv {
-	return setupRunEnvForBinary(t, bin, "claude", claudeExitCode)
-}
-
-// setupRunEnvForBinary creates a RunEnv container with a fake agent binary,
-// copies the tessariq binary into it, builds a test Docker image containing the
-// fake binary, and initialises a git repo with a sample task file inside the
-// container.
-func setupRunEnvForBinary(t *testing.T, bin string, binaryName string, exitCode int) *containers.RunEnv {
+func setupRunEnvCustom(t *testing.T, bin string, opts e2eSetupOpts) *containers.RunEnv {
 	t.Helper()
-	script := fmt.Sprintf("exit %d", exitCode)
-	return setupRunEnvWithScript(t, bin, binaryName, script)
-}
 
-// setupRunEnvWithScript creates a RunEnv container with a custom fake agent
-// script, builds a test Docker image, and initialises a git repo.
-//
-// Paths for HOME and the repo use env.Dir() (the host temp dir) so that
-// tessariq-computed mount paths are host-absolute and work with the Docker
-// socket sibling container pattern.
-func setupRunEnvWithScript(t *testing.T, bin string, binaryName string, scriptBody string) *containers.RunEnv {
-	t.Helper()
+	if opts.binaryName == "" {
+		opts.binaryName = "claude"
+	}
+	if opts.scriptBody == "" {
+		opts.scriptBody = "exit 0"
+	}
 
 	ctx := context.Background()
-	env, err := containers.StartRunEnvWithScript(ctx, t, binaryName, scriptBody)
+	env, err := containers.StartRunEnvWithScript(ctx, t, opts.binaryName, opts.scriptBody)
 	require.NoError(t, err)
 
 	hostDir := env.Dir()
@@ -137,61 +136,83 @@ func setupRunEnvWithScript(t *testing.T, bin string, binaryName string, scriptBo
 
 	// Set HOME to a host-absolute path so worktrees and auth paths
 	// are valid on the host Docker daemon for sibling container mounts.
-	homeSetup := []string{
-		fmt.Sprintf("mkdir -p %s", homeDir),
-	}
-	for _, cmd := range homeSetup {
-		code, out, execErr := env.Exec(ctx, []string{"sh", "-c", cmd})
-		require.NoError(t, execErr, "home setup %q: %s", cmd, out)
-		require.Equal(t, 0, code, "home setup %q exited %d: %s", cmd, code, out)
-	}
+	execCmd(t, env, ctx, fmt.Sprintf("mkdir -p %s", homeDir), "home setup")
 
-	// Build a test Docker image with the fake agent binary.
-	// docker-cli reads from the container filesystem, so /work paths are fine.
-	imgName := fmt.Sprintf("tessariq-test-agent-%s-%s", binaryName, testImageTag(t))
-	buildCmds := []string{
-		fmt.Sprintf(`cat > /work/Dockerfile.test <<'DEOF'
+	// Build a test Docker image (unless skipped).
+	if !opts.skipImage {
+		if opts.bareImage {
+			// Bare image WITHOUT the agent binary (for missing-binary tests).
+			imgName := fmt.Sprintf("tessariq-test-no-%s-%s", opts.binaryName, testImageTag(t))
+			buildCmds := []string{
+				`cat > /work/Dockerfile.bare <<'DEOF'
+FROM alpine:latest
+RUN addgroup -S tessariq && adduser -S tessariq -G tessariq -h /home/tessariq
+USER tessariq
+WORKDIR /work
+DEOF`,
+				fmt.Sprintf("DOCKER_BUILDKIT=1 docker build -t %s -f /work/Dockerfile.bare /work", imgName),
+			}
+			for _, cmd := range buildCmds {
+				execCmd(t, env, ctx, cmd, "bare image build")
+			}
+			t.Cleanup(func() {
+				_ = exec.Command("docker", "rmi", "-f", imgName).Run()
+			})
+		} else {
+			// Standard image with fake agent binary.
+			imgName := fmt.Sprintf("tessariq-test-agent-%s-%s", opts.binaryName, testImageTag(t))
+			buildCmds := []string{
+				fmt.Sprintf(`cat > /work/Dockerfile.test <<'DEOF'
 FROM alpine:latest
 RUN addgroup -S tessariq && adduser -S tessariq -G tessariq -h /home/tessariq
 COPY fake-agent.sh /usr/local/bin/%s
 RUN chmod +x /usr/local/bin/%s
 USER tessariq
 WORKDIR /work
-DEOF`, binaryName, binaryName),
-		fmt.Sprintf(`printf '#!/bin/sh\n%s\n' > /work/fake-agent.sh && chmod +x /work/fake-agent.sh`,
-			strings.ReplaceAll(scriptBody, "'", "'\\''")),
-		fmt.Sprintf("DOCKER_BUILDKIT=1 docker build -t %s -f /work/Dockerfile.test /work", imgName),
-	}
-
-	for _, cmd := range buildCmds {
-		code, out, execErr := env.Exec(ctx, []string{"sh", "-c", cmd})
-		require.NoError(t, execErr, "image build %q: %s", cmd, out)
-		require.Equal(t, 0, code, "image build %q exited %d: %s", cmd, code, out)
-	}
-
-	t.Cleanup(func() {
-		_ = exec.Command("docker", "rmi", "-f", imgName).Run()
-	})
-
-	// Create fake auth files for the agent so auth discovery succeeds.
-	var authCmds []string
-	switch binaryName {
-	case "claude":
-		authCmds = []string{
-			fmt.Sprintf("mkdir -p %s/.claude", homeDir),
-			fmt.Sprintf(`printf '{"token":"fake"}' > %s/.claude/.credentials.json`, homeDir),
-			fmt.Sprintf(`printf '{}' > %s/.claude.json`, homeDir),
-		}
-	case "opencode":
-		authCmds = []string{
-			fmt.Sprintf("mkdir -p %s/.local/share/opencode", homeDir),
-			fmt.Sprintf(`printf '{"token":"fake","provider":"https://api.example.com"}' > %s/.local/share/opencode/auth.json`, homeDir),
+DEOF`, opts.binaryName, opts.binaryName),
+				fmt.Sprintf(`printf '#!/bin/sh\n%s\n' > /work/fake-agent.sh && chmod +x /work/fake-agent.sh`,
+					strings.ReplaceAll(opts.scriptBody, "'", "'\\''")),
+				fmt.Sprintf("DOCKER_BUILDKIT=1 docker build -t %s -f /work/Dockerfile.test /work", imgName),
+			}
+			for _, cmd := range buildCmds {
+				execCmd(t, env, ctx, cmd, "image build")
+			}
+			t.Cleanup(func() {
+				_ = exec.Command("docker", "rmi", "-f", imgName).Run()
+			})
 		}
 	}
-	for _, cmd := range authCmds {
-		code, out, execErr := env.Exec(ctx, []string{"sh", "-c", cmd})
-		require.NoError(t, execErr, "auth setup %q: %s", cmd, out)
-		require.Equal(t, 0, code, "auth setup %q exited %d: %s", cmd, code, out)
+
+	// Create auth files (unless skipped).
+	if !opts.skipAuth {
+		var authCmds []string
+		if opts.authFn != nil {
+			authCmds = opts.authFn(homeDir)
+		} else {
+			switch opts.binaryName {
+			case "claude":
+				authCmds = []string{
+					fmt.Sprintf("mkdir -p %s/.claude", homeDir),
+					fmt.Sprintf(`printf '{"token":"fake"}' > %s/.claude/.credentials.json`, homeDir),
+					fmt.Sprintf(`printf '{}' > %s/.claude.json`, homeDir),
+				}
+			case "opencode":
+				authCmds = []string{
+					fmt.Sprintf("mkdir -p %s/.local/share/opencode", homeDir),
+					fmt.Sprintf(`printf '{"token":"fake","provider":"https://api.example.com"}' > %s/.local/share/opencode/auth.json`, homeDir),
+				}
+			}
+		}
+		for _, cmd := range authCmds {
+			execCmd(t, env, ctx, cmd, "auth setup")
+		}
+	}
+
+	// Run any extra setup commands.
+	if opts.extraFn != nil {
+		for _, cmd := range opts.extraFn(homeDir) {
+			execCmd(t, env, ctx, cmd, "extra setup")
+		}
 	}
 
 	// Init a git repo inside the container.
@@ -208,14 +229,40 @@ DEOF`, binaryName, binaryName),
 		fmt.Sprintf("git -C %s add -A", repoPath),
 		fmt.Sprintf("git -C %s commit -m 'add tessariq config'", repoPath),
 	}
-
 	for _, cmd := range cmds {
-		code, out, err := env.Exec(ctx, []string{"sh", "-c", cmd})
-		require.NoError(t, err, "cmd %q failed: %s", cmd, out)
-		require.Equal(t, 0, code, "cmd %q exited %d: %s", cmd, code, out)
+		execCmd(t, env, ctx, cmd, "git init")
 	}
 
 	return env
+}
+
+// execCmd runs a shell command inside the RunEnv and fails the test on error.
+func execCmd(t *testing.T, env *containers.RunEnv, ctx context.Context, cmd, label string) {
+	t.Helper()
+	code, out, err := env.Exec(ctx, []string{"sh", "-c", cmd})
+	require.NoError(t, err, "%s %q: %s", label, cmd, out)
+	require.Equal(t, 0, code, "%s %q exited %d: %s", label, cmd, code, out)
+}
+
+// setupRunEnv creates a RunEnv with the standard setup for the given agent exit code.
+func setupRunEnv(t *testing.T, bin string, claudeExitCode int) *containers.RunEnv {
+	t.Helper()
+	return setupRunEnvForBinary(t, bin, "claude", claudeExitCode)
+}
+
+// setupRunEnvForBinary creates a RunEnv with the standard setup for a named agent binary.
+func setupRunEnvForBinary(t *testing.T, bin string, binaryName string, exitCode int) *containers.RunEnv {
+	t.Helper()
+	return setupRunEnvWithScript(t, bin, binaryName, fmt.Sprintf("exit %d", exitCode))
+}
+
+// setupRunEnvWithScript creates a RunEnv with a custom agent script body.
+func setupRunEnvWithScript(t *testing.T, bin string, binaryName string, scriptBody string) *containers.RunEnv {
+	t.Helper()
+	return setupRunEnvCustom(t, bin, e2eSetupOpts{
+		binaryName: binaryName,
+		scriptBody: scriptBody,
+	})
 }
 
 // runTessariq executes tessariq inside the e2e container with HOME set correctly
@@ -360,61 +407,25 @@ func TestE2E_OpenCodeEgressAutoFailsWhenProviderUnresolvable(t *testing.T) {
 	t.Parallel()
 	bin := buildBinary(t)
 
-	ctx := context.Background()
-	env, err := containers.StartRunEnvForBinary(ctx, t, "opencode", 0)
-	require.NoError(t, err)
+	// Auth WITHOUT provider info — should cause provider resolution to fail.
+	env := setupRunEnvCustom(t, bin, e2eSetupOpts{
+		binaryName: "opencode",
+		skipImage:  true,
+		authFn: func(homeDir string) []string {
+			return []string{
+				fmt.Sprintf("mkdir -p %s/.local/share/opencode", homeDir),
+				fmt.Sprintf(`printf '{"token":"fake"}' > %s/.local/share/opencode/auth.json`, homeDir),
+			}
+		},
+	})
 
 	hostDir := env.Dir()
 	repoPath := filepath.Join(hostDir, "repo")
 	homeDir := filepath.Join(hostDir, "home")
 	binPath := filepath.Join(hostDir, "tessariq")
 
-	// Copy the tessariq binary.
-	binData, readErr := os.ReadFile(bin)
-	require.NoError(t, readErr)
-	require.NoError(t, os.WriteFile(binPath, binData, 0o755))
-
-	// Setup HOME under bind mount.
-	setupCmds := []string{
-		fmt.Sprintf("mkdir -p %s", homeDir),
-	}
-	for _, cmd := range setupCmds {
-		code, out, execErr := env.Exec(ctx, []string{"sh", "-c", cmd})
-		require.NoError(t, execErr, "setup %q: %s", cmd, out)
-		require.Equal(t, 0, code, "setup %q exited %d: %s", cmd, code, out)
-	}
-
-	// Create auth.json WITHOUT provider info.
-	authCmds := []string{
-		fmt.Sprintf("mkdir -p %s/.local/share/opencode", homeDir),
-		fmt.Sprintf(`printf '{"token":"fake"}' > %s/.local/share/opencode/auth.json`, homeDir),
-	}
-	for _, cmd := range authCmds {
-		code, out, execErr := env.Exec(ctx, []string{"sh", "-c", cmd})
-		require.NoError(t, execErr, "auth setup %q: %s", cmd, out)
-		require.Equal(t, 0, code, "auth setup %q exited %d: %s", cmd, code, out)
-	}
-
-	// Init git repo.
-	cmds := []string{
-		fmt.Sprintf("mkdir -p %s/tasks", repoPath),
-		fmt.Sprintf("git init %s", repoPath),
-		fmt.Sprintf("git -C %s config user.email test@test.com", repoPath),
-		fmt.Sprintf("git -C %s config user.name Test", repoPath),
-		fmt.Sprintf("printf '# Sample Task\\n\\nDo something.\\n' > %s/tasks/sample.md", repoPath),
-		fmt.Sprintf("git -C %s add -A", repoPath),
-		fmt.Sprintf("git -C %s commit -m initial", repoPath),
-		fmt.Sprintf("cd %s && HOME=%s %s init", repoPath, homeDir, binPath),
-		fmt.Sprintf("git -C %s add -A", repoPath),
-		fmt.Sprintf("git -C %s commit -m 'add tessariq config'", repoPath),
-	}
-	for _, cmd := range cmds {
-		code, out, execErr := env.Exec(ctx, []string{"sh", "-c", cmd})
-		require.NoError(t, execErr, "cmd %q failed: %s", cmd, out)
-		require.Equal(t, 0, code, "cmd %q exited %d: %s", cmd, code, out)
-	}
-
 	// Run with --agent opencode (default egress=auto) — should fail before container start.
+	ctx := context.Background()
 	code, output, err := env.Exec(ctx, []string{"sh", "-c",
 		fmt.Sprintf("cd %s && HOME=%s %s run --agent opencode tasks/sample.md", repoPath, homeDir, binPath)})
 	require.NoError(t, err)
@@ -427,57 +438,26 @@ func TestE2E_OpenCodeEgressAllowBypassesProviderResolution(t *testing.T) {
 	t.Parallel()
 	bin := buildBinary(t)
 
-	ctx := context.Background()
-	env, err := containers.StartRunEnvForBinary(ctx, t, "opencode", 0)
-	require.NoError(t, err)
+	// Auth WITHOUT provider info — same as the failure test.
+	env := setupRunEnvCustom(t, bin, e2eSetupOpts{
+		binaryName: "opencode",
+		skipImage:  true,
+		authFn: func(homeDir string) []string {
+			return []string{
+				fmt.Sprintf("mkdir -p %s/.local/share/opencode", homeDir),
+				fmt.Sprintf(`printf '{"token":"fake"}' > %s/.local/share/opencode/auth.json`, homeDir),
+			}
+		},
+	})
 
 	hostDir := env.Dir()
 	repoPath := filepath.Join(hostDir, "repo")
 	homeDir := filepath.Join(hostDir, "home")
 	binPath := filepath.Join(hostDir, "tessariq")
 
-	// Copy the tessariq binary.
-	binData, readErr := os.ReadFile(bin)
-	require.NoError(t, readErr)
-	require.NoError(t, os.WriteFile(binPath, binData, 0o755))
-
-	// Setup HOME under bind mount.
-	code, out, execErr := env.Exec(ctx, []string{"sh", "-c", fmt.Sprintf("mkdir -p %s", homeDir)})
-	require.NoError(t, execErr, "home setup: %s", out)
-	require.Equal(t, 0, code, "home setup exited %d: %s", code, out)
-
-	// Create auth.json WITHOUT provider info — same as the failure test.
-	authCmds := []string{
-		fmt.Sprintf("mkdir -p %s/.local/share/opencode", homeDir),
-		fmt.Sprintf(`printf '{"token":"fake"}' > %s/.local/share/opencode/auth.json`, homeDir),
-	}
-	for _, cmd := range authCmds {
-		code, out, execErr := env.Exec(ctx, []string{"sh", "-c", cmd})
-		require.NoError(t, execErr, "auth setup %q: %s", cmd, out)
-		require.Equal(t, 0, code, "auth setup %q exited %d: %s", cmd, code, out)
-	}
-
-	// Init git repo.
-	cmds := []string{
-		fmt.Sprintf("mkdir -p %s/tasks", repoPath),
-		fmt.Sprintf("git init %s", repoPath),
-		fmt.Sprintf("git -C %s config user.email test@test.com", repoPath),
-		fmt.Sprintf("git -C %s config user.name Test", repoPath),
-		fmt.Sprintf("printf '# Sample Task\\n\\nDo something.\\n' > %s/tasks/sample.md", repoPath),
-		fmt.Sprintf("git -C %s add -A", repoPath),
-		fmt.Sprintf("git -C %s commit -m initial", repoPath),
-		fmt.Sprintf("cd %s && HOME=%s %s init", repoPath, homeDir, binPath),
-		fmt.Sprintf("git -C %s add -A", repoPath),
-		fmt.Sprintf("git -C %s commit -m 'add tessariq config'", repoPath),
-	}
-	for _, cmd := range cmds {
-		code, out, execErr := env.Exec(ctx, []string{"sh", "-c", cmd})
-		require.NoError(t, execErr, "cmd %q failed: %s", cmd, out)
-		require.Equal(t, 0, code, "cmd %q exited %d: %s", cmd, code, out)
-	}
-
 	// Run with --agent opencode AND --egress-allow — provider resolution should be skipped.
-	code, output, err := env.Exec(ctx, []string{"sh", "-c",
+	ctx := context.Background()
+	_, output, err := env.Exec(ctx, []string{"sh", "-c",
 		fmt.Sprintf("cd %s && HOME=%s %s run --agent opencode --egress-allow api.example.com:443 tasks/sample.md",
 			repoPath, homeDir, binPath)})
 	require.NoError(t, err)
@@ -503,68 +483,32 @@ func TestE2E_OpenCodeUserConfigAllowlistBypassesProviderResolution(t *testing.T)
 	t.Parallel()
 	bin := buildBinary(t)
 
-	ctx := context.Background()
-	env, err := containers.StartRunEnvForBinary(ctx, t, "opencode", 0)
-	require.NoError(t, err)
+	// Auth WITHOUT provider info + user config with egress_allow.
+	env := setupRunEnvCustom(t, bin, e2eSetupOpts{
+		binaryName: "opencode",
+		skipImage:  true,
+		authFn: func(homeDir string) []string {
+			return []string{
+				fmt.Sprintf("mkdir -p %s/.local/share/opencode", homeDir),
+				fmt.Sprintf(`printf '{"token":"fake"}' > %s/.local/share/opencode/auth.json`, homeDir),
+			}
+		},
+		extraFn: func(homeDir string) []string {
+			return []string{
+				fmt.Sprintf("mkdir -p %s/.config/tessariq", homeDir),
+				fmt.Sprintf(`printf 'egress_allow:\n  - api.example.com:443\n' > %s/.config/tessariq/config.yaml`, homeDir),
+			}
+		},
+	})
 
 	hostDir := env.Dir()
 	repoPath := filepath.Join(hostDir, "repo")
 	homeDir := filepath.Join(hostDir, "home")
 	binPath := filepath.Join(hostDir, "tessariq")
 
-	// Copy the tessariq binary.
-	binData, readErr := os.ReadFile(bin)
-	require.NoError(t, readErr)
-	require.NoError(t, os.WriteFile(binPath, binData, 0o755))
-
-	// Setup HOME under bind mount.
-	code, out, execErr := env.Exec(ctx, []string{"sh", "-c", fmt.Sprintf("mkdir -p %s", homeDir)})
-	require.NoError(t, execErr, "home setup: %s", out)
-	require.Equal(t, 0, code, "home setup exited %d: %s", code, out)
-
-	// Create auth.json WITHOUT provider info — would normally fail provider resolution.
-	authCmds := []string{
-		fmt.Sprintf("mkdir -p %s/.local/share/opencode", homeDir),
-		fmt.Sprintf(`printf '{"token":"fake"}' > %s/.local/share/opencode/auth.json`, homeDir),
-	}
-	for _, cmd := range authCmds {
-		code, out, execErr := env.Exec(ctx, []string{"sh", "-c", cmd})
-		require.NoError(t, execErr, "auth setup %q: %s", cmd, out)
-		require.Equal(t, 0, code, "auth setup %q exited %d: %s", cmd, code, out)
-	}
-
-	// Create user config with egress_allow — should bypass provider resolution.
-	configCmds := []string{
-		fmt.Sprintf("mkdir -p %s/.config/tessariq", homeDir),
-		fmt.Sprintf(`printf 'egress_allow:\n  - api.example.com:443\n' > %s/.config/tessariq/config.yaml`, homeDir),
-	}
-	for _, cmd := range configCmds {
-		code, out, execErr := env.Exec(ctx, []string{"sh", "-c", cmd})
-		require.NoError(t, execErr, "config setup %q: %s", cmd, out)
-		require.Equal(t, 0, code, "config setup %q exited %d: %s", cmd, code, out)
-	}
-
-	// Init git repo.
-	cmds := []string{
-		fmt.Sprintf("mkdir -p %s/tasks", repoPath),
-		fmt.Sprintf("git init %s", repoPath),
-		fmt.Sprintf("git -C %s config user.email test@test.com", repoPath),
-		fmt.Sprintf("git -C %s config user.name Test", repoPath),
-		fmt.Sprintf("printf '# Sample Task\\n\\nDo something.\\n' > %s/tasks/sample.md", repoPath),
-		fmt.Sprintf("git -C %s add -A", repoPath),
-		fmt.Sprintf("git -C %s commit -m initial", repoPath),
-		fmt.Sprintf("cd %s && HOME=%s %s init", repoPath, homeDir, binPath),
-		fmt.Sprintf("git -C %s add -A", repoPath),
-		fmt.Sprintf("git -C %s commit -m 'add tessariq config'", repoPath),
-	}
-	for _, cmd := range cmds {
-		code, out, execErr := env.Exec(ctx, []string{"sh", "-c", cmd})
-		require.NoError(t, execErr, "cmd %q failed: %s", cmd, out)
-		require.Equal(t, 0, code, "cmd %q exited %d: %s", cmd, code, out)
-	}
-
 	// Run with --agent opencode and NO --egress-allow — user config should suffice.
-	code, output, err := env.Exec(ctx, []string{"sh", "-c",
+	ctx := context.Background()
+	_, output, err := env.Exec(ctx, []string{"sh", "-c",
 		fmt.Sprintf("cd %s && HOME=%s %s run --agent opencode tasks/sample.md",
 			repoPath, homeDir, binPath)})
 	require.NoError(t, err)
@@ -942,93 +886,14 @@ func TestE2E_DiffArtifactsAbsentWhenNoChanges(t *testing.T) {
 	require.NotEqual(t, 0, catCode, "diffstat.txt must not exist when there are no changes")
 }
 
-// setupRunEnvNoBinary creates a RunEnv and builds a test Docker image that does
-// NOT contain the agent binary. This is used to test pre-start binary validation.
+// setupRunEnvNoBinary creates a RunEnv with a bare Docker image that does NOT
+// contain the agent binary. Used to test pre-start binary validation.
 func setupRunEnvNoBinary(t *testing.T, bin string, agentBinary string) *containers.RunEnv {
 	t.Helper()
-
-	ctx := context.Background()
-	// Start a RunEnv with a dummy script — we won't use its built-in fake binary.
-	env, err := containers.StartRunEnvWithScript(ctx, t, "claude", "exit 0")
-	require.NoError(t, err)
-
-	hostDir := env.Dir()
-	repoPath := filepath.Join(hostDir, "repo")
-	homeDir := filepath.Join(hostDir, "home")
-
-	// Copy tessariq binary.
-	binData, err := os.ReadFile(bin)
-	require.NoError(t, err)
-	destBin := filepath.Join(hostDir, "tessariq")
-	require.NoError(t, os.WriteFile(destBin, binData, 0o755))
-
-	// Setup HOME.
-	code, out, execErr := env.Exec(ctx, []string{"sh", "-c", fmt.Sprintf("mkdir -p %s", homeDir)})
-	require.NoError(t, execErr, "home setup: %s", out)
-	require.Equal(t, 0, code, "home setup exited %d: %s", code, out)
-
-	// Build a bare Docker image WITHOUT the agent binary.
-	imgName := fmt.Sprintf("tessariq-test-no-%s-%s", agentBinary, testImageTag(t))
-	buildCmds := []string{
-		fmt.Sprintf(`cat > /work/Dockerfile.bare <<'DEOF'
-FROM alpine:latest
-RUN addgroup -S tessariq && adduser -S tessariq -G tessariq -h /home/tessariq
-USER tessariq
-WORKDIR /work
-DEOF`),
-		fmt.Sprintf("DOCKER_BUILDKIT=1 docker build -t %s -f /work/Dockerfile.bare /work", imgName),
-	}
-	for _, cmd := range buildCmds {
-		code, out, execErr := env.Exec(ctx, []string{"sh", "-c", cmd})
-		require.NoError(t, execErr, "image build %q: %s", cmd, out)
-		require.Equal(t, 0, code, "image build %q exited %d: %s", cmd, code, out)
-	}
-	t.Cleanup(func() {
-		_ = exec.Command("docker", "rmi", "-f", imgName).Run()
+	return setupRunEnvCustom(t, bin, e2eSetupOpts{
+		binaryName: agentBinary,
+		bareImage:  true,
 	})
-
-	// Create fake auth files.
-	var authCmds []string
-	switch agentBinary {
-	case "claude":
-		authCmds = []string{
-			fmt.Sprintf("mkdir -p %s/.claude", homeDir),
-			fmt.Sprintf(`printf '{"token":"fake"}' > %s/.claude/.credentials.json`, homeDir),
-			fmt.Sprintf(`printf '{}' > %s/.claude.json`, homeDir),
-		}
-	case "opencode":
-		authCmds = []string{
-			fmt.Sprintf("mkdir -p %s/.local/share/opencode", homeDir),
-			fmt.Sprintf(`printf '{"token":"fake","provider":"https://api.example.com"}' > %s/.local/share/opencode/auth.json`, homeDir),
-		}
-	}
-	for _, cmd := range authCmds {
-		code, out, execErr := env.Exec(ctx, []string{"sh", "-c", cmd})
-		require.NoError(t, execErr, "auth setup %q: %s", cmd, out)
-		require.Equal(t, 0, code, "auth setup %q exited %d: %s", cmd, code, out)
-	}
-
-	// Init git repo.
-	binPath := filepath.Join(hostDir, "tessariq")
-	cmds := []string{
-		fmt.Sprintf("mkdir -p %s/tasks", repoPath),
-		fmt.Sprintf("git init %s", repoPath),
-		fmt.Sprintf("git -C %s config user.email test@test.com", repoPath),
-		fmt.Sprintf("git -C %s config user.name Test", repoPath),
-		fmt.Sprintf("printf '# Sample Task\\n\\nDo something.\\n' > %s/tasks/sample.md", repoPath),
-		fmt.Sprintf("git -C %s add -A", repoPath),
-		fmt.Sprintf("git -C %s commit -m initial", repoPath),
-		fmt.Sprintf("cd %s && HOME=%s %s init", repoPath, homeDir, binPath),
-		fmt.Sprintf("git -C %s add -A", repoPath),
-		fmt.Sprintf("git -C %s commit -m 'add tessariq config'", repoPath),
-	}
-	for _, cmd := range cmds {
-		code, out, err := env.Exec(ctx, []string{"sh", "-c", cmd})
-		require.NoError(t, err, "cmd %q failed: %s", cmd, out)
-		require.Equal(t, 0, code, "cmd %q exited %d: %s", cmd, code, out)
-	}
-
-	return env
 }
 
 func TestE2E_MissingAgentBinaryFailsWithGuidance(t *testing.T) {
@@ -1081,47 +946,19 @@ func TestE2E_FailedRunCleansUpWorktree(t *testing.T) {
 	t.Parallel()
 	bin := buildBinary(t)
 
-	ctx := context.Background()
-	// Start a RunEnv container but do NOT create auth files so
-	// authmount.Discover fails after worktree provisioning.
-	env, err := containers.StartRunEnvWithScript(ctx, t, "claude", "exit 0")
-	require.NoError(t, err)
+	// No auth files → authmount.Discover fails after worktree provisioning.
+	env := setupRunEnvCustom(t, bin, e2eSetupOpts{
+		skipAuth:  true,
+		skipImage: true,
+	})
 
 	hostDir := env.Dir()
 	repoPath := filepath.Join(hostDir, "repo")
 	homeDir := filepath.Join(hostDir, "home")
 	binPath := filepath.Join(hostDir, "tessariq")
 
-	// Copy the tessariq binary.
-	binData, err := os.ReadFile(bin)
-	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(binPath, binData, 0o755))
-
-	// Create HOME directory.
-	code, out, err := env.Exec(ctx, []string{"sh", "-c", fmt.Sprintf("mkdir -p %s", homeDir)})
-	require.NoError(t, err, "mkdir home: %s", out)
-	require.Equal(t, 0, code, "mkdir home exited %d: %s", code, out)
-
-	// Initialise a git repo with a task file — no auth files.
-	cmds := []string{
-		fmt.Sprintf("mkdir -p %s/tasks", repoPath),
-		fmt.Sprintf("git init %s", repoPath),
-		fmt.Sprintf("git -C %s config user.email test@test.com", repoPath),
-		fmt.Sprintf("git -C %s config user.name Test", repoPath),
-		fmt.Sprintf("printf '# Sample Task\\n\\nDo something.\\n' > %s/tasks/sample.md", repoPath),
-		fmt.Sprintf("git -C %s add -A", repoPath),
-		fmt.Sprintf("git -C %s commit -m initial", repoPath),
-		fmt.Sprintf("cd %s && HOME=%s %s init", repoPath, homeDir, binPath),
-		fmt.Sprintf("git -C %s add -A", repoPath),
-		fmt.Sprintf("git -C %s commit -m 'add tessariq config'", repoPath),
-	}
-	for _, cmd := range cmds {
-		code, out, err := env.Exec(ctx, []string{"sh", "-c", cmd})
-		require.NoError(t, err, "cmd %q: %s", cmd, out)
-		require.Equal(t, 0, code, "cmd %q exited %d: %s", cmd, code, out)
-	}
-
 	// Run tessariq — should fail at auth discovery (no .claude/.credentials.json).
+	ctx := context.Background()
 	code, output, err := env.Exec(ctx, []string{"sh", "-c",
 		fmt.Sprintf("cd %s && HOME=%s %s run --egress none tasks/sample.md",
 			repoPath, homeDir, binPath)})

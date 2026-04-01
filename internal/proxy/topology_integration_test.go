@@ -6,71 +6,34 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 	"github.com/tessariq/tessariq/internal/proxy"
+	"github.com/tessariq/tessariq/internal/testutil"
 )
 
-func skipIfNoDocker(t *testing.T) {
-	t.Helper()
-	if _, err := exec.LookPath("docker"); err != nil {
-		t.Skip("docker not available")
-	}
-}
+// squidDockerfile is used by buildSquidTestImage to build a Squid image
+// that includes squidclient (required by the waitForSquid readiness check).
+const squidDockerfile = `FROM ubuntu/squid:latest
+RUN apt-get update -qq && apt-get install -y -qq squidclient && rm -rf /var/lib/apt/lists/*
+`
 
-// uniqueRunID returns a deterministic, Docker-safe run ID derived from the test name
-// plus a nanosecond suffix to avoid collisions across parallel runs.
-func uniqueRunID(t *testing.T) string {
-	t.Helper()
-	safe := strings.NewReplacer("/", "-", " ", "-").Replace(t.Name())
-	return fmt.Sprintf("%s-%d", strings.ToLower(safe), time.Now().UnixNano()%1_000_000)
-}
-
-// buildSquidTestImage builds a Squid image that includes squidclient
-// (required by the waitForSquid readiness check). Returns the image name.
-// The image is removed in t.Cleanup.
 func buildSquidTestImage(t *testing.T) string {
 	t.Helper()
-
-	imgName := fmt.Sprintf("tessariq-test-squid-%d", time.Now().UnixNano()%1_000_000)
-
-	buildCmd := exec.Command("docker", "build", "-t", imgName, "-f", "-", ".")
-	buildCmd.Stdin = strings.NewReader(`FROM ubuntu/squid:latest
-RUN apt-get update -qq && apt-get install -y -qq squidclient && rm -rf /var/lib/apt/lists/*
-`)
-	out, err := buildCmd.CombinedOutput()
-	require.NoError(t, err, "build squid test image: %s", string(out))
-
-	t.Cleanup(func() {
-		_ = exec.Command("docker", "rmi", "-f", imgName).Run()
-	})
-
-	return imgName
+	return testutil.BuildTestImage(t, "squid", squidDockerfile)
 }
 
-// buildCurlTestImage builds an Alpine image with curl pre-installed.
-// BusyBox wget does not support CONNECT tunneling for HTTPS through a proxy,
-// so we need curl which sends a proper CONNECT request.
+// curlDockerfile is used by buildCurlTestImage. BusyBox wget does not support
+// CONNECT tunneling for HTTPS through a proxy, so we need curl.
+const curlDockerfile = `FROM alpine:latest
+RUN apk add --no-cache curl
+`
+
 func buildCurlTestImage(t *testing.T) string {
 	t.Helper()
-
-	imgName := fmt.Sprintf("tessariq-test-curl-%d", time.Now().UnixNano()%1_000_000)
-
-	buildCmd := exec.Command("docker", "build", "-t", imgName, "-f", "-", ".")
-	buildCmd.Stdin = strings.NewReader(`FROM alpine:latest
-RUN apk add --no-cache curl
-`)
-	out, err := buildCmd.CombinedOutput()
-	require.NoError(t, err, "build curl test image: %s", string(out))
-
-	t.Cleanup(func() {
-		_ = exec.Command("docker", "rmi", "-f", imgName).Run()
-	})
-
-	return imgName
+	return testutil.BuildTestImage(t, "curl", curlDockerfile)
 }
 
 // forceCleanup removes the Squid container and Docker network for a run ID,
@@ -87,13 +50,13 @@ func forceCleanup(t *testing.T, runID string) {
 
 func TestIntegration_TopologySetupAndTeardown(t *testing.T) {
 	t.Parallel()
-	skipIfNoDocker(t)
+	testutil.SkipIfNoDocker(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 
 	squidImage := buildSquidTestImage(t)
-	runID := uniqueRunID(t)
+	runID := testutil.UniqueName(t)
 	evidenceDir := t.TempDir()
 	forceCleanup(t, runID)
 
@@ -151,14 +114,14 @@ func TestIntegration_TopologySetupAndTeardown(t *testing.T) {
 
 func TestIntegration_ProxyAllowsAndBlocks(t *testing.T) {
 	t.Parallel()
-	skipIfNoDocker(t)
+	testutil.SkipIfNoDocker(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
 	squidImage := buildSquidTestImage(t)
 	curlImage := buildCurlTestImage(t)
-	runID := uniqueRunID(t)
+	runID := testutil.UniqueName(t)
 	evidenceDir := t.TempDir()
 	forceCleanup(t, runID)
 

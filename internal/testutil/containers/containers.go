@@ -3,6 +3,7 @@ package containers
 import (
 	"context"
 	"fmt"
+	"testing"
 	"time"
 
 	testcontainers "github.com/testcontainers/testcontainers-go"
@@ -11,7 +12,10 @@ import (
 
 // StartHTTPBin provides a standard Testcontainers-based HTTP dependency for
 // integration and end-to-end tests that need a real containerized collaborator.
-func StartHTTPBin(ctx context.Context) (testcontainers.Container, string, error) {
+// The container is automatically terminated via t.Cleanup.
+func StartHTTPBin(ctx context.Context, t *testing.T) (testcontainers.Container, string, error) {
+	t.Helper()
+
 	req := testcontainers.ContainerRequest{
 		Image:        "kennethreitz/httpbin",
 		ExposedPorts: []string{"80/tcp"},
@@ -25,6 +29,12 @@ func StartHTTPBin(ctx context.Context) (testcontainers.Container, string, error)
 	if err != nil {
 		return nil, "", fmt.Errorf("start httpbin container: %w", err)
 	}
+
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		_ = container.Terminate(ctx)
+	})
 
 	host, err := container.Host(ctx)
 	if err != nil {

@@ -17,6 +17,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/tessariq/tessariq/internal/run"
+	"github.com/tessariq/tessariq/internal/testutil"
 	"github.com/tessariq/tessariq/internal/tmux"
 )
 
@@ -308,15 +309,12 @@ func TestRunnerIntegration_VerifyHookFailure(t *testing.T) {
 	require.Equal(t, StateFailed, s.State)
 }
 
-func skipIfNoTmux(t *testing.T) {
-	t.Helper()
-	if _, err := exec.LookPath("tmux"); err != nil {
-		t.Skip("tmux not available")
-	}
-}
-
 func TestRunnerIntegration_TmuxSessionCreated(t *testing.T) {
-	skipIfNoTmux(t)
+	// Host-tool guard is intentional here: these tests exercise Runner's tmux
+	// session management against the real host binary, not a container. Full
+	// CLI e2e tests use containers.StartRunEnv which provides tmux inside the
+	// container. See AGENTS.md for the distinction.
+	testutil.SkipIfNoTmux(t)
 
 	ctx := context.Background()
 	sessionName := "tessariq-test-runner-tmux-" + t.Name()
@@ -339,7 +337,7 @@ func TestRunnerIntegration_TmuxSessionCreated(t *testing.T) {
 }
 
 func TestRunnerIntegration_TmuxSessionExistsAfterProcessFails(t *testing.T) {
-	skipIfNoTmux(t)
+	testutil.SkipIfNoTmux(t)
 
 	ctx := context.Background()
 	sessionName := "tessariq-test-runner-fail-" + t.Name()
@@ -362,7 +360,7 @@ func TestRunnerIntegration_TmuxSessionExistsAfterProcessFails(t *testing.T) {
 }
 
 func TestRunnerIntegration_TmuxSessionShowsRunLogOutput(t *testing.T) {
-	skipIfNoTmux(t)
+	testutil.SkipIfNoTmux(t)
 
 	ctx := context.Background()
 	sessionName := "tessariq-test-runner-pane-" + t.Name()
