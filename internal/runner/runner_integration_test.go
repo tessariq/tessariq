@@ -46,6 +46,11 @@ func (s *shellProcess) Start(_ context.Context) error {
 func (s *shellProcess) Wait() (int, error) {
 	err := s.cmd.Wait()
 	if err != nil {
+		// ProcessState is set even when Wait returns a pipe-copy error
+		// alongside a successful process exit.
+		if s.cmd.ProcessState != nil {
+			return s.cmd.ProcessState.ExitCode(), nil
+		}
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
 			return exitErr.ExitCode(), nil
@@ -311,7 +316,6 @@ func skipIfNoTmux(t *testing.T) {
 }
 
 func TestRunnerIntegration_TmuxSessionCreated(t *testing.T) {
-	t.Parallel()
 	skipIfNoTmux(t)
 
 	ctx := context.Background()
@@ -335,7 +339,6 @@ func TestRunnerIntegration_TmuxSessionCreated(t *testing.T) {
 }
 
 func TestRunnerIntegration_TmuxSessionExistsAfterProcessFails(t *testing.T) {
-	t.Parallel()
 	skipIfNoTmux(t)
 
 	ctx := context.Background()
@@ -359,7 +362,6 @@ func TestRunnerIntegration_TmuxSessionExistsAfterProcessFails(t *testing.T) {
 }
 
 func TestRunnerIntegration_TmuxSessionShowsRunLogOutput(t *testing.T) {
-	t.Parallel()
 	skipIfNoTmux(t)
 
 	ctx := context.Background()
