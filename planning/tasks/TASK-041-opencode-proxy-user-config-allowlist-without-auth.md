@@ -82,4 +82,3 @@ OpenCode proxy runs currently resolve provider host from auth/config even when a
 
 - Do not change auth-missing error wording for cases where provider resolution is genuinely required (tracked by TASK-042).
 - Do not alter allowlist precedence semantics beyond skipping unnecessary provider resolution.
-

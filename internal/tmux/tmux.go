@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -69,5 +70,17 @@ func HasSession(ctx context.Context, name string) (bool, error) {
 func KillSession(ctx context.Context, name string) error {
 	cmd := exec.CommandContext(ctx, "tmux", "kill-session", "-t", name)
 	_ = cmd.Run()
+	return nil
+}
+
+// AttachSession attaches the current terminal to an existing tmux session.
+func AttachSession(ctx context.Context, name string) error {
+	cmd := exec.CommandContext(ctx, "tmux", "attach-session", "-t", name)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("attach tmux session %q: %w", name, err)
+	}
 	return nil
 }
