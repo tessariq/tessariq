@@ -5,10 +5,10 @@ Automated adversarial testing against done tasks.
 | Key | Value |
 |-----|-------|
 | Started | 2026-03-31 |
-| Iteration | 6 (final) |
-| Last bug found | iteration 6 |
-| Clean iterations | 0 / 5 |
-| Status | Stopped — diminishing returns |
+| Iteration | 7 |
+| Last bug found | iteration 7 |
+| Clean iterations | 0 / 6 |
+| Status | In progress |
 
 ---
 
@@ -251,12 +251,166 @@ Each of these leaves a dangling worktree directory at `~/.tessariq/worktrees/<re
 
 ## Bug Summary
 
-| Bug | Severity | File | One-liner |
-|-----|----------|------|-----------|
-| BUG-001 | HIGH | `run.go:71-73` | OpenCode `--interactive` hard-rejected instead of recorded |
-| BUG-002 | HIGH | `run.go:231-237` | `--egress-allow` doesn't bypass provider resolution |
-| BUG-003 | HIGH | `initialize.go:16` | Init creates evidence parent dirs with 0o755 not 0o700 |
-| BUG-004 | MEDIUM | `run.go:87,113` | base_sha TOCTOU between manifest and workspace |
-| BUG-005 | HIGH | `factory.go:67` | Agent binary not validated before container start |
-| BUG-006 | CRITICAL | `run.go:113-179` | No cleanup defer — worktree leaked on post-provision errors |
-| BUG-007 | HIGH | `logs.go:16-29` | Logs not capped, no truncation marker |
+BUG-001 through BUG-007 were all fixed by TASK-030 through TASK-039 (done).
+
+| Bug | Severity | File | One-liner | Status |
+|-----|----------|------|-----------|--------|
+| BUG-001 | HIGH | `run.go:71-73` | OpenCode `--interactive` hard-rejected instead of recorded | **Fixed** (TASK-033) |
+| BUG-002 | HIGH | `run.go:231-237` | `--egress-allow` doesn't bypass provider resolution | **Fixed** (TASK-034) |
+| BUG-003 | HIGH | `initialize.go:16` | Init creates evidence parent dirs with 0o755 not 0o700 | **Fixed** (TASK-035) |
+| BUG-004 | MEDIUM | `run.go:87,113` | base_sha TOCTOU between manifest and workspace | **Fixed** (TASK-036) |
+| BUG-005 | HIGH | `factory.go:67` | Agent binary not validated before container start | **Fixed** (TASK-037) |
+| BUG-006 | CRITICAL | `run.go:113-179` | No cleanup defer — worktree leaked on post-provision errors | **Fixed** (TASK-038) |
+| BUG-007 | HIGH | `logs.go:16-29` | Logs not capped, no truncation marker | **Fixed** (TASK-039) |
+| BUG-008 | HIGH | `run.go:200` | Spurious "interactive mode without --attach" note on every default claude-code run | **Open** |
+| BUG-009 | HIGH | `run.go:288` | OpenCode + proxy + user_config allowlist fails if auth.json missing | **Open** |
+| BUG-010 | MEDIUM | `run.go:288` | OpenCode auth-missing produces raw I/O error instead of actionable message | **Open** |
+| BUG-011 | MEDIUM | `run.go:324` | `appendIndexEntry` silently drops all errors; run can complete without an index entry | **Open** |
+| BUG-012 | LOW | `specs/tessariq-v0.1.0.md` | Manifest example uses `"allowlist_source": "auto"` which contradicts normative text | **Open (spec doc)** |
+
+---
+
+## Iteration 7
+
+Scope: post-TASK-039 codebase. All previous bugs confirmed fixed. Four new bugs found.
+
+### BUG-008: Spurious "interactive mode without --attach" note fires on every default claude-code run
+
+**Severity:** HIGH  
+**File:** `cmd/tessariq/run.go:200`
+
+```go
+if agentProc.AgentInfo.Applied["interactive"] && !cfg.Attach {
+    fmt.Fprintf(cmd.ErrOrStderr(), "note: interactive mode without --attach; use 'tmux attach -t %s' to provide approval input\n", sessionName)
+}
+```
+
+`claudecode.buildApplied` always returns `{"interactive": true}` — semantically "the interactive setting was successfully applied" (correct for claude-code, which supports both modes). The condition misreads this as "interactive was requested as true", so it fires for **every** non-attach claude-code run, including the default `tessariq run` with no flags.
+
+**Spec reference:**
+> `--interactive` without `--attach` is valid but will cause the agent to block waiting for approval with no terminal attached.
+
+The note is appropriate only when `--interactive` was actually requested by the user.
+
+**Reproduction:**
+```
+tessariq run specs/task.md
+# stderr: note: interactive mode without --attach; use 'tmux attach -t ...' to provide approval input
+# Expected: no note (user did not request --interactive)
+```
+
+**Fix direction:** Change the condition to `cfg.Interactive && !cfg.Attach`.
+
+---
+
+### BUG-009: OpenCode + `--egress proxy` + user-config allowlist fails when auth.json is absent
+
+**Severity:** HIGH  
+**File:** `cmd/tessariq/run.go:288` (`resolveAllowlistCore`)
+
+```go
+case "opencode":
+    if resolvedEgress == "proxy" && len(cfg.EgressAllow) == 0 && !cfg.EgressNoDefaults {
+        // ← does NOT check whether user_config already provides an allowlist
+        provInfo, provErr := opencode.ResolveProviderFromPaths(authPath, configDir, deps.readFile)
+        if provErr != nil {
+            return nil, provErr  // raw I/O error, not auth-missing guidance
+        }
+    }
+```
+
+Provider resolution is only skipped when CLI `--egress-allow` entries exist. It is **not** skipped when `user_config.EgressAllow` is non-empty — even though in that case the built-in allowlist (and therefore the provider host) is never used. If auth.json is absent, the run fails with a confusing file-not-found error before `authmount.Discover` can surface the user-friendly auth-missing message.
+
+**Spec reference (allowlist precedence):**
+> if one or more CLI `--egress-allow` values are provided, the resolved allowlist MUST contain exactly those CLI destinations  
+> **otherwise, if user-level config defines a default allowlist, the resolved allowlist MUST contain exactly the configured destinations**
+
+When user_config takes precedence, built-in provider resolution is irrelevant and must not gate the run on auth.json being present.
+
+**Reproduction:**
+```yaml
+# ~/.config/tessariq/config.yaml
+egress_allow:
+  - api.openai.com:443
+```
+```
+# no ~/.local/share/opencode/auth.json
+tessariq run --agent opencode specs/task.md
+# → "read auth file: open .../auth.json: no such file or directory"
+# Expected: run proceeds using user_config allowlist
+```
+
+**Fix direction:** Add `&& (userCfg == nil || len(userCfg.EgressAllow) == 0)` to the provider-resolution guard at `run.go:288`. `userCfg` is already loaded before the switch.
+
+---
+
+### BUG-010: OpenCode auth-missing error surfaces as a raw I/O error instead of the actionable spec message
+
+**Severity:** MEDIUM  
+**File:** `cmd/tessariq/run.go:288–296` (`resolveAllowlistCore`)
+
+When OpenCode uses `--egress auto` or `--egress proxy` with no CLI or user_config allowlist, `ResolveProviderFromPaths` reads auth.json to resolve the provider host. If auth.json does not exist the error returned is:
+
+```
+read auth file: open /home/user/.local/share/opencode/auth.json: no such file or directory
+```
+
+`resolveRunAllowlist` is called before `authmount.Discover`, so the user-friendly `AuthMissingError` path is never reached.
+
+**Spec reference (Failure UX table):**
+> required supported agent auth state is missing → fail before agent start → identify that supported auth files or directories for the selected agent were not found and tell the user to **authenticate that agent locally first**
+
+**Fix direction:** Check auth file existence before calling `ResolveProviderFromPaths` and surface `AuthMissingError` when it is absent, or re-order the calls so `authmount.Discover` runs first.
+
+---
+
+### BUG-011: `appendIndexEntry` silently swallows all errors; a run can complete with no index entry
+
+**Severity:** MEDIUM  
+**File:** `cmd/tessariq/run.go:324–338`
+
+```go
+func appendIndexEntry(repoRoot, evidenceDir string) {
+    manifest, err := run.ReadManifest(evidenceDir)
+    if err != nil {
+        return  // silent drop
+    }
+    status, err := runner.ReadStatus(evidenceDir)
+    if err != nil {
+        return  // silent drop
+    }
+    _ = run.AppendIndex(runsDir, entry)  // silent drop
+}
+```
+
+If status.json was not written (early runner failure before `WriteStatus`) or the filesystem is full, the run completes without an index entry. The user sees no warning. Subsequent `tessariq attach last` or `tessariq promote last` will either resolve to the wrong run or fail with `ErrEmptyIndex`.
+
+**Spec reference:**
+> `index.jsonl` is append-only; each line represents one run and MUST not be rewritten in place for another run.
+
+The MUST implies entries are expected to be durably written; silent failure violates this.
+
+**Fix direction:** Print a warning to stderr when any step fails:
+```go
+if err != nil {
+    fmt.Fprintf(os.Stderr, "warning: failed to append run index entry: %s\n", err)
+}
+```
+
+---
+
+### BUG-012 (spec doc): Manifest example uses `"allowlist_source": "auto"`, contradicting normative text
+
+**Severity:** LOW  
+**File:** `specs/tessariq-v0.1.0.md` — minimum `manifest.json` shape
+
+```json
+"allowlist_source": "auto",
+```
+
+**Normative text in the same spec:**
+> `allowlist_source` in `manifest.json` and `egress.compiled.yaml` MUST be one of `cli`, `user_config`, or `built_in`
+
+The implementation correctly uses `built_in` as the fallback source. The spec example is wrong and may mislead readers or automated validators.
+
+**Fix direction:** Change the example value from `"auto"` to `"built_in"` in the spec.
