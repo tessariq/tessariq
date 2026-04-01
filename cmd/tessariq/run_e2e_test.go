@@ -576,15 +576,31 @@ func TestE2E_TmuxSessionShowsDetachedRunOutput(t *testing.T) {
 	require.Contains(t, runLog, "detached-output")
 }
 
-func TestE2E_InteractiveOpenCodeFailsWithGuidance(t *testing.T) {
+func TestE2E_InteractiveOpenCodeRecordsEvidence(t *testing.T) {
 	t.Parallel()
 	bin := buildBinary(t)
 	env := setupRunEnvForBinary(t, bin, "opencode", 0)
 
 	code, output := runTessariq(t, env, "opencode", "--agent opencode --interactive --egress none")
-	require.NotEqual(t, 0, code)
-	require.Contains(t, output, "not supported by opencode")
-	require.NotContains(t, output, "run_id: ")
+	require.Equal(t, 0, code, "opencode --interactive should succeed: %s", output)
+	require.Contains(t, output, "run_id: ")
+
+	evidencePath := extractField(output, "evidence_path")
+	require.NotEmpty(t, evidencePath, "evidence_path must be in output")
+
+	ctx := context.Background()
+	agentCode, agentJSON, err := env.Exec(ctx, []string{"cat", filepath.Join(evidencePath, "agent.json")})
+	require.NoError(t, err)
+	require.Equal(t, 0, agentCode, "agent.json must exist")
+
+	var info adapter.AgentInfo
+	require.NoError(t, json.Unmarshal([]byte(agentJSON), &info))
+
+	require.Equal(t, "opencode", info.Agent)
+	require.Equal(t, true, info.Requested["interactive"],
+		"interactive must be recorded as requested")
+	require.Equal(t, false, info.Applied["interactive"],
+		"opencode must record interactive as not applied")
 }
 
 func TestE2E_InteractiveClaudeCodeAccepted(t *testing.T) {
