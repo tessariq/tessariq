@@ -160,7 +160,7 @@ WORKDIR /work
 DEOF`, binaryName, binaryName),
 		fmt.Sprintf(`printf '#!/bin/sh\n%s\n' > /work/fake-agent.sh && chmod +x /work/fake-agent.sh`,
 			strings.ReplaceAll(scriptBody, "'", "'\\''")),
-		fmt.Sprintf("docker build -t %s -f /work/Dockerfile.test /work", imgName),
+		fmt.Sprintf("DOCKER_BUILDKIT=1 docker build -t %s -f /work/Dockerfile.test /work", imgName),
 	}
 
 	for _, cmd := range buildCmds {
@@ -884,7 +884,7 @@ RUN addgroup -S tessariq && adduser -S tessariq -G tessariq -h /home/tessariq
 USER tessariq
 WORKDIR /work
 DEOF`),
-		fmt.Sprintf("docker build -t %s -f /work/Dockerfile.bare /work", imgName),
+		fmt.Sprintf("DOCKER_BUILDKIT=1 docker build -t %s -f /work/Dockerfile.bare /work", imgName),
 	}
 	for _, cmd := range buildCmds {
 		code, out, execErr := env.Exec(ctx, []string{"sh", "-c", cmd})
