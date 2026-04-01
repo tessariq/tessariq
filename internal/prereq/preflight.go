@@ -33,6 +33,8 @@ func RequirementsForCommand(command string) ([]Dependency, error) {
 		return []Dependency{DependencyGit, DependencyTmux, DependencyDocker}, nil
 	case "attach":
 		return []Dependency{DependencyTmux}, nil
+	case "promote":
+		return []Dependency{DependencyGit}, nil
 	default:
 		return nil, fmt.Errorf("%w: %s", ErrUnknownCommand, command)
 	}
