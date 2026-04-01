@@ -1,7 +1,7 @@
 ---
 id: TASK-015-promote-branch-commit-trailers-and-zero-diff-guard
 title: Implement promote branch creation commit trailers and zero-diff protection
-status: todo
+status: done
 priority: p0
 depends_on:
     - TASK-013-diff-log-and-evidence-artifacts
@@ -15,7 +15,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#evidence-contract
     - specs/tessariq-v0.1.0.md#acceptance-scenarios
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-03-30T22:10:00Z"
+updated_at: "2026-04-01T15:35:06Z"
 areas:
     - git
     - promote
@@ -80,3 +80,4 @@ Implement `tessariq promote <run-ref>` with branch creation, exactly one commit,
 ## Notes
 
 - Use `git add -A` during promote and keep user-visible failures actionable.
+- 2026-04-01T15:35:06Z: implemented tessariq promote with unit/integration/e2e coverage; manual test: planning/artifacts/manual-test/TASK-015-promote-branch-commit-trailers-and-zero-diff-guard/20260401T152040Z/report.md; verify: planning/artifacts/verify/task/TASK-015-promote-branch-commit-trailers-and-zero-diff-guard/20260401T153432Z/report.json

@@ -30,6 +30,11 @@ func TestRequirementsForCommand(t *testing.T) {
 			command: "attach",
 			want:    []Dependency{DependencyTmux},
 		},
+		{
+			name:    "promote requires git",
+			command: "promote",
+			want:    []Dependency{DependencyGit},
+		},
 	}
 
 	for _, tt := range tests {
@@ -98,4 +103,22 @@ func TestChecker_CheckCommand_MissingTmux(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "required host prerequisite \"tmux\" is missing or unavailable")
 	require.Contains(t, err.Error(), "install or enable tmux, then retry")
+}
+
+func TestChecker_CheckCommand_PromoteMissingGit(t *testing.T) {
+	t.Parallel()
+
+	checker := Checker{
+		LookPath: func(name string) (string, error) {
+			if name == string(DependencyGit) {
+				return "", errors.New("not found")
+			}
+			return "/usr/bin/" + name, nil
+		},
+	}
+
+	err := checker.CheckCommand("promote")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "required host prerequisite \"git\" is missing or unavailable")
+	require.Contains(t, err.Error(), "install or enable git, then retry")
 }

@@ -36,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `egress.compiled.yaml` evidence artifact emitted in proxy mode with `schema_version`, `allowlist_source`, and fully resolved `host:port` destinations.
 - Added `egress.events.jsonl` evidence artifact emitted in proxy mode recording blocked egress attempts with timestamp, destination, and reason.
 - Added blocked-destination UX: when proxy mode blocks egress, the CLI reports which `host:port` was denied and how to allow it via `--egress-allow`, user config, or `--unsafe-egress`.
+- Added `tessariq promote <run-ref>` with repo-scoped run resolution, zero-diff protection, default Tessariq commit trailers, and one-branch/one-commit promotion from captured `diff.patch` evidence.
 
 ### Security
 
