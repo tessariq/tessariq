@@ -117,6 +117,14 @@ func newRunCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			cleanupWorktree := true
+			defer func() {
+				if cleanupWorktree {
+					if cErr := workspace.Cleanup(context.Background(), root, wsPath); cErr != nil {
+						fmt.Fprintf(cmd.ErrOrStderr(), "warning: worktree cleanup: %s\n", cErr)
+					}
+				}
+			}()
 
 			// Set up proxy topology in proxy mode.
 			var proxyEnv *proxy.ProxyEnv
@@ -221,6 +229,8 @@ func newRunCmd() *cobra.Command {
 			if runErr != nil {
 				return runErr
 			}
+
+			cleanupWorktree = false
 
 			printRunOutput(cmd.OutOrStdout(), runOutput{
 				RunID:         runID,

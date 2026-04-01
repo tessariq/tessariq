@@ -1,7 +1,7 @@
 ---
 id: TASK-038-guaranteed-worktree-cleanup-on-run-failure
 title: Guarantee worktree cleanup on all post-provision run failure paths
-status: todo
+status: done
 priority: p0
 depends_on:
     - TASK-004-worktree-provisioning-and-workspace-metadata
@@ -11,7 +11,7 @@ spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#workspace-guarantees
     - specs/tessariq-v0.1.0.md#lifecycle-rules
-updated_at: "2026-03-31T20:30:00Z"
+updated_at: "2026-04-01T09:20:19Z"
 areas:
     - workspace
     - cleanup
@@ -77,3 +77,4 @@ Worktree provisioning is not currently paired with unconditional cleanup across 
 
 - Likely files: `cmd/tessariq/run.go`, `internal/workspace/provision.go`, and related run/workspace tests.
 - Keep cleanup path robust against partial initialization and teardown failures.
+- 2026-04-01T09:20:19Z: Added defer-based worktree cleanup after successful Provision in run command. Cleanup is disarmed on success path, preserving worktree for attach/promote. Unit, integration, and e2e tests validate cleanup on failure and preservation on success. All manual test steps pass.

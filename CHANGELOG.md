@@ -58,3 +58,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed duration default rendering in `--help` output so `--timeout` and `--grace` show normalized values (for example `30m` and `30s`) instead of padded forms.
 - Fixed detached run sessions so the host tmux session tails durable `run.log` output from the container instead of starting empty.
 - Fixed worktree cleanup after container-owned writes by repairing disposable workspace ownership before worktree removal.
+- Fixed leaked worktree directories and stale git worktree entries when a run fails after worktree provisioning.

@@ -821,6 +821,73 @@ func TestE2E_MissingOpenCodeBinaryFailsWithGuidance(t *testing.T) {
 	require.NotContains(t, output, "run_id:", "must fail before agent start")
 }
 
+func TestE2E_FailedRunCleansUpWorktree(t *testing.T) {
+	bin := buildBinary(t)
+
+	ctx := context.Background()
+	// Start a RunEnv container but do NOT create auth files so
+	// authmount.Discover fails after worktree provisioning.
+	env, err := containers.StartRunEnvWithScript(ctx, t, "claude", "exit 0")
+	require.NoError(t, err)
+
+	hostDir := env.Dir()
+	repoPath := filepath.Join(hostDir, "repo")
+	homeDir := filepath.Join(hostDir, "home")
+	binPath := filepath.Join(hostDir, "tessariq")
+
+	// Copy the tessariq binary.
+	binData, err := os.ReadFile(bin)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(binPath, binData, 0o755))
+
+	// Create HOME directory.
+	code, out, err := env.Exec(ctx, []string{"sh", "-c", fmt.Sprintf("mkdir -p %s", homeDir)})
+	require.NoError(t, err, "mkdir home: %s", out)
+	require.Equal(t, 0, code, "mkdir home exited %d: %s", code, out)
+
+	// Initialise a git repo with a task file — no auth files.
+	cmds := []string{
+		fmt.Sprintf("mkdir -p %s/tasks", repoPath),
+		fmt.Sprintf("git init %s", repoPath),
+		fmt.Sprintf("git -C %s config user.email test@test.com", repoPath),
+		fmt.Sprintf("git -C %s config user.name Test", repoPath),
+		fmt.Sprintf("printf '# Sample Task\\n\\nDo something.\\n' > %s/tasks/sample.md", repoPath),
+		fmt.Sprintf("git -C %s add -A", repoPath),
+		fmt.Sprintf("git -C %s commit -m initial", repoPath),
+		fmt.Sprintf("cd %s && HOME=%s %s init", repoPath, homeDir, binPath),
+		fmt.Sprintf("git -C %s add -A", repoPath),
+		fmt.Sprintf("git -C %s commit -m 'add tessariq config'", repoPath),
+	}
+	for _, cmd := range cmds {
+		code, out, err := env.Exec(ctx, []string{"sh", "-c", cmd})
+		require.NoError(t, err, "cmd %q: %s", cmd, out)
+		require.Equal(t, 0, code, "cmd %q exited %d: %s", cmd, code, out)
+	}
+
+	// Run tessariq — should fail at auth discovery (no .claude/.credentials.json).
+	code, output, err := env.Exec(ctx, []string{"sh", "-c",
+		fmt.Sprintf("cd %s && HOME=%s %s run --egress none tasks/sample.md",
+			repoPath, homeDir, binPath)})
+	require.NoError(t, err)
+	require.NotEqual(t, 0, code, "run should fail when auth files are missing: %s", output)
+
+	// Verify no leaked worktree directories.
+	findCode, findOut, err := env.Exec(ctx, []string{"sh", "-c",
+		fmt.Sprintf("find %s/.tessariq/worktrees -mindepth 2 -maxdepth 2 -type d 2>/dev/null || true", homeDir)})
+	require.NoError(t, err)
+	_ = findCode
+	require.Empty(t, strings.TrimSpace(findOut),
+		"no worktree directories should remain after failed run, found: %s", findOut)
+
+	// Verify git worktree list shows only the main worktree.
+	wtCode, wtOut, err := env.Exec(ctx, []string{"sh", "-c",
+		fmt.Sprintf("git -C %s worktree list | wc -l", repoPath)})
+	require.NoError(t, err)
+	require.Equal(t, 0, wtCode)
+	require.Equal(t, "1", strings.TrimSpace(wtOut),
+		"only the main worktree should exist after failed run")
+}
+
 func TestE2E_EvidenceCompletenessAllRequiredFiles(t *testing.T) {
 	bin := buildBinary(t)
 	env := setupRunEnv(t, bin, 0)
