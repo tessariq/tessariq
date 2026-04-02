@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 // ErrTmuxNotAvailable indicates that the tmux binary is not on PATH.
@@ -23,12 +24,39 @@ func Available() error {
 
 // NewSession creates a new detached tmux session with the given name.
 // If command is non-empty, tmux starts the session by running that command.
+// The call retries up to 3 times with short backoff to handle transient
+// server restarts (e.g. server exiting after last session was killed).
 func NewSession(ctx context.Context, name string, command []string) error {
-	cmd := exec.CommandContext(ctx, "tmux", newSessionArgs(name, command)...)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("create tmux session %q: %s: %w", name, out, err)
+	const maxAttempts = 3
+	args := newSessionArgs(name, command)
+	var lastOut string
+	var lastErr error
+	for attempt := range maxAttempts {
+		if attempt > 0 {
+			select {
+			case <-time.After(time.Duration(attempt) * 100 * time.Millisecond):
+			case <-ctx.Done():
+				return fmt.Errorf("create tmux session %q: %w (last: %s: %w)", name, ctx.Err(), lastOut, lastErr)
+			}
+		}
+		cmd := exec.CommandContext(ctx, "tmux", args...)
+		out, err := cmd.CombinedOutput()
+		if err == nil {
+			return nil
+		}
+		lastOut = strings.TrimSpace(string(out))
+		lastErr = err
+		if isDuplicateSessionError(lastOut) {
+			break
+		}
 	}
-	return nil
+	return fmt.Errorf("create tmux session %q: %s: %w", name, lastOut, lastErr)
+}
+
+// isDuplicateSessionError returns true when tmux reports the session name
+// already exists. These errors must not be retried.
+func isDuplicateSessionError(output string) bool {
+	return strings.Contains(output, "duplicate session")
 }
 
 func newSessionArgs(name string, command []string) []string {

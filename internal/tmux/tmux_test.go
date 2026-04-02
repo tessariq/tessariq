@@ -39,3 +39,23 @@ func TestNewSessionArgs_WithCommand(t *testing.T) {
 	args := newSessionArgs("sess", []string{"tail", "-n", "+1", "-f", "/tmp/run.log"})
 	require.Equal(t, []string{"new-session", "-d", "-s", "sess", "'tail' '-n' '+1' '-f' '/tmp/run.log'"}, args)
 }
+
+func TestIsDuplicateSessionError(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		output string
+		want   bool
+	}{
+		{"duplicate", "duplicate session: mysess", true},
+		{"server_error", "server not found", false},
+		{"empty", "", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			require.Equal(t, tt.want, isDuplicateSessionError(tt.output))
+		})
+	}
+}
