@@ -134,3 +134,46 @@ func TestResolveRunRef_LastNegativeN(t *testing.T) {
 	_, err := ResolveRunRef(dir, "last--1")
 	require.ErrorIs(t, err, ErrInvalidRunRef)
 }
+
+func TestResolveRunRef_LastSkipsIncompleteEntries(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+
+	valid := sampleEntry(testRunID1)
+	validJSON, err := json.Marshal(valid)
+	require.NoError(t, err)
+
+	// Write valid entry first, then two incomplete entries after it.
+	incomplete1 := `{"run_id":"` + testRunID2 + `"}`
+	incomplete2 := `{"run_id":"` + testRunID3 + `","state":"success"}`
+	content := string(validJSON) + "\n" + incomplete1 + "\n" + incomplete2 + "\n"
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "index.jsonl"), []byte(content), 0o600))
+
+	got, err := ResolveRunRef(dir, "last")
+	require.NoError(t, err)
+	require.Equal(t, valid, got, "last must resolve to the last complete entry, not the last line")
+}
+
+func TestResolveRunRef_OnlyIncompleteEntriesYieldsEmptyIndex(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+
+	content := `{"run_id":"` + testRunID1 + `"}` + "\n" +
+		`{"run_id":"` + testRunID2 + `","state":"success"}` + "\n"
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "index.jsonl"), []byte(content), 0o600))
+
+	_, err := ResolveRunRef(dir, "last")
+	require.ErrorIs(t, err, ErrEmptyIndex)
+}
+
+func TestResolveRunRef_ExplicitIDSkipsIncompleteEntry(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+
+	// Write an incomplete entry with a valid run ID.
+	content := `{"run_id":"` + testRunID1 + `","state":"success"}` + "\n"
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "index.jsonl"), []byte(content), 0o600))
+
+	_, err := ResolveRunRef(dir, testRunID1)
+	require.ErrorIs(t, err, ErrRunNotFound)
+}

@@ -115,6 +115,25 @@ func TestE2E_PromoteMissingDiffstatShowsActionableGuidance(t *testing.T) {
 	require.Contains(t, promoteOutput, "evidence is intact")
 }
 
+func TestE2E_PromoteLastFailsCleanlyWithIncompleteIndex(t *testing.T) {
+	t.Parallel()
+
+	bin := buildBinary(t)
+	env := setupRunEnvCustom(t, bin, e2eSetupOpts{skipImage: true})
+
+	hostDir := env.Dir()
+	repoPath := filepath.Join(hostDir, "repo")
+	ctx := context.Background()
+
+	// Write only incomplete index entries (missing required fields) inside the container.
+	cmd := fmt.Sprintf(`mkdir -p %s/.tessariq/runs && printf '{"run_id":"01ARZ3NDEKTSV4RRFFQ69G5FAV","state":"success"}\n' > %s/.tessariq/runs/index.jsonl`, repoPath, repoPath)
+	execCmd(t, env, ctx, cmd, "write corrupt index")
+
+	code, output := runPromote(t, env, "last", "")
+	require.NotEqual(t, 0, code, "promote should fail with incomplete index")
+	require.Contains(t, output, "run index is empty")
+}
+
 func runPromote(t *testing.T, env *containers.RunEnv, runID, envPrefix string) (int, string) {
 	t.Helper()
 
