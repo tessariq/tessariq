@@ -421,6 +421,42 @@ func TestAppendIndexEntry_Warnings(t *testing.T) {
 	}
 }
 
+func TestWarnDiffArtifacts(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		err         error
+		wantWarning bool
+	}{
+		{
+			name:        "error_emits_warning",
+			err:         errors.New("generate diff: exec failed"),
+			wantWarning: true,
+		},
+		{
+			name:        "nil_error_no_output",
+			err:         nil,
+			wantWarning: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			var buf bytes.Buffer
+			warnDiffArtifacts(&buf, tt.err)
+			if tt.wantWarning {
+				require.Contains(t, buf.String(), "warning:")
+				require.Contains(t, buf.String(), "diff artifacts skipped")
+				require.Contains(t, buf.String(), tt.err.Error())
+			} else {
+				require.Empty(t, buf.String())
+			}
+		})
+	}
+}
+
 func TestAppendRunningIndexEntry_Warnings(t *testing.T) {
 	t.Parallel()
 
