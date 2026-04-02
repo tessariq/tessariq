@@ -62,12 +62,21 @@ func Run(ctx context.Context, repoRoot string, opts Options) (Result, error) {
 	}
 
 	patchPath := filepath.Join(evidenceDir, "diff.patch")
-	hasPatch, err := hasDiffPatch(patchPath)
+	hasPatch, err := hasNonEmptyFile(patchPath, "diff.patch")
 	if err != nil {
 		return Result{}, err
 	}
 	if !hasPatch {
 		return Result{}, fmt.Errorf("run %s: %w", manifest.RunID, ErrNoCodeChanges)
+	}
+
+	diffstatPath := filepath.Join(evidenceDir, "diffstat.txt")
+	hasStat, err := hasNonEmptyFile(diffstatPath, "diffstat.txt")
+	if err != nil {
+		return Result{}, err
+	}
+	if !hasStat {
+		return Result{}, fmt.Errorf("required evidence is missing or incomplete; the run cannot be promoted until evidence is intact: incomplete evidence: diffstat.txt")
 	}
 
 	branch := resolveBranchName(manifest.RunID, opts.Branch)
@@ -167,13 +176,15 @@ func buildCommitMessage(message string, manifest run.Manifest, includeTrailers b
 	)
 }
 
-func hasDiffPatch(path string) (bool, error) {
+// hasNonEmptyFile reports whether the file at path exists and has non-zero size.
+// Returns (false, nil) when the file is missing or empty.
+func hasNonEmptyFile(path, name string) (bool, error) {
 	info, err := os.Stat(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return false, nil
 		}
-		return false, fmt.Errorf("stat diff.patch: %w", err)
+		return false, fmt.Errorf("stat %s: %w", name, err)
 	}
 
 	return info.Size() > 0, nil

@@ -186,6 +186,60 @@ func TestRun_MissingEvidenceIdentifiesArtifact(t *testing.T) {
 	require.Contains(t, err.Error(), "evidence is intact")
 }
 
+func TestRun_MissingDiffstatRejectsPromote(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo, err := containers.StartGitRepo(ctx, t)
+	require.NoError(t, err)
+
+	writeFile(t, filepath.Join(repo.Dir(), "tracked.txt"), "before\n")
+	gitRunTest(t, repo.Dir(), "add", "tracked.txt")
+	gitRunTest(t, repo.Dir(), "commit", "-m", "base")
+
+	baseSHA := gitOutputTest(t, repo.Dir(), "rev-parse", "HEAD")
+	patch, _ := buildDiffArtifacts(t, repo.Dir(), baseSHA, func(worktree string) {
+		writeFile(t, filepath.Join(worktree, "tracked.txt"), "after\n")
+	})
+	// Create evidence with diff.patch but NO diffstat.txt.
+	createEvidenceFixture(t, repo.Dir(), testRunID, baseSHA, patch, "")
+
+	_, err = Run(ctx, repo.Dir(), Options{RunRef: testRunID})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "diffstat.txt")
+	require.Contains(t, err.Error(), "evidence is intact")
+	require.Empty(t, gitOutputAllowFailure(t, repo.Dir(), "branch", "--list", defaultBranchName(testRunID)))
+}
+
+func TestRun_EmptyDiffstatRejectsPromote(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo, err := containers.StartGitRepo(ctx, t)
+	require.NoError(t, err)
+
+	writeFile(t, filepath.Join(repo.Dir(), "tracked.txt"), "before\n")
+	gitRunTest(t, repo.Dir(), "add", "tracked.txt")
+	gitRunTest(t, repo.Dir(), "commit", "-m", "base")
+
+	baseSHA := gitOutputTest(t, repo.Dir(), "rev-parse", "HEAD")
+	patch, _ := buildDiffArtifacts(t, repo.Dir(), baseSHA, func(worktree string) {
+		writeFile(t, filepath.Join(worktree, "tracked.txt"), "after\n")
+	})
+	// Create evidence with diff.patch and an empty diffstat.txt.
+	createEvidenceFixture(t, repo.Dir(), testRunID, baseSHA, patch, "")
+	require.NoError(t, os.WriteFile(
+		filepath.Join(repo.Dir(), ".tessariq", "runs", testRunID, "diffstat.txt"),
+		[]byte{}, 0o600,
+	))
+
+	_, err = Run(ctx, repo.Dir(), Options{RunRef: testRunID})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "diffstat.txt")
+	require.Contains(t, err.Error(), "evidence is intact")
+	require.Empty(t, gitOutputAllowFailure(t, repo.Dir(), "branch", "--list", defaultBranchName(testRunID)))
+}
+
 func buildDiffArtifacts(t *testing.T, repoDir, baseSHA string, mutate func(string)) (string, string) {
 	t.Helper()
 
