@@ -178,7 +178,7 @@ func newRunCmd() *cobra.Command {
 			}
 
 			agentProc, err := adapter.NewProcess(cfg, string(content), runID, wsPath, evidenceDir,
-				authResult.Mounts, configMounts, agentConfigMount, agentConfigMountStatus, containerEnvVars, proxyEnv)
+				authResult.Mounts, configMounts, agentConfigMount, agentConfigMountStatus, containerEnvVars, proxyEnv, resolvedEgress)
 			if err != nil {
 				return fmt.Errorf("create agent process: %w", err)
 			}

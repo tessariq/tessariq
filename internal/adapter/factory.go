@@ -28,7 +28,7 @@ type AgentProcess struct {
 func NewProcess(cfg run.Config, taskContent string, runID, worktreePath, evidencePath string,
 	authMounts []authmount.MountSpec, configMounts []authmount.MountSpec,
 	agentConfigMount, agentConfigMountStatus string, envVars map[string]string,
-	proxyEnv *proxy.ProxyEnv) (*AgentProcess, error) {
+	proxyEnv *proxy.ProxyEnv, resolvedEgress string) (*AgentProcess, error) {
 
 	imageSource := "reference"
 	if cfg.Image != "" {
@@ -78,6 +78,11 @@ func NewProcess(cfg run.Config, taskContent string, runID, worktreePath, evidenc
 			"NO_PROXY":    "localhost,127.0.0.1",
 			"no_proxy":    "localhost,127.0.0.1",
 		})
+	}
+
+	// Egress "none" uses Docker's built-in none network (loopback only).
+	if resolvedEgress == "none" {
+		networkName = "none"
 	}
 
 	containerCfg := container.Config{

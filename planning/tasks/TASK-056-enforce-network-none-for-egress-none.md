@@ -1,7 +1,7 @@
 ---
 id: TASK-056-enforce-network-none-for-egress-none
 title: Enforce Docker --net none for --egress none container runs
-status: todo
+status: done
 priority: p0
 depends_on:
     - TASK-011-egress-mode-resolution-and-manifest-recording
@@ -12,7 +12,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#networking-and-egress
     - specs/tessariq-v0.1.0.md#acceptance-scenarios
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-04-02T10:00:00Z"
+updated_at: "2026-04-02T08:44:18Z"
 areas:
     - networking
     - container
@@ -78,3 +78,4 @@ verification:
 - Likely files: `cmd/tessariq/run.go`, `internal/adapter/factory.go`, `internal/container/process.go`.
 - Docker's built-in `none` network provides loopback only — no additional network creation or cleanup needed.
 - The fix is a one-line network-name assignment but the security impact is critical.
+- 2026-04-02T08:44:18Z: Enforced --net none for --egress none. Unit tests cover all egress-to-network mappings. E2E test confirms container has no external connectivity. Mutation testing at 85.52% efficacy. Manual tests: 5/5 pass.

@@ -32,6 +32,9 @@ func New(cfg Config) *Process {
 	}
 }
 
+// NetworkName returns the Docker network name configured for this container.
+func (p *Process) NetworkName() string { return p.cfg.NetworkName }
+
 // SetOutput configures where container logs are streamed.
 func (p *Process) SetOutput(stdout, stderr *os.File) {
 	p.stdout = stdout

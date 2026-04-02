@@ -1120,3 +1120,47 @@ func TestE2E_SymlinkToExternalTaskRejected(t *testing.T) {
 	require.NotContains(t, output, "run_id:",
 		"must fail before evidence bootstrap: %s", output)
 }
+
+func TestE2E_EgressNone_NoNetworkAccess(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+
+	// Agent script tries to reach an external host and writes the result.
+	// With --net none only loopback is available, so wget must fail.
+	script := `wget --timeout=2 http://1.1.1.1/ -O /dev/null 2>/work/net_result.txt; exit 0`
+	env := setupRunEnvWithScript(t, bin, "claude", script)
+
+	code, output := runTessariq(t, env, "claude", "--egress none")
+	require.Equal(t, 0, code, "run should succeed (agent exits 0): %s", output)
+
+	evidencePath := extractField(output, "evidence_path")
+	require.NotEmpty(t, evidencePath, "evidence_path must be in output")
+
+	ctx := context.Background()
+
+	// Verify evidence is written normally.
+	catCode, statusData, err := env.Exec(ctx, []string{"cat", filepath.Join(evidencePath, "status.json")})
+	require.NoError(t, err)
+	require.Equal(t, 0, catCode, "status.json must exist")
+
+	var status map[string]any
+	require.NoError(t, json.Unmarshal([]byte(statusData), &status))
+	require.Equal(t, "success", status["state"])
+
+	// Read the network result written by the agent script.
+	wsPath := extractField(output, "workspace_path")
+	require.NotEmpty(t, wsPath)
+	catCode, netResult, err := env.Exec(ctx, []string{"cat", filepath.Join(wsPath, "net_result.txt")})
+	require.NoError(t, err)
+	require.Equal(t, 0, catCode, "net_result.txt must exist in workspace")
+
+	// With --net none the connection must fail — wget reports "Network is unreachable"
+	// or "bad address" (DNS failure) depending on the BusyBox version.
+	netResultLower := strings.ToLower(netResult)
+	networkBlocked := strings.Contains(netResultLower, "network is unreachable") ||
+		strings.Contains(netResultLower, "bad address") ||
+		strings.Contains(netResultLower, "network unreachable") ||
+		strings.Contains(netResultLower, "can't connect")
+	require.True(t, networkBlocked,
+		"container must have no network access under --egress none, but wget output was: %s", netResult)
+}
