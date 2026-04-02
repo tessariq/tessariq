@@ -1,7 +1,7 @@
 ---
 id: TASK-057-surface-diff-artifact-write-errors
 title: Surface WriteDiffArtifacts errors as warnings instead of silent discard
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-013-diff-log-and-evidence-artifacts
@@ -10,7 +10,7 @@ spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#required-artifacts
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-04-02T10:00:00Z"
+updated_at: "2026-04-02T08:31:34Z"
 areas:
     - evidence
     - cli
@@ -70,3 +70,4 @@ verification:
 - Likely files: `cmd/tessariq/run.go:216`.
 - The fix follows the same pattern already used by `appendIndexEntry` at `run.go:344-362`.
 - Keep the warning non-fatal to avoid blocking runs over transient git or I/O errors.
+- 2026-04-02T08:31:34Z: warnDiffArtifacts helper prints warning to stderr on error; unit tests cover both error and nil paths; mutation testing 85.5% efficacy; manual tests pass all 4 acceptance criteria

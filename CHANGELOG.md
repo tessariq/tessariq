@@ -78,3 +78,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed `tessariq attach` missing `git` from its prerequisite preflight, causing a raw exec error instead of actionable guidance when git is unavailable.
 - Fixed `tessariq promote` accepting changed runs that are missing `diffstat.txt`, now requiring both `diff.patch` and `diffstat.txt` as the spec mandates.
 - Fixed `attach` and `promote` acting on semantically incomplete index entries by validating all required fields during index read; entries missing any of the eight minimum fields are now silently skipped.
+- Fixed silent `WriteDiffArtifacts` failure so diff generation errors now emit a `warning:` line to stderr instead of being discarded.
