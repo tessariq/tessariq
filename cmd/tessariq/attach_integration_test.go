@@ -114,6 +114,42 @@ func TestIntegration_AttachForgedExternalEvidencePathFailsBeforeAttaching(t *tes
 	}, 5*time.Second, 100*time.Millisecond, "attach log: %s", readAttachLog(t, env))
 }
 
+func TestIntegration_AttachForgedCrossRunEvidenceFailsBeforeAttaching(t *testing.T) {
+	t.Parallel()
+
+	env := setupAttachIntegrationEnv(t)
+	repoPath := filepath.Join(env.Dir(), "repo")
+	homeDir := filepath.Join(env.Dir(), "home")
+	binPath := filepath.Join(env.Dir(), "tessariq")
+	runA := "01ARZ3NDEKTSV4RRFFQ69G5FAC"
+	runB := "01ARZ3NDEKTSV4RRFFQ69G5FAD"
+
+	// Create RUN_B with live evidence.
+	createIndexedRun(t, repoPath, runB, runner.NewInitialStatus(time.Now()))
+	startSession(t, env, run.SessionName(runB), "printf cross-run-output; sleep 10")
+
+	// Forge RUN_A's index entry to point at RUN_B's evidence directory.
+	require.NoError(t, run.AppendIndex(filepath.Join(repoPath, ".tessariq", "runs"), run.IndexEntry{
+		RunID:         runA,
+		CreatedAt:     time.Now().UTC().Format(time.RFC3339),
+		TaskPath:      "tasks/sample.md",
+		TaskTitle:     "Forged Cross-Run Task",
+		Agent:         "claude-code",
+		WorkspaceMode: "worktree",
+		State:         string(runner.StateRunning),
+		EvidencePath:  filepath.Join(".tessariq", "runs", runB),
+	}))
+
+	startAttachProcess(t, env, repoPath, homeDir, binPath, runA)
+
+	require.False(t, waitForAttachedClient(env, run.SessionName(runA), 2*time.Second), "attach should reject cross-run evidence before connecting")
+	require.Eventually(t, func() bool {
+		output := readAttachLog(t, env)
+		return strings.Contains(output, "run "+runA+" is not live") &&
+			strings.Contains(output, "run_id mismatch")
+	}, 5*time.Second, 100*time.Millisecond, "attach log: %s", readAttachLog(t, env))
+}
+
 func buildAttachIntegrationBinary(t *testing.T) string {
 	t.Helper()
 

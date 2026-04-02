@@ -47,6 +47,9 @@ func resolveLiveRun(ctx context.Context, repoRoot, ref string, deps dependencies
 	if err != nil {
 		return Result{}, fmt.Errorf("%w: run %s is not live; evidence path: %s: %v", ErrRunNotLive, entry.RunID, entry.EvidencePath, err)
 	}
+	if err := run.ValidateEvidenceRunID(evidenceDir, entry.RunID); err != nil {
+		return Result{}, fmt.Errorf("%w: run %s is not live; evidence path: %s: %v", ErrRunNotLive, entry.RunID, entry.EvidencePath, err)
+	}
 
 	status, err := deps.readStatus(evidenceDir)
 	if err != nil {
