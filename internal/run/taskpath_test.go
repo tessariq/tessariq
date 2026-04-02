@@ -77,3 +77,42 @@ func TestValidateTaskPath_ValidFile(t *testing.T) {
 	err := ValidateTaskPath(root, filepath.Join("specs", "example.md"))
 	require.NoError(t, err)
 }
+
+func TestValidateTaskPath_SymlinkOutsideRepo(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	externalDir := t.TempDir()
+
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "specs"), 0o755))
+	externalFile := filepath.Join(externalDir, "outside.md")
+	require.NoError(t, os.WriteFile(externalFile, []byte("# External"), 0o644))
+	require.NoError(t, os.Symlink(externalFile, filepath.Join(root, "specs", "task.md")))
+
+	err := ValidateTaskPath(root, filepath.Join("specs", "task.md"))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "outside the repository")
+}
+
+func TestValidateTaskPath_SymlinkInsideRepo(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "specs"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "specs", "real.md"), []byte("# Real"), 0o644))
+	require.NoError(t, os.Symlink(filepath.Join(root, "specs", "real.md"), filepath.Join(root, "specs", "alias.md")))
+
+	err := ValidateTaskPath(root, filepath.Join("specs", "alias.md"))
+	require.NoError(t, err)
+}
+
+func TestValidateTaskPath_BrokenSymlink(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	require.NoError(t, os.Symlink("/nonexistent/file.md", filepath.Join(root, "broken.md")))
+
+	err := ValidateTaskPath(root, "broken.md")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "task path does not exist")
+}
