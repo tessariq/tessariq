@@ -1,7 +1,7 @@
 ---
 id: TASK-053-bypass-user-config-when-cli-egress-is-explicit
 title: Skip user-config loading when CLI egress fully determines resolution
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-011-egress-mode-resolution-and-manifest-recording
@@ -13,7 +13,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#generated-runtime-state
     - specs/tessariq-v0.1.0.md#networking-and-egress
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-04-01T20:03:47Z"
+updated_at: "2026-04-02T08:03:22Z"
 areas:
     - networking
     - config
@@ -77,3 +77,4 @@ verification:
 
 - Likely files: `cmd/tessariq/run.go` and allowlist resolution tests.
 - Preserve the existing behavior for proxy/auto runs that genuinely depend on user-config defaults.
+- 2026-04-02T08:03:22Z: unit+e2e+mutation(85%)+manual tests pass; config bypass verified for open/none/cli-allow modes

@@ -137,17 +137,18 @@ func TestResolveAllowlistCore_OpenCode(t *testing.T) {
 	noProviderAuth := `{"token":"fake"}`
 
 	tests := []struct {
-		name            string
-		agent           string
-		egress          string
-		cliAllow        []string
-		noDefaults      bool
-		configDirExists bool // if true, dirExists returns true so user config is loaded
-		files           map[string]string
-		wantSource      string
-		wantErr         string
-		wantErrType     any
-		wantProvSkipped bool // true if auth.json should NOT be read
+		name              string
+		agent             string
+		egress            string
+		cliAllow          []string
+		noDefaults        bool
+		configDirExists   bool // if true, dirExists returns true so user config is loaded
+		files             map[string]string
+		wantSource        string
+		wantErr           string
+		wantErrType       any
+		wantProvSkipped   bool // true if auth.json should NOT be read
+		wantConfigSkipped bool // true if config.yaml should NOT be read
 	}{
 		{
 			name:            "cli_bypasses_unresolvable_provider",
@@ -235,6 +236,82 @@ func TestResolveAllowlistCore_OpenCode(t *testing.T) {
 			wantSource:      "cli",
 			wantProvSkipped: true,
 		},
+		// TASK-053: config bypass when CLI fully determines egress.
+		{
+			name:              "open_skips_malformed_config",
+			agent:             "claude-code",
+			egress:            "open",
+			configDirExists:   true,
+			files:             map[string]string{"config.yaml": "egress_allow:\n  - [invalid\n"},
+			wantSource:        "built_in",
+			wantConfigSkipped: true,
+		},
+		{
+			name:              "none_skips_malformed_config",
+			agent:             "claude-code",
+			egress:            "none",
+			configDirExists:   true,
+			files:             map[string]string{"config.yaml": "egress_allow:\n  - [invalid\n"},
+			wantSource:        "built_in",
+			wantConfigSkipped: true,
+		},
+		{
+			name:              "cli_allow_skips_malformed_config",
+			agent:             "claude-code",
+			egress:            "proxy",
+			cliAllow:          []string{"host.example:443"},
+			configDirExists:   true,
+			files:             map[string]string{"config.yaml": "egress_allow:\n  - [invalid\n"},
+			wantSource:        "cli",
+			wantConfigSkipped: true,
+		},
+		{
+			name:              "no_defaults_skips_malformed_config",
+			agent:             "claude-code",
+			egress:            "proxy",
+			noDefaults:        true,
+			configDirExists:   true,
+			files:             map[string]string{"config.yaml": "egress_allow:\n  - [invalid\n"},
+			wantErr:           "proxy mode requires at least one",
+			wantConfigSkipped: true,
+		},
+		{
+			name:              "no_defaults_open_skips_malformed_config",
+			agent:             "claude-code",
+			egress:            "open",
+			noDefaults:        true,
+			configDirExists:   true,
+			files:             map[string]string{"config.yaml": "egress_allow:\n  - [invalid\n"},
+			wantSource:        "cli",
+			wantConfigSkipped: true,
+		},
+		{
+			name:              "opencode_open_skips_malformed_config",
+			agent:             "opencode",
+			egress:            "open",
+			configDirExists:   true,
+			files:             map[string]string{"config.yaml": "egress_allow:\n  - [invalid\n"},
+			wantSource:        "built_in",
+			wantConfigSkipped: true,
+		},
+		{
+			name:              "opencode_cli_allow_skips_malformed_config",
+			agent:             "opencode",
+			egress:            "proxy",
+			cliAllow:          []string{"host.example:443"},
+			configDirExists:   true,
+			files:             map[string]string{"config.yaml": "egress_allow:\n  - [invalid\n"},
+			wantSource:        "cli",
+			wantConfigSkipped: true,
+		},
+		{
+			name:            "malformed_config_still_fails_when_needed",
+			agent:           "claude-code",
+			egress:          "proxy",
+			configDirExists: true,
+			files:           map[string]string{"config.yaml": "egress_allow:\n  - [invalid\n"},
+			wantErr:         "malformed",
+		},
 	}
 
 	for _, tt := range tests {
@@ -289,6 +366,13 @@ func TestResolveAllowlistCore_OpenCode(t *testing.T) {
 				authPath := filepath.Join("/fakehome", ".local", "share", "opencode", "auth.json")
 				for _, path := range *called {
 					require.NotEqual(t, authPath, path, "provider resolution should have been skipped")
+				}
+			}
+
+			if tt.wantConfigSkipped {
+				configPath := filepath.Join("/fakehome", ".config", "tessariq", "config.yaml")
+				for _, path := range *called {
+					require.NotEqual(t, configPath, path, "user config should not have been loaded")
 				}
 			}
 		})

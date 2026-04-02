@@ -67,6 +67,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed `--egress-allow` being ignored for OpenCode when provider auto-resolution fails: explicit CLI allowlist entries now take precedence, skipping provider detection entirely so runs proceed without requiring auth state.
 - Fixed OpenCode proxy runs failing when user-config `egress_allow` is present but `auth.json` lacks provider info: provider resolution is now skipped when a higher-precedence allowlist source (CLI or user config) already determines egress destinations.
 - Fixed OpenCode proxy runs surfacing raw filesystem errors when auth state is missing: provider resolution now returns actionable guidance telling the user to authenticate OpenCode locally first.
+- Fixed `tessariq run` failing on malformed or unreadable user config even when explicit CLI egress settings (`--egress open`, `--egress none`, `--egress-allow`) make that config irrelevant: user-config loading is now skipped when CLI inputs fully determine egress resolution.
 - Fixed duration default rendering in `--help` output so `--timeout` and `--grace` show normalized values (for example `30m` and `30s`) instead of padded forms.
 - Fixed detached run sessions so the host tmux session tails durable `run.log` output from the container instead of starting empty.
 - Fixed worktree cleanup after container-owned writes by repairing disposable workspace ownership before worktree removal.

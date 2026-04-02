@@ -530,6 +530,106 @@ func TestE2E_OpenCodeUserConfigAllowlistBypassesProviderResolution(t *testing.T)
 	}
 }
 
+// malformedConfigExtraFn returns an extraFn that writes malformed YAML to the
+// user config path so tests can verify config-loading bypass behavior.
+func malformedConfigExtraFn() func(string) []string {
+	return func(homeDir string) []string {
+		return []string{
+			fmt.Sprintf("mkdir -p %s/.config/tessariq", homeDir),
+			fmt.Sprintf(`printf 'egress_allow:\n  - [invalid\n' > %s/.config/tessariq/config.yaml`, homeDir),
+		}
+	}
+}
+
+func TestE2E_MalformedConfigIgnoredWithEgressOpen(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+	env := setupRunEnvCustom(t, bin, e2eSetupOpts{
+		skipImage: true,
+		extraFn:   malformedConfigExtraFn(),
+	})
+
+	hostDir := env.Dir()
+	repoPath := filepath.Join(hostDir, "repo")
+	homeDir := filepath.Join(hostDir, "home")
+	binPath := filepath.Join(hostDir, "tessariq")
+
+	ctx := context.Background()
+	_, output, err := env.Exec(ctx, []string{"sh", "-c",
+		fmt.Sprintf("cd %s && HOME=%s %s run --egress open tasks/sample.md",
+			repoPath, homeDir, binPath)})
+	require.NoError(t, err)
+	require.NotContains(t, output, "malformed",
+		"--egress open should bypass user config; got: %s", output)
+}
+
+func TestE2E_MalformedConfigIgnoredWithEgressNone(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+	env := setupRunEnvCustom(t, bin, e2eSetupOpts{
+		skipImage: true,
+		extraFn:   malformedConfigExtraFn(),
+	})
+
+	hostDir := env.Dir()
+	repoPath := filepath.Join(hostDir, "repo")
+	homeDir := filepath.Join(hostDir, "home")
+	binPath := filepath.Join(hostDir, "tessariq")
+
+	ctx := context.Background()
+	_, output, err := env.Exec(ctx, []string{"sh", "-c",
+		fmt.Sprintf("cd %s && HOME=%s %s run --egress none tasks/sample.md",
+			repoPath, homeDir, binPath)})
+	require.NoError(t, err)
+	require.NotContains(t, output, "malformed",
+		"--egress none should bypass user config; got: %s", output)
+}
+
+func TestE2E_MalformedConfigIgnoredWithCliAllow(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+	env := setupRunEnvCustom(t, bin, e2eSetupOpts{
+		skipImage: true,
+		extraFn:   malformedConfigExtraFn(),
+	})
+
+	hostDir := env.Dir()
+	repoPath := filepath.Join(hostDir, "repo")
+	homeDir := filepath.Join(hostDir, "home")
+	binPath := filepath.Join(hostDir, "tessariq")
+
+	ctx := context.Background()
+	_, output, err := env.Exec(ctx, []string{"sh", "-c",
+		fmt.Sprintf("cd %s && HOME=%s %s run --egress-allow api.example.com:443 tasks/sample.md",
+			repoPath, homeDir, binPath)})
+	require.NoError(t, err)
+	require.NotContains(t, output, "malformed",
+		"--egress-allow should bypass user config; got: %s", output)
+}
+
+func TestE2E_MalformedConfigFailsWhenNeeded(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+	env := setupRunEnvCustom(t, bin, e2eSetupOpts{
+		skipImage: true,
+		extraFn:   malformedConfigExtraFn(),
+	})
+
+	hostDir := env.Dir()
+	repoPath := filepath.Join(hostDir, "repo")
+	homeDir := filepath.Join(hostDir, "home")
+	binPath := filepath.Join(hostDir, "tessariq")
+
+	ctx := context.Background()
+	code, output, err := env.Exec(ctx, []string{"sh", "-c",
+		fmt.Sprintf("cd %s && HOME=%s %s run tasks/sample.md",
+			repoPath, homeDir, binPath)})
+	require.NoError(t, err)
+	require.NotEqual(t, 0, code, "run should fail when config is malformed and needed")
+	require.Contains(t, output, "malformed",
+		"default proxy mode should fail on malformed config; got: %s", output)
+}
+
 func TestE2E_InitFailsWithActionableGuidanceWhenGitMissing(t *testing.T) {
 	t.Parallel()
 	bin := buildBinary(t)
