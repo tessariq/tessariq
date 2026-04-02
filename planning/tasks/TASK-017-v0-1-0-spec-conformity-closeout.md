@@ -43,6 +43,8 @@ depends_on:
     - TASK-053-bypass-user-config-when-cli-egress-is-explicit
     - TASK-054-reject-symlinked-external-task-paths
     - TASK-055-version-command-and-root-version-flag
+    - TASK-056-enforce-network-none-for-egress-none
+    - TASK-057-surface-diff-artifact-write-errors
 milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:
