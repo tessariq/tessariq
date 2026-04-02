@@ -14,9 +14,10 @@ import (
 )
 
 var (
-	ErrNoCodeChanges  = errors.New("there were no code changes to promote")
-	ErrRunNotFinished = errors.New("run is not finished")
-	ErrBranchExists   = errors.New("branch already exists")
+	ErrNoCodeChanges            = errors.New("there were no code changes to promote")
+	ErrRunNotFinished           = errors.New("run is not finished")
+	ErrBranchExists             = errors.New("branch already exists")
+	ErrManifestIdentityMismatch = errors.New("manifest identity does not match resolved run")
 )
 
 type Options struct {
@@ -50,6 +51,10 @@ func Run(ctx context.Context, repoRoot string, opts Options) (Result, error) {
 
 	manifest, err := run.ReadManifest(evidenceDir)
 	if err != nil {
+		return Result{}, err
+	}
+
+	if err := validateManifestIdentity(entry, manifest, evidenceDir); err != nil {
 		return Result{}, err
 	}
 
@@ -136,6 +141,19 @@ func Run(ctx context.Context, repoRoot string, opts Options) (Result, error) {
 	}
 
 	return Result{RunID: manifest.RunID, Branch: branch, Commit: commitSHA}, nil
+}
+
+func validateManifestIdentity(entry run.IndexEntry, manifest run.Manifest, evidenceDir string) error {
+	if manifest.RunID != entry.RunID {
+		return fmt.Errorf("%w: manifest run_id %q does not match resolved run %q; evidence may be inconsistent or tampered",
+			ErrManifestIdentityMismatch, manifest.RunID, entry.RunID)
+	}
+	dirName := filepath.Base(evidenceDir)
+	if manifest.RunID != dirName {
+		return fmt.Errorf("%w: manifest run_id %q does not match evidence directory %q; evidence may be inconsistent or tampered",
+			ErrManifestIdentityMismatch, manifest.RunID, dirName)
+	}
+	return nil
 }
 
 func defaultBranchName(runID string) string {

@@ -1,7 +1,7 @@
 ---
 id: TASK-048-promote-manifest-run-identity-consistency
 title: Verify promote evidence identity matches the resolved run
-status: todo
+status: done
 priority: p0
 depends_on:
     - TASK-015-promote-branch-commit-trailers-and-zero-diff-guard
@@ -12,7 +12,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#core-workflow
     - specs/tessariq-v0.1.0.md#lifecycle-rules
     - specs/tessariq-v0.1.0.md#evidence-contract
-updated_at: "2026-04-01T20:03:47Z"
+updated_at: "2026-04-02T13:54:54Z"
 areas:
     - promote
     - evidence
@@ -76,3 +76,4 @@ After resolving a run, `promote` currently trusts `manifest.json` fields for bra
 
 - Likely files: `internal/promote/promote.go` and promote integration/e2e tests.
 - Keep branch naming and trailer formats unchanged for valid runs.
+- 2026-04-02T13:54:54Z: Added manifest identity validation in promote flow: manifest.RunID must match both the resolved IndexEntry.RunID and the evidence directory name. Tampered manifests are rejected before any git side effects. Unit, integration, e2e, mutation, and manual tests all pass.
