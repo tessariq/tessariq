@@ -76,6 +76,41 @@ func TestResolveCommitMessage_UsesManifestDefaults(t *testing.T) {
 	require.Equal(t, "tessariq: apply run RUN123", resolveCommitMessage(run.Manifest{RunID: "RUN123"}, ""))
 }
 
+func TestValidateManifestIdentity_Matching(t *testing.T) {
+	t.Parallel()
+
+	entry := run.IndexEntry{RunID: "01ARZ3NDEKTSV4RRFFQ69G5FAV"}
+	manifest := run.Manifest{RunID: "01ARZ3NDEKTSV4RRFFQ69G5FAV"}
+	evidenceDir := "/repo/.tessariq/runs/01ARZ3NDEKTSV4RRFFQ69G5FAV"
+
+	require.NoError(t, validateManifestIdentity(entry, manifest, evidenceDir))
+}
+
+func TestValidateManifestIdentity_ManifestRunIDMismatch(t *testing.T) {
+	t.Parallel()
+
+	entry := run.IndexEntry{RunID: "01ARZ3NDEKTSV4RRFFQ69G5FAV"}
+	manifest := run.Manifest{RunID: "01BBBBBBBBBBBBBBBBBBBBBBBBB"}
+	evidenceDir := "/repo/.tessariq/runs/01ARZ3NDEKTSV4RRFFQ69G5FAV"
+
+	err := validateManifestIdentity(entry, manifest, evidenceDir)
+	require.ErrorIs(t, err, ErrManifestIdentityMismatch)
+	require.Contains(t, err.Error(), "01BBBBBBBBBBBBBBBBBBBBBBBBB")
+	require.Contains(t, err.Error(), "01ARZ3NDEKTSV4RRFFQ69G5FAV")
+}
+
+func TestValidateManifestIdentity_EvidenceDirMismatch(t *testing.T) {
+	t.Parallel()
+
+	entry := run.IndexEntry{RunID: "01ARZ3NDEKTSV4RRFFQ69G5FAV"}
+	manifest := run.Manifest{RunID: "01ARZ3NDEKTSV4RRFFQ69G5FAV"}
+	evidenceDir := "/repo/.tessariq/runs/01CCCCCCCCCCCCCCCCCCCCCCCCC"
+
+	err := validateManifestIdentity(entry, manifest, evidenceDir)
+	require.ErrorIs(t, err, ErrManifestIdentityMismatch)
+	require.Contains(t, err.Error(), "01CCCCCCCCCCCCCCCCCCCCCCCCC")
+}
+
 func TestHasNonEmptyFile_Missing(t *testing.T) {
 	t.Parallel()
 

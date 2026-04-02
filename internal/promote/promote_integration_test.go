@@ -363,6 +363,49 @@ func TestRun_ForgedTraversalEvidencePathRejectedBeforeGitSideEffects(t *testing.
 	require.Empty(t, gitOutputAllowFailure(t, repo.Dir(), "branch", "--list", defaultBranchName(testRunID)))
 }
 
+func TestRun_TamperedManifestRunIDRejectedBeforeGitSideEffects(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo, err := containers.StartGitRepo(ctx, t)
+	require.NoError(t, err)
+
+	writeFile(t, filepath.Join(repo.Dir(), "tracked.txt"), "before\n")
+	gitRunTest(t, repo.Dir(), "add", "tracked.txt")
+	gitRunTest(t, repo.Dir(), "commit", "-m", "base")
+
+	baseSHA := gitOutputTest(t, repo.Dir(), "rev-parse", "HEAD")
+	patch, diffstat := buildDiffArtifacts(t, repo.Dir(), baseSHA, func(worktree string) {
+		writeFile(t, filepath.Join(worktree, "tracked.txt"), "after\n")
+	})
+	createEvidenceFixture(t, repo.Dir(), testRunID, baseSHA, patch, diffstat)
+
+	// Tamper with manifest.json: overwrite run_id with a different value.
+	tamperedRunID := "01BBBBBBBBBBBBBBBBBBBBBBBBB"
+	evidenceDir := filepath.Join(repo.Dir(), ".tessariq", "runs", testRunID)
+	require.NoError(t, run.WriteManifest(evidenceDir, run.Manifest{
+		SchemaVersion: 1,
+		RunID:         tamperedRunID,
+		TaskPath:      "tasks/sample.md",
+		TaskTitle:     "Tampered Task",
+		Agent:         "claude-code",
+		BaseSHA:       baseSHA,
+		WorkspaceMode: "worktree",
+		CreatedAt:     time.Now().UTC().Format(time.RFC3339),
+	}))
+
+	_, err = Run(ctx, repo.Dir(), Options{RunRef: testRunID})
+	require.ErrorIs(t, err, ErrManifestIdentityMismatch)
+	require.Contains(t, err.Error(), tamperedRunID)
+	require.Contains(t, err.Error(), "tampered")
+
+	// Assert no branch was created (no git side effects).
+	require.Empty(t, gitOutputAllowFailure(t, repo.Dir(), "branch", "--list", defaultBranchName(testRunID)))
+	require.Empty(t, gitOutputAllowFailure(t, repo.Dir(), "branch", "--list", defaultBranchName(tamperedRunID)))
+	branchCount := gitOutputTest(t, repo.Dir(), "rev-list", "--count", "--all")
+	require.Equal(t, "2", branchCount, "expected only the initial 2 commits, no promote commit")
+}
+
 func buildDiffArtifacts(t *testing.T, repoDir, baseSHA string, mutate func(string)) (string, string) {
 	t.Helper()
 

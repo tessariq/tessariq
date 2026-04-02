@@ -187,6 +187,37 @@ func TestE2E_PromoteLastNResolvesUniqueRuns(t *testing.T) {
 		"last-1 must resolve to the previous unique run (A=%s), got: %s", runA, promoteOutput)
 }
 
+func TestE2E_PromoteTamperedManifestRejectedBeforeGitSideEffects(t *testing.T) {
+	t.Parallel()
+
+	bin := buildBinary(t)
+	env := setupRunEnvWithScript(t, bin, "claude", "echo promoted > /work/promoted.txt; exit 0")
+
+	runCode, runOutput := runTessariq(t, env, "claude", "--egress open")
+	require.Equal(t, 0, runCode, "run failed: %s", runOutput)
+
+	runID := extractField(runOutput, "run_id")
+	require.NotEmpty(t, runID)
+
+	// Tamper with manifest.json: replace run_id with a different value.
+	ctx := context.Background()
+	hostDir := env.Dir()
+	repoPath := filepath.Join(hostDir, "repo")
+	manifestPath := filepath.Join(repoPath, ".tessariq", "runs", runID, "manifest.json")
+	tamperedRunID := "01BBBBBBBBBBBBBBBBBBBBBBBBB"
+	tamperCmd := fmt.Sprintf(`sed -i 's/"run_id": "%s"/"run_id": "%s"/' %s`, runID, tamperedRunID, manifestPath)
+	execCmd(t, env, ctx, tamperCmd, "tamper manifest")
+
+	promoteCode, promoteOutput := runPromote(t, env, runID, "")
+	require.NotEqual(t, 0, promoteCode, "promote should fail with tampered manifest: %s", promoteOutput)
+	require.Contains(t, promoteOutput, "tampered")
+
+	// Assert no branch was created.
+	code, _, err := env.Exec(ctx, []string{"sh", "-c", fmt.Sprintf("git -C %s show-ref --verify --quiet refs/heads/tessariq/%s", repoPath, runID)})
+	require.NoError(t, err)
+	require.NotEqual(t, 0, code, "branch must not be created for tampered manifest")
+}
+
 func runPromote(t *testing.T, env *containers.RunEnv, runID, envPrefix string) (int, string) {
 	t.Helper()
 
