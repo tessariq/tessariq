@@ -3,6 +3,7 @@ package testutil
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"testing"
@@ -29,6 +30,20 @@ func RequireTmux(t *testing.T) {
 	if _, err := exec.LookPath("tmux"); err != nil {
 		t.Fatal("tmux is required for integration tests but not found in PATH")
 	}
+}
+
+// SetupIsolatedTmuxServer sets TMUX_TMPDIR to an isolated temp directory
+// so the calling test binary gets its own tmux server socket, preventing
+// cross-package races when multiple packages run concurrently. Call from
+// TestMain before m.Run(). Returns a cleanup function to remove the temp
+// directory.
+func SetupIsolatedTmuxServer() (cleanup func()) {
+	dir, err := os.MkdirTemp("", "tessariq-tmux-*")
+	if err != nil {
+		panic(fmt.Sprintf("create tmux tmpdir: %v", err))
+	}
+	os.Setenv("TMUX_TMPDIR", dir)
+	return func() { os.RemoveAll(dir) }
 }
 
 // UniqueName returns a Docker-safe, DNS-safe name derived from the test name

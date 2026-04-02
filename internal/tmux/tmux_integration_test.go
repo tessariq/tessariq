@@ -4,11 +4,19 @@ package tmux
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"github.com/tessariq/tessariq/internal/testutil"
 )
+
+func TestMain(m *testing.M) {
+	cleanup := testutil.SetupIsolatedTmuxServer()
+	code := m.Run()
+	cleanup()
+	os.Exit(code)
+}
 
 func TestNewSession_Integration_CreatesSession(t *testing.T) {
 	t.Parallel()

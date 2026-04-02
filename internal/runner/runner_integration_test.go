@@ -21,6 +21,13 @@ import (
 	"github.com/tessariq/tessariq/internal/tmux"
 )
 
+func TestMain(m *testing.M) {
+	cleanup := testutil.SetupIsolatedTmuxServer()
+	code := m.Run()
+	cleanup()
+	os.Exit(code)
+}
+
 // shellProcess runs a shell command as the ProcessRunner for integration tests.
 type shellProcess struct {
 	command      string
