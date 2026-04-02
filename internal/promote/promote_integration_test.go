@@ -240,6 +240,58 @@ func TestRun_EmptyDiffstatRejectsPromote(t *testing.T) {
 	require.Empty(t, gitOutputAllowFailure(t, repo.Dir(), "branch", "--list", defaultBranchName(testRunID)))
 }
 
+func TestRun_IncompleteIndexFailsCleanly(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo, err := containers.StartGitRepo(ctx, t)
+	require.NoError(t, err)
+
+	writeFile(t, filepath.Join(repo.Dir(), "tracked.txt"), "before\n")
+	gitRunTest(t, repo.Dir(), "add", "tracked.txt")
+	gitRunTest(t, repo.Dir(), "commit", "-m", "base")
+
+	// Create a valid evidence fixture so the only issue is the index shape.
+	baseSHA := gitOutputTest(t, repo.Dir(), "rev-parse", "HEAD")
+	patch, diffstat := buildDiffArtifacts(t, repo.Dir(), baseSHA, func(worktree string) {
+		writeFile(t, filepath.Join(worktree, "tracked.txt"), "after\n")
+	})
+	evidenceDir := filepath.Join(repo.Dir(), ".tessariq", "runs", testRunID)
+	require.NoError(t, os.MkdirAll(evidenceDir, 0o700))
+	require.NoError(t, run.WriteManifest(evidenceDir, run.Manifest{
+		SchemaVersion: 1,
+		RunID:         testRunID,
+		TaskPath:      "tasks/sample.md",
+		TaskTitle:     "Sample Task",
+		Agent:         "claude-code",
+		BaseSHA:       baseSHA,
+		WorkspaceMode: "worktree",
+		CreatedAt:     time.Now().UTC().Format(time.RFC3339),
+	}))
+	require.NoError(t, runner.WriteStatus(evidenceDir, runner.NewTerminalStatus(runner.StateSuccess, time.Now().Add(-time.Minute), time.Now(), 0, false)))
+	require.NoError(t, adapter.WriteAgentInfo(evidenceDir, adapter.NewAgentInfo("claude-code", map[string]any{}, map[string]bool{})))
+	require.NoError(t, adapter.WriteRuntimeInfo(evidenceDir, adapter.NewRuntimeInfo("test-image", "custom", 0, "disabled", "disabled")))
+	require.NoError(t, workspace.WriteMetadata(evidenceDir, workspace.BuildMetadata(baseSHA, "/tmp/worktree")))
+	require.NoError(t, os.WriteFile(filepath.Join(evidenceDir, "task.md"), []byte("# Sample Task\n"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(evidenceDir, "run.log"), []byte("ok\n"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(evidenceDir, "runner.log"), []byte("ok\n"), 0o600))
+	if patch != "" {
+		require.NoError(t, os.WriteFile(filepath.Join(evidenceDir, "diff.patch"), []byte(patch), 0o600))
+	}
+	if diffstat != "" {
+		require.NoError(t, os.WriteFile(filepath.Join(evidenceDir, "diffstat.txt"), []byte(diffstat), 0o600))
+	}
+
+	// Write only incomplete index entries (missing required fields).
+	runsDir := filepath.Join(repo.Dir(), ".tessariq", "runs")
+	require.NoError(t, os.MkdirAll(runsDir, 0o700))
+	incompleteIndex := `{"run_id":"` + testRunID + `","state":"success"}` + "\n"
+	require.NoError(t, os.WriteFile(filepath.Join(runsDir, "index.jsonl"), []byte(incompleteIndex), 0o600))
+
+	_, err = Run(ctx, repo.Dir(), Options{RunRef: "last"})
+	require.ErrorIs(t, err, run.ErrEmptyIndex)
+}
+
 func buildDiffArtifacts(t *testing.T, repoDir, baseSHA string, mutate func(string)) (string, string) {
 	t.Helper()
 

@@ -23,6 +23,18 @@ type IndexEntry struct {
 	EvidencePath  string `json:"evidence_path"`
 }
 
+// isComplete returns true when all required index fields are non-empty.
+func (e IndexEntry) isComplete() bool {
+	return e.RunID != "" &&
+		e.CreatedAt != "" &&
+		e.TaskPath != "" &&
+		e.TaskTitle != "" &&
+		e.Agent != "" &&
+		e.WorkspaceMode != "" &&
+		e.State != "" &&
+		e.EvidencePath != ""
+}
+
 // IndexEntryFromManifest builds an IndexEntry from a Manifest and terminal state.
 func IndexEntryFromManifest(m Manifest, state string) IndexEntry {
 	return IndexEntry{
@@ -98,6 +110,9 @@ func ReadIndex(runsDir string) ([]IndexEntry, error) {
 		var entry IndexEntry
 		if err := json.Unmarshal(line, &entry); err != nil {
 			continue // skip malformed lines
+		}
+		if !entry.isComplete() {
+			continue // skip entries missing required fields
 		}
 		entries = append(entries, entry)
 	}

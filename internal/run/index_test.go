@@ -138,7 +138,7 @@ func TestReadIndex_ValidEntries(t *testing.T) {
 	require.Equal(t, entry2, entries[1])
 }
 
-func TestReadIndex_SkipsMalformedLines(t *testing.T) {
+func TestReadIndex_SkipsMalformedAndIncompleteLines(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	valid := sampleEntry(testRunID1)
@@ -147,12 +147,64 @@ func TestReadIndex_SkipsMalformedLines(t *testing.T) {
 
 	content := string(validJSON) + "\n" +
 		"this is not json\n" +
-		"{\"run_id\":\"MISSING_FIELDS\"}\n" // missing fields but valid JSON — still parsed
+		"{\"run_id\":\"MISSING_FIELDS\"}\n" // valid JSON but missing required fields — filtered
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "index.jsonl"), []byte(content), 0o600))
 
 	entries, err := ReadIndex(dir)
 	require.NoError(t, err)
-	require.Len(t, entries, 2) // valid entry + partial entry (valid JSON)
+	require.Len(t, entries, 1) // only the fully complete entry
+	require.Equal(t, valid, entries[0])
+}
+
+func TestIndexEntry_IsComplete(t *testing.T) {
+	t.Parallel()
+
+	full := sampleEntry(testRunID1)
+	require.True(t, full.isComplete(), "all fields present must be complete")
+
+	tests := []struct {
+		name   string
+		mutate func(IndexEntry) IndexEntry
+	}{
+		{"missing_run_id", func(e IndexEntry) IndexEntry { e.RunID = ""; return e }},
+		{"missing_created_at", func(e IndexEntry) IndexEntry { e.CreatedAt = ""; return e }},
+		{"missing_task_path", func(e IndexEntry) IndexEntry { e.TaskPath = ""; return e }},
+		{"missing_task_title", func(e IndexEntry) IndexEntry { e.TaskTitle = ""; return e }},
+		{"missing_agent", func(e IndexEntry) IndexEntry { e.Agent = ""; return e }},
+		{"missing_workspace_mode", func(e IndexEntry) IndexEntry { e.WorkspaceMode = ""; return e }},
+		{"missing_state", func(e IndexEntry) IndexEntry { e.State = ""; return e }},
+		{"missing_evidence_path", func(e IndexEntry) IndexEntry { e.EvidencePath = ""; return e }},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			entry := tc.mutate(sampleEntry(testRunID1))
+			require.False(t, entry.isComplete(), "entry with %s must be incomplete", tc.name)
+		})
+	}
+
+	t.Run("all_empty", func(t *testing.T) {
+		t.Parallel()
+		require.False(t, IndexEntry{}.isComplete(), "zero-value entry must be incomplete")
+	})
+}
+
+func TestReadIndex_SkipsIncompleteEntries(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	valid := sampleEntry(testRunID1)
+	validJSON, err := json.Marshal(valid)
+	require.NoError(t, err)
+
+	// Partial entries: one with only run_id, one with run_id+created_at.
+	partial1 := `{"run_id":"01ARZ3NDEKTSV4RRFFQ69G5FAV"}`
+	partial2 := `{"run_id":"01BRZ3NDEKTSV4RRFFQ69G5FAV","created_at":"2026-01-27T12:00:00Z"}`
+	content := string(validJSON) + "\n" + partial1 + "\n" + partial2 + "\n"
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "index.jsonl"), []byte(content), 0o600))
+
+	entries, err := ReadIndex(dir)
+	require.NoError(t, err)
+	require.Len(t, entries, 1)
 	require.Equal(t, valid, entries[0])
 }
 

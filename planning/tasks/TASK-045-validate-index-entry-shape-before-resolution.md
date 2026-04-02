@@ -1,7 +1,7 @@
 ---
 id: TASK-045-validate-index-entry-shape-before-resolution
 title: Reject semantically invalid index lines before run-ref resolution
-status: todo
+status: done
 priority: p0
 depends_on:
     - TASK-014-run-index-and-run-ref-resolution
@@ -11,7 +11,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#lifecycle-rules
     - specs/tessariq-v0.1.0.md#evidence-contract
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-04-01T20:03:47Z"
+updated_at: "2026-04-02T07:40:49Z"
 areas:
     - evidence
     - indexing
@@ -76,3 +76,4 @@ verification:
 
 - Likely files: `internal/run/index.go`, `internal/run/runref.go`, and attach/promote regression tests.
 - Keep the append-only JSONL format; this task hardens reads and resolution, not the write contract.
+- 2026-04-02T07:40:49Z: ReadIndex validates 8 required fields; incomplete entries silently skipped. Unit, integration, e2e, mutation, and manual tests pass.

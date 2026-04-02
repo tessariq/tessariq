@@ -77,6 +77,26 @@ func TestE2E_AttachMissingGitShowsActionableGuidance(t *testing.T) {
 	require.Contains(t, output, "install or enable git, then retry")
 }
 
+func TestE2E_AttachLastFailsCleanlyWithIncompleteIndex(t *testing.T) {
+	t.Parallel()
+
+	bin := buildBinary(t)
+	env := setupRunEnvCustom(t, bin, e2eSetupOpts{skipImage: true})
+	hostDir := env.Dir()
+	repoPath := filepath.Join(hostDir, "repo")
+	homeDir := filepath.Join(hostDir, "home")
+	binPath := filepath.Join(hostDir, "tessariq")
+	ctx := context.Background()
+
+	// Write only incomplete index entries (missing required fields) inside the container.
+	cmd := fmt.Sprintf(`mkdir -p %s/.tessariq/runs && printf '{"run_id":"01ARZ3NDEKTSV4RRFFQ69G5FAV","state":"running"}\n' > %s/.tessariq/runs/index.jsonl`, repoPath, repoPath)
+	execCmd(t, env, ctx, cmd, "write corrupt index")
+
+	code, output := runAttachInEnv(t, env, repoPath, homeDir, binPath, "last", "")
+	require.NotEqual(t, 0, code, "attach should fail with incomplete index")
+	require.Contains(t, output, "no matching run found")
+}
+
 func startBackgroundRun(t *testing.T, env *containers.RunEnv, repoPath, homeDir, binPath, binaryName string) {
 	t.Helper()
 
