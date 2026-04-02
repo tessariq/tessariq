@@ -88,6 +88,33 @@ func TestE2E_PromoteMissingGitShowsActionableGuidance(t *testing.T) {
 	require.Contains(t, promoteOutput, "install or enable git, then retry")
 }
 
+func TestE2E_PromoteMissingDiffstatShowsActionableGuidance(t *testing.T) {
+	t.Parallel()
+
+	bin := buildBinary(t)
+	env := setupRunEnvWithScript(t, bin, "claude", "echo promoted > /work/promoted.txt; exit 0")
+
+	runCode, runOutput := runTessariq(t, env, "claude", "--egress open")
+	require.Equal(t, 0, runCode, "run failed: %s", runOutput)
+
+	runID := extractField(runOutput, "run_id")
+	require.NotEmpty(t, runID)
+
+	// Remove diffstat.txt from the evidence directory before promoting.
+	ctx := context.Background()
+	hostDir := env.Dir()
+	repoPath := filepath.Join(hostDir, "repo")
+	diffstatPath := filepath.Join(repoPath, ".tessariq", "runs", runID, "diffstat.txt")
+	code, out, err := env.Exec(ctx, []string{"rm", "-f", diffstatPath})
+	require.NoError(t, err)
+	require.Equal(t, 0, code, "rm failed: %s", out)
+
+	promoteCode, promoteOutput := runPromote(t, env, runID, "")
+	require.NotEqual(t, 0, promoteCode, "promote should fail when diffstat.txt is missing")
+	require.Contains(t, promoteOutput, "diffstat.txt")
+	require.Contains(t, promoteOutput, "evidence is intact")
+}
+
 func runPromote(t *testing.T, env *containers.RunEnv, runID, envPrefix string) (int, string) {
 	t.Helper()
 

@@ -1,7 +1,7 @@
 ---
 id: TASK-049-promote-require-diffstat-for-changed-runs
 title: Require diffstat.txt when promoting changed runs
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-013-diff-log-and-evidence-artifacts
@@ -12,7 +12,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#evidence-contract
     - specs/tessariq-v0.1.0.md#acceptance-scenarios
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-04-01T20:03:47Z"
+updated_at: "2026-04-02T07:37:01Z"
 areas:
     - promote
     - evidence
@@ -75,3 +75,4 @@ The spec requires both `diff.patch` and `diffstat.txt` when a run has changes, b
 
 - Likely files: `internal/runner/completeness.go`, `internal/promote/promote.go`, and promote tests.
 - Preserve the existing zero-diff guard contract from `TASK-015`.
+- 2026-04-02T07:37:01Z: Promote now requires diffstat.txt for changed runs. Unit, integration, e2e, mutation (85.16%), and manual tests all pass. CHANGELOG updated.

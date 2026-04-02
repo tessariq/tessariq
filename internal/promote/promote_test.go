@@ -1,6 +1,8 @@
 package promote
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -72,4 +74,34 @@ func TestResolveCommitMessage_UsesManifestDefaults(t *testing.T) {
 
 	require.Equal(t, "Task Title", resolveCommitMessage(run.Manifest{RunID: "RUN123", TaskTitle: "Task Title"}, ""))
 	require.Equal(t, "tessariq: apply run RUN123", resolveCommitMessage(run.Manifest{RunID: "RUN123"}, ""))
+}
+
+func TestHasNonEmptyFile_Missing(t *testing.T) {
+	t.Parallel()
+
+	ok, err := hasNonEmptyFile(filepath.Join(t.TempDir(), "nonexistent.txt"), "nonexistent.txt")
+	require.NoError(t, err)
+	require.False(t, ok)
+}
+
+func TestHasNonEmptyFile_Empty(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "empty.txt"), []byte{}, 0o600))
+
+	ok, err := hasNonEmptyFile(filepath.Join(dir, "empty.txt"), "empty.txt")
+	require.NoError(t, err)
+	require.False(t, ok)
+}
+
+func TestHasNonEmptyFile_Present(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "data.txt"), []byte("content"), 0o600))
+
+	ok, err := hasNonEmptyFile(filepath.Join(dir, "data.txt"), "data.txt")
+	require.NoError(t, err)
+	require.True(t, ok)
 }
