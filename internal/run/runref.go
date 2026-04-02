@@ -48,12 +48,31 @@ func resolveLastN(runsDir string, n int) (IndexEntry, error) {
 		return IndexEntry{}, ErrEmptyIndex
 	}
 
-	idx := len(entries) - 1 - n
+	unique := uniqueRuns(entries)
+	idx := len(unique) - 1 - n
 	if idx < 0 {
-		return IndexEntry{}, fmt.Errorf("%w: last-%d exceeds index size %d", ErrRunNotFound, n, len(entries))
+		return IndexEntry{}, fmt.Errorf("%w: last-%d exceeds unique run count %d", ErrRunNotFound, n, len(unique))
 	}
 
-	return entries[idx], nil
+	return unique[idx], nil
+}
+
+// uniqueRuns deduplicates index entries by run_id, keeping the last (most
+// recent) entry per run while preserving first-appearance order across runs.
+func uniqueRuns(entries []IndexEntry) []IndexEntry {
+	latest := make(map[string]IndexEntry, len(entries))
+	var order []string
+	for _, e := range entries {
+		if _, seen := latest[e.RunID]; !seen {
+			order = append(order, e.RunID)
+		}
+		latest[e.RunID] = e
+	}
+	result := make([]IndexEntry, len(order))
+	for i, id := range order {
+		result[i] = latest[id]
+	}
+	return result
 }
 
 func resolveByID(runsDir, runID string) (IndexEntry, error) {

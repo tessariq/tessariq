@@ -59,6 +59,44 @@ func TestAppendIndex_ConcurrentAppends(t *testing.T) {
 		"expected %d entries, got %d", workers*entriesPerWorker, len(entries))
 }
 
+func TestResolveRunRef_LastNDeduplicatesWithFileBackedIndex(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+
+	// Write entries via AppendIndex (real file I/O with locking).
+	// RUN_A running → RUN_B running → RUN_B success
+	a := sampleEntry(testRunID1)
+	a.State = "running"
+	bRunning := sampleEntry(testRunID2)
+	bRunning.State = "running"
+	bSuccess := sampleEntry(testRunID2)
+	bSuccess.State = "success"
+
+	require.NoError(t, AppendIndex(dir, a))
+	require.NoError(t, AppendIndex(dir, bRunning))
+	require.NoError(t, AppendIndex(dir, bSuccess))
+
+	// Verify raw line count = 3 but unique runs = 2.
+	entries, err := ReadIndex(dir)
+	require.NoError(t, err)
+	require.Len(t, entries, 3, "raw index should have 3 lines")
+
+	// last → B success (newest unique run, latest entry)
+	got, err := ResolveRunRef(dir, "last")
+	require.NoError(t, err)
+	require.Equal(t, bSuccess, got)
+
+	// last-1 → A (previous unique run)
+	got, err = ResolveRunRef(dir, "last-1")
+	require.NoError(t, err)
+	require.Equal(t, a, got)
+
+	// last-2 → out of range (only 2 unique runs)
+	_, err = ResolveRunRef(dir, "last-2")
+	require.ErrorIs(t, err, ErrRunNotFound)
+}
+
 func TestReadIndex_CorruptedRecovery(t *testing.T) {
 	t.Parallel()
 

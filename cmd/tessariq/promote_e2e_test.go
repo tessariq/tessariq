@@ -153,6 +153,40 @@ func TestE2E_PromoteForgedEvidencePathShowsActionableGuidance(t *testing.T) {
 	require.Contains(t, output, "outside the repository")
 }
 
+func TestE2E_PromoteLastNResolvesUniqueRuns(t *testing.T) {
+	t.Parallel()
+
+	bin := buildBinary(t)
+	env := setupRunEnvWithScript(t, bin, "claude", "echo promoted > /work/promoted.txt; exit 0")
+
+	// Run A: a complete run that produces code changes.
+	runCodeA, runOutputA := runTessariq(t, env, "claude", "--egress open")
+	require.Equal(t, 0, runCodeA, "run A failed: %s", runOutputA)
+	runA := extractField(runOutputA, "run_id")
+	require.NotEmpty(t, runA)
+
+	// Run B: another complete run that produces code changes.
+	// Must re-commit worktree changes so the repo is clean for the next run.
+	hostDir := env.Dir()
+	repoPath := filepath.Join(hostDir, "repo")
+	ctx := context.Background()
+	execCmd(t, env, ctx, fmt.Sprintf("git -C %s add -A && git -C %s commit -m 'post A' --allow-empty", repoPath, repoPath), "commit after A")
+
+	runCodeB, runOutputB := runTessariq(t, env, "claude", "--egress open")
+	require.Equal(t, 0, runCodeB, "run B failed: %s", runOutputB)
+	runB := extractField(runOutputB, "run_id")
+	require.NotEmpty(t, runB)
+	require.NotEqual(t, runA, runB)
+
+	// The index now has multiple lifecycle entries for each run (running + terminal).
+	// promote last → should resolve to run B.
+	// promote last-1 → should resolve to run A (previous unique run).
+	promoteCode, promoteOutput := runPromote(t, env, "last-1", "")
+	require.Equal(t, 0, promoteCode, "promote last-1 failed: %s", promoteOutput)
+	require.Contains(t, promoteOutput, "branch: tessariq/"+runA,
+		"last-1 must resolve to the previous unique run (A=%s), got: %s", runA, promoteOutput)
+}
+
 func runPromote(t *testing.T, env *containers.RunEnv, runID, envPrefix string) (int, string) {
 	t.Helper()
 
