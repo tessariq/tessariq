@@ -1084,3 +1084,39 @@ func TestE2E_IndexAppendFailureEmitsWarning(t *testing.T) {
 	require.Contains(t, output, "warning: index entry skipped:",
 		"expected index warning in output: %s", output)
 }
+
+func TestE2E_SymlinkToExternalTaskRejected(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+
+	env := setupRunEnvCustom(t, bin, e2eSetupOpts{
+		skipImage: true,
+	})
+
+	ctx := context.Background()
+	hostDir := env.Dir()
+	repoPath := filepath.Join(hostDir, "repo")
+	homeDir := filepath.Join(hostDir, "home")
+	binPath := filepath.Join(hostDir, "tessariq")
+
+	// Create an external file outside the repo and a symlink inside the repo.
+	setupCmds := []string{
+		fmt.Sprintf("printf '# External Task\\n' > %s/external.md", hostDir),
+		fmt.Sprintf("ln -s %s/external.md %s/tasks/symlinked.md", hostDir, repoPath),
+		fmt.Sprintf("git -C %s add -A", repoPath),
+		fmt.Sprintf("git -C %s commit -m 'add symlinked task'", repoPath),
+	}
+	for _, cmd := range setupCmds {
+		execCmd(t, env, ctx, cmd, "symlink setup")
+	}
+
+	// Run tessariq with the symlinked task path — should fail before container start.
+	code, output, err := env.Exec(ctx, []string{"sh", "-c",
+		fmt.Sprintf("cd %s && HOME=%s %s run --egress none tasks/symlinked.md",
+			repoPath, homeDir, binPath)})
+	require.NoError(t, err)
+	require.NotEqual(t, 0, code, "run should reject symlink to external file: %s", output)
+	require.Contains(t, output, "outside the repository")
+	require.NotContains(t, output, "run_id:",
+		"must fail before evidence bootstrap: %s", output)
+}
