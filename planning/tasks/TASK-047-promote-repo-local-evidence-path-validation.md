@@ -1,7 +1,7 @@
 ---
 id: TASK-047-promote-repo-local-evidence-path-validation
 title: Reject non-repo evidence paths during promote resolution
-status: todo
+status: done
 priority: p0
 depends_on:
     - TASK-014-run-index-and-run-ref-resolution
@@ -14,7 +14,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#generated-runtime-state
     - specs/tessariq-v0.1.0.md#lifecycle-rules
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-04-01T20:03:47Z"
+updated_at: "2026-04-02T08:38:48Z"
 areas:
     - promote
     - evidence
@@ -78,3 +78,4 @@ verification:
 
 - Likely files: `internal/promote/promote.go` and promote integration/e2e tests.
 - Prefer a shared validation helper if attach needs the same repo-boundary enforcement.
+- 2026-04-02T08:38:48Z: Evidence path validation added; unit/integration/e2e/mutation/manual tests all pass
