@@ -5,9 +5,9 @@ Automated adversarial testing against done tasks.
 | Key | Value |
 |-----|-------|
 | Started | 2026-03-31 |
-| Iteration | 13 |
-| Last bug found | iteration 13 |
-| Clean iterations | 0 / 12 |
+| Iteration | 15 |
+| Last bug found | iteration 15 |
+| Clean iterations | 0 / 14 |
 | Status | In progress |
 
 ---
@@ -267,18 +267,30 @@ BUG-001 through BUG-007 were all fixed by TASK-030 through TASK-039 (done).
 | BUG-010 | MEDIUM | `run.go:288` | OpenCode auth-missing produces raw I/O error instead of actionable message | **Fixed** |
 | BUG-011 | MEDIUM | `run.go:324` | `appendIndexEntry` silently drops all errors; run can complete without an index entry | **Fixed** |
 | BUG-012 | LOW | `specs/tessariq-v0.1.0.md` | Manifest example uses `"allowlist_source": "auto"` which contradicts normative text | **Fixed (spec doc)** |
-| BUG-013 | CRITICAL | `index.go`, `promote.go` | `promote` trusts forged `evidence_path` entries and can promote out-of-repo evidence | **Open** |
-| BUG-014 | HIGH | `completeness.go`, `promote.go` | `promote` ignores missing `diffstat.txt` even though spec requires it when changes exist | **Open** |
+| BUG-013 | CRITICAL | `index.go`, `promote.go` | `promote` trusts forged `evidence_path` entries and can promote out-of-repo evidence | **Fixed** |
+| BUG-014 | HIGH | `completeness.go`, `promote.go` | `promote` ignores missing `diffstat.txt` even though spec requires it when changes exist | **Fixed** |
 | BUG-015 | HIGH | `promote.go` | `promote` allows manifest tampering to rewrite branch identity and commit trailers | **Open** |
-| BUG-016 | HIGH | `attach.go` | `attach` trusts forged `evidence_path` entries from outside the repo | **Open** |
+| BUG-016 | HIGH | `attach.go` | `attach` trusts forged `evidence_path` entries from outside the repo | **Fixed** |
 | BUG-017 | HIGH | `attach.go` | `attach` does not verify evidence directory belongs to the same `run_id` | **Open** |
 | BUG-018 | HIGH | `preflight.go` | `attach` depends on `git` but does not preflight it as a required prerequisite | **Open** |
 | BUG-019 | HIGH | `run.go` | `run` loads user config even when explicit CLI egress settings should bypass it | **Open** |
-| BUG-020 | HIGH | `runref.go` | `last-N` resolves index lines, not runs; duplicate entries break previous-run selection | **Open** |
-| BUG-021 | HIGH | `index.go`, `runref.go` | `ReadIndex` accepts partial JSON objects as valid runs | **Open** |
-| BUG-022 | HIGH | `taskpath.go` | `run` accepts symlinked task path whose real target is outside the repository | **Open** |
-| BUG-023 | CRITICAL | `run.go`, `factory.go`, `process.go` | `--egress none` does not disable networking; container gets full internet access | **Open** |
-| BUG-024 | MEDIUM | `run.go:216` | `WriteDiffArtifacts` error silently discarded; run completes without diff evidence | **Open** |
+| BUG-020 | HIGH | `runref.go` | `last-N` resolves index lines, not runs; duplicate entries break previous-run selection | **Fixed** |
+| BUG-021 | HIGH | `index.go`, `runref.go` | `ReadIndex` accepts partial JSON objects as valid runs | **Fixed** |
+| BUG-022 | HIGH | `taskpath.go` | `run` accepts symlinked task path whose real target is outside the repository | **Fixed** |
+| BUG-023 | CRITICAL | `run.go`, `factory.go`, `process.go` | `--egress none` does not disable networking; container gets full internet access | **Fixed** |
+| BUG-024 | MEDIUM | `run.go:216` | `WriteDiffArtifacts` error silently discarded; run completes without diff evidence | **Fixed** |
+| BUG-025 | HIGH | `allowlist.go:39`, `squidconf.go:47` | Newline/control char injection in allowlist host corrupts Squid config | **Open** |
+| BUG-026 | MEDIUM | `allowlist.go:35-43` | Leading-dot hosts enable Squid wildcard subdomain matching | **Open** |
+| BUG-027 | HIGH | `process.go:104`, `runner.go:176` | `docker stop --time=10` makes `--grace` flag dead code | **Open** |
+| BUG-028 | MEDIUM | `provision.go:53-69` | Worktree and git ref leak when Docker unavailable during cleanup | **Open** |
+| BUG-029 | MEDIUM | `squid.go:56-59` | Squid proxy container lacks security hardening (no cap-drop, no-new-privileges) | **Open** |
+| BUG-030 | MEDIUM | `squid.go:16` | Squid proxy image uses unpinned `:latest` tag | **Open** |
+| BUG-031 | HIGH | `squidconf.go:52` | Squid ACL cross-product allows unintended host:port combinations | **Open** |
+| BUG-032 | MEDIUM | `allowlist.go:22` | IPv6 address misparse in ParseDestination | **Open** |
+| BUG-033 | MEDIUM | `diff.go:27` | Binary file changes silently dropped during promote (missing `--binary`) | **Open** |
+| BUG-034 | MEDIUM | `squid.go:49-103`, `topology.go:71` | Squid container and network leak on partial StartSquid failure | **Open** |
+| BUG-035 | LOW | `manifest.go:80` | WriteManifest not atomic; partial write on crash corrupts evidence | **Open** |
+| BUG-036 | LOW | `config.go:72` | `--egress open` silently discards `--egress-allow` without warning | **Open** |
 
 ---
 
@@ -908,3 +920,237 @@ if err := runner.WriteDiffArtifacts(cmd.Context(), evidenceDir, wsPath, baseSHA)
 | Dirty-repo error message | Matches spec: "commit, stash, or clean the repository first" | CLEAN |
 | Promote edge cases | Branch-exists, unfinished-run, --no-trailers, --branch, git add -A, zero-diff | CLEAN |
 | Promote terminal state check | All 5 terminal states accepted, running rejected | CLEAN |
+
+---
+
+## Iteration 14
+
+Scope: deep adversarial review across three axes — (1) path traversal and input validation, (2) process lifecycle and concurrency, (3) security isolation and container hardening. Verified status of all previously open bugs (BUG-013 through BUG-024).
+
+### Previously open bugs — status update
+
+BUG-013, BUG-014, BUG-016, BUG-020, BUG-021, BUG-022, BUG-023, BUG-024 are now **fixed**:
+- **BUG-013**: `promote.go` now calls `run.ValidateEvidencePath(repoRoot, entry.EvidencePath)` before processing.
+- **BUG-014**: `promote.go` now checks `diffstat.txt` existence and non-emptiness.
+- **BUG-016**: `attach.go` now calls `run.ValidateEvidencePath(repoRoot, entry.EvidencePath)`.
+- **BUG-020**: `runref.go` now calls `uniqueRuns(entries)` to deduplicate by run_id before indexing.
+- **BUG-021**: `index.go` now requires `entry.isComplete()` with all 8 required fields.
+- **BUG-022**: `taskpath.go` now calls `filepath.EvalSymlinks` on both task path and repo root.
+- **BUG-023**: `factory.go` sets `NetworkName: "none"` for egress none; `process.go` passes `--net none`.
+- **BUG-024**: `run.go` now calls `warnDiffArtifacts` which emits a warning to stderr.
+
+BUG-015, BUG-017, BUG-018, BUG-019 are **still open**:
+- **BUG-015**: Manifest still read without integrity verification; local user can tamper branch identity.
+- **BUG-017**: Evidence path validated under `.tessariq/runs/` but directory name not cross-checked against `entry.RunID`.
+- **BUG-018**: `attach` still does not preflight `git` as a required host prerequisite.
+- **BUG-019**: `run` still loads user config even when `--egress none` makes the allowlist irrelevant.
+
+### BUG-025: Newline/control character injection in egress allowlist host corrupts Squid config
+
+**Severity:** HIGH
+**File:** `internal/run/allowlist.go:39`, `internal/proxy/squidconf.go:47`
+
+**What happens:** `ParseDestination` validates hosts only against space and tab (`strings.ContainsAny(host, " \t")`) but does not reject newlines (`\n`, `\r`) or other control characters. A host containing a newline passes validation and flows through to `GenerateSquidConf` where it is interpolated via `fmt.Fprintf(&b, "acl allowed_dest dstdomain %s\n", d.Host)`. This produces a multi-line output that can inject arbitrary Squid directives.
+
+**Attack vector:** A user config YAML file with double-quoted strings interprets `\n` as a literal newline:
+```yaml
+egress_allow:
+  - "evil.com\nhttp_access allow all\nacl x dstdomain"
+```
+
+This generates a squid.conf containing `http_access allow all` as a standalone directive *before* the `deny all` rule, effectively disabling the entire egress firewall.
+
+**Impact:** Egress policy bypass via config file manipulation. While the primary attack surface is the user's own config, a compromised tool in the repo could write to `~/.config/tessariq/config.yaml`.
+
+**Fix:** Replace the whitespace check with a hostname character allowlist (RFC 1123: `[a-zA-Z0-9.-]`) or at minimum reject all bytes < 0x20 and 0x7F.
+
+### BUG-026: Leading-dot hosts in allowlist enable Squid wildcard subdomain matching
+
+**Severity:** MEDIUM
+**File:** `internal/run/allowlist.go:35-43`, `internal/proxy/squidconf.go:47`
+
+**Spec says:** Allowlists are enforced at "host:port granularity."
+
+**What happens:** `ParseDestination` does not reject leading-dot hostnames. A value like `.github.com` passes all validation checks and produces `acl allowed_dest dstdomain .github.com` in squid.conf. Squid's `dstdomain` interprets leading dots as wildcard subdomain matchers, matching **all** subdomains of `github.com` — violating the spec's host:port granularity promise.
+
+**Reproduction:** `tessariq run --egress-allow .github.com tasks/sample.md` — allows `evil.github.com`, `anything.github.com`, etc.
+
+**Fix:** Reject hosts starting with `.` in `ParseDestination`.
+
+### BUG-027: `docker stop --time=10` in Signal() makes `--grace` flag dead code
+
+**Severity:** HIGH
+**File:** `internal/container/process.go:104`, `internal/runner/runner.go:176-192`
+
+**What happens:** `Process.Signal(SIGTERM)` runs `docker stop --time=10`, which blocks synchronously until the container stops or 10 seconds elapse (then Docker sends SIGKILL). This call at `runner.go:176` is synchronous — by the time it returns, the container is already dead and `Wait()` has already sent its result on `waitCh`.
+
+The runner's subsequent `select` at line 178-192 with `time.After(r.Config.Grace)` never fires because `waitCh` already has a value. Consequences:
+1. **`--grace` flag is entirely ignored.** The actual grace period is always the hardcoded 10 seconds inside `docker stop`.
+2. **The SIGKILL escalation path (lines 183-191) is unreachable dead code** — it can never execute with the Docker container backend.
+3. `--grace 60s` gives 10s of grace; `--grace 1s` gives 10s of grace.
+
+**Reproduction:** Run with `--grace 1s` and a task that hangs. After timeout, observe the container lives for 10 seconds (docker stop's hardcoded grace). The runner.log will never contain "grace period expired, sending SIGKILL".
+
+**Fix:** Use `docker kill --signal=SIGTERM` (non-blocking) instead of `docker stop` for the SIGTERM step, and let the runner's own grace timer handle the SIGKILL escalation. Alternatively, pass `--time=<grace_seconds>` derived from `r.Config.Grace`.
+
+### BUG-028: Worktree and git ref leak when Docker is unavailable during cleanup
+
+**Severity:** MEDIUM
+**File:** `internal/workspace/provision.go:53-69`
+
+**What happens:** `Cleanup()` calls `repairWorkspaceOwnership()` first (line 58), which runs `docker run --rm alpine chown ...`. If Docker is unavailable (daemon crashed, image not cached on air-gapped host), this returns an error and Cleanup returns immediately (line 59) without reaching `git.RemoveWorktree` (line 62) or `os.RemoveAll` (line 68).
+
+Both the git worktree reference and filesystem directory are leaked. Stale git worktree refs cause `git worktree add` to fail for the same path. The caller in `cmd/tessariq/run.go` only emits a warning.
+
+**Reproduction:** Start a run successfully, then stop the Docker daemon before the run completes. When cleanup runs, `repairWorkspaceOwnership` fails. Run `git worktree list` to see the leaked ref.
+
+**Fix:** Attempt `git.RemoveWorktree` and `os.RemoveAll` even when `repairWorkspaceOwnership` fails, perhaps with a host-side `chmod -R u+rwX` fallback.
+
+### BUG-029: Squid proxy container lacks security hardening
+
+**Severity:** MEDIUM
+**File:** `internal/proxy/squid.go:56-59`
+
+**What happens:** The Squid proxy container is created with no security flags: no `--cap-drop ALL`, no `--security-opt no-new-privileges`, no resource limits. This contrasts with the agent container (`process.go:194-195`) which correctly applies both `--cap-drop ALL` and `--security-opt no-new-privileges`.
+
+The Squid container is a critical security boundary — it enforces the egress allowlist. It's on the internal network *and* the bridge network (added at `squid.go:87`). A vulnerability in Squid triggered by a malicious CONNECT request from the agent could be escalated more easily without capability dropping.
+
+**Reproduction:** `docker inspect tessariq-squid-<id> | jq '.[0].HostConfig.CapDrop'` returns null instead of `["ALL"]`.
+
+**Fix:** Add `--cap-drop`, `ALL`, `--security-opt`, `no-new-privileges` to the `docker create` call in `StartSquid`.
+
+### BUG-030: Squid proxy image uses unpinned `:latest` tag
+
+**Severity:** MEDIUM
+**File:** `internal/proxy/squid.go:16`
+
+**What happens:** `DefaultSquidImage` is `"ubuntu/squid:latest"` — a mutable, unpinned tag. Meanwhile the repair image in `workspace/provision.go:17` is correctly pinned by digest (`alpine@sha256:...`). A supply-chain attack on the `ubuntu/squid` image on Docker Hub would compromise every proxy-mode run.
+
+**Fix:** Pin `DefaultSquidImage` by digest, matching the pattern already used for the repair image.
+
+---
+
+### Areas tested (clean)
+
+| Area | Probe | Result |
+|------|-------|--------|
+| Task path validation | Symlinks, `../`, null bytes, absolute paths | CLEAN (fixed in BUG-022) |
+| Evidence path validation | Absolute paths, `../`, symlinks, out-of-repo | CLEAN (fixed in BUG-013/016) |
+| RunRef resolution | Malformed IDs, last-0, last-N with N > entries | CLEAN (fixed in BUG-020) |
+| Index JSONL integrity | Incomplete entries, missing fields, flock locking | CLEAN (fixed in BUG-021) |
+| Container cap-drop/no-new-privileges | Agent container security flags | CLEAN |
+| Evidence mount read-only | `/evidence` mount flags | CLEAN |
+| Auth/config mounts read-only | All auth mounts set ReadOnly: true | CLEAN |
+| `--egress none` networking | Container gets `--net none` (loopback only) | CLEAN (fixed in BUG-023) |
+| `WriteDiffArtifacts` error handling | Warning emitted to stderr | CLEAN (fixed in BUG-024) |
+| Port validation | Port 0, 65536, negative, non-numeric | CLEAN |
+| Docker container name collision | Deterministic `tessariq-<run_id>` | CLEAN |
+| Log capping | CappedWriter correctness, truncation marker | CLEAN |
+| Status artifact atomicity | JSON serialization, state transitions | CLEAN |
+
+---
+
+## Iteration 15
+
+Scope: deep adversarial review across three new axes — (1) CLI argument parsing, duration handling, and flag conflicts, (2) git operations, promote logic, and diff artifact generation, (3) adapter/auth/proxy lifecycle and teardown paths.
+
+### BUG-031: Squid ACL cross-product allows unintended host:port combinations
+
+**Severity:** HIGH
+**File:** `internal/proxy/squidconf.go:22-52`
+
+**What happens:** `GenerateSquidConf` creates two separate Squid ACLs — `SSL_ports` for all unique ports and `allowed_dest` for all unique hosts — then combines them in a single rule: `http_access allow CONNECT SSL_ports allowed_dest`. Squid evaluates multiple values in same-named ACLs with OR logic and ANDs the different ACL names.
+
+This means **any allowed host can be reached on any allowed port**, creating a cross-product. With allowlist `[api.openai.com:443, internal.example.com:8443]`, the generated config allows:
+- `api.openai.com:443` (intended)
+- `internal.example.com:8443` (intended)
+- `api.openai.com:8443` (NOT intended)
+- `internal.example.com:443` (NOT intended)
+
+The spec says allowlists are enforced at "host:port granularity" but the generated config enforces at "(any host) x (any port)" granularity.
+
+**Impact:** When the allowlist contains hosts on different ports, an agent can reach any allowed host on any allowed port. This widens the egress surface beyond what the user configured.
+
+**Reproduction:** `tessariq run --egress proxy --egress-allow "api.openai.com:443" --egress-allow "internal.example.com:8443" task.md`. From inside the agent container, `CONNECT api.openai.com:8443` via the proxy succeeds even though only `:443` was allowed for that host.
+
+**Fix:** Generate per-destination ACL pairs with unique names (e.g., `acl dest0 dstdomain api.openai.com` + `acl port0 port 443`, then `http_access allow CONNECT dest0 port0`), or use Squid's `note` or external ACL helpers for per-pair enforcement.
+
+### BUG-032: IPv6 address misparse in ParseDestination
+
+**Severity:** MEDIUM
+**File:** `internal/run/allowlist.go:22`
+
+**What happens:** `ParseDestination` uses `strings.LastIndex(s, ":")` to split host from port. IPv6 addresses contain colons as part of the address, so they are incorrectly parsed. For example:
+- `"2001:db8::1"` → host=`"2001:db8:"`, port=`1` (should be host=`"2001:db8::1"`, port=`443`)
+- `"[::1]:443"` → host=`"[::1]"` with brackets preserved, producing malformed Squid `dstdomain`
+
+The function has no IPv6 awareness at all.
+
+**Reproduction:** `tessariq run --egress proxy --egress-allow "2001:db8::1" task.md` silently misparses and produces a Squid config with `dstdomain 2001:db8:` which is not a valid address.
+
+**Fix:** Use `net.SplitHostPort` for `host:port` forms and handle bare hostnames separately, or detect IPv6 by bracket presence.
+
+### BUG-033: Binary file changes silently dropped during promote
+
+**Severity:** MEDIUM
+**File:** `internal/git/diff.go:27`, `internal/promote/promote.go:107`
+
+**What happens:** The `Diff` function runs `git diff <baseSHA> -- .` without the `--binary` flag. By default, `git diff` outputs text-mode patches that represent binary files as "Binary files a/foo and b/foo differ" — no actual content. When promote later runs `git apply` on this patch, the apply succeeds but silently skips the binary hunks. The promoted branch is missing any binary file changes (images, compiled assets, etc.) the agent made during the run.
+
+**Impact:** Silent data loss on promote. No error or warning is raised.
+
+**Reproduction:** 1. Create a run where the agent adds/modifies a binary file (e.g., PNG). 2. The run completes and `diff.patch` is generated without binary content. 3. `tessariq promote last` — patch applies, but binary file is absent from the promoted branch.
+
+**Fix:** Add `--binary` flag to the `git diff` command in `Diff()`.
+
+### BUG-034: Squid container and network leak on partial StartSquid failure
+
+**Severity:** MEDIUM
+**File:** `internal/proxy/squid.go:49-103`, `internal/proxy/topology.go:71-73`
+
+**What happens:** `StartSquid` performs a 5-step sequence (create, cp, network connect, start, readiness check). If steps 2-5 fail, the container created in step 1 is not cleaned up. The caller (`Topology.Setup` at `topology.go:71-73`) only calls `RemoveNetwork` on failure — it does NOT call `StopSquid`. Furthermore, `RemoveNetwork` itself fails silently because the orphaned container is still attached. The deferred `Teardown` in `cmd/tessariq/run.go` only runs after a successful Setup.
+
+**Impact:** Orphaned Docker container and network persist until manually cleaned.
+
+**Reproduction:** Use a broken squid.conf that causes Squid to crash before listening (readiness check times out). After the error, `docker ps -a | grep tessariq-squid` shows the leaked container.
+
+**Fix:** Add cleanup logic to `StartSquid` or to the Setup error path to call `StopSquid` before `RemoveNetwork`.
+
+### BUG-035: WriteManifest is not atomic — partial write corrupts evidence on crash
+
+**Severity:** LOW
+**File:** `internal/run/manifest.go:80`
+
+**What happens:** `WriteManifest` calls `os.WriteFile` directly. If the process is killed mid-write (e.g., SIGKILL after grace timeout), the file contains partial JSON. This is inconsistent with `WriteStatus` which uses the tmp+rename atomic pattern. A corrupt `manifest.json` blocks promote permanently.
+
+**Fix:** Use the same tmp+rename pattern as `WriteStatus`.
+
+### BUG-036: `--egress open` silently discards `--egress-allow` without warning
+
+**Severity:** LOW
+**File:** `internal/run/config.go:72`
+
+**What happens:** `Validate()` rejects `--egress-allow` with `--egress none` but does NOT reject or warn when combined with `--egress open`. In open mode, no proxy starts and the allowlist is silently ignored. The user believes they configured restrictions but gets unrestricted egress.
+
+**Reproduction:** `tessariq run --egress open --egress-allow "example.com:443" task.md` — succeeds with no warning, but the allowlist is completely ignored.
+
+**Fix:** Add a validation error or at minimum a warning when `--egress-allow` is provided with `--egress open`.
+
+---
+
+### Areas tested (clean)
+
+| Area | Probe | Result |
+|------|-------|--------|
+| CLI flag parsing | All 14 `tessariq run` flags, defaults, types | CLEAN |
+| Duration validation | Timeout > 0, Grace >= 0, Grace <= Timeout | CLEAN |
+| Agent flag validation | Valid agent names, unknown agent rejection | CLEAN |
+| Config struct validation | Required fields, field interactions | CLEAN |
+| Git command injection | All git shell-outs use exec.Command args, not interpolation | CLEAN |
+| Promote worktree lifecycle | Create, apply, commit, branch, remove | CLEAN |
+| Index flock locking | Concurrent append correctness | CLEAN |
+| Auth file discovery | Claude Code and OpenCode path resolution | CLEAN |
+| Auth mount read-only enforcement | All MountSpec entries | CLEAN |
+| Proxy teardown idempotency | StopSquid + RemoveNetwork on missing resources | CLEAN |
+| Hook execution | sh -c with user-provided commands, output capture | CLEAN |
+| Status write atomicity | tmp+rename pattern in WriteStatus | CLEAN |
