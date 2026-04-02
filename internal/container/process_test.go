@@ -199,6 +199,19 @@ func TestBuildCreateArgs_NetworkName(t *testing.T) {
 	require.Less(t, netIdx, imgIdx, "--net must precede image")
 }
 
+func TestBuildCreateArgs_NetworkNone(t *testing.T) {
+	t.Parallel()
+	p := New(Config{Name: "c", Image: "img", NetworkName: "none"})
+	args := p.buildCreateArgs()
+
+	netIdx := indexOf(args, "--net")
+	require.GreaterOrEqual(t, netIdx, 0, "--net must be present")
+	require.Equal(t, "none", args[netIdx+1])
+
+	imgIdx := indexOf(args, "img")
+	require.Less(t, netIdx, imgIdx, "--net must precede image")
+}
+
 func TestBuildCreateArgs_NoNetworkName(t *testing.T) {
 	t.Parallel()
 	p := New(Config{Name: "c", Image: "img"})
