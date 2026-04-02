@@ -134,6 +134,25 @@ func TestE2E_PromoteLastFailsCleanlyWithIncompleteIndex(t *testing.T) {
 	require.Contains(t, output, "run index is empty")
 }
 
+func TestE2E_PromoteForgedEvidencePathShowsActionableGuidance(t *testing.T) {
+	t.Parallel()
+
+	bin := buildBinary(t)
+	env := setupRunEnvCustom(t, bin, e2eSetupOpts{skipImage: true})
+
+	hostDir := env.Dir()
+	repoPath := filepath.Join(hostDir, "repo")
+	ctx := context.Background()
+
+	// Write a forged index entry with an absolute external evidence path.
+	cmd := fmt.Sprintf(`mkdir -p %s/.tessariq/runs && printf '{"run_id":"01ARZ3NDEKTSV4RRFFQ69G5FAV","created_at":"2026-01-01T00:00:00Z","task_path":"tasks/sample.md","task_title":"Forged Task","agent":"claude-code","workspace_mode":"worktree","state":"success","evidence_path":"/tmp/evil-evidence"}\n' > %s/.tessariq/runs/index.jsonl`, repoPath, repoPath)
+	execCmd(t, env, ctx, cmd, "write forged index")
+
+	code, output := runPromote(t, env, "last", "")
+	require.NotEqual(t, 0, code, "promote should fail with forged evidence path")
+	require.Contains(t, output, "outside the repository")
+}
+
 func runPromote(t *testing.T, env *containers.RunEnv, runID, envPrefix string) (int, string) {
 	t.Helper()
 

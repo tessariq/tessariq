@@ -39,9 +39,9 @@ func Run(ctx context.Context, repoRoot string, opts Options) (Result, error) {
 		return Result{}, err
 	}
 
-	evidenceDir := entry.EvidencePath
-	if !filepath.IsAbs(evidenceDir) {
-		evidenceDir = filepath.Join(repoRoot, evidenceDir)
+	evidenceDir, err := run.ValidateEvidencePath(repoRoot, entry.EvidencePath)
+	if err != nil {
+		return Result{}, fmt.Errorf("run evidence is invalid or outside the repository: %w", err)
 	}
 
 	if err := runner.CheckEvidenceCompleteness(evidenceDir); err != nil {

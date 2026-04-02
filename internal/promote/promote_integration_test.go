@@ -292,6 +292,77 @@ func TestRun_IncompleteIndexFailsCleanly(t *testing.T) {
 	require.ErrorIs(t, err, run.ErrEmptyIndex)
 }
 
+func TestRun_ForgedExternalEvidencePathRejectedBeforeGitSideEffects(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo, err := containers.StartGitRepo(ctx, t)
+	require.NoError(t, err)
+
+	writeFile(t, filepath.Join(repo.Dir(), "tracked.txt"), "before\n")
+	gitRunTest(t, repo.Dir(), "add", "tracked.txt")
+	gitRunTest(t, repo.Dir(), "commit", "-m", "base")
+
+	// Write a forged index entry with an absolute external evidence path.
+	runsDir := filepath.Join(repo.Dir(), ".tessariq", "runs")
+	require.NoError(t, os.MkdirAll(runsDir, 0o700))
+	forgedEntry := run.IndexEntry{
+		RunID:         testRunID,
+		CreatedAt:     time.Now().UTC().Format(time.RFC3339),
+		TaskPath:      "tasks/sample.md",
+		TaskTitle:     "Forged Task",
+		Agent:         "claude-code",
+		WorkspaceMode: "worktree",
+		State:         string(runner.StateSuccess),
+		EvidencePath:  "/tmp/evil-evidence",
+	}
+	require.NoError(t, run.AppendIndex(runsDir, forgedEntry))
+
+	_, err = Run(ctx, repo.Dir(), Options{RunRef: testRunID})
+	require.Error(t, err)
+	require.ErrorIs(t, err, run.ErrEvidencePathOutsideRepo)
+	require.Contains(t, err.Error(), "outside the repository")
+
+	// Assert no branch was created (no git side effects).
+	require.Empty(t, gitOutputAllowFailure(t, repo.Dir(), "branch", "--list", defaultBranchName(testRunID)))
+	branchCount := gitOutputTest(t, repo.Dir(), "rev-list", "--count", "--all")
+	require.Equal(t, "2", branchCount, "expected only the initial 2 commits, no promote commit")
+}
+
+func TestRun_ForgedTraversalEvidencePathRejectedBeforeGitSideEffects(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo, err := containers.StartGitRepo(ctx, t)
+	require.NoError(t, err)
+
+	writeFile(t, filepath.Join(repo.Dir(), "tracked.txt"), "before\n")
+	gitRunTest(t, repo.Dir(), "add", "tracked.txt")
+	gitRunTest(t, repo.Dir(), "commit", "-m", "base")
+
+	// Write a forged index entry with a path-traversal evidence path.
+	runsDir := filepath.Join(repo.Dir(), ".tessariq", "runs")
+	require.NoError(t, os.MkdirAll(runsDir, 0o700))
+	forgedEntry := run.IndexEntry{
+		RunID:         testRunID,
+		CreatedAt:     time.Now().UTC().Format(time.RFC3339),
+		TaskPath:      "tasks/sample.md",
+		TaskTitle:     "Forged Task",
+		Agent:         "claude-code",
+		WorkspaceMode: "worktree",
+		State:         string(runner.StateSuccess),
+		EvidencePath:  ".tessariq/runs/../../etc/passwd",
+	}
+	require.NoError(t, run.AppendIndex(runsDir, forgedEntry))
+
+	_, err = Run(ctx, repo.Dir(), Options{RunRef: testRunID})
+	require.Error(t, err)
+	require.ErrorIs(t, err, run.ErrEvidencePathOutsideRepo)
+
+	// Assert no branch was created.
+	require.Empty(t, gitOutputAllowFailure(t, repo.Dir(), "branch", "--list", defaultBranchName(testRunID)))
+}
+
 func buildDiffArtifacts(t *testing.T, repoDir, baseSHA string, mutate func(string)) (string, string) {
 	t.Helper()
 
