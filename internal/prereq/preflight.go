@@ -32,7 +32,7 @@ func RequirementsForCommand(command string) ([]Dependency, error) {
 	case "run":
 		return []Dependency{DependencyGit, DependencyTmux, DependencyDocker}, nil
 	case "attach":
-		return []Dependency{DependencyTmux}, nil
+		return []Dependency{DependencyGit, DependencyTmux}, nil
 	case "promote":
 		return []Dependency{DependencyGit}, nil
 	default:

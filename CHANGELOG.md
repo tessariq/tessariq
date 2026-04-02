@@ -73,3 +73,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed potential `base_sha` divergence between `manifest.json` and `workspace.json` by resolving HEAD once and passing it through workspace provisioning.
 - Fixed silent `index.jsonl` append failures so manifest, status, and file-write errors now emit a `warning:` line to stderr instead of being swallowed.
 - Fixed spurious "interactive mode without --attach" note on default runs by gating the note on the user's explicit `--interactive` flag instead of the agent's capability declaration.
+- Fixed `tessariq attach` missing `git` from its prerequisite preflight, causing a raw exec error instead of actionable guidance when git is unavailable.
