@@ -166,6 +166,90 @@ func TestResolveRunRef_OnlyIncompleteEntriesYieldsEmptyIndex(t *testing.T) {
 	require.ErrorIs(t, err, ErrEmptyIndex)
 }
 
+func TestResolveRunRef_LastDeduplicatesByRunID(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+
+	// A running, B running, B success → 3 lines but only 2 unique runs.
+	a := sampleEntry(testRunID1)
+	a.State = "running"
+	bRunning := sampleEntry(testRunID2)
+	bRunning.State = "running"
+	bSuccess := sampleEntry(testRunID2)
+	bSuccess.State = "success"
+	writeIndexEntries(t, dir, a, bRunning, bSuccess)
+
+	// last → B (success entry, the latest entry for the newest unique run)
+	got, err := ResolveRunRef(dir, "last")
+	require.NoError(t, err)
+	require.Equal(t, bSuccess, got)
+
+	// last-1 → A (the previous unique run)
+	got, err = ResolveRunRef(dir, "last-1")
+	require.NoError(t, err)
+	require.Equal(t, a, got)
+}
+
+func TestResolveRunRef_Last0DeduplicatesByRunID(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+
+	a := sampleEntry(testRunID1)
+	a.State = "running"
+	bRunning := sampleEntry(testRunID2)
+	bRunning.State = "running"
+	bSuccess := sampleEntry(testRunID2)
+	bSuccess.State = "success"
+	writeIndexEntries(t, dir, a, bRunning, bSuccess)
+
+	// last-0 behaves like last
+	got, err := ResolveRunRef(dir, "last-0")
+	require.NoError(t, err)
+	require.Equal(t, bSuccess, got)
+}
+
+func TestResolveRunRef_LastNOutOfRangeAfterDedup(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+
+	// Two entries for same run → only 1 unique run.
+	aRunning := sampleEntry(testRunID1)
+	aRunning.State = "running"
+	aSuccess := sampleEntry(testRunID1)
+	aSuccess.State = "success"
+	writeIndexEntries(t, dir, aRunning, aSuccess)
+
+	// last-1 should fail: only 1 unique run exists.
+	_, err := ResolveRunRef(dir, "last-1")
+	require.ErrorIs(t, err, ErrRunNotFound)
+}
+
+func TestResolveRunRef_LastReturnsLatestEntryPerUniqueRun(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+
+	// Interleaved: A running, B running, A success, B success
+	aRunning := sampleEntry(testRunID1)
+	aRunning.State = "running"
+	bRunning := sampleEntry(testRunID2)
+	bRunning.State = "running"
+	aSuccess := sampleEntry(testRunID1)
+	aSuccess.State = "success"
+	bSuccess := sampleEntry(testRunID2)
+	bSuccess.State = "success"
+	writeIndexEntries(t, dir, aRunning, bRunning, aSuccess, bSuccess)
+
+	// last → B success (latest entry for the newest unique run by first appearance)
+	got, err := ResolveRunRef(dir, "last")
+	require.NoError(t, err)
+	require.Equal(t, bSuccess, got)
+
+	// last-1 → A success (latest entry for the previous unique run)
+	got, err = ResolveRunRef(dir, "last-1")
+	require.NoError(t, err)
+	require.Equal(t, aSuccess, got)
+}
+
 func TestResolveRunRef_ExplicitIDSkipsIncompleteEntry(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()

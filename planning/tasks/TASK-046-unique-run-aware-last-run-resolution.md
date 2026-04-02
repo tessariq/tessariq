@@ -1,7 +1,7 @@
 ---
 id: TASK-046-unique-run-aware-last-run-resolution
 title: Resolve last and last-N by unique runs instead of raw index lines
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-014-run-index-and-run-ref-resolution
@@ -11,7 +11,7 @@ spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#lifecycle-rules
     - specs/tessariq-v0.1.0.md#evidence-contract
-updated_at: "2026-04-01T20:03:47Z"
+updated_at: "2026-04-02T08:39:44Z"
 areas:
     - indexing
     - attach
@@ -75,3 +75,4 @@ Run-ref resolution currently counts raw `index.jsonl` lines, but Tessariq append
 
 - Likely files: `internal/run/runref.go` and associated tests.
 - Keep append-only index writes intact; this task changes resolution semantics, not index emission.
+- 2026-04-02T08:39:44Z: deduplicate index entries by run_id in resolveLastN; unit/integration/e2e/mutation tests pass
