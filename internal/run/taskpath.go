@@ -25,6 +25,20 @@ func ValidateTaskPath(repoRoot, taskPath string) error {
 		return fmt.Errorf("task path is not a regular file: %s", taskPath)
 	}
 
+	realPath, err := filepath.EvalSymlinks(absPath)
+	if err != nil {
+		return fmt.Errorf("resolve task path %s: %w", taskPath, err)
+	}
+
+	realRoot, err := filepath.EvalSymlinks(repoRoot)
+	if err != nil {
+		return fmt.Errorf("resolve repository root: %w", err)
+	}
+
+	if !strings.HasPrefix(realPath, realRoot+string(filepath.Separator)) && realPath != realRoot {
+		return fmt.Errorf("task path is outside the repository: %s", taskPath)
+	}
+
 	return nil
 }
 

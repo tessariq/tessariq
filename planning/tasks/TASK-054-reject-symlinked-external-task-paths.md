@@ -1,7 +1,7 @@
 ---
 id: TASK-054-reject-symlinked-external-task-paths
 title: Reject symlinked task files whose real target escapes the repository
-status: todo
+status: done
 priority: p0
 depends_on:
     - TASK-002-run-cli-flags-and-manifest-bootstrap
@@ -13,7 +13,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#user-authored-inputs
     - specs/tessariq-v0.1.0.md#lifecycle-rules
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-04-01T20:03:47Z"
+updated_at: "2026-04-02T07:40:35Z"
 areas:
     - cli
     - evidence
@@ -78,3 +78,4 @@ Task-path validation currently checks only the lexical joined path, then follows
 
 - Likely files: `internal/run/taskpath.go`, `cmd/tessariq/run.go`, `internal/run/taskcopy.go`, and task-path tests.
 - Keep user-facing failure text aligned with the existing invalid-task-path guidance.
+- 2026-04-02T07:40:35Z: Added filepath.EvalSymlinks boundary re-check in ValidateTaskPath. Unit tests: symlink-outside-repo, symlink-inside-repo, broken-symlink. E2e test: TestE2E_SymlinkToExternalTaskRejected. Manual tests: 5/5 pass. Mutation efficacy: 85.19%. Verification: 0 findings.
