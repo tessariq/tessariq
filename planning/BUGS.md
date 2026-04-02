@@ -12,6 +12,51 @@ Automated adversarial testing against done tasks.
 
 ---
 
+## Bug Summary
+
+BUG-001 through BUG-007 were all fixed by TASK-030 through TASK-039 (done).
+
+| Bug | Severity | File | One-liner | Status |
+|-----|----------|------|-----------|--------|
+| BUG-001 | HIGH | `run.go:71-73` | OpenCode `--interactive` hard-rejected instead of recorded | **Fixed** (TASK-033) |
+| BUG-002 | HIGH | `run.go:231-237` | `--egress-allow` doesn't bypass provider resolution | **Fixed** (TASK-034) |
+| BUG-003 | HIGH | `initialize.go:16` | Init creates evidence parent dirs with 0o755 not 0o700 | **Fixed** (TASK-035) |
+| BUG-004 | MEDIUM | `run.go:87,113` | base_sha TOCTOU between manifest and workspace | **Fixed** (TASK-036) |
+| BUG-005 | HIGH | `factory.go:67` | Agent binary not validated before container start | **Fixed** (TASK-037) |
+| BUG-006 | CRITICAL | `run.go:113-179` | No cleanup defer — worktree leaked on post-provision errors | **Fixed** (TASK-038) |
+| BUG-007 | HIGH | `logs.go:16-29` | Logs not capped, no truncation marker | **Fixed** (TASK-039) |
+| BUG-008 | HIGH | `run.go:200` | Spurious "interactive mode without --attach" note on every default claude-code run | **Fixed** |
+| BUG-009 | HIGH | `run.go:288` | OpenCode + proxy + user_config allowlist fails if auth.json missing | **Fixed** |
+| BUG-010 | MEDIUM | `run.go:288` | OpenCode auth-missing produces raw I/O error instead of actionable message | **Fixed** |
+| BUG-011 | MEDIUM | `run.go:324` | `appendIndexEntry` silently drops all errors; run can complete without an index entry | **Fixed** |
+| BUG-012 | LOW | `specs/tessariq-v0.1.0.md` | Manifest example uses `"allowlist_source": "auto"` which contradicts normative text | **Fixed (spec doc)** |
+| BUG-013 | CRITICAL | `index.go`, `promote.go` | `promote` trusts forged `evidence_path` entries and can promote out-of-repo evidence | **Fixed** |
+| BUG-014 | HIGH | `completeness.go`, `promote.go` | `promote` ignores missing `diffstat.txt` even though spec requires it when changes exist | **Fixed** |
+| BUG-015 | HIGH | `promote.go` | `promote` allows manifest tampering to rewrite branch identity and commit trailers | **Fixed** (TASK-048) |
+| BUG-016 | HIGH | `attach.go` | `attach` trusts forged `evidence_path` entries from outside the repo | **Fixed** |
+| BUG-017 | HIGH | `attach.go` | `attach` does not verify evidence directory belongs to the same `run_id` | **Fixed** (TASK-052) |
+| BUG-018 | HIGH | `preflight.go` | `attach` depends on `git` but does not preflight it as a required prerequisite | **Fixed** (TASK-050) |
+| BUG-019 | HIGH | `run.go` | `run` loads user config even when explicit CLI egress settings should bypass it | **Fixed** (TASK-053) |
+| BUG-020 | HIGH | `runref.go` | `last-N` resolves index lines, not runs; duplicate entries break previous-run selection | **Fixed** |
+| BUG-021 | HIGH | `index.go`, `runref.go` | `ReadIndex` accepts partial JSON objects as valid runs | **Fixed** |
+| BUG-022 | HIGH | `taskpath.go` | `run` accepts symlinked task path whose real target is outside the repository | **Fixed** |
+| BUG-023 | CRITICAL | `run.go`, `factory.go`, `process.go` | `--egress none` does not disable networking; container gets full internet access | **Fixed** |
+| BUG-024 | MEDIUM | `run.go:216` | `WriteDiffArtifacts` error silently discarded; run completes without diff evidence | **Fixed** |
+| BUG-025 | HIGH | `allowlist.go:39`, `squidconf.go:47` | Newline/control char injection in allowlist host corrupts Squid config | **Open** (TASK-058) |
+| BUG-026 | MEDIUM | `allowlist.go:35-43` | Leading-dot hosts enable Squid wildcard subdomain matching | **Open** (TASK-059) |
+| BUG-027 | HIGH | `process.go:104`, `runner.go:176` | `docker stop --time=10` makes `--grace` flag dead code | **Open** (TASK-060) |
+| BUG-028 | MEDIUM | `provision.go:53-69` | Worktree and git ref leak when Docker unavailable during cleanup | **Open** (TASK-061) |
+| BUG-029 | MEDIUM | `squid.go:56-59` | Squid proxy container lacks security hardening (no cap-drop, no-new-privileges) | **Open** (TASK-062) |
+| BUG-030 | MEDIUM | `squid.go:16` | Squid proxy image uses unpinned `:latest` tag | **Open** (TASK-063) |
+| BUG-031 | HIGH | `squidconf.go:52` | Squid ACL cross-product allows unintended host:port combinations | **Open** (TASK-064) |
+| BUG-032 | MEDIUM | `allowlist.go:22` | IPv6 address misparse in ParseDestination | **Open** (TASK-065) |
+| BUG-033 | MEDIUM | `diff.go:27` | Binary file changes silently dropped during promote (missing `--binary`) | **Open** (TASK-066) |
+| BUG-034 | MEDIUM | `squid.go:49-103`, `topology.go:71` | Squid container and network leak on partial StartSquid failure | **Open** (TASK-067) |
+| BUG-035 | LOW | `manifest.go:80` | WriteManifest not atomic; partial write on crash corrupts evidence | **Open** (TASK-068) |
+| BUG-036 | LOW | `config.go:72` | `--egress open` silently discards `--egress-allow` without warning | **Open** (TASK-069) |
+
+---
+
 ## Iteration 1
 
 ### BUG-001: OpenCode `--interactive` rejected at CLI instead of recorded as not-applied
@@ -246,51 +291,6 @@ Each of these leaves a dangling worktree directory at `~/.tessariq/worktrees/<re
 ### Minor findings
 
 - `--egress-allow` with `--egress open` accepted but meaningless — LOW, spec doesn't explicitly forbid it
-
----
-
-## Bug Summary
-
-BUG-001 through BUG-007 were all fixed by TASK-030 through TASK-039 (done).
-
-| Bug | Severity | File | One-liner | Status |
-|-----|----------|------|-----------|--------|
-| BUG-001 | HIGH | `run.go:71-73` | OpenCode `--interactive` hard-rejected instead of recorded | **Fixed** (TASK-033) |
-| BUG-002 | HIGH | `run.go:231-237` | `--egress-allow` doesn't bypass provider resolution | **Fixed** (TASK-034) |
-| BUG-003 | HIGH | `initialize.go:16` | Init creates evidence parent dirs with 0o755 not 0o700 | **Fixed** (TASK-035) |
-| BUG-004 | MEDIUM | `run.go:87,113` | base_sha TOCTOU between manifest and workspace | **Fixed** (TASK-036) |
-| BUG-005 | HIGH | `factory.go:67` | Agent binary not validated before container start | **Fixed** (TASK-037) |
-| BUG-006 | CRITICAL | `run.go:113-179` | No cleanup defer — worktree leaked on post-provision errors | **Fixed** (TASK-038) |
-| BUG-007 | HIGH | `logs.go:16-29` | Logs not capped, no truncation marker | **Fixed** (TASK-039) |
-| BUG-008 | HIGH | `run.go:200` | Spurious "interactive mode without --attach" note on every default claude-code run | **Fixed** |
-| BUG-009 | HIGH | `run.go:288` | OpenCode + proxy + user_config allowlist fails if auth.json missing | **Fixed** |
-| BUG-010 | MEDIUM | `run.go:288` | OpenCode auth-missing produces raw I/O error instead of actionable message | **Fixed** |
-| BUG-011 | MEDIUM | `run.go:324` | `appendIndexEntry` silently drops all errors; run can complete without an index entry | **Fixed** |
-| BUG-012 | LOW | `specs/tessariq-v0.1.0.md` | Manifest example uses `"allowlist_source": "auto"` which contradicts normative text | **Fixed (spec doc)** |
-| BUG-013 | CRITICAL | `index.go`, `promote.go` | `promote` trusts forged `evidence_path` entries and can promote out-of-repo evidence | **Fixed** |
-| BUG-014 | HIGH | `completeness.go`, `promote.go` | `promote` ignores missing `diffstat.txt` even though spec requires it when changes exist | **Fixed** |
-| BUG-015 | HIGH | `promote.go` | `promote` allows manifest tampering to rewrite branch identity and commit trailers | **Open** |
-| BUG-016 | HIGH | `attach.go` | `attach` trusts forged `evidence_path` entries from outside the repo | **Fixed** |
-| BUG-017 | HIGH | `attach.go` | `attach` does not verify evidence directory belongs to the same `run_id` | **Open** |
-| BUG-018 | HIGH | `preflight.go` | `attach` depends on `git` but does not preflight it as a required prerequisite | **Open** |
-| BUG-019 | HIGH | `run.go` | `run` loads user config even when explicit CLI egress settings should bypass it | **Open** |
-| BUG-020 | HIGH | `runref.go` | `last-N` resolves index lines, not runs; duplicate entries break previous-run selection | **Fixed** |
-| BUG-021 | HIGH | `index.go`, `runref.go` | `ReadIndex` accepts partial JSON objects as valid runs | **Fixed** |
-| BUG-022 | HIGH | `taskpath.go` | `run` accepts symlinked task path whose real target is outside the repository | **Fixed** |
-| BUG-023 | CRITICAL | `run.go`, `factory.go`, `process.go` | `--egress none` does not disable networking; container gets full internet access | **Fixed** |
-| BUG-024 | MEDIUM | `run.go:216` | `WriteDiffArtifacts` error silently discarded; run completes without diff evidence | **Fixed** |
-| BUG-025 | HIGH | `allowlist.go:39`, `squidconf.go:47` | Newline/control char injection in allowlist host corrupts Squid config | **Open** |
-| BUG-026 | MEDIUM | `allowlist.go:35-43` | Leading-dot hosts enable Squid wildcard subdomain matching | **Open** |
-| BUG-027 | HIGH | `process.go:104`, `runner.go:176` | `docker stop --time=10` makes `--grace` flag dead code | **Open** |
-| BUG-028 | MEDIUM | `provision.go:53-69` | Worktree and git ref leak when Docker unavailable during cleanup | **Open** |
-| BUG-029 | MEDIUM | `squid.go:56-59` | Squid proxy container lacks security hardening (no cap-drop, no-new-privileges) | **Open** |
-| BUG-030 | MEDIUM | `squid.go:16` | Squid proxy image uses unpinned `:latest` tag | **Open** |
-| BUG-031 | HIGH | `squidconf.go:52` | Squid ACL cross-product allows unintended host:port combinations | **Open** |
-| BUG-032 | MEDIUM | `allowlist.go:22` | IPv6 address misparse in ParseDestination | **Open** |
-| BUG-033 | MEDIUM | `diff.go:27` | Binary file changes silently dropped during promote (missing `--binary`) | **Open** |
-| BUG-034 | MEDIUM | `squid.go:49-103`, `topology.go:71` | Squid container and network leak on partial StartSquid failure | **Open** |
-| BUG-035 | LOW | `manifest.go:80` | WriteManifest not atomic; partial write on crash corrupts evidence | **Open** |
-| BUG-036 | LOW | `config.go:72` | `--egress open` silently discards `--egress-allow` without warning | **Open** |
 
 ---
 

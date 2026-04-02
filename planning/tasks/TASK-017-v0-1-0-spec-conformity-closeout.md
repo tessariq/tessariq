@@ -45,6 +45,18 @@ depends_on:
     - TASK-055-version-command-and-root-version-flag
     - TASK-056-enforce-network-none-for-egress-none
     - TASK-057-surface-diff-artifact-write-errors
+    - TASK-058-reject-control-characters-in-allowlist-hosts
+    - TASK-059-reject-leading-dot-allowlist-hosts
+    - TASK-060-respect-grace-duration-during-container-shutdown
+    - TASK-061-cleanup-worktrees-even-when-ownership-repair-fails
+    - TASK-062-harden-squid-proxy-container-security
+    - TASK-063-pin-squid-proxy-image-by-digest
+    - TASK-064-enforce-host-port-pair-acls-in-squid-conf
+    - TASK-065-support-ipv6-safe-egress-destination-parsing
+    - TASK-066-preserve-binary-file-changes-in-diff-and-promote
+    - TASK-067-cleanup-squid-resources-on-startup-failure
+    - TASK-068-make-manifest-writes-atomic
+    - TASK-069-reject-egress-allow-with-egress-open
 milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:
@@ -60,7 +72,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#acceptance-scenarios
     - specs/tessariq-v0.1.0.md#failure-ux
     - specs/tessariq-v0.1.0.md#success-metrics
-updated_at: "2026-03-30T22:10:00Z"
+updated_at: "2026-04-02T15:20:00Z"
 areas:
     - verification
     - spec
