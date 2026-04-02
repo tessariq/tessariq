@@ -79,6 +79,41 @@ func TestIntegration_AttachLastFailsCleanlyWithIncompleteIndex(t *testing.T) {
 	require.Contains(t, output, "no matching run found")
 }
 
+func TestIntegration_AttachForgedExternalEvidencePathFailsBeforeAttaching(t *testing.T) {
+	t.Parallel()
+
+	env := setupAttachIntegrationEnv(t)
+	repoPath := filepath.Join(env.Dir(), "repo")
+	homeDir := filepath.Join(env.Dir(), "home")
+	binPath := filepath.Join(env.Dir(), "tessariq")
+	runID := "01ARZ3NDEKTSV4RRFFQ69G5FAB"
+	evilEvidenceDir := filepath.Join(env.Dir(), "evil-evidence")
+
+	require.NoError(t, os.MkdirAll(evilEvidenceDir, 0o700))
+	require.NoError(t, runner.WriteStatus(evilEvidenceDir, runner.NewInitialStatus(time.Now())))
+	require.NoError(t, run.AppendIndex(filepath.Join(repoPath, ".tessariq", "runs"), run.IndexEntry{
+		RunID:         runID,
+		CreatedAt:     time.Now().UTC().Format(time.RFC3339),
+		TaskPath:      "tasks/sample.md",
+		TaskTitle:     "Forged Task",
+		Agent:         "claude-code",
+		WorkspaceMode: "worktree",
+		State:         string(runner.StateRunning),
+		EvidencePath:  evilEvidenceDir,
+	}))
+
+	startSession(t, env, run.SessionName(runID), "printf forged-live-output; sleep 10")
+	startAttachProcess(t, env, repoPath, homeDir, binPath, runID)
+
+	require.False(t, waitForAttachedClient(env, run.SessionName(runID), 2*time.Second), "attach should reject forged external evidence before connecting")
+	require.Eventually(t, func() bool {
+		output := readAttachLog(t, env)
+		return strings.Contains(output, "run "+runID+" is not live") &&
+			strings.Contains(output, "outside the repository") &&
+			strings.Contains(output, evilEvidenceDir)
+	}, 5*time.Second, 100*time.Millisecond, "attach log: %s", readAttachLog(t, env))
+}
+
 func buildAttachIntegrationBinary(t *testing.T) string {
 	t.Helper()
 
@@ -209,6 +244,19 @@ func listClients(t *testing.T, env *containers.RunEnv) string {
 	require.NoError(t, err)
 	require.Equal(t, 0, code, "list clients failed: %s", output)
 	return output
+}
+
+func waitForAttachedClient(env *containers.RunEnv, sessionName string, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		ctx := context.Background()
+		code, output, err := env.Exec(ctx, []string{"sh", "-c", "tmux list-clients -F '#{client_tty} #{session_name}'"})
+		if err == nil && code == 0 && strings.Contains(output, sessionName) {
+			return true
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	return false
 }
 
 func runAttachInEnv(t *testing.T, env *containers.RunEnv, repoPath, homeDir, binPath, runRef, envPrefix string) (int, string) {

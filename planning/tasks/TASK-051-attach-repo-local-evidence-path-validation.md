@@ -1,7 +1,7 @@
 ---
 id: TASK-051-attach-repo-local-evidence-path-validation
 title: Reject non-repo evidence paths during attach resolution
-status: todo
+status: done
 priority: p0
 depends_on:
     - TASK-007-attach-command-live-run-resolution
@@ -14,7 +14,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#generated-runtime-state
     - specs/tessariq-v0.1.0.md#lifecycle-rules
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-04-01T20:03:47Z"
+updated_at: "2026-04-02T10:31:36Z"
 areas:
     - attach
     - evidence
@@ -78,3 +78,4 @@ verification:
 
 - Likely files: `internal/attach/attach.go` and attach integration/e2e tests.
 - Prefer reusing the same repo-local evidence validation rules as promote hardening where practical.
+- 2026-04-02T10:31:36Z: Implemented repo-local attach evidence-path validation before liveness checks; verified with go test ./..., go test -tags=integration ./..., go test -tags=e2e ./..., gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70 (85.63% efficacy), and manual test artifacts under planning/artifacts/manual-test/TASK-051-attach-repo-local-evidence-path-validation/20260402T102743Z.
