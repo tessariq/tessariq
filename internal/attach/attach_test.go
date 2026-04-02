@@ -90,6 +90,50 @@ func TestResolveLiveRun_MissingSessionReturnsNotLiveError(t *testing.T) {
 	require.ErrorContains(t, err, "no live tmux session")
 }
 
+func TestResolveLiveRun_RejectsAbsoluteEvidencePathBeforeStatusRead(t *testing.T) {
+	t.Parallel()
+
+	_, err := resolveLiveRun(context.Background(), "/repo", "RUN123", dependencies{
+		resolveRunRef: func(runsDir, ref string) (run.IndexEntry, error) {
+			return run.IndexEntry{RunID: "RUN123", EvidencePath: "/tmp/evil-evidence"}, nil
+		},
+		readStatus: func(evidenceDir string) (runner.Status, error) {
+			t.Fatalf("readStatus should not be called for invalid evidence path %q", evidenceDir)
+			return runner.Status{}, nil
+		},
+		hasSession: func(ctx context.Context, sessionName string) (bool, error) {
+			t.Fatalf("hasSession should not be called for invalid evidence path %q", sessionName)
+			return false, nil
+		},
+	})
+	require.ErrorIs(t, err, ErrRunNotLive)
+	require.ErrorContains(t, err, "run RUN123 is not live")
+	require.ErrorContains(t, err, "evidence path: /tmp/evil-evidence")
+	require.ErrorContains(t, err, "outside the repository")
+}
+
+func TestResolveLiveRun_RejectsTraversalEvidencePathBeforeStatusRead(t *testing.T) {
+	t.Parallel()
+
+	_, err := resolveLiveRun(context.Background(), "/repo", "RUN123", dependencies{
+		resolveRunRef: func(runsDir, ref string) (run.IndexEntry, error) {
+			return run.IndexEntry{RunID: "RUN123", EvidencePath: filepath.Join(".tessariq", "runs", "..", "..", "outside")}, nil
+		},
+		readStatus: func(evidenceDir string) (runner.Status, error) {
+			t.Fatalf("readStatus should not be called for invalid evidence path %q", evidenceDir)
+			return runner.Status{}, nil
+		},
+		hasSession: func(ctx context.Context, sessionName string) (bool, error) {
+			t.Fatalf("hasSession should not be called for invalid evidence path %q", sessionName)
+			return false, nil
+		},
+	})
+	require.ErrorIs(t, err, ErrRunNotLive)
+	require.ErrorContains(t, err, "run RUN123 is not live")
+	require.ErrorContains(t, err, filepath.Join(".tessariq", "runs", "..", "..", "outside"))
+	require.ErrorContains(t, err, "outside the repository")
+}
+
 func TestResolveLiveRun_SessionCheckErrorReturned(t *testing.T) {
 	t.Parallel()
 

@@ -43,9 +43,9 @@ func resolveLiveRun(ctx context.Context, repoRoot, ref string, deps dependencies
 		return Result{}, err
 	}
 
-	evidenceDir := entry.EvidencePath
-	if !filepath.IsAbs(evidenceDir) {
-		evidenceDir = filepath.Join(repoRoot, evidenceDir)
+	evidenceDir, err := run.ValidateEvidencePath(repoRoot, entry.EvidencePath)
+	if err != nil {
+		return Result{}, fmt.Errorf("%w: run %s is not live; evidence path: %s: %v", ErrRunNotLive, entry.RunID, entry.EvidencePath, err)
 	}
 
 	status, err := deps.readStatus(evidenceDir)
