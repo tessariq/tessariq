@@ -1,7 +1,7 @@
 ---
 id: TASK-052-attach-run-id-evidence-path-consistency
 title: Require attach evidence to match the resolved run_id
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-007-attach-command-live-run-resolution
@@ -13,7 +13,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#lifecycle-rules
     - specs/tessariq-v0.1.0.md#evidence-contract
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-04-01T20:03:47Z"
+updated_at: "2026-04-02T13:54:55Z"
 areas:
     - attach
     - evidence
@@ -77,3 +77,4 @@ Even when `evidence_path` stays repo-local, attach currently lets one run ID bor
 
 - Likely files: `internal/attach/attach.go` and attach integration/e2e tests.
 - Keep session naming sourced from the resolved run ID; the bug is that evidence liveness is not tied to it yet.
+- 2026-04-02T13:54:55Z: Enforce evidence directory name matches resolved run_id during attach. Unit, integration, e2e, mutation (85.69%), and manual tests all pass.

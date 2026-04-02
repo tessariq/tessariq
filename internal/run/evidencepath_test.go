@@ -50,3 +50,19 @@ func TestValidateEvidencePath_RejectsEmptyPath(t *testing.T) {
 	_, err := ValidateEvidencePath("/repo", "")
 	require.ErrorIs(t, err, ErrEvidencePathOutsideRepo)
 }
+
+func TestValidateEvidenceRunID_AcceptsMatchingRunID(t *testing.T) {
+	t.Parallel()
+
+	err := ValidateEvidenceRunID("/repo/.tessariq/runs/01ARZ3NDEKTSV4RRFFQ69G5FAV", "01ARZ3NDEKTSV4RRFFQ69G5FAV")
+	require.NoError(t, err)
+}
+
+func TestValidateEvidenceRunID_RejectsMismatchedRunID(t *testing.T) {
+	t.Parallel()
+
+	err := ValidateEvidenceRunID("/repo/.tessariq/runs/RUN_B", "RUN_A")
+	require.ErrorIs(t, err, ErrEvidenceRunIDMismatch)
+	require.Contains(t, err.Error(), "RUN_A")
+	require.Contains(t, err.Error(), "RUN_B")
+}

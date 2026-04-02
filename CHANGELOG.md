@@ -78,6 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed spurious "interactive mode without --attach" note on default runs by gating the note on the user's explicit `--interactive` flag instead of the agent's capability declaration.
 - Fixed `tessariq attach` missing `git` from its prerequisite preflight, causing a raw exec error instead of actionable guidance when git is unavailable.
 - Fixed `tessariq attach` trusting forged `evidence_path` values from the run index, now rejecting absolute paths and relative paths that escape the repository's `.tessariq/runs/` directory before reading live-run evidence.
+- Fixed `tessariq attach` allowing one run to borrow another run's evidence directory for the liveness check; evidence directory name must now match the resolved run ID.
 - Fixed `tessariq promote` accepting changed runs that are missing `diffstat.txt`, now requiring both `diff.patch` and `diffstat.txt` as the spec mandates.
 - Fixed `attach` and `promote` acting on semantically incomplete index entries by validating all required fields during index read; entries missing any of the eight minimum fields are now silently skipped.
 - Fixed silent `WriteDiffArtifacts` failure so diff generation errors now emit a `warning:` line to stderr instead of being discarded.

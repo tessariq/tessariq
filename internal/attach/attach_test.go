@@ -134,6 +134,27 @@ func TestResolveLiveRun_RejectsTraversalEvidencePathBeforeStatusRead(t *testing.
 	require.ErrorContains(t, err, "outside the repository")
 }
 
+func TestResolveLiveRun_RejectsMismatchedEvidenceRunIDBeforeStatusRead(t *testing.T) {
+	t.Parallel()
+
+	_, err := resolveLiveRun(context.Background(), "/repo", "RUN_A", dependencies{
+		resolveRunRef: func(runsDir, ref string) (run.IndexEntry, error) {
+			return run.IndexEntry{RunID: "RUN_A", EvidencePath: filepath.Join(".tessariq", "runs", "RUN_B")}, nil
+		},
+		readStatus: func(evidenceDir string) (runner.Status, error) {
+			t.Fatalf("readStatus should not be called for mismatched evidence run ID %q", evidenceDir)
+			return runner.Status{}, nil
+		},
+		hasSession: func(ctx context.Context, sessionName string) (bool, error) {
+			t.Fatalf("hasSession should not be called for mismatched evidence run ID %q", sessionName)
+			return false, nil
+		},
+	})
+	require.ErrorIs(t, err, ErrRunNotLive)
+	require.ErrorContains(t, err, "run RUN_A is not live")
+	require.ErrorContains(t, err, "run_id mismatch")
+}
+
 func TestResolveLiveRun_SessionCheckErrorReturned(t *testing.T) {
 	t.Parallel()
 

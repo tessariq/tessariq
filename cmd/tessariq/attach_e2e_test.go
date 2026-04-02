@@ -97,6 +97,43 @@ func TestE2E_AttachLastFailsCleanlyWithIncompleteIndex(t *testing.T) {
 	require.Contains(t, output, "no matching run found")
 }
 
+func TestE2E_AttachForgedCrossRunEvidenceRejectsBeforeAttaching(t *testing.T) {
+	t.Parallel()
+
+	bin := buildBinary(t)
+	env := setupRunEnvCustom(t, bin, e2eSetupOpts{skipImage: true})
+	hostDir := env.Dir()
+	repoPath := filepath.Join(hostDir, "repo")
+	homeDir := filepath.Join(hostDir, "home")
+	binPath := filepath.Join(hostDir, "tessariq")
+	ctx := context.Background()
+
+	runA := "01ARZ3NDEKTSV4RRFFQ69G5FAC"
+	runB := "01ARZ3NDEKTSV4RRFFQ69G5FAD"
+
+	// Create RUN_B with live evidence inside the container.
+	evidenceDir := filepath.Join(repoPath, ".tessariq", "runs", runB)
+	execCmd(t, env, ctx, fmt.Sprintf("mkdir -p %s", evidenceDir), "create evidence dir")
+	execCmd(t, env, ctx, fmt.Sprintf(`printf '{"state":"running","started_at":"2026-01-01T00:00:00Z"}' > %s/status.json`, evidenceDir), "write status")
+
+	// Write RUN_B's own index entry and a forged entry for RUN_A pointing at RUN_B's evidence.
+	indexPath := filepath.Join(repoPath, ".tessariq", "runs", "index.jsonl")
+	entryB := fmt.Sprintf(`{"run_id":"%s","created_at":"2026-01-01T00:00:00Z","task_path":"tasks/sample.md","task_title":"B","agent":"claude-code","workspace_mode":"worktree","state":"running","evidence_path":".tessariq/runs/%s"}`, runB, runB)
+	entryA := fmt.Sprintf(`{"run_id":"%s","created_at":"2026-01-01T00:01:00Z","task_path":"tasks/sample.md","task_title":"Forged A","agent":"claude-code","workspace_mode":"worktree","state":"running","evidence_path":".tessariq/runs/%s"}`, runA, runB)
+	execCmd(t, env, ctx, fmt.Sprintf("printf '%s\\n%s\\n' > %s", entryB, entryA, indexPath), "write forged index")
+
+	// Start a tmux session for RUN_B so the liveness check would pass if not for the guard.
+	execCmd(t, env, ctx, fmt.Sprintf("tmux new-session -d -s tessariq-%s 'sleep 30'", runB), "start tmux session")
+	t.Cleanup(func() {
+		_, _, _ = env.Exec(context.Background(), []string{"sh", "-c", fmt.Sprintf("tmux kill-session -t tessariq-%s", runB)})
+	})
+
+	code, output := runAttachInEnv(t, env, repoPath, homeDir, binPath, runA, "")
+	require.NotEqual(t, 0, code, "attach should fail for cross-run evidence forgery")
+	require.Contains(t, output, "run "+runA+" is not live")
+	require.Contains(t, output, "run_id mismatch")
+}
+
 func startBackgroundRun(t *testing.T, env *containers.RunEnv, repoPath, homeDir, binPath, binaryName string) {
 	t.Helper()
 
