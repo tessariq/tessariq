@@ -28,6 +28,19 @@ func TestNewAttachCmd_MissingTmuxReturnsActionableGuidance(t *testing.T) {
 	require.EqualError(t, err, "required host prerequisite \"tmux\" is missing or unavailable; install or enable tmux, then retry")
 }
 
+func TestNewAttachCmd_MissingGitReturnsActionableGuidance(t *testing.T) {
+	originalCheck := checkAttachPrereq
+	t.Cleanup(func() { checkAttachPrereq = originalCheck })
+	checkAttachPrereq = func() error {
+		return errors.New("required host prerequisite \"git\" is missing or unavailable; install or enable git, then retry")
+	}
+
+	cmd := newAttachCmd()
+	cmd.SetArgs([]string{"last"})
+	err := cmd.Execute()
+	require.EqualError(t, err, "required host prerequisite \"git\" is missing or unavailable; install or enable git, then retry")
+}
+
 func TestNewAttachCmd_AttachesResolvedSession(t *testing.T) {
 	originalCheck := checkAttachPrereq
 	originalRepoRoot := attachRepoRoot

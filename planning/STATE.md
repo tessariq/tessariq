@@ -1,28 +1,27 @@
 ---
 schema_version: 1
-updated_at: "2026-04-01T20:21:46Z"
+updated_at: "2026-04-02T07:35:47Z"
 mode: user_request
-run_id: wf-20260401T202003Z
-agent_id: opencode
-model: openai/gpt-5.4
+run_id: wf-20260402T073048Z
+agent_id: claude-opus-4-6
+model: claude-opus-4-6
 active_task: ""
 active_task_started_at: ""
 attempt: 0
-last_completed: TASK-055-version-command-and-root-version-flag
+last_completed: TASK-050-attach-preflight-git-prerequisite
 next_tasks:
     - TASK-045-validate-index-entry-shape-before-resolution
     - TASK-054-reject-symlinked-external-task-paths
     - TASK-049-promote-require-diffstat-for-changed-runs
-    - TASK-050-attach-preflight-git-prerequisite
     - TASK-053-bypass-user-config-when-cli-egress-is-explicit
 repo_state: idle
 last_transition: finish
-last_transition_at: "2026-04-01T20:21:40Z"
+last_transition_at: "2026-04-02T07:35:44Z"
 selection_reason: next eligible todo by priority
-validation_last_run: "2026-04-01T20:21:33Z"
+validation_last_run: "2026-04-02T07:35:27Z"
 validation_status: passed
 validation_scope: task:v0.1.0
-validation_checked_at: "2026-04-01T20:21:33Z"
+validation_checked_at: "2026-04-02T07:35:27Z"
 milestone_focus: v0.1.0
 active_spec_version: v0.1.0
 active_spec_path: specs/tessariq-v0.1.0.md
@@ -33,20 +32,19 @@ max_retries: 2
 ## Machine Snapshot
 
 - Active task: none
-- Last completed: TASK-055-version-command-and-root-version-flag
+- Last completed: TASK-050-attach-preflight-git-prerequisite
 - Validation status: passed
 - Active spec: v0.1.0 (specs/tessariq-v0.1.0.md)
 - Next tasks:
   - TASK-045-validate-index-entry-shape-before-resolution
   - TASK-054-reject-symlinked-external-task-paths
   - TASK-049-promote-require-diffstat-for-changed-runs
-  - TASK-050-attach-preflight-git-prerequisite
   - TASK-053-bypass-user-config-when-cli-egress-is-explicit
 
 ## Task Counts
 
-- todo: 11
+- todo: 10
 - in_progress: 0
-- done: 43
+- done: 44
 - blocked: 1
 - cancelled: 0

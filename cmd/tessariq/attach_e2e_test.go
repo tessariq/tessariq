@@ -57,6 +57,26 @@ func TestE2E_AttachMissingTmuxShowsActionableGuidance(t *testing.T) {
 	require.Contains(t, output, "install or enable tmux, then retry")
 }
 
+func TestE2E_AttachMissingGitShowsActionableGuidance(t *testing.T) {
+	t.Parallel()
+
+	bin := buildBinary(t)
+	env := setupRunEnv(t, bin, 0)
+	hostDir := env.Dir()
+	repoPath := filepath.Join(hostDir, "repo")
+	homeDir := filepath.Join(hostDir, "home")
+	binPath := filepath.Join(hostDir, "tessariq")
+
+	ctx := context.Background()
+	_, _, err := env.Exec(ctx, []string{"sh", "-c", "mkdir -p /work/bin && ln -sf $(command -v tmux) /work/bin/tmux"})
+	require.NoError(t, err)
+
+	code, output := runAttachInEnv(t, env, repoPath, homeDir, binPath, "last", "PATH=/work/bin")
+	require.NotEqual(t, 0, code)
+	require.Contains(t, output, "required host prerequisite \"git\" is missing or unavailable")
+	require.Contains(t, output, "install or enable git, then retry")
+}
+
 func startBackgroundRun(t *testing.T, env *containers.RunEnv, repoPath, homeDir, binPath, binaryName string) {
 	t.Helper()
 

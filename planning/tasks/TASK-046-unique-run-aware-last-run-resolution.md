@@ -31,7 +31,7 @@ verification:
         required: true
         commands:
             - go test -tags=e2e ./...
-        rationale: "`last-N` directly affects user-facing attach and promote commands."
+        rationale: '`last-N` directly affects user-facing attach and promote commands.'
     mutation:
         required: true
         commands:

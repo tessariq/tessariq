@@ -1,7 +1,7 @@
 ---
 id: TASK-050-attach-preflight-git-prerequisite
 title: Preflight git as an attach prerequisite
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-007-attach-command-live-run-resolution
@@ -12,7 +12,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#generated-runtime-state
     - specs/tessariq-v0.1.0.md#acceptance-scenarios
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-04-01T20:03:47Z"
+updated_at: "2026-04-02T07:35:44Z"
 areas:
     - cli
     - prerequisites
@@ -73,3 +73,4 @@ verification:
 
 - Likely files: `internal/prereq/preflight.go`, `cmd/tessariq/attach.go`, and attach command tests.
 - Keep the shared prerequisite message format aligned with `TASK-020`.
+- 2026-04-02T07:35:44Z: Added DependencyGit to attach prerequisites. Unit tests (preflight_test.go, attach_test.go), e2e test (attach_e2e_test.go), and container manual tests all pass. CHANGELOG updated.
