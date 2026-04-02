@@ -269,11 +269,18 @@ type resolveAllowlistDeps struct {
 // with full precedence: CLI > user_config > built_in. Dependencies are
 // injected via deps for testability.
 func resolveAllowlistCore(cfg run.Config, homeDir, resolvedEgress string, deps resolveAllowlistDeps) (*run.AllowlistResult, error) {
-	// Load user config from XDG paths.
-	configPath := run.UserConfigPath(deps.xdgConfigHome, homeDir, deps.dirExists)
-	userCfg, err := run.LoadUserConfig(configPath, deps.readFile)
-	if err != nil {
-		return nil, err
+	// Load user config only when it can influence the resolved allowlist.
+	// Skip when: egress is open/none (allowlist unused), CLI entries are
+	// present (highest precedence), or --egress-no-defaults is set
+	// (discards config and built-in).
+	var userCfg *run.UserConfig
+	if resolvedEgress == "proxy" && len(cfg.EgressAllow) == 0 && !cfg.EgressNoDefaults {
+		configPath := run.UserConfigPath(deps.xdgConfigHome, homeDir, deps.dirExists)
+		var err error
+		userCfg, err = run.LoadUserConfig(configPath, deps.readFile)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Build the built-in allowlist for the agent.

@@ -137,17 +137,18 @@ func TestResolveAllowlistCore_OpenCode(t *testing.T) {
 	noProviderAuth := `{"token":"fake"}`
 
 	tests := []struct {
-		name            string
-		agent           string
-		egress          string
-		cliAllow        []string
-		noDefaults      bool
-		configDirExists bool // if true, dirExists returns true so user config is loaded
-		files           map[string]string
-		wantSource      string
-		wantErr         string
-		wantErrType     any
-		wantProvSkipped bool // true if auth.json should NOT be read
+		name              string
+		agent             string
+		egress            string
+		cliAllow          []string
+		noDefaults        bool
+		configDirExists   bool // if true, dirExists returns true so user config is loaded
+		files             map[string]string
+		wantSource        string
+		wantErr           string
+		wantErrType       any
+		wantProvSkipped   bool // true if auth.json should NOT be read
+		wantConfigSkipped bool // true if config.yaml should NOT be read
 	}{
 		{
 			name:            "cli_bypasses_unresolvable_provider",
@@ -235,6 +236,42 @@ func TestResolveAllowlistCore_OpenCode(t *testing.T) {
 			wantSource:      "cli",
 			wantProvSkipped: true,
 		},
+		{
+			name:              "open_ignores_malformed_user_config",
+			agent:             "claude-code",
+			egress:            "open",
+			configDirExists:   true,
+			files:             map[string]string{"config.yaml": "{{invalid yaml"},
+			wantSource:        "built_in",
+			wantConfigSkipped: true,
+		},
+		{
+			name:              "none_ignores_malformed_user_config",
+			agent:             "claude-code",
+			egress:            "none",
+			configDirExists:   true,
+			files:             map[string]string{"config.yaml": "{{invalid yaml"},
+			wantSource:        "built_in",
+			wantConfigSkipped: true,
+		},
+		{
+			name:              "proxy_cli_allowlist_ignores_malformed_user_config",
+			agent:             "claude-code",
+			egress:            "proxy",
+			cliAllow:          []string{"api.example.com:443"},
+			configDirExists:   true,
+			files:             map[string]string{"config.yaml": "{{invalid yaml"},
+			wantSource:        "cli",
+			wantConfigSkipped: true,
+		},
+		{
+			name:            "proxy_no_cli_malformed_user_config_fails",
+			agent:           "claude-code",
+			egress:          "proxy",
+			configDirExists: true,
+			files:           map[string]string{"config.yaml": "{{invalid yaml"},
+			wantErr:         "malformed config file",
+		},
 	}
 
 	for _, tt := range tests {
@@ -289,6 +326,13 @@ func TestResolveAllowlistCore_OpenCode(t *testing.T) {
 				authPath := filepath.Join("/fakehome", ".local", "share", "opencode", "auth.json")
 				for _, path := range *called {
 					require.NotEqual(t, authPath, path, "provider resolution should have been skipped")
+				}
+			}
+
+			if tt.wantConfigSkipped {
+				for _, path := range *called {
+					require.False(t, strings.HasSuffix(path, "config.yaml"),
+						"user config should not have been read; got read of %s", path)
 				}
 			}
 		})
