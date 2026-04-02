@@ -530,6 +530,62 @@ func TestE2E_OpenCodeUserConfigAllowlistBypassesProviderResolution(t *testing.T)
 	}
 }
 
+func TestE2E_ExplicitEgressOpenIgnoresMalformedUserConfig(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+
+	env := setupRunEnvCustom(t, bin, e2eSetupOpts{
+		extraFn: func(homeDir string) []string {
+			return []string{
+				fmt.Sprintf("mkdir -p %s/.config/tessariq", homeDir),
+				fmt.Sprintf(`printf '{{invalid yaml' > %s/.config/tessariq/config.yaml`, homeDir),
+			}
+		},
+	})
+
+	hostDir := env.Dir()
+	repoPath := filepath.Join(hostDir, "repo")
+	homeDir := filepath.Join(hostDir, "home")
+	binPath := filepath.Join(hostDir, "tessariq")
+
+	ctx := context.Background()
+	_, output, err := env.Exec(ctx, []string{"sh", "-c",
+		fmt.Sprintf("cd %s && HOME=%s %s run --egress open tasks/sample.md",
+			repoPath, homeDir, binPath)})
+	require.NoError(t, err)
+
+	require.NotContains(t, output, "malformed config file",
+		"--egress open should skip user config; got: %s", output)
+}
+
+func TestE2E_ExplicitEgressAllowIgnoresMalformedUserConfig(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+
+	env := setupRunEnvCustom(t, bin, e2eSetupOpts{
+		extraFn: func(homeDir string) []string {
+			return []string{
+				fmt.Sprintf("mkdir -p %s/.config/tessariq", homeDir),
+				fmt.Sprintf(`printf '{{invalid yaml' > %s/.config/tessariq/config.yaml`, homeDir),
+			}
+		},
+	})
+
+	hostDir := env.Dir()
+	repoPath := filepath.Join(hostDir, "repo")
+	homeDir := filepath.Join(hostDir, "home")
+	binPath := filepath.Join(hostDir, "tessariq")
+
+	ctx := context.Background()
+	_, output, err := env.Exec(ctx, []string{"sh", "-c",
+		fmt.Sprintf("cd %s && HOME=%s %s run --egress-allow api.example.com:443 tasks/sample.md",
+			repoPath, homeDir, binPath)})
+	require.NoError(t, err)
+
+	require.NotContains(t, output, "malformed config file",
+		"--egress-allow should skip user config; got: %s", output)
+}
+
 func TestE2E_InitFailsWithActionableGuidanceWhenGitMissing(t *testing.T) {
 	t.Parallel()
 	bin := buildBinary(t)

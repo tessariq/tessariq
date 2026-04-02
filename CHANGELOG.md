@@ -85,3 +85,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed `last` and `last-N` run-ref resolution counting raw index lines instead of unique runs, causing `last-1` to resolve to a lifecycle entry of the same run rather than the previous run when multiple entries exist for one run.
 - Fixed `--egress none` leaving containers on Docker's default bridge network with full internet access; containers now run with `--net none` (loopback only) as intended.
 - Fixed `tessariq promote` trusting `manifest.json` identity fields without verifying they match the resolved run, allowing a tampered manifest to forge branch names and commit trailers for a different run.
+- Fixed `--egress open`, `--egress none`, and `--egress proxy --egress-allow` failing on malformed or unreadable user config even though the CLI already fully determines egress behavior; user config is now loaded only when it can influence the resolved allowlist.
