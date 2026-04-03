@@ -1,7 +1,7 @@
 ---
 id: TASK-059-reject-leading-dot-allowlist-hosts
 title: Reject leading-dot allowlist hosts that widen Squid matching
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-011-egress-mode-resolution-and-manifest-recording
@@ -11,7 +11,7 @@ spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#networking-and-egress
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-04-02T14:59:17Z"
+updated_at: "2026-04-03T10:28:46Z"
 areas:
     - networking
     - proxy
@@ -72,3 +72,4 @@ Squid treats `.example.com` in `dstdomain` ACLs as a wildcard matcher for subdom
 
 - Likely files: `internal/run/allowlist.go` and `internal/run/allowlist_test.go`.
 - Keep the rejection in the shared parser rather than in Squid-config generation so all allowlist sources behave identically.
+- 2026-04-03T10:28:46Z: ParseDestination rejects leading-dot hosts; unit, integration, mutation, and manual tests pass

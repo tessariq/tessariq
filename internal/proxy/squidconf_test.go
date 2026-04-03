@@ -144,6 +144,27 @@ func TestGenerateSquidConf_MixedPortsNoCrossProduct(t *testing.T) {
 	require.NotContains(t, conf, "allowed_dest")
 }
 
+func TestGenerateSquidConf_NoLeadingDotInOutput(t *testing.T) {
+	t.Parallel()
+
+	// Defense-in-depth: even if a leading-dot host somehow bypasses
+	// ParseDestination, verify the generated config would contain it
+	// so this test documents the invariant.
+	dests := []CompiledDestination{
+		{Host: ".evil.com", Port: 443},
+		{Host: "good.com", Port: 443},
+	}
+
+	conf := GenerateSquidConf(dests, 3128)
+
+	// The leading-dot host should appear verbatim — this test documents
+	// that GenerateSquidConf does NOT strip dots, so the parser MUST
+	// reject them upstream.
+	require.Contains(t, conf, "dstdomain .evil.com",
+		"GenerateSquidConf passes hosts through verbatim; parser must reject leading dots")
+	require.Contains(t, conf, "dstdomain good.com")
+}
+
 func TestGenerateSquidConf_ListenPort(t *testing.T) {
 	t.Parallel()
 

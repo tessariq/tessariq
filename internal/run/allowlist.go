@@ -53,6 +53,10 @@ func ParseDestination(s string) (host string, port int, err error) {
 		return "", 0, fmt.Errorf("invalid host %q: contains control character or space", host)
 	}
 
+	if host[0] == '.' {
+		return "", 0, fmt.Errorf("invalid host %q: leading dot would act as a subdomain wildcard in proxy config", host)
+	}
+
 	if port < 1 || port > 65535 {
 		return "", 0, fmt.Errorf("port %d out of range 1-65535 in %q", port, s)
 	}

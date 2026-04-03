@@ -48,6 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pinned workspace repair container image by digest (`alpine@sha256:...`) instead of mutable `alpine:latest` tag to prevent supply-chain attacks on the root-privileged ownership-fix container.
 - Changed `tessariq init` to create `.tessariq/` and `.tessariq/runs/` with owner-only permissions (`0700`) and tighten existing directories on re-run.
 - Reject allowlist hosts containing ASCII control characters (NUL, newline, carriage return, and others) to prevent Squid proxy config injection via malformed `--egress-allow` values or user config entries.
+- Reject allowlist hosts with a leading dot (e.g. `.example.com`) to prevent Squid `dstdomain` wildcard matching that would widen a single host entry into a subdomain wildcard.
 
 ### Changed
 
