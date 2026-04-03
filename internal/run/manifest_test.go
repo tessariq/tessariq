@@ -258,6 +258,33 @@ func TestWriteManifest_FilePermissions(t *testing.T) {
 		"evidence file must be owner-only read/write")
 }
 
+func TestWriteManifest_NoTempFileAfterSuccess(t *testing.T) {
+	t.Parallel()
+
+	dir := filepath.Join(t.TempDir(), "evidence")
+	m := Manifest{SchemaVersion: 1, RunID: "test"}
+
+	require.NoError(t, WriteManifest(dir, m))
+
+	_, err := os.Stat(filepath.Join(dir, "manifest.json.tmp"))
+	require.True(t, os.IsNotExist(err), "temp file must not remain after successful write")
+}
+
+func TestWriteManifest_OverwritesExisting(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	original := Manifest{SchemaVersion: 1, RunID: "original"}
+	require.NoError(t, WriteManifest(dir, original))
+
+	updated := Manifest{SchemaVersion: 1, RunID: "updated"}
+	require.NoError(t, WriteManifest(dir, updated))
+
+	got, err := ReadManifest(dir)
+	require.NoError(t, err)
+	require.Equal(t, "updated", got.RunID)
+}
+
 func TestBootstrapManifest_Integration(t *testing.T) {
 	t.Parallel()
 

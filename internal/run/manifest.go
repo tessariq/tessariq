@@ -77,9 +77,16 @@ func WriteManifest(dir string, m Manifest) error {
 		return fmt.Errorf("marshal manifest: %w", err)
 	}
 
-	path := filepath.Join(dir, "manifest.json")
-	if err := os.WriteFile(path, data, 0o600); err != nil {
-		return fmt.Errorf("write manifest: %w", err)
+	target := filepath.Join(dir, "manifest.json")
+	tmp := target + ".tmp"
+
+	if err := os.WriteFile(tmp, data, 0o600); err != nil {
+		return fmt.Errorf("write manifest temp file: %w", err)
+	}
+
+	if err := os.Rename(tmp, target); err != nil {
+		os.Remove(tmp) // best-effort cleanup
+		return fmt.Errorf("rename manifest file: %w", err)
 	}
 
 	return nil
