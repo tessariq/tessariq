@@ -57,6 +57,12 @@ depends_on:
     - TASK-067-cleanup-squid-resources-on-startup-failure
     - TASK-068-make-manifest-writes-atomic
     - TASK-069-reject-egress-allow-with-egress-open
+    - TASK-070-user-visible-changes-missing-changelog-update
+    - TASK-071-implement-run-attach-live-session
+    - TASK-072-run-hooks-from-repo-root
+    - TASK-073-print-evidence-path-on-run-failure
+    - TASK-074-reject-unknown-user-config-fields
+    - TASK-075-keep-log-streaming-alive-through-timeout
 milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:
@@ -72,7 +78,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#acceptance-scenarios
     - specs/tessariq-v0.1.0.md#failure-ux
     - specs/tessariq-v0.1.0.md#success-metrics
-updated_at: "2026-04-02T15:20:00Z"
+updated_at: "2026-04-03T12:31:03Z"
 areas:
     - verification
     - spec
@@ -133,3 +139,4 @@ Run the final v0.1.0 conformity sweep against the normative spec after the stren
 ## Notes
 
 - This is the required final gate before considering `v0.1.0` complete.
+- Any newly discovered v0.1.0-spec bug fix tasks or release-readiness follow-ups must be added to this dependency list so the closeout sweep remains a true release gate.

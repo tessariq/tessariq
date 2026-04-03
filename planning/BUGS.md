@@ -5,9 +5,9 @@ Automated adversarial testing against done tasks.
 | Key | Value |
 |-----|-------|
 | Started | 2026-03-31 |
-| Iteration | 20 |
+| Iteration | 21 |
 | Last bug found | iteration 20 |
-| Clean iterations | 0 / 19 |
+| Clean iterations | 1 / 20 |
 | Status | In progress |
 
 ---
@@ -15,6 +15,8 @@ Automated adversarial testing against done tasks.
 ## Bug Summary
 
 BUG-001 through BUG-007 were all fixed by TASK-030 through TASK-039 (done).
+
+BUG-037 through BUG-041 remain reproducible in the current code and are now tracked by TASK-071 through TASK-075.
 
 | Bug | Severity | File | One-liner | Status |
 |-----|----------|------|-----------|--------|
@@ -54,11 +56,11 @@ BUG-001 through BUG-007 were all fixed by TASK-030 through TASK-039 (done).
 | BUG-034 | MEDIUM | `squid.go:49-103`, `topology.go:71` | Squid container and network leak on partial StartSquid failure | **Fixed** (TASK-067) |
 | BUG-035 | LOW | `manifest.go:80` | WriteManifest not atomic; partial write on crash corrupts evidence | **Fixed** (TASK-068) |
 | BUG-036 | LOW | `config.go:72` | `--egress open` silently discards `--egress-allow` without warning | **Fixed** (TASK-069) |
-| BUG-037 | HIGH | `cmd/tessariq/run.go:255`, `internal/runner/runner.go` | `run --attach` flag declared but never implemented; tmux session not attached | **Open** |
-| BUG-038 | MEDIUM | `internal/runner/hooks.go:46`, `internal/runner/runner.go:88,110` | Pre/verify hooks run with CWD set to evidence directory, not repository root | **Open** |
-| BUG-039 | MEDIUM | `cmd/tessariq/run.go:226-238` | Run failure output omits evidence path; contradicts spec failure-UX contract | **Open** |
-| BUG-040 | LOW | `internal/run/userconfig.go:52` | UserConfig YAML silently ignores unknown fields; config typos cause undetected fallback | **Open** |
-| BUG-041 | LOW | `internal/container/process.go:179`, `internal/runner/runner.go:130` | `docker logs --follow` cancelled by timeout context, truncating final agent output in `run.log` | **Open** |
+| BUG-037 | HIGH | `cmd/tessariq/run.go:255`, `internal/runner/runner.go` | `run --attach` flag declared but never implemented; tmux session not attached | **Open** (TASK-071) |
+| BUG-038 | MEDIUM | `internal/runner/hooks.go:46`, `internal/runner/runner.go:88,110` | Pre/verify hooks run with CWD set to evidence directory, not repository root | **Open** (TASK-072) |
+| BUG-039 | MEDIUM | `cmd/tessariq/run.go:226-238` | Run failure output omits evidence path; contradicts spec failure-UX contract | **Open** (TASK-073) |
+| BUG-040 | LOW | `internal/run/userconfig.go:52` | UserConfig YAML silently ignores unknown fields; config typos cause undetected fallback | **Open** (TASK-074) |
+| BUG-041 | LOW | `internal/container/process.go:179`, `internal/runner/runner.go:130` | `docker logs --follow` cancelled by timeout context, truncating final agent output in `run.log` | **Open** (TASK-075) |
 
 ---
 
@@ -1475,3 +1477,28 @@ Steps 4–6 happen AFTER the log streamer was killed in step 1. Any output the a
 | Squid access log copy | CopyAccessLog fails gracefully when container is gone | CLEAN |
 | Events JSONL write | Atomic tmp+rename pattern used for egress.events.jsonl | CLEAN |
 | Squid log cap | CopySquidLog enforces 10 MiB cap with truncation marker | CLEAN |
+
+---
+
+## Iteration 21
+
+Scope: status verification for the remaining open bugs and backlog synchronization against the current codebase and tracked-work files.
+
+### Previously open bugs - status update
+
+Confirmed still reproducible by code review and now tracked as explicit backlog items:
+- **BUG-037**: `cfg.Attach` is only used to suppress the interactive note in `cmd/tessariq/run.go`; `Runner.Run` never reads it and `tmux.AttachSession` is only wired through `tessariq attach`. Tracked by `TASK-071-implement-run-attach-live-session`.
+- **BUG-038**: `RunPreHooks` and `RunVerifyHooks` are still called with `r.EvidenceDir` as `workDir`, so host-side hooks execute from `.tessariq/runs/<run_id>/` instead of the repository root. Tracked by `TASK-072-run-hooks-from-repo-root`.
+- **BUG-039**: `printRunOutput` still runs only on the success path; any `runErr` returns before printing `run_id` or `evidence_path` for failed runs. Tracked by `TASK-073-print-evidence-path-on-run-failure`.
+- **BUG-040**: `LoadUserConfig` still uses `yaml.Unmarshal`, so unknown YAML keys are silently discarded rather than rejected or surfaced. Tracked by `TASK-074-reject-unknown-user-config-fields`.
+- **BUG-041**: `Process.Start` still binds `docker logs --follow` to the timeout context, so timeout cancellation kills the log follower before the grace-period shutdown output can be drained. Tracked by `TASK-075-keep-log-streaming-alive-through-timeout`.
+
+No new product bugs were identified in this iteration.
+
+### Areas tested (clean)
+
+| Area | Probe | Result |
+|------|-------|--------|
+| Open-bug status audit | Re-read BUG-037 through BUG-041 against current code paths | CLEAN |
+| Existing follow-up coverage | Checked `planning/tasks/` for matching tracked tasks | CLEAN |
+| Historical fix status | Confirmed TASK-063/TASK-065/TASK-067 task files are `done` and match BUG summary | CLEAN |
