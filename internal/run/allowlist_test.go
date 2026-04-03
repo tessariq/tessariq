@@ -152,6 +152,28 @@ func TestParseDestination_CustomPort(t *testing.T) {
 	require.Equal(t, 8443, port)
 }
 
+func TestParseDestination_LeadingDotHost(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"host_only", ".example.com"},
+		{"with_default_port", ".example.com:443"},
+		{"with_custom_port", ".github.com:8443"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			_, _, err := ParseDestination(tt.input)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "leading dot")
+		})
+	}
+}
+
 // --- ResolveAllowlist tests ---
 
 func TestResolveAllowlist_CLIOverrides(t *testing.T) {
@@ -254,6 +276,23 @@ func TestResolveAllowlist_InvalidCLIEntry(t *testing.T) {
 	_, err := ResolveAllowlist([]string{":443"}, nil, nil, false, "proxy")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "empty host")
+}
+
+func TestResolveAllowlist_LeadingDotInCLI(t *testing.T) {
+	t.Parallel()
+
+	_, err := ResolveAllowlist([]string{".example.com:443"}, nil, nil, false, "proxy")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "leading dot")
+}
+
+func TestResolveAllowlist_LeadingDotInUserConfig(t *testing.T) {
+	t.Parallel()
+
+	userCfg := &UserConfig{EgressAllow: []string{".example.com:443"}}
+	_, err := ResolveAllowlist(nil, userCfg, nil, false, "proxy")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "leading dot")
 }
 
 func TestResolveAllowlist_InvalidUserConfigEntry(t *testing.T) {
