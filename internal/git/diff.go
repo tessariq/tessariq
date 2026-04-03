@@ -24,7 +24,7 @@ func Diff(ctx context.Context, repoRoot, baseSHA string) ([]byte, error) {
 		return nil, err
 	}
 
-	cmd := exec.CommandContext(ctx, "git", "-C", repoRoot, "diff", baseSHA, "--", ".")
+	cmd := exec.CommandContext(ctx, "git", "-C", repoRoot, "diff", "--binary", baseSHA, "--", ".")
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("git diff: %w", err)
