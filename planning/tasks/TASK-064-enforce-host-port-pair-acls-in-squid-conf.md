@@ -1,7 +1,7 @@
 ---
 id: TASK-064-enforce-host-port-pair-acls-in-squid-conf
 title: Enforce exact host-port pairs in generated Squid ACLs
-status: todo
+status: done
 priority: p0
 depends_on:
     - TASK-012-proxy-topology-and-egress-artifacts
@@ -11,7 +11,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#networking-and-egress
     - specs/tessariq-v0.1.0.md#acceptance-scenarios
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-04-02T14:59:17Z"
+updated_at: "2026-04-03T09:08:44Z"
 areas:
     - proxy
     - networking
@@ -74,3 +74,4 @@ verification:
 
 - Likely files: `internal/proxy/squidconf.go`, `internal/proxy/squidconf_test.go`, and proxy integration/e2e coverage.
 - Favor the simplest native Squid rule structure that preserves exact pair semantics without introducing helper services.
+- 2026-04-03T09:08:44Z: Per-port ACL grouping eliminates cross-product. Unit tests (8+1 new), integration test (cross-port denial), e2e test (multi-destination), mutation 85.58%, manual test 4/4 pass.

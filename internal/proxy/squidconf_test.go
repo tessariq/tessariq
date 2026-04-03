@@ -16,9 +16,9 @@ func TestGenerateSquidConf_SingleDestination(t *testing.T) {
 
 	conf := GenerateSquidConf(dests, 3128)
 
-	require.Contains(t, conf, "acl allowed_dest dstdomain api.example.com")
-	require.Contains(t, conf, "acl SSL_ports port 443")
-	require.Contains(t, conf, "http_access allow CONNECT SSL_ports allowed_dest")
+	require.Contains(t, conf, "acl hosts_443 dstdomain api.example.com")
+	require.Contains(t, conf, "acl port_443 port 443")
+	require.Contains(t, conf, "http_access allow CONNECT port_443 hosts_443")
 	require.Contains(t, conf, "http_access deny all")
 }
 
@@ -33,9 +33,14 @@ func TestGenerateSquidConf_MultipleDestinations(t *testing.T) {
 
 	conf := GenerateSquidConf(dests, 3128)
 
-	require.Contains(t, conf, "acl allowed_dest dstdomain api.example.com")
-	require.Contains(t, conf, "acl allowed_dest dstdomain registry.example.com")
-	require.Contains(t, conf, "acl allowed_dest dstdomain cdn.example.com")
+	require.Contains(t, conf, "acl hosts_443 dstdomain api.example.com")
+	require.Contains(t, conf, "acl hosts_443 dstdomain registry.example.com")
+	require.Contains(t, conf, "acl hosts_443 dstdomain cdn.example.com")
+	require.Contains(t, conf, "http_access allow CONNECT port_443 hosts_443")
+
+	// Only one port group — one allow rule.
+	count := strings.Count(conf, "http_access allow CONNECT")
+	require.Equal(t, 1, count, "same-port destinations should produce one allow rule")
 }
 
 func TestGenerateSquidConf_MultipleUniquePorts(t *testing.T) {
@@ -48,8 +53,14 @@ func TestGenerateSquidConf_MultipleUniquePorts(t *testing.T) {
 
 	conf := GenerateSquidConf(dests, 3128)
 
-	require.Contains(t, conf, "acl SSL_ports port 443")
-	require.Contains(t, conf, "acl SSL_ports port 8443")
+	require.Contains(t, conf, "acl port_443 port 443")
+	require.Contains(t, conf, "acl port_8443 port 8443")
+	require.Contains(t, conf, "acl hosts_443 dstdomain api.example.com")
+	require.Contains(t, conf, "acl hosts_8443 dstdomain registry.example.com")
+
+	// Two separate allow rules.
+	count := strings.Count(conf, "http_access allow CONNECT")
+	require.Equal(t, 2, count, "different ports should produce separate allow rules")
 }
 
 func TestGenerateSquidConf_EmptyDestinations(t *testing.T) {
@@ -76,13 +87,17 @@ func TestGenerateSquidConf_DuplicateHosts(t *testing.T) {
 
 	conf := GenerateSquidConf(dests, 3128)
 
-	// Only one dstdomain ACL for the host, even though it appears twice.
-	count := strings.Count(conf, "acl allowed_dest dstdomain api.example.com")
-	require.Equal(t, 1, count, "duplicate host should produce only one dstdomain ACL")
+	// Host appears in both port groups — each pair is enforced independently.
+	require.Contains(t, conf, "acl hosts_443 dstdomain api.example.com")
+	require.Contains(t, conf, "acl hosts_8443 dstdomain api.example.com")
 
-	// Both ports should appear.
-	require.Contains(t, conf, "acl SSL_ports port 443")
-	require.Contains(t, conf, "acl SSL_ports port 8443")
+	// Both ports have their own ACL.
+	require.Contains(t, conf, "acl port_443 port 443")
+	require.Contains(t, conf, "acl port_8443 port 8443")
+
+	// Two separate allow rules.
+	count := strings.Count(conf, "http_access allow CONNECT")
+	require.Equal(t, 2, count, "two ports should produce two allow rules")
 }
 
 func TestGenerateSquidConf_RequiredDirectives(t *testing.T) {
@@ -99,6 +114,34 @@ func TestGenerateSquidConf_RequiredDirectives(t *testing.T) {
 	require.Contains(t, conf, "http_access deny all")
 	require.Contains(t, conf, "access_log stdio:/var/log/squid/access.log squid")
 	require.Contains(t, conf, "cache deny all")
+	// Old shared ACL names must not appear.
+	require.NotContains(t, conf, "SSL_ports")
+	require.NotContains(t, conf, "allowed_dest")
+}
+
+func TestGenerateSquidConf_MixedPortsNoCrossProduct(t *testing.T) {
+	t.Parallel()
+
+	dests := []CompiledDestination{
+		{Host: "api.example.com", Port: 443},
+		{Host: "cdn.example.com", Port: 8443},
+	}
+
+	conf := GenerateSquidConf(dests, 3128)
+
+	// Each host appears only in its own port group.
+	require.Contains(t, conf, "acl hosts_443 dstdomain api.example.com")
+	require.Contains(t, conf, "acl hosts_8443 dstdomain cdn.example.com")
+	require.NotContains(t, conf, "acl hosts_443 dstdomain cdn.example.com")
+	require.NotContains(t, conf, "acl hosts_8443 dstdomain api.example.com")
+
+	// Each port group has its own allow rule.
+	require.Contains(t, conf, "http_access allow CONNECT port_443 hosts_443")
+	require.Contains(t, conf, "http_access allow CONNECT port_8443 hosts_8443")
+
+	// No shared/global allow rule exists.
+	require.NotContains(t, conf, "SSL_ports")
+	require.NotContains(t, conf, "allowed_dest")
 }
 
 func TestGenerateSquidConf_ListenPort(t *testing.T) {

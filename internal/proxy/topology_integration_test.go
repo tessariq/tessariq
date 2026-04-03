@@ -112,6 +112,89 @@ func TestIntegration_TopologySetupAndTeardown(t *testing.T) {
 	require.Error(t, inspectErr, "squid container should not exist after Teardown: %s", string(out))
 }
 
+func TestIntegration_ProxyCrossPortBlocked(t *testing.T) {
+	t.Parallel()
+	testutil.RequireDocker(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+
+	squidImage := buildSquidTestImage(t)
+	curlImage := buildCurlTestImage(t)
+	runID := testutil.UniqueName(t)
+	evidenceDir := t.TempDir()
+	forceCleanup(t, runID)
+
+	// httpbin.org is allowed on 443; example.com is allowed only on 8443.
+	// The cross-product (example.com:443) must be blocked.
+	topo := &proxy.Topology{
+		RunID:           runID,
+		EvidenceDir:     evidenceDir,
+		Destinations:    []string{"httpbin.org:443", "example.com:8443"},
+		AllowlistSource: "cli",
+		SquidImage:      squidImage,
+	}
+
+	env, err := topo.Setup(ctx)
+	require.NoError(t, err, "Setup must succeed")
+
+	alpineName := fmt.Sprintf("tessariq-test-curl-%s", runID)
+	t.Cleanup(func() {
+		_ = exec.Command("docker", "rm", "-f", alpineName).Run()
+	})
+
+	createCmd := exec.CommandContext(ctx, "docker", "create",
+		"--name", alpineName,
+		"--net", env.NetworkName,
+		curlImage,
+		"sleep", "300",
+	)
+	out, err := createCmd.CombinedOutput()
+	require.NoError(t, err, "docker create curl container: %s", string(out))
+
+	connectCmd := exec.CommandContext(ctx, "docker", "network", "connect", "bridge", alpineName)
+	out, err = connectCmd.CombinedOutput()
+	require.NoError(t, err, "docker network connect bridge: %s", string(out))
+
+	startCmd := exec.CommandContext(ctx, "docker", "start", alpineName)
+	out, err = startCmd.CombinedOutput()
+	require.NoError(t, err, "docker start curl container: %s", string(out))
+
+	// Test 1: Allowed pair (httpbin.org:443) should succeed.
+	curlAllowed := exec.CommandContext(ctx, "docker", "exec", alpineName,
+		"curl", "-sSf", "-o", "/dev/null",
+		"--max-time", "15",
+		"--proxy", env.ProxyAddr,
+		"https://httpbin.org/get",
+	)
+	out, err = curlAllowed.CombinedOutput()
+	require.NoError(t, err, "curl to httpbin.org:443 (allowed pair) should succeed: %s", string(out))
+
+	// Test 2: Cross-product (example.com:443) must be blocked by Squid.
+	// example.com is only allowed on port 8443, not 443.
+	curlCross := exec.CommandContext(ctx, "docker", "exec", alpineName,
+		"curl", "-sSf", "-o", "/dev/null",
+		"--max-time", "15",
+		"--proxy", env.ProxyAddr,
+		"https://example.com/",
+	)
+	out, err = curlCross.CombinedOutput()
+	require.Error(t, err, "curl to example.com:443 (cross-product) should be blocked: %s", string(out))
+
+	// Test 3: Fully unlisted host must be blocked.
+	curlBlocked := exec.CommandContext(ctx, "docker", "exec", alpineName,
+		"curl", "-sSf", "-o", "/dev/null",
+		"--max-time", "15",
+		"--proxy", env.ProxyAddr,
+		"https://google.com/",
+	)
+	out, err = curlBlocked.CombinedOutput()
+	require.Error(t, err, "curl to google.com (fully blocked) should fail: %s", string(out))
+
+	err = topo.Teardown(ctx)
+	require.NoError(t, err, "Teardown must succeed")
+}
+
 func TestIntegration_ProxyAllowsAndBlocks(t *testing.T) {
 	t.Parallel()
 	testutil.RequireDocker(t)

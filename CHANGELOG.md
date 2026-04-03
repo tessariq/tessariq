@@ -91,4 +91,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed `--egress none` leaving containers on Docker's default bridge network with full internet access; containers now run with `--net none` (loopback only) as intended.
 - Fixed `tessariq promote` trusting `manifest.json` identity fields without verifying they match the resolved run, allowing a tampered manifest to forge branch names and commit trailers for a different run.
 - Fixed `--egress open`, `--egress none`, and `--egress proxy --egress-allow` failing on malformed or unreadable user config even though the CLI already fully determines egress behavior; user config is now loaded only when it can influence the resolved allowlist.
+<<<<<<< HEAD
+- Fixed proxy-mode Squid ACLs allowing the cross-product of all allowed hosts and all allowed ports; each allowlist entry now authorizes only its exact host-port pair.
 - Fixed `--egress open --egress-allow` silently ignoring allowlist entries; the combination is now rejected at validation time with an actionable error directing users to proxy mode.
