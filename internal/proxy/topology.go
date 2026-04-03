@@ -69,6 +69,7 @@ func (t *Topology) Setup(ctx context.Context) (*ProxyEnv, error) {
 	}
 
 	if err := StartSquid(ctx, squidCfg); err != nil {
+		_ = StopSquid(ctx, t.squidName)
 		_ = RemoveNetwork(ctx, t.networkName)
 		return nil, fmt.Errorf("start squid: %w", err)
 	}

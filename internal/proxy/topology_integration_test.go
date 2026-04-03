@@ -238,6 +238,48 @@ func TestIntegration_ProxyCrossPortBlocked(t *testing.T) {
 	require.NoError(t, err, "Teardown must succeed")
 }
 
+func TestIntegration_SetupFailureCleanup(t *testing.T) {
+	t.Parallel()
+	testutil.RequireDocker(t)
+
+	// Use a short timeout — the readiness probe will time out after 10s.
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	runID := testutil.UniqueName(t)
+	forceCleanup(t, runID)
+
+	// Topology.Setup generates config internally, so we can't inject bad config
+	// through it. Test StartSquid directly with invalid config instead.
+
+	// Create the network (mimicking what Setup does before StartSquid).
+	netName := proxy.NetworkName(runID)
+	err := proxy.CreateNetwork(ctx, netName)
+	require.NoError(t, err, "CreateNetwork must succeed")
+
+	squidName := proxy.SquidContainerName(runID)
+	badCfg := proxy.SquidConfig{
+		Name:        squidName,
+		NetworkName: netName,
+		ConfContent: "invalid_directive_that_makes_squid_exit\n",
+	}
+
+	// StartSquid should fail (Squid exits immediately, readiness check fails).
+	err = proxy.StartSquid(ctx, badCfg)
+	require.Error(t, err, "StartSquid with invalid config must fail")
+
+	// Verify the container was cleaned up.
+	out, inspectErr := exec.CommandContext(ctx, "docker", "inspect", squidName).CombinedOutput()
+	require.Error(t, inspectErr, "squid container should not exist after failed startup: %s", string(out))
+
+	// Verify the network still exists (StartSquid doesn't clean the network).
+	out, inspectErr = exec.CommandContext(ctx, "docker", "network", "inspect", netName).CombinedOutput()
+	require.NoError(t, inspectErr, "network should still exist (caller's responsibility): %s", string(out))
+
+	// Clean up the network.
+	_ = proxy.RemoveNetwork(ctx, netName)
+}
+
 func TestIntegration_ProxyAllowsAndBlocks(t *testing.T) {
 	t.Parallel()
 	testutil.RequireDocker(t)
