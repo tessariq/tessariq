@@ -139,6 +139,35 @@ func TestConfig_Validate_EgressNoneWithAllow(t *testing.T) {
 	require.EqualError(t, cfg.Validate(), "egress-allow cannot be used with egress mode none")
 }
 
+func TestConfig_Validate_EgressOpenWithAllow(t *testing.T) {
+	t.Parallel()
+
+	cfg := DefaultConfig()
+	cfg.TaskPath = "specs/example.md"
+	cfg.Egress = "open"
+	cfg.EgressAllow = []string{"example.com"}
+	require.EqualError(t, cfg.Validate(), "egress-allow cannot be used with egress mode open; allowlists require proxy mode")
+}
+
+func TestConfig_Validate_UnsafeEgressWithAllow(t *testing.T) {
+	t.Parallel()
+
+	cfg := DefaultConfig()
+	cfg.TaskPath = "specs/example.md"
+	cfg.UnsafeEgress = true
+	cfg.EgressAllow = []string{"example.com"}
+	require.EqualError(t, cfg.Validate(), "egress-allow cannot be used with egress mode open; allowlists require proxy mode")
+}
+
+func TestConfig_Validate_OpenWithoutAllowIsValid(t *testing.T) {
+	t.Parallel()
+
+	cfg := DefaultConfig()
+	cfg.TaskPath = "specs/example.md"
+	cfg.Egress = "open"
+	require.NoError(t, cfg.Validate())
+}
+
 func TestConfig_Validate_AutoWithAllowIsValid(t *testing.T) {
 	t.Parallel()
 
