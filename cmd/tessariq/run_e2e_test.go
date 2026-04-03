@@ -881,6 +881,30 @@ func TestE2E_ProxyModeWritesEgressEvidence(t *testing.T) {
 	}
 }
 
+func TestE2E_ProxyModeMultipleDestinations(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+	env := setupRunEnv(t, bin, 0)
+
+	// Run with multiple destinations on different ports.
+	code, output := runTessariq(t, env, "claude", "--egress-allow httpbin.org:443 --egress-allow example.com:8443")
+	require.Equal(t, 0, code, "run failed: %s", output)
+
+	evidencePath := extractField(output, "evidence_path")
+	require.NotEmpty(t, evidencePath, "evidence_path must be in output")
+
+	ctx := context.Background()
+
+	// Verify egress.compiled.yaml contains both destinations.
+	catCode, compiledData, err := env.Exec(ctx, []string{"cat", filepath.Join(evidencePath, "egress.compiled.yaml")})
+	require.NoError(t, err)
+	require.Equal(t, 0, catCode, "egress.compiled.yaml must exist: %s", compiledData)
+	require.Contains(t, compiledData, "host: httpbin.org")
+	require.Contains(t, compiledData, "port: 443")
+	require.Contains(t, compiledData, "host: example.com")
+	require.Contains(t, compiledData, "port: 8443")
+}
+
 func TestE2E_DiffArtifactsWrittenWhenChangesExist(t *testing.T) {
 	t.Parallel()
 	bin := buildBinary(t)
