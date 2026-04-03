@@ -11,7 +11,9 @@ import (
 
 const (
 	// DefaultSquidImage is the default Docker image for the Squid proxy.
-	DefaultSquidImage = "ubuntu/squid:latest"
+	// Pinned by digest to prevent supply-chain attacks — update the digest
+	// when upgrading Squid.
+	DefaultSquidImage = "ubuntu/squid@sha256:6a097f68bae708cedbabd6188d68c7e2e7a38cedd05a176e1cc0ba29e3bbe029"
 
 	// squidListenPort is the port Squid listens on inside the container.
 	squidListenPort = 3128

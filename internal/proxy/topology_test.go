@@ -20,8 +20,8 @@ func TestTopology_SquidImageDefault(t *testing.T) {
 	require.Equal(t, "", topo.SquidImage, "SquidImage should start empty")
 	// The effective image used during Setup should be DefaultSquidImage
 	// when SquidImage is empty. We verify the field is empty and the
-	// constant is available for the implementation to use.
-	require.Equal(t, "ubuntu/squid:latest", DefaultSquidImage)
+	// constant is digest-pinned.
+	require.Contains(t, DefaultSquidImage, "@sha256:", "DefaultSquidImage must be pinned by digest")
 }
 
 func TestProxyEnv_Fields(t *testing.T) {
