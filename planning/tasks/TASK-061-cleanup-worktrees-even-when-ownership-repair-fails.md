@@ -1,7 +1,7 @@
 ---
 id: TASK-061-cleanup-worktrees-even-when-ownership-repair-fails
 title: Continue worktree cleanup when ownership repair fails
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-004-worktree-provisioning-and-workspace-metadata
@@ -12,7 +12,7 @@ spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#workspace-guarantees
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-04-02T14:59:17Z"
+updated_at: "2026-04-03T08:56:28Z"
 areas:
     - workspace
     - cleanup
@@ -74,3 +74,4 @@ verification:
 
 - Likely files: `internal/workspace/provision.go` and workspace cleanup tests.
 - A host-side `chmod -R u+rwX` fallback may be enough when the repair container is unavailable.
+- 2026-04-03T08:56:28Z: Cleanup no longer short-circuits on repair failure; continues with host chmod fallback, git worktree remove, and os.RemoveAll. Unit + integration + mutation + manual tests all pass.
