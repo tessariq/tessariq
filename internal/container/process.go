@@ -86,8 +86,11 @@ func (p *Process) Wait() (int, error) {
 
 // Signal maps OS signals to Docker commands:
 //
-//	SIGTERM, SIGINT -> docker stop --time=10
-//	SIGKILL         -> docker kill
+//	SIGTERM, SIGINT -> docker kill --signal=<sig> (non-blocking)
+//	SIGKILL         -> docker kill (default SIGKILL)
+//
+// SIGTERM and SIGINT use docker kill --signal rather than docker stop so that
+// the caller's grace timer controls escalation instead of Docker's built-in timeout.
 func (p *Process) Signal(sig os.Signal) error {
 	cmdArgs := p.signalCommand(sig)
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
@@ -100,8 +103,10 @@ func (p *Process) Signal(sig os.Signal) error {
 // signalCommand returns the docker command arguments for the given OS signal.
 func (p *Process) signalCommand(sig os.Signal) []string {
 	switch sig {
-	case syscall.SIGTERM, syscall.SIGINT:
-		return []string{p.docker, "stop", "--time=10", p.cfg.Name}
+	case syscall.SIGTERM:
+		return []string{p.docker, "kill", "--signal=SIGTERM", p.cfg.Name}
+	case syscall.SIGINT:
+		return []string{p.docker, "kill", "--signal=SIGINT", p.cfg.Name}
 	case syscall.SIGKILL:
 		return []string{p.docker, "kill", p.cfg.Name}
 	default:
@@ -191,6 +196,7 @@ func (p *Process) waitForLogs() {
 func (p *Process) buildCreateArgs() []string {
 	args := []string{"create"}
 
+	args = append(args, "--init")
 	args = append(args, "--cap-drop", "ALL")
 	args = append(args, "--security-opt", "no-new-privileges")
 

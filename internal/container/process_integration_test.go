@@ -282,10 +282,12 @@ func TestContainerLifecycle_SignalStop(t *testing.T) {
 	name := testutil.UniqueName(t)
 	cleanupContainer(t, name)
 
+	// Use a command that explicitly handles SIGTERM as PID 1.
+	// Bare "sleep" as PID 1 ignores SIGTERM due to kernel PID-1 protection.
 	p := container.New(container.Config{
 		Name:    name,
 		Image:   "alpine:latest",
-		Command: []string{"sleep", "300"},
+		Command: []string{"sh", "-c", "trap 'exit 143' TERM; sleep 300 & wait"},
 	})
 
 	err := p.Start(t.Context())
@@ -294,13 +296,53 @@ func TestContainerLifecycle_SignalStop(t *testing.T) {
 	// Give container time to start.
 	time.Sleep(500 * time.Millisecond)
 
-	// Send SIGTERM -> docker stop.
+	// Send SIGTERM via docker kill --signal=SIGTERM (non-blocking).
 	err = p.Signal(syscall.SIGTERM)
 	require.NoError(t, err)
 
 	code, err := p.Wait()
 	require.NoError(t, err)
-	require.NotEqual(t, 0, code, "stopped container should have non-zero exit code")
+	require.Equal(t, 143, code, "SIGTERM-handled container should exit with 143")
+}
+
+// TestContainerLifecycle_SIGTERMIsNonBlocking verifies that Signal(SIGTERM) returns
+// immediately without waiting for the container to exit. A container that traps
+// SIGTERM stays running after the signal, proving the call is non-blocking.
+func TestContainerLifecycle_SIGTERMIsNonBlocking(t *testing.T) {
+	t.Parallel()
+	testutil.RequireDocker(t)
+
+	name := testutil.UniqueName(t)
+	cleanupContainer(t, name)
+
+	// Container traps SIGTERM and keeps running.
+	p := container.New(container.Config{
+		Name:    name,
+		Image:   "alpine:latest",
+		Command: []string{"sh", "-c", "trap '' TERM; sleep 300"},
+	})
+
+	err := p.Start(t.Context())
+	require.NoError(t, err)
+
+	time.Sleep(500 * time.Millisecond)
+
+	// Signal must return quickly (non-blocking).
+	start := time.Now()
+	err = p.Signal(syscall.SIGTERM)
+	elapsed := time.Since(start)
+	require.NoError(t, err)
+	require.Less(t, elapsed, 3*time.Second,
+		"Signal(SIGTERM) must be non-blocking, took %s", elapsed)
+
+	// Container should still be running after SIGTERM since it traps the signal.
+	out, inspectErr := exec.Command("docker", "inspect", "--format={{.State.Running}}", name).Output()
+	require.NoError(t, inspectErr)
+	require.Contains(t, string(out), "true", "container must still be running after trapped SIGTERM")
+
+	// Clean up: SIGKILL to stop the container.
+	_ = p.Signal(syscall.SIGKILL)
+	_, _ = p.Wait()
 }
 
 func TestContainerLifecycle_SignalKill(t *testing.T) {

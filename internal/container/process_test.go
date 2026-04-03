@@ -147,7 +147,7 @@ func TestSignalCommand_SIGTERM(t *testing.T) {
 	t.Parallel()
 	p := New(Config{Name: "test-container"})
 	cmd := p.signalCommand(syscall.SIGTERM)
-	require.Equal(t, []string{"docker", "stop", "--time=10", "test-container"}, cmd)
+	require.Equal(t, []string{"docker", "kill", "--signal=SIGTERM", "test-container"}, cmd)
 }
 
 func TestSignalCommand_SIGKILL(t *testing.T) {
@@ -161,7 +161,7 @@ func TestSignalCommand_SIGINT(t *testing.T) {
 	t.Parallel()
 	p := New(Config{Name: "test-container"})
 	cmd := p.signalCommand(syscall.SIGINT)
-	require.Equal(t, []string{"docker", "stop", "--time=10", "test-container"}, cmd)
+	require.Equal(t, []string{"docker", "kill", "--signal=SIGINT", "test-container"}, cmd)
 }
 
 func TestSignalCommand_Other(t *testing.T) {
@@ -243,6 +243,18 @@ func TestBuildCreateArgs_NonInteractiveNoTTYFlags(t *testing.T) {
 
 	require.Equal(t, -1, indexOf(args, "-i"))
 	require.Equal(t, -1, indexOf(args, "-t"))
+}
+
+func TestBuildCreateArgs_Init(t *testing.T) {
+	t.Parallel()
+	p := New(Config{Name: "c", Image: "img"})
+	args := p.buildCreateArgs()
+
+	initIdx := indexOf(args, "--init")
+	require.GreaterOrEqual(t, initIdx, 0, "--init must be present")
+
+	imgIdx := indexOf(args, "img")
+	require.Less(t, initIdx, imgIdx, "--init must precede image")
 }
 
 func TestBuildCreateArgs_CapDropAll(t *testing.T) {
