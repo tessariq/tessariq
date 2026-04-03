@@ -1,7 +1,7 @@
 ---
 id: TASK-067-cleanup-squid-resources-on-startup-failure
 title: Clean up Squid containers and networks when proxy startup fails mid-sequence
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-012-proxy-topology-and-egress-artifacts
@@ -11,7 +11,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#networking-and-egress
     - specs/tessariq-v0.1.0.md#evidence-contract
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-04-02T14:59:17Z"
+updated_at: "2026-04-03T11:27:04Z"
 areas:
     - proxy
     - cleanup
@@ -73,3 +73,4 @@ verification:
 
 - Likely files: `internal/proxy/squid.go`, `internal/proxy/topology.go`, and proxy integration tests.
 - Keep cleanup local to the failing startup path so successful runs keep the existing teardown behavior.
+- 2026-04-03T11:27:04Z: Added deferred container cleanup in StartSquid and belt-and-suspenders StopSquid call in Topology.Setup. Integration test verifies no orphaned resources after startup failure. Manual test confirms all 4 acceptance criteria. Mutation testing at 89.23% efficacy.

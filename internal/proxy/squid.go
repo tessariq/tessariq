@@ -77,6 +77,15 @@ func StartSquid(ctx context.Context, cfg SquidConfig) error {
 		return fmt.Errorf("docker create squid: %s: %w", strings.TrimSpace(string(out)), err)
 	}
 
+	// Best-effort cleanup: remove the container if any subsequent step fails.
+	// StopSquid is idempotent, so double-removal is harmless.
+	created := true
+	defer func() {
+		if created {
+			_ = StopSquid(ctx, cfg.Name)
+		}
+	}()
+
 	// Step 2: Copy squid.conf into the container via docker cp.
 	// Write config to a temp file, then docker cp it in. This avoids the
 	// bind-mount path visibility problem in sibling container setups.
@@ -121,6 +130,7 @@ func StartSquid(ctx context.Context, cfg SquidConfig) error {
 		return fmt.Errorf("squid readiness check: %w", err)
 	}
 
+	created = false // disarm cleanup — startup succeeded
 	return nil
 }
 

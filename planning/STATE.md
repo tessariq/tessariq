@@ -1,25 +1,24 @@
 ---
 schema_version: 1
-updated_at: "2026-04-03T11:23:25Z"
+updated_at: "2026-04-03T11:27:08Z"
 mode: user_request
-run_id: wf-20260403T111830Z
+run_id: wf-20260403T111853Z
 agent_id: claude-code
 model: claude-opus-4-6
 active_task: ""
 active_task_started_at: ""
 attempt: 0
-last_completed: TASK-063-pin-squid-proxy-image-by-digest
+last_completed: TASK-067-cleanup-squid-resources-on-startup-failure
 next_tasks:
     - TASK-065-support-ipv6-safe-egress-destination-parsing
-    - TASK-067-cleanup-squid-resources-on-startup-failure
 repo_state: idle
 last_transition: finish
-last_transition_at: "2026-04-03T11:23:22Z"
+last_transition_at: "2026-04-03T11:27:04Z"
 selection_reason: next eligible todo by priority
-validation_last_run: "2026-04-03T11:21:56Z"
+validation_last_run: "2026-04-03T11:26:58Z"
 validation_status: passed
 validation_scope: task:v0.1.0
-validation_checked_at: "2026-04-03T11:21:56Z"
+validation_checked_at: "2026-04-03T11:26:58Z"
 milestone_focus: v0.1.0
 active_spec_version: v0.1.0
 active_spec_path: specs/tessariq-v0.1.0.md
@@ -30,12 +29,11 @@ max_retries: 2
 ## Machine Snapshot
 
 - Active task: none
-- Last completed: TASK-063-pin-squid-proxy-image-by-digest
+- Last completed: TASK-067-cleanup-squid-resources-on-startup-failure
 - Validation status: passed
 - Active spec: v0.1.0 (specs/tessariq-v0.1.0.md)
 - Next tasks:
   - TASK-065-support-ipv6-safe-egress-destination-parsing
-  - TASK-067-cleanup-squid-resources-on-startup-failure
 
 ## Task Counts
 
