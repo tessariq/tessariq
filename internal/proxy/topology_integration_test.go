@@ -48,6 +48,49 @@ func forceCleanup(t *testing.T, runID string) {
 	})
 }
 
+func TestIntegration_SquidContainerSecurityHardening(t *testing.T) {
+	t.Parallel()
+	testutil.RequireDocker(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+
+	squidImage := buildSquidTestImage(t)
+	runID := testutil.UniqueName(t)
+	evidenceDir := t.TempDir()
+	forceCleanup(t, runID)
+
+	topo := &proxy.Topology{
+		RunID:           runID,
+		EvidenceDir:     evidenceDir,
+		Destinations:    []string{"example.com:443"},
+		AllowlistSource: "cli",
+		SquidImage:      squidImage,
+	}
+
+	_, err := topo.Setup(ctx)
+	require.NoError(t, err, "Setup must succeed")
+
+	squidName := proxy.SquidContainerName(runID)
+
+	// Inspect CapDrop.
+	capOut, err := exec.CommandContext(ctx, "docker", "inspect",
+		"--format", "{{json .HostConfig.CapDrop}}", squidName).Output()
+	require.NoError(t, err, "docker inspect CapDrop")
+	require.Contains(t, string(capOut), "ALL",
+		"HostConfig.CapDrop must contain ALL")
+
+	// Inspect SecurityOpt.
+	secOut, err := exec.CommandContext(ctx, "docker", "inspect",
+		"--format", "{{json .HostConfig.SecurityOpt}}", squidName).Output()
+	require.NoError(t, err, "docker inspect SecurityOpt")
+	require.Contains(t, string(secOut), "no-new-privileges",
+		"HostConfig.SecurityOpt must contain no-new-privileges")
+
+	err = topo.Teardown(ctx)
+	require.NoError(t, err, "Teardown must succeed")
+}
+
 func TestIntegration_TopologySetupAndTeardown(t *testing.T) {
 	t.Parallel()
 	testutil.RequireDocker(t)

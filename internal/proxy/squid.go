@@ -37,6 +37,22 @@ func SquidAddress(squidContainerName string) string {
 	return fmt.Sprintf("http://%s:%d", squidContainerName, squidListenPort)
 }
 
+// buildSquidCreateArgs returns the docker create arguments for the Squid proxy container.
+// Squid's entrypoint drops from root to the proxy user via setgid/initgroups,
+// so SETGID and SETUID must be re-added after dropping all capabilities.
+func buildSquidCreateArgs(cfg SquidConfig, image string) []string {
+	return []string{
+		"create",
+		"--cap-drop", "ALL",
+		"--cap-add", "SETGID",
+		"--cap-add", "SETUID",
+		"--security-opt", "no-new-privileges",
+		"--name", cfg.Name,
+		"--net", cfg.NetworkName,
+		image,
+	}
+}
+
 // StartSquid creates and starts a Squid proxy container.
 //
 // Steps:
@@ -53,11 +69,8 @@ func StartSquid(ctx context.Context, cfg SquidConfig) error {
 		image = DefaultSquidImage
 	}
 
-	createCmd := exec.CommandContext(ctx, "docker", "create",
-		"--name", cfg.Name,
-		"--net", cfg.NetworkName,
-		image,
-	)
+	args := buildSquidCreateArgs(cfg, image)
+	createCmd := exec.CommandContext(ctx, "docker", args...)
 	if out, err := createCmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("docker create squid: %s: %w", strings.TrimSpace(string(out)), err)
 	}
@@ -77,6 +90,12 @@ func StartSquid(ctx context.Context, cfg SquidConfig) error {
 		return fmt.Errorf("write squid.conf: %w", err)
 	}
 	tmpFile.Close()
+
+	// Ensure the file is world-readable so the Squid process (which drops
+	// from root to the proxy user) can read it after docker cp.
+	if err := os.Chmod(tmpPath, 0o644); err != nil {
+		return fmt.Errorf("chmod squid.conf: %w", err)
+	}
 
 	cpCmd := exec.CommandContext(ctx, "docker", "cp", tmpPath, cfg.Name+":/etc/squid/squid.conf")
 	if out, err := cpCmd.CombinedOutput(); err != nil {
@@ -155,7 +174,7 @@ func StopSquid(ctx context.Context, name string) error {
 // Returns the log content as bytes. If the log file doesn't exist,
 // returns empty bytes and nil error.
 func CopyAccessLog(ctx context.Context, containerName string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, "docker", "exec", containerName,
+	cmd := exec.CommandContext(ctx, "docker", "exec", "-u", "proxy", containerName,
 		"cat", "/var/log/squid/access.log",
 	)
 	out, err := cmd.CombinedOutput()
