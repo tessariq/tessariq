@@ -152,6 +152,61 @@ func TestParseDestination_CustomPort(t *testing.T) {
 	require.Equal(t, 8443, port)
 }
 
+func TestParseDestination_IPv6(t *testing.T) {
+	t.Parallel()
+
+	t.Run("valid bracketed forms", func(t *testing.T) {
+		t.Parallel()
+
+		tests := []struct {
+			name     string
+			input    string
+			wantHost string
+			wantPort int
+		}{
+			{"full_ipv6_with_port", "[2001:db8::1]:443", "2001:db8::1", 443},
+			{"loopback_with_port", "[::1]:8443", "::1", 8443},
+			{"mapped_ipv4_with_port", "[::ffff:192.0.2.1]:443", "::ffff:192.0.2.1", 443},
+			{"bracketed_non_ip_host", "[bad-not-ip]:443", "bad-not-ip", 443},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
+				host, port, err := ParseDestination(tt.input)
+				require.NoError(t, err)
+				require.Equal(t, tt.wantHost, host)
+				require.Equal(t, tt.wantPort, port)
+			})
+		}
+	})
+
+	t.Run("invalid forms", func(t *testing.T) {
+		t.Parallel()
+
+		tests := []struct {
+			name    string
+			input   string
+			wantMsg string
+		}{
+			{"bare_ipv6_full", "2001:db8::1", "bare IPv6"},
+			{"bare_ipv6_loopback", "::1", "bare IPv6"},
+			{"bracketed_no_port", "[::1]", "bracketed destination"},
+			{"empty_brackets_with_port", "[]:443", "empty host"},
+			{"empty_brackets", "[]", "bracketed destination"},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
+				_, _, err := ParseDestination(tt.input)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.wantMsg)
+			})
+		}
+	})
+}
+
 func TestParseDestination_LeadingDotHost(t *testing.T) {
 	t.Parallel()
 

@@ -44,6 +44,14 @@ func TestNewCompiledAllowlist_ValidInputs(t *testing.T) {
 			wantFirst:   CompiledDestination{Host: "example.com", Port: 443},
 			wantVersion: 1,
 		},
+		{
+			name:        "bracketed IPv6 with port",
+			source:      "cli",
+			dests:       []string{"[2001:db8::1]:443"},
+			wantLen:     1,
+			wantFirst:   CompiledDestination{Host: "2001:db8::1", Port: 443},
+			wantVersion: 1,
+		},
 	}
 
 	for _, tt := range tests {
@@ -88,6 +96,11 @@ func TestNewCompiledAllowlist_InvalidInputs(t *testing.T) {
 		{
 			name:    "empty string returns error",
 			dests:   []string{""},
+			wantErr: true,
+		},
+		{
+			name:    "bare IPv6 returns error",
+			dests:   []string{"2001:db8::1"},
 			wantErr: true,
 		},
 	}

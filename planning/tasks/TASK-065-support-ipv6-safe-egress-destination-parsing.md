@@ -1,7 +1,7 @@
 ---
 id: TASK-065-support-ipv6-safe-egress-destination-parsing
 title: Parse IPv6 egress destinations without corrupting host and port values
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-011-egress-mode-resolution-and-manifest-recording
@@ -11,7 +11,7 @@ spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#networking-and-egress
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-04-02T14:59:17Z"
+updated_at: "2026-04-03T11:27:01Z"
 areas:
     - networking
     - proxy
@@ -72,3 +72,4 @@ verification:
 
 - Likely files: `internal/run/allowlist.go` and `internal/run/allowlist_test.go`.
 - Be explicit about which IPv6 forms are supported; rejecting ambiguous bare forms is preferable to silently misparsing them.
+- 2026-04-03T11:27:01Z: IPv6-safe ParseDestination: bracketed forms parsed via net.SplitHostPort, bare IPv6 rejected with actionable error. Unit tests, integration tests, mutation testing (85.79%), and manual tests all pass.
