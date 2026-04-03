@@ -1,7 +1,7 @@
 ---
 id: TASK-068-make-manifest-writes-atomic
 title: Write manifest.json atomically to avoid crash-corrupted evidence
-status: todo
+status: done
 priority: p2
 depends_on:
     - TASK-002-run-cli-flags-and-manifest-bootstrap
@@ -12,7 +12,7 @@ spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#evidence-contract
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-04-02T14:59:17Z"
+updated_at: "2026-04-03T08:50:48Z"
 areas:
     - evidence
     - reliability
@@ -72,3 +72,4 @@ verification:
 
 - Likely files: `internal/run/manifest.go` and manifest tests.
 - Prefer reusing the same helper pattern as `runner.WriteStatus` if doing so stays local and readable.
+- 2026-04-03T08:50:48Z: WriteManifest now uses temp-file+rename atomic pattern matching WriteStatus; unit tests added for no-temp-file-leak and overwrite semantics; mutation efficacy 85.85%; all 4 manual tests pass
