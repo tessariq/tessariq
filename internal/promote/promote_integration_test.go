@@ -62,6 +62,38 @@ func TestRun_CreatesBranchAndSingleCommit(t *testing.T) {
 	require.Contains(t, show, "2 files changed")
 }
 
+func TestRun_PromotesBinaryFileChanges(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo, err := containers.StartGitRepo(ctx, t)
+	require.NoError(t, err)
+
+	writeFile(t, filepath.Join(repo.Dir(), "tracked.txt"), "before\n")
+	gitRunTest(t, repo.Dir(), "add", "tracked.txt")
+	gitRunTest(t, repo.Dir(), "commit", "-m", "base")
+
+	baseSHA := gitOutputTest(t, repo.Dir(), "rev-parse", "HEAD")
+
+	// Binary content with null bytes so git treats it as binary.
+	binaryContent := []byte{0x89, 0x50, 0x4E, 0x47, 0x00, 0x01, 0x02, 0x03, 0xFF, 0xFE}
+
+	patch, diffstat := buildDiffArtifacts(t, repo.Dir(), baseSHA, func(worktree string) {
+		require.NoError(t, os.WriteFile(filepath.Join(worktree, "image.png"), binaryContent, 0o644))
+	})
+	require.Contains(t, patch, "GIT binary patch", "patch must contain binary data")
+
+	createEvidenceFixture(t, repo.Dir(), testRunID, baseSHA, patch, diffstat)
+
+	result, err := Run(ctx, repo.Dir(), Options{RunRef: testRunID})
+	require.NoError(t, err)
+
+	// Read the binary file from the promoted branch and verify byte-for-byte equality.
+	promoted, err := exec.CommandContext(ctx, "git", "-C", repo.Dir(), "show", result.Branch+":image.png").Output()
+	require.NoError(t, err)
+	require.Equal(t, binaryContent, promoted, "promoted branch must contain exact binary bytes")
+}
+
 func TestRun_ZeroDiffFailsWithoutBranchOrCommit(t *testing.T) {
 	t.Parallel()
 
@@ -417,7 +449,7 @@ func buildDiffArtifacts(t *testing.T, repoDir, baseSHA string, mutate func(strin
 	mutate(worktree)
 	gitRunTest(t, worktree, "add", "-N", ".")
 
-	patch := gitOutputRawTest(t, worktree, "diff", baseSHA, "--", ".")
+	patch := gitOutputRawTest(t, worktree, "diff", "--binary", baseSHA, "--", ".")
 	diffstat := gitOutputRawTest(t, worktree, "diff", "--stat", baseSHA, "--", ".")
 	return patch, diffstat
 }

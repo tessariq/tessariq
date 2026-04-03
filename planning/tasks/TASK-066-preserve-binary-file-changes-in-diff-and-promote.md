@@ -1,7 +1,7 @@
 ---
 id: TASK-066-preserve-binary-file-changes-in-diff-and-promote
 title: Preserve binary file changes in diff artifacts and promote
-status: todo
+status: done
 priority: p0
 depends_on:
     - TASK-013-diff-log-and-evidence-artifacts
@@ -12,7 +12,7 @@ spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#evidence-contract
     - specs/tessariq-v0.1.0.md#tessariq-promote-run-ref
-updated_at: "2026-04-02T14:59:17Z"
+updated_at: "2026-04-03T08:54:42Z"
 areas:
     - git
     - evidence
@@ -75,3 +75,4 @@ verification:
 
 - Likely files: `internal/git/diff.go`, git diff integration tests, and promote integration/e2e tests.
 - Preserve existing diffstat behavior unless binary coverage shows a related gap there too.
+- 2026-04-03T08:54:42Z: Added --binary to git diff command; binary hunks now survive run-to-promote flow. Integration tests for binary diff and binary promote round-trip added. Manual test 3/3 pass. Mutation efficacy 92.33%.
