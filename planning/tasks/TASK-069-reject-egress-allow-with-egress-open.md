@@ -1,7 +1,7 @@
 ---
 id: TASK-069-reject-egress-allow-with-egress-open
 title: Reject misleading --egress open plus --egress-allow combinations
-status: todo
+status: done
 priority: p2
 depends_on:
     - TASK-011-egress-mode-resolution-and-manifest-recording
@@ -11,7 +11,7 @@ spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#networking-and-egress
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-04-02T14:59:17Z"
+updated_at: "2026-04-03T08:59:22Z"
 areas:
     - cli
     - networking
@@ -70,3 +70,4 @@ verification:
 
 - Likely files: `internal/run/config.go` and `internal/run/config_test.go`.
 - A hard validation error is preferred over a warning because the current behavior silently weakens the user's intended restriction.
+- 2026-04-03T08:59:22Z: Validation rejects egress open + egress-allow; unit tests cover open, unsafe-egress, and regression paths; manual test 4/4 pass

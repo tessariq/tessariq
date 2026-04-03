@@ -73,6 +73,10 @@ func (c Config) Validate() error {
 		return errors.New("egress-allow cannot be used with egress mode none")
 	}
 
+	if egress == "open" && len(c.EgressAllow) > 0 {
+		return errors.New("egress-allow cannot be used with egress mode open; allowlists require proxy mode")
+	}
+
 	for i, cmd := range c.Pre {
 		if strings.TrimSpace(cmd) == "" {
 			return fmt.Errorf("pre command %d must not be empty", i)
