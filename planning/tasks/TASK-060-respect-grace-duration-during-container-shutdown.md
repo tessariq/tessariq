@@ -1,7 +1,7 @@
 ---
 id: TASK-060-respect-grace-duration-during-container-shutdown
 title: Respect configured grace periods during container shutdown escalation
-status: todo
+status: done
 priority: p0
 depends_on:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
@@ -11,7 +11,7 @@ spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#agent-and-runtime-contract
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-04-02T14:59:17Z"
+updated_at: "2026-04-03T08:55:06Z"
 areas:
     - runner
     - container
@@ -73,3 +73,4 @@ verification:
 
 - Likely files: `internal/container/process.go`, `internal/container/process_test.go`, `internal/runner/runner.go`, and runner integration tests.
 - Accept either `docker kill --signal=SIGTERM` or an equivalent implementation, as long as `Config.Grace` becomes authoritative.
+- 2026-04-03T08:55:06Z: Replaced docker stop --time=10 with docker kill --signal=SIGTERM for non-blocking signal delivery. Runner's Config.Grace timer now controls SIGTERM→SIGKILL escalation. Unit tests updated, integration test added for non-blocking behavior, manual tests confirmed all 4 acceptance criteria pass. Mutation testing: 85.74% efficacy.
