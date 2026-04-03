@@ -6,6 +6,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestDefaultSquidImage_DigestPinned(t *testing.T) {
+	t.Parallel()
+	require.Contains(t, DefaultSquidImage, "@sha256:", "DefaultSquidImage must be pinned by digest")
+}
+
 func TestSquidContainerName(t *testing.T) {
 	t.Parallel()
 

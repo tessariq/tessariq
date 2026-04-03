@@ -1,7 +1,7 @@
 ---
 id: TASK-063-pin-squid-proxy-image-by-digest
 title: Pin the default Squid proxy image by digest
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-012-proxy-topology-and-egress-artifacts
@@ -10,7 +10,7 @@ spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#networking-and-egress
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-04-02T14:59:17Z"
+updated_at: "2026-04-03T11:23:22Z"
 areas:
     - proxy
     - security
@@ -71,3 +71,4 @@ verification:
 
 - Likely files: `internal/proxy/squid.go`, `internal/proxy/topology.go`, and proxy tests.
 - Follow the same maintenance pattern already used for `internal/workspace/provision.go`'s repair image.
+- 2026-04-03T11:23:22Z: Pinned DefaultSquidImage by digest; all unit/integration tests pass; manual test 4/4 pass; zero verification findings
