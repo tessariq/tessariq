@@ -47,11 +47,11 @@ BUG-001 through BUG-007 were all fixed by TASK-030 through TASK-039 (done).
 | BUG-027 | HIGH | `process.go:104`, `runner.go:176` | `docker stop --time=10` makes `--grace` flag dead code | **Fixed** (TASK-060) |
 | BUG-028 | MEDIUM | `provision.go:53-69` | Worktree and git ref leak when Docker unavailable during cleanup | **Fixed** (TASK-061) |
 | BUG-029 | MEDIUM | `squid.go:56-59` | Squid proxy container lacks security hardening (no cap-drop, no-new-privileges) | **Fixed** (TASK-062) |
-| BUG-030 | MEDIUM | `squid.go:16` | Squid proxy image uses unpinned `:latest` tag | **Open** (TASK-063) |
+| BUG-030 | MEDIUM | `squid.go:16` | Squid proxy image uses unpinned `:latest` tag | **Fixed** (TASK-063) |
 | BUG-031 | HIGH | `squidconf.go:52` | Squid ACL cross-product allows unintended host:port combinations | **Fixed** (TASK-064) |
-| BUG-032 | MEDIUM | `allowlist.go:22` | IPv6 address misparse in ParseDestination | **Open** (TASK-065) |
+| BUG-032 | MEDIUM | `allowlist.go:22` | IPv6 address misparse in ParseDestination | **Fixed** (TASK-065) |
 | BUG-033 | MEDIUM | `diff.go:27` | Binary file changes silently dropped during promote (missing `--binary`) | **Fixed** (TASK-066) |
-| BUG-034 | MEDIUM | `squid.go:49-103`, `topology.go:71` | Squid container and network leak on partial StartSquid failure | **Open** (TASK-067) |
+| BUG-034 | MEDIUM | `squid.go:49-103`, `topology.go:71` | Squid container and network leak on partial StartSquid failure | **Fixed** (TASK-067) |
 | BUG-035 | LOW | `manifest.go:80` | WriteManifest not atomic; partial write on crash corrupts evidence | **Fixed** (TASK-068) |
 | BUG-036 | LOW | `config.go:72` | `--egress open` silently discards `--egress-allow` without warning | **Fixed** (TASK-069) |
 | BUG-037 | HIGH | `cmd/tessariq/run.go:255`, `internal/runner/runner.go` | `run --attach` flag declared but never implemented; tmux session not attached | **Open** |
@@ -1179,7 +1179,7 @@ Confirmed fixed by code review and commit history:
 - **BUG-035**: `WriteManifest` now uses a tmp+rename pattern identical to `WriteStatus` (TASK-068).
 - **BUG-036**: `Config.Validate()` now returns an error when `--egress-allow` is combined with `--egress open` (TASK-069).
 
-Still open (tasks remain `todo`):
+Still open at iteration time (since fixed by TASK-063, TASK-065, and TASK-067):
 - **BUG-030**: `DefaultSquidImage = "ubuntu/squid:latest"` — still unpinned.
 - **BUG-032**: `ParseDestination` still uses `strings.LastIndex(s, ":")` — still IPv6-unaware.
 - **BUG-034**: `StartSquid` still has no cleanup path for partial failures; `Topology.Setup` still only calls `RemoveNetwork` (not `StopSquid`) on `StartSquid` error.
