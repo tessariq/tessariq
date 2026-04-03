@@ -64,6 +64,62 @@ func TestParseDestination_HostWithSpaces(t *testing.T) {
 	require.Contains(t, err.Error(), "invalid host")
 }
 
+func TestParseDestination_ControlCharacters(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"newline", "evil\n.example.com:443"},
+		{"carriage_return", "evil\r.example.com:443"},
+		{"tab", "evil\t.example.com:443"},
+		{"nul", "evil\x00.example.com:443"},
+		{"del", "evil\x7f.example.com:443"},
+		{"soh", "evil\x01.example.com:443"},
+		{"form_feed", "evil\x0c.example.com:443"},
+		{"vertical_tab", "evil\x0b.example.com:443"},
+		{"space", "evil .example.com:443"},
+		{"newline_host_only", "evil\n.example.com"},
+		{"trailing_newline", "example.com\n"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			_, _, err := ParseDestination(tt.input)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "invalid host")
+		})
+	}
+}
+
+func TestParseDestination_ValidHostsStillPass(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		input    string
+		wantHost string
+		wantPort int
+	}{
+		{"simple_domain", "example.com:443", "example.com", 443},
+		{"subdomain", "api.example.com:8443", "api.example.com", 8443},
+		{"hyphenated", "my-host.example.com:443", "my-host.example.com", 443},
+		{"host_only_default_port", "example.com", "example.com", 443},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			host, port, err := ParseDestination(tt.input)
+			require.NoError(t, err)
+			require.Equal(t, tt.wantHost, host)
+			require.Equal(t, tt.wantPort, port)
+		})
+	}
+}
+
 func TestParseDestination_EmptyString(t *testing.T) {
 	t.Parallel()
 

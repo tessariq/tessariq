@@ -7,6 +7,19 @@ import (
 	"strings"
 )
 
+// containsControlOrSpace reports whether s contains any ASCII control byte
+// (0x00–0x1F), DEL (0x7F), or space (0x20). These characters are unsafe in
+// proxy configuration directives and must be rejected before config generation.
+func containsControlOrSpace(s string) bool {
+	for i := 0; i < len(s); i++ {
+		b := s[i]
+		if b <= 0x20 || b == 0x7f {
+			return true
+		}
+	}
+	return false
+}
+
 // AllowlistResult holds the resolved allowlist and its provenance.
 type AllowlistResult struct {
 	Destinations []string // canonical "host:port" entries
@@ -36,8 +49,8 @@ func ParseDestination(s string) (host string, port int, err error) {
 		return "", 0, fmt.Errorf("empty host in %q", s)
 	}
 
-	if strings.ContainsAny(host, " \t") {
-		return "", 0, fmt.Errorf("invalid host %q: contains whitespace", host)
+	if containsControlOrSpace(host) {
+		return "", 0, fmt.Errorf("invalid host %q: contains control character or space", host)
 	}
 
 	if port < 1 || port > 65535 {
