@@ -6,7 +6,9 @@ priority: p1
 depends_on: []
 milestone: v0.1.0
 spec_version: v0.1.0
-spec_refs: []
+spec_refs:
+    - specs/tessariq-v0.1.0.md#failure-ux
+    - specs/tessariq-v0.1.0.md#acceptance-scenarios
 updated_at: "2026-04-03T08:48:55Z"
 areas:
     - workflow
@@ -35,7 +37,7 @@ verification:
     manual_test:
         required: false
         commands: []
-        rationale: ""
+        rationale: Run manual checks only if verification cannot confirm the user-visible changelog update deterministically.
 ---
 
 ## Summary
