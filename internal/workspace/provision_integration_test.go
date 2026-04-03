@@ -211,6 +211,48 @@ func TestCleanup_Integration_GitWorktreeListClean(t *testing.T) {
 	require.Equal(t, 1, worktreeCount, "only the main worktree should remain after cleanup, got: %s", out)
 }
 
+func TestCleanup_Integration_RemovesWorktreeRef_WhenRepairFails(t *testing.T) {
+	// No t.Parallel() — t.Setenv is not compatible with parallel tests.
+
+	ctx := context.Background()
+	repo, err := containers.StartGitRepo(ctx, t)
+	require.NoError(t, err)
+
+	headSHA := resolveHead(t, ctx, repo)
+	homeDir := t.TempDir()
+	evidenceDir := filepath.Join(t.TempDir(), "evidence")
+
+	wsPath, err := Provision(ctx, homeDir, repo.Dir(), "01ARZ3NDEKTSV4RRFFQ69G5FAR", evidenceDir, headSHA)
+	require.NoError(t, err)
+
+	// Simulate Docker unavailability by prepending a directory with a fake
+	// docker binary that always fails, so repairWorkspaceOwnership errors out
+	// while git remains available.
+	fakeDockerDir := t.TempDir()
+	fakePath := filepath.Join(fakeDockerDir, "docker")
+	require.NoError(t, os.WriteFile(fakePath, []byte("#!/bin/sh\nexit 1\n"), 0o755))
+	t.Setenv("PATH", fakeDockerDir+":"+os.Getenv("PATH"))
+
+	err = Cleanup(ctx, repo.Dir(), wsPath)
+	require.NoError(t, err, "cleanup must succeed even when Docker repair fails")
+
+	// Verify the workspace directory is gone.
+	_, statErr := os.Stat(wsPath)
+	require.True(t, os.IsNotExist(statErr), "workspace directory must be removed")
+
+	// Verify git worktree ref is cleaned up.
+	out, err := exec.CommandContext(ctx, "git", "-C", repo.Dir(), "worktree", "list", "--porcelain").CombinedOutput()
+	require.NoError(t, err, "git worktree list: %s", out)
+
+	worktreeCount := 0
+	for _, line := range strings.Split(string(out), "\n") {
+		if strings.HasPrefix(line, "worktree ") {
+			worktreeCount++
+		}
+	}
+	require.Equal(t, 1, worktreeCount, "only main worktree should remain, got: %s", out)
+}
+
 func TestCleanup_Integration_RemovesRestrictiveContainerOwnedFiles(t *testing.T) {
 	t.Parallel()
 

@@ -65,6 +65,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed `diff.patch` silently dropping binary file changes because `git diff` was invoked without `--binary`, causing `tessariq promote` to lose binary additions and modifications.
 - Fixed `tessariq promote` trusting forged `evidence_path` values from the run index, now rejecting absolute paths and relative paths that escape the repository's `.tessariq/runs/` directory before reading any evidence files.
 - Fixed `tessariq promote` accepting changed runs that are missing `diffstat.txt`, now requiring both `diff.patch` and `diffstat.txt` as the spec mandates.
+- Fixed worktree cleanup aborting when the Docker ownership-repair container is unavailable, leaving stale git worktree refs and orphaned directories; cleanup now continues with a host-side chmod fallback and best-effort teardown.
 - Fixed timeout signal escalation to send SIGTERM before SIGKILL, giving containers a grace period for clean shutdown before forced termination.
 - Fixed `--agent opencode --interactive` being rejected at CLI validation instead of proceeding with requested/applied evidence recording; `agent.json` now correctly records `requested.interactive=true` and `applied.interactive=false`.
 - Fixed `--egress-allow` being ignored for OpenCode when provider auto-resolution fails: explicit CLI allowlist entries now take precedence, skipping provider detection entirely so runs proceed without requiring auth state.

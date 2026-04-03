@@ -49,24 +49,43 @@ func Provision(ctx context.Context, homeDir, repoRoot, runID, evidenceDir, baseS
 //
 // Before removal, it reclaims permissions with chmod so the host user can
 // traverse and delete files that may have been created by the container's
-// non-root user (different UID than the host user).
+// non-root user (different UID than the host user). If Docker-based repair
+// fails, a host-side chmod fallback is attempted. Neither failure prevents
+// the subsequent git worktree removal and filesystem deletion.
 func Cleanup(ctx context.Context, repoRoot, workspacePath string) error {
 	if _, err := os.Stat(workspacePath); os.IsNotExist(err) {
 		return nil
 	}
 
+	// Best-effort ownership repair: Docker container first, host chmod fallback.
+	var repairErr error
 	if err := repairWorkspaceOwnership(ctx, workspacePath); err != nil {
-		return err
+		repairErr = err
+		_ = hostChmod(workspacePath)
 	}
 
-	if err := git.RemoveWorktree(ctx, repoRoot, workspacePath); err != nil {
-		if _, statErr := os.Stat(workspacePath); os.IsNotExist(statErr) {
-			return nil
-		}
-		return fmt.Errorf("cleanup worktree: %w", err)
-	}
+	// Remove the git worktree ref regardless of repair outcome.
+	_ = git.RemoveWorktree(ctx, repoRoot, workspacePath)
+
+	// Remove the filesystem directory.
 	_ = os.RemoveAll(workspacePath)
+
+	// If the directory still exists, cleanup failed — report why.
+	if _, err := os.Stat(workspacePath); err == nil {
+		if repairErr != nil {
+			return fmt.Errorf("cleanup worktree %s: ownership repair failed and directory still exists: %w", workspacePath, repairErr)
+		}
+		return fmt.Errorf("cleanup worktree %s: directory still exists after removal attempt", workspacePath)
+	}
+
 	return nil
+}
+
+// hostChmod attempts a host-side permission repair when the Docker-based
+// repair container is unavailable.
+func hostChmod(workspacePath string) error {
+	cmd := exec.Command("chmod", "-R", "u+rwX", workspacePath)
+	return cmd.Run()
 }
 
 // buildRepairArgs assembles the docker run arguments for workspace ownership repair.
