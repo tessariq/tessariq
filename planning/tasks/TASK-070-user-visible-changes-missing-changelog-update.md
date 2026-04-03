@@ -1,7 +1,7 @@
 ---
 id: TASK-070-user-visible-changes-missing-changelog-update
 title: user-visible changes missing changelog update
-status: todo
+status: done
 priority: p1
 depends_on: []
 milestone: v0.1.0
@@ -9,7 +9,7 @@ spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#failure-ux
     - specs/tessariq-v0.1.0.md#acceptance-scenarios
-updated_at: "2026-04-03T08:48:55Z"
+updated_at: "2026-04-03T10:27:46Z"
 areas:
     - workflow
     - verification
@@ -59,3 +59,4 @@ Address verification finding `TASK-068-make-manifest-writes-atomic-changelog`.
 ## Notes
 
 - Source report finding: `User-visible code changes detected (internal/run/manifest.go) without updating CHANGELOG.md. Add a user-facing entry under CHANGELOG.md before finishing the task.`
+- 2026-04-03T10:27:46Z: Added CHANGELOG.md entry for TASK-068 atomic manifest writes; removed stale merge conflict marker. Verification passes with zero findings.
