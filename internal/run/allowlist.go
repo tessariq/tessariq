@@ -3,6 +3,7 @@ package run
 import (
 	"errors"
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 )
@@ -27,18 +28,35 @@ type AllowlistResult struct {
 }
 
 // ParseDestination parses a "host:port" string. Port defaults to 443 if omitted.
+// Bracketed IPv6 forms like "[::1]:443" are supported. Bare IPv6 addresses
+// without brackets are rejected as ambiguous.
 func ParseDestination(s string) (host string, port int, err error) {
 	if s == "" {
 		return "", 0, errors.New("empty destination")
 	}
 
-	lastColon := strings.LastIndex(s, ":")
-	if lastColon == -1 {
+	if s[0] == '[' {
+		// Bracketed form: [host]:port — use net.SplitHostPort for correct parsing.
+		hostPart, portStr, splitErr := net.SplitHostPort(s)
+		if splitErr != nil {
+			return "", 0, fmt.Errorf("bracketed destination %q must include a port (e.g., [::1]:443)", s)
+		}
+		host = hostPart
+		port, err = strconv.Atoi(portStr)
+		if err != nil {
+			return "", 0, fmt.Errorf("non-numeric port in %q", s)
+		}
+	} else if strings.Count(s, ":") > 1 {
+		// Multiple colons without brackets — bare IPv6, ambiguous.
+		return "", 0, fmt.Errorf("bare IPv6 address %q is ambiguous; use bracketed form [host]:port", s)
+	} else if i := strings.LastIndex(s, ":"); i == -1 {
+		// No colon at all: host-only, default port.
 		host = s
 		port = 443
 	} else {
-		host = s[:lastColon]
-		portStr := s[lastColon+1:]
+		// Exactly one colon: host:port.
+		host = s[:i]
+		portStr := s[i+1:]
 		port, err = strconv.Atoi(portStr)
 		if err != nil {
 			return "", 0, fmt.Errorf("non-numeric port in %q", s)

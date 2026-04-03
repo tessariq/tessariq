@@ -98,3 +98,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed `--egress open --egress-allow` silently ignoring allowlist entries; the combination is now rejected at validation time with an actionable error directing users to proxy mode.
 - Fixed `manifest.json` writes using non-atomic `os.WriteFile` which could leave partially written JSON on crash; writes now use the same temp-file-plus-rename pattern as other evidence files.
 - Fixed proxy startup failure leaving orphaned Squid containers and Docker networks; `StartSquid` now removes the created container on any post-create failure, and `Topology.Setup` removes both container and network before returning the error.
+- Fixed `ParseDestination` corrupting IPv6 addresses by splitting on the last colon; bracketed IPv6 forms like `[::1]:443` now parse correctly, and bare IPv6 addresses are rejected with actionable guidance to use the bracketed form.

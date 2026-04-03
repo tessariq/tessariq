@@ -165,6 +165,22 @@ func TestGenerateSquidConf_NoLeadingDotInOutput(t *testing.T) {
 	require.Contains(t, conf, "dstdomain good.com")
 }
 
+func TestGenerateSquidConf_IPv6Destination(t *testing.T) {
+	t.Parallel()
+
+	dests := []CompiledDestination{
+		{Host: "2001:db8::1", Port: 443},
+		{Host: "api.example.com", Port: 443},
+	}
+
+	conf := GenerateSquidConf(dests, 3128)
+
+	// IPv6 host should appear without brackets in dstdomain.
+	require.Contains(t, conf, "acl hosts_443 dstdomain 2001:db8::1")
+	require.NotContains(t, conf, "[2001:db8::1]")
+	require.Contains(t, conf, "acl hosts_443 dstdomain api.example.com")
+}
+
 func TestGenerateSquidConf_ListenPort(t *testing.T) {
 	t.Parallel()
 
