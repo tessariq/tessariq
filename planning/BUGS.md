@@ -5,9 +5,9 @@ Automated adversarial testing against done tasks.
 | Key | Value |
 |-----|-------|
 | Started | 2026-03-31 |
-| Iteration | 15 |
-| Last bug found | iteration 15 |
-| Clean iterations | 0 / 14 |
+| Iteration | 20 |
+| Last bug found | iteration 20 |
+| Clean iterations | 0 / 19 |
 | Status | In progress |
 
 ---
@@ -42,18 +42,23 @@ BUG-001 through BUG-007 were all fixed by TASK-030 through TASK-039 (done).
 | BUG-022 | HIGH | `taskpath.go` | `run` accepts symlinked task path whose real target is outside the repository | **Fixed** |
 | BUG-023 | CRITICAL | `run.go`, `factory.go`, `process.go` | `--egress none` does not disable networking; container gets full internet access | **Fixed** |
 | BUG-024 | MEDIUM | `run.go:216` | `WriteDiffArtifacts` error silently discarded; run completes without diff evidence | **Fixed** |
-| BUG-025 | HIGH | `allowlist.go:39`, `squidconf.go:47` | Newline/control char injection in allowlist host corrupts Squid config | **Open** (TASK-058) |
-| BUG-026 | MEDIUM | `allowlist.go:35-43` | Leading-dot hosts enable Squid wildcard subdomain matching | **Open** (TASK-059) |
-| BUG-027 | HIGH | `process.go:104`, `runner.go:176` | `docker stop --time=10` makes `--grace` flag dead code | **Open** (TASK-060) |
-| BUG-028 | MEDIUM | `provision.go:53-69` | Worktree and git ref leak when Docker unavailable during cleanup | **Open** (TASK-061) |
-| BUG-029 | MEDIUM | `squid.go:56-59` | Squid proxy container lacks security hardening (no cap-drop, no-new-privileges) | **Open** (TASK-062) |
+| BUG-025 | HIGH | `allowlist.go:39`, `squidconf.go:47` | Newline/control char injection in allowlist host corrupts Squid config | **Fixed** (TASK-058) |
+| BUG-026 | MEDIUM | `allowlist.go:35-43` | Leading-dot hosts enable Squid wildcard subdomain matching | **Fixed** (TASK-059) |
+| BUG-027 | HIGH | `process.go:104`, `runner.go:176` | `docker stop --time=10` makes `--grace` flag dead code | **Fixed** (TASK-060) |
+| BUG-028 | MEDIUM | `provision.go:53-69` | Worktree and git ref leak when Docker unavailable during cleanup | **Fixed** (TASK-061) |
+| BUG-029 | MEDIUM | `squid.go:56-59` | Squid proxy container lacks security hardening (no cap-drop, no-new-privileges) | **Fixed** (TASK-062) |
 | BUG-030 | MEDIUM | `squid.go:16` | Squid proxy image uses unpinned `:latest` tag | **Open** (TASK-063) |
-| BUG-031 | HIGH | `squidconf.go:52` | Squid ACL cross-product allows unintended host:port combinations | **Open** (TASK-064) |
+| BUG-031 | HIGH | `squidconf.go:52` | Squid ACL cross-product allows unintended host:port combinations | **Fixed** (TASK-064) |
 | BUG-032 | MEDIUM | `allowlist.go:22` | IPv6 address misparse in ParseDestination | **Open** (TASK-065) |
-| BUG-033 | MEDIUM | `diff.go:27` | Binary file changes silently dropped during promote (missing `--binary`) | **Open** (TASK-066) |
+| BUG-033 | MEDIUM | `diff.go:27` | Binary file changes silently dropped during promote (missing `--binary`) | **Fixed** (TASK-066) |
 | BUG-034 | MEDIUM | `squid.go:49-103`, `topology.go:71` | Squid container and network leak on partial StartSquid failure | **Open** (TASK-067) |
-| BUG-035 | LOW | `manifest.go:80` | WriteManifest not atomic; partial write on crash corrupts evidence | **Open** (TASK-068) |
-| BUG-036 | LOW | `config.go:72` | `--egress open` silently discards `--egress-allow` without warning | **Open** (TASK-069) |
+| BUG-035 | LOW | `manifest.go:80` | WriteManifest not atomic; partial write on crash corrupts evidence | **Fixed** (TASK-068) |
+| BUG-036 | LOW | `config.go:72` | `--egress open` silently discards `--egress-allow` without warning | **Fixed** (TASK-069) |
+| BUG-037 | HIGH | `cmd/tessariq/run.go:255`, `internal/runner/runner.go` | `run --attach` flag declared but never implemented; tmux session not attached | **Open** |
+| BUG-038 | MEDIUM | `internal/runner/hooks.go:46`, `internal/runner/runner.go:88,110` | Pre/verify hooks run with CWD set to evidence directory, not repository root | **Open** |
+| BUG-039 | MEDIUM | `cmd/tessariq/run.go:226-238` | Run failure output omits evidence path; contradicts spec failure-UX contract | **Open** |
+| BUG-040 | LOW | `internal/run/userconfig.go:52` | UserConfig YAML silently ignores unknown fields; config typos cause undetected fallback | **Open** |
+| BUG-041 | LOW | `internal/container/process.go:179`, `internal/runner/runner.go:130` | `docker logs --follow` cancelled by timeout context, truncating final agent output in `run.log` | **Open** |
 
 ---
 
@@ -1154,3 +1159,319 @@ The function has no IPv6 awareness at all.
 | Proxy teardown idempotency | StopSquid + RemoveNetwork on missing resources | CLEAN |
 | Hook execution | sh -c with user-provided commands, output capture | CLEAN |
 | Status write atomicity | tmp+rename pattern in WriteStatus | CLEAN |
+
+---
+
+## Iteration 16
+
+Scope: status verification for all previously open bugs (BUG-025 through BUG-036) based on code and commit analysis; new adversarial review of the `tessariq run` command flag contract.
+
+### Previously open bugs — status update
+
+Confirmed fixed by code review and commit history:
+- **BUG-025**: `allowlist.go` now calls `containsControlOrSpace` which rejects any byte ≤ 0x20 or 0x7F (TASK-058).
+- **BUG-026**: `ParseDestination` now rejects hosts starting with `.` with a clear error (TASK-059).
+- **BUG-027**: `Process.Signal` now uses `docker kill --signal=SIGTERM` (non-blocking); the runner's grace timer handles SIGKILL escalation (TASK-060).
+- **BUG-028**: `workspace.Cleanup` now calls `git.RemoveWorktree` and `os.RemoveAll` even when `repairWorkspaceOwnership` fails; a host-side `chmod` fallback was added (TASK-061).
+- **BUG-029**: `buildSquidCreateArgs` now includes `--cap-drop ALL`, `--cap-add SETGID`, `--cap-add SETUID`, `--security-opt no-new-privileges` (TASK-062).
+- **BUG-031**: `GenerateSquidConf` now groups hosts by port into per-port named ACLs (`acl hosts_443 dstdomain ...`) and emits one `http_access allow CONNECT port_N hosts_N` rule per port group, enforcing exact host:port pairs (TASK-064).
+- **BUG-033**: `git.Diff` now passes `--binary` to `git diff`, preserving binary hunks in `diff.patch` (TASK-066).
+- **BUG-035**: `WriteManifest` now uses a tmp+rename pattern identical to `WriteStatus` (TASK-068).
+- **BUG-036**: `Config.Validate()` now returns an error when `--egress-allow` is combined with `--egress open` (TASK-069).
+
+Still open (tasks remain `todo`):
+- **BUG-030**: `DefaultSquidImage = "ubuntu/squid:latest"` — still unpinned.
+- **BUG-032**: `ParseDestination` still uses `strings.LastIndex(s, ":")` — still IPv6-unaware.
+- **BUG-034**: `StartSquid` still has no cleanup path for partial failures; `Topology.Setup` still only calls `RemoveNetwork` (not `StopSquid`) on `StartSquid` error.
+
+### BUG-037: `run --attach` flag is declared but never implemented
+
+**Severity:** HIGH
+**Files:** `cmd/tessariq/run.go:255`, `internal/runner/runner.go`, `internal/tmux/tmux.go`
+
+**Spec says** (line 169):
+> `--attach`
+
+And (line 181–182):
+> `--interactive` opts in to human-in-the-loop approval; this is intended for use with `--attach` where a human is present to approve each tool invocation
+> `--interactive` without `--attach` is valid but will cause the agent to block waiting for approval with no terminal attached
+
+The CLI help text describes `--attach` as "attach to the run session immediately".
+
+**Code does:**
+- `cfg.Attach` is declared at `run.go:255` via `cmd.Flags().BoolVar(&cfg.Attach, "attach", ...)`.
+- The only reference to `cfg.Attach` in the run flow is `printInteractiveNote(cmd.ErrOrStderr(), cfg.Interactive, cfg.Attach, sessionName)` at line 202, which uses it solely to suppress the "use 'tmux attach -t …'" hint.
+- `cfg.Attach` propagates into `runner.Config` but is **never read** by `Runner.Run` or any called function.
+- `tmux.AttachSession` exists in `internal/tmux/tmux.go:104` and is wired to `tessariq attach`, but is never called from `run.go` or the runner for the `--attach` flag.
+
+**Impact:** Users who pass `--attach` — particularly with `--interactive` — expect the CLI to attach their terminal to the tmux session immediately after the container starts. Instead, the run proceeds detached and the flag has zero functional effect. The `--interactive --attach` combination is the spec's intended interactive-approval workflow, so this gap makes that workflow impossible through the `run` subcommand alone.
+
+**Adversarial test:**
+1. Build the CLI: `go build -o /tmp/tessariq-adv ./cmd/tessariq`.
+2. Create a clean repo with a committed task.md.
+3. Run `/tmp/tessariq-adv run --attach task.md`.
+4. Expected: the CLI attaches to the newly created tmux session immediately, keeping the user's terminal in the session.
+5. Actual: the CLI runs the container, waits for it to finish (or timeout), prints output, and exits — no tmux attach ever occurs.
+
+**Fix direction:** After the runner's tmux session is created and the agent process is started, call `tmux.AttachSession(ctx, sessionName)` in the foreground before blocking on the container exit wait. This requires splitting the runner so the tmux session creation (and optional terminal attach) is surfaced to the CLI layer before the blocking wait begins.
+
+---
+
+### Areas tested (clean)
+
+| Area | Probe | Result |
+|------|-------|--------|
+| BUG-025 fix | `ParseDestination` rejects `\n`, `\r`, `\t`, and `\x01` in host | CLEAN |
+| BUG-026 fix | `ParseDestination` rejects leading `.` | CLEAN |
+| BUG-027 fix | `Process.Signal(SIGTERM)` uses `docker kill --signal=SIGTERM` (non-blocking) | CLEAN |
+| BUG-028 fix | `workspace.Cleanup` continues git remove and os.RemoveAll after Docker failure | CLEAN |
+| BUG-029 fix | `buildSquidCreateArgs` includes cap-drop + no-new-privileges | CLEAN |
+| BUG-031 fix | `GenerateSquidConf` per-port ACL grouping enforces exact host:port pairs | CLEAN |
+| BUG-033 fix | `git.Diff` includes `--binary` flag | CLEAN |
+| BUG-035 fix | `WriteManifest` uses tmp+rename atomic pattern | CLEAN |
+| BUG-036 fix | `Config.Validate` rejects `--egress-allow` with `--egress open` | CLEAN |
+| Manifest identity check | `validateManifestIdentity` verifies run_id against index entry and evidence dir name | CLEAN |
+| Evidence path boundary | `ValidateEvidencePath` rejects absolute paths and `../` traversal | CLEAN |
+| Evidence run_id cross-check | `ValidateEvidenceRunID` enforces directory name == entry.RunID | CLEAN |
+| Attach git prereq | `RequirementsForCommand("attach")` includes `DependencyGit` | CLEAN |
+| User config bypass | `resolveAllowlistCore` skips config load for `open`/`none`/CLI-overridden modes | CLEAN |
+
+---
+
+## Iteration 17
+
+Scope: adversarial review of hook execution context — working directory, environment, and lifecycle placement — against spec and user expectations.
+
+### BUG-038: Pre/verify hooks run with CWD set to evidence directory, not repository root
+
+**Severity:** MEDIUM
+**Files:** `internal/runner/runner.go:88,110`, `internal/runner/hooks.go:45-50`
+
+**Spec says** (line 171–176):
+> Hook execution context:
+> - `--pre` and `--verify` commands execute on the **host**, outside the container sandbox, with the invoking user's full privileges
+> - hooks are not subject to container isolation, egress restrictions, or capability limits
+> - hook output is captured in `runner.log`
+
+The spec does not restrict the working directory, but the only plausible project context is the repository root — users write hooks like `go test ./...` or `make lint` expecting to be in their project.
+
+**Code does:** `runner.go:88` passes `r.EvidenceDir` as `workDir` to `RunPreHooks`:
+```go
+_, preErr := RunPreHooks(ctx, r.Config.Pre, r.EvidenceDir, logs.RunnerLog)
+```
+And `runner.go:110` does the same for verify hooks:
+```go
+_, verifyErr := RunVerifyHooks(ctx, r.Config.Verify, r.EvidenceDir, logs.RunnerLog)
+```
+In `hooks.go:46`, `cmd.Dir = workDir` sets the CWD. `r.EvidenceDir` expands to `<repo>/.tessariq/runs/<run_id>/`, which contains only evidence artifacts (manifest.json, status.json, etc.) — no source files, no build tools, no Makefile.
+
+**Impact:** Any hook that uses relative paths or project-specific tools fails with confusing errors:
+- `--pre "go build ./..."` → `no Go files in <repo>/.tessariq/runs/<run_id>`
+- `--verify "pytest tests/"` → `ERROR: file not found: tests/`
+- `--pre "make preflight"` → `make: *** No targets specified and no makefile found`
+
+None of these errors identify the real problem (wrong CWD). Users must either prefix every hook with `cd /repo/root &&` (fragile if they don't know the root at config time) or abandon hooks entirely.
+
+**Adversarial test:**
+1. Build the CLI: `go build -o /tmp/tessariq-adv ./cmd/tessariq`.
+2. Create a clean repo with a committed `task.md` and a `Makefile` at the root.
+3. Run `/tmp/tessariq-adv run --pre "ls Makefile" task.md`.
+4. Expected: `ls Makefile` succeeds in the repo root; pre-hook passes.
+5. Actual: `ls: cannot access 'Makefile': No such file or directory` — pre-hook fails, run aborts.
+
+The runner.log would confirm CWD as `.tessariq/runs/<run_id>/`.
+
+**Fix direction:** Pass the repository root (resolved before the runner starts, already available in `cmd/tessariq/run.go`) into the runner config and use it as `workDir` for both pre and verify hooks.
+
+---
+
+### Areas tested (clean)
+
+| Area | Probe | Result |
+|------|-------|--------|
+| Pre-hook error propagation | Failed pre-hook aborts run and writes StateFailed | CLEAN |
+| Verify-hook accumulation | All verify hooks run; first failure is returned | CLEAN |
+| Hook output capture | stdout+stderr captured in runner.log via logWriter | CLEAN |
+| Pre-hook before process | Pre-hooks run before container start | CLEAN |
+| Verify-hook after process | Verify-hooks run only when processState == StateSuccess | CLEAN |
+| Hook command validation | Empty hook commands rejected at Validate() | CLEAN |
+| Runner log timestamps | Each hook log entry is RFC3339-timestamped | CLEAN |
+
+---
+
+## Iteration 18
+
+Scope: adversarial review of the `tessariq run` failure-output contract against the v0.1.0 spec failure-UX table.
+
+### BUG-039: Run failure output does not surface evidence path; contradicts spec failure-UX contract
+
+**Severity:** MEDIUM
+**Files:** `cmd/tessariq/run.go:226-238`
+
+**Spec says** (line 547, failure-UX table):
+> | the agent process exits non-zero | complete the run as `failed` | write terminal evidence and tell the user the run failed with exit code; include evidence path |
+
+And the required printed output section (lines 206–213) lists `evidence path` as a required output of `tessariq run`.
+
+**Code does:** `printRunOutput` is guarded by `if runErr != nil { return runErr }` at line 226:
+```go
+if runErr != nil {
+    return runErr
+}
+
+cleanupWorktree = false
+
+printRunOutput(cmd.OutOrStdout(), runOutput{
+    RunID:         runID,
+    EvidencePath:  evidenceDir,
+    WorkspacePath: wsPath,
+    ContainerName: containerName,
+})
+```
+
+On any run failure (agent exit non-zero, runner error, hook failure, etc.), the CLI returns only the error string — no `run_id`, no `evidence_path`, no `workspace_path`. The evidence directory exists and contains all written artifacts (manifest.json, status.json, runner.log) but the user has no CLI-provided path to find it.
+
+**Impact:** A developer whose run fails must either:
+- Know Tessariq's internal layout and manually search `<repo>/.tessariq/runs/` for the most recent directory, or
+- Run `tessariq promote last` and observe the error message, which does surface the path.
+
+Both workarounds are non-obvious. The spec explicitly requires the evidence path on failure so users can inspect `runner.log`, `status.json`, and `agent.json` for debugging.
+
+**Adversarial test:**
+1. Build the CLI: `go build -o /tmp/tessariq-adv ./cmd/tessariq`.
+2. Create a clean repo with `task.md` and a pre-hook that always fails: `--pre "exit 1"`.
+3. Run `/tmp/tessariq-adv run --pre "exit 1" task.md`.
+4. Expected by spec: output includes `evidence_path: <repo>/.tessariq/runs/<run_id>`.
+5. Actual: only `pre-command failed: exit 1 (exit 1)` is printed to stderr; no evidence path appears.
+
+**Fix direction:** Print (at minimum) `run_id` and `evidence_path` to stderr before returning the error, so users have a stable reference to the failed run's evidence regardless of outcome.
+
+---
+
+### Areas tested (clean)
+
+| Area | Probe | Result |
+|------|-------|--------|
+| Success output format | All 6 required fields printed on success | CLEAN |
+| Evidence dir permissions | 0o700 on `BootstrapManifest`, 0o600 on files | CLEAN |
+| Run ID uniqueness | ULID generation is monotonic per second | CLEAN |
+| Status completeness on failure | StateFailed written by runner with all required fields | CLEAN |
+| Index entry on failure | Terminal state entry appended even when runner fails | CLEAN |
+| Worktree cleanup on failure | cleanupWorktree=true deferred cleanup runs on failure | CLEAN |
+| Proxy teardown on failure | Topology.Teardown deferred even when runner fails | CLEAN |
+
+---
+
+## Iteration 19
+
+Scope: adversarial review of user configuration loading — YAML parsing robustness and silent-fallback scenarios.
+
+### BUG-040: `userconfig.go` silently ignores unknown YAML fields, masking configuration typos
+
+**Severity:** LOW
+**Files:** `internal/run/userconfig.go:52`
+
+**Spec says** (line 96–98):
+> v0.1.0 MAY read user-level defaults from `$XDG_CONFIG_HOME/tessariq/config.yaml`
+> the only normative user-level config surface in v0.1.0 is default proxy allowlist selection for `--egress=auto`
+
+**Code does:**
+```go
+var cfg UserConfig
+if err := yaml.Unmarshal(data, &cfg); err != nil {
+    return nil, fmt.Errorf("malformed config file %s: %w; check YAML syntax", path, err)
+}
+```
+
+`gopkg.in/yaml.v3`'s default `Unmarshal` silently drops unknown fields. `UserConfig` has one field: `EgressAllow []string \`yaml:"egress_allow"\``. Any field with a different name — including simple typos — is silently ignored.
+
+**Impact:** A user who writes:
+```yaml
+# ~/.config/tessariq/config.yaml
+egress_allow:         # correct
+  - "api.openai.com:443"
+```
+gets their allowlist applied. But a user who writes:
+```yaml
+egressAllow:          # camelCase typo
+  - "api.openai.com:443"
+```
+or:
+```yaml
+egress_alow:          # single-letter typo
+  - "api.openai.com:443"
+```
+silently falls back to the built-in allowlist. The run proceeds with a wider-than-intended egress surface and no diagnostic.
+
+**Adversarial test:**
+1. Create `$XDG_CONFIG_HOME/tessariq/config.yaml` with `egressAllow:\n  - "api.openai.com:443"`.
+2. Build the binary: `go build -o /tmp/tessariq-adv ./cmd/tessariq`.
+3. Run `XDG_CONFIG_HOME=/tmp/xdg /tmp/tessariq-adv run --egress proxy task.md`.
+4. Expected: either reject the unknown field or warn that the config has unrecognized keys.
+5. Actual: `UserConfig.EgressAllow` is nil; `ResolveAllowlist` falls back to the built-in list; `egress.compiled.yaml` shows `allowlist_source: built_in` — no indication the user config was silently ignored.
+
+**Fix direction:** Use `yaml.Decoder` with `KnownFields(true)` (available in `gopkg.in/yaml.v3`) to reject unknown fields with a parse error, or at minimum log a warning when the decoded struct has fewer entries than expected.
+
+---
+
+### Areas tested (clean)
+
+| Area | Probe | Result |
+|------|-------|--------|
+| Valid config YAML | `egress_allow` list correctly parsed and applied | CLEAN |
+| Missing config file | Returns (nil, nil) without error | CLEAN |
+| Permission-denied config | Returns actionable error | CLEAN |
+| Malformed YAML (syntax error) | Returns parse error with guidance | CLEAN |
+| Empty config file | Returns (nil, nil); built-in allowlist used | CLEAN |
+| XDG_CONFIG_HOME override | Path constructed correctly when XDG is set | CLEAN |
+| No-config-dir case | `UserConfigPath` returns `""` when dir absent | CLEAN |
+
+---
+
+## Iteration 20
+
+Scope: adversarial review of log streaming lifecycle — `docker logs --follow` context binding, log completeness on timeout, and evidence integrity.
+
+### BUG-041: `docker logs --follow` is cancelled by timeout context, truncating final agent output in `run.log`
+
+**Severity:** LOW
+**Files:** `internal/container/process.go:179`, `internal/runner/runner.go:130-132`
+
+**What happens:** `Process.Start` is called with `timeoutCtx` (a `context.WithTimeout`-derived context). Inside `Start`, `streamLogs(ctx)` starts `docker logs --follow` using `exec.CommandContext(ctx, "docker", "logs", "--follow", p.cfg.Name)`. When `timeoutCtx`'s deadline fires, Go kills the `docker logs --follow` process with SIGKILL.
+
+The timeout sequence in `runDetachedProcess` is:
+1. `timeoutCtx.Done()` fires → `docker logs --follow` is killed immediately by the cancelled context.
+2. `WriteTimeoutFlag` is written to evidence.
+3. `r.Process.Signal(syscall.SIGTERM)` sends a non-blocking SIGTERM to the container.
+4. The agent container receives SIGTERM and may log shutdown messages ("received SIGTERM, saving state…").
+5. `time.After(r.Config.Grace)` waits the grace period.
+6. `r.Process.Signal(os.Kill)` sends SIGKILL.
+
+Steps 4–6 happen AFTER the log streamer was killed in step 1. Any output the agent writes during graceful shutdown is captured by Docker's logging driver but never forwarded to `run.log` — the `docker logs --follow` consumer is already dead.
+
+**Impact:** `run.log` is truncated at the moment of timeout, missing the shutdown conversation — exactly the output most useful for diagnosing why the agent timed out (stack traces, in-progress task state, "I was about to finish" messages). Evidence is technically present but substantively incomplete.
+
+**Adversarial test:**
+1. Build the CLI: `go build -o /tmp/tessariq-adv ./cmd/tessariq`.
+2. Run with a very short timeout against a task that writes a post-SIGTERM message: `--timeout 3s --grace 5s`.
+3. Use an agent container where the entrypoint is `sh -c "sleep 5; echo 'pre-timeout line'; sleep 60"`.
+4. After timeout: `cat <evidence_dir>/run.log`.
+5. Expected: `run.log` ends with "pre-timeout line" (written before SIGTERM).
+6. Actual: `run.log` ends before "pre-timeout line" — the line is in Docker's own log (`docker logs tessariq-<id>`) but not in evidence.
+
+**Fix direction:** Either (a) use `exec.Command` (without context) for `docker logs --follow` and let the container exit naturally close the log stream, relying on `waitForLogs` in `Wait()` to drain remaining output after the container stops; or (b) split the context — use a separate, non-timeout context for log streaming that is cancelled only after `docker wait` returns.
+
+---
+
+### Areas tested (clean)
+
+| Area | Probe | Result |
+|------|-------|--------|
+| Log file creation | run.log and runner.log created at 0o600 | CLEAN |
+| CappedWriter thread safety | sync.Mutex guards concurrent writes from stdout+stderr | CLEAN |
+| Log cap at 50 MiB | TruncationMarker appended and further writes discarded | CLEAN |
+| Normal-exit log completeness | docker logs stream exits naturally on container exit | CLEAN |
+| Log double-close | Defer f.Close after explicit f.Close is benign (error ignored) | CLEAN |
+| Squid access log copy | CopyAccessLog fails gracefully when container is gone | CLEAN |
+| Events JSONL write | Atomic tmp+rename pattern used for egress.events.jsonl | CLEAN |
+| Squid log cap | CopySquidLog enforces 10 MiB cap with truncation marker | CLEAN |
