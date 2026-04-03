@@ -1,7 +1,7 @@
 ---
 id: TASK-062-harden-squid-proxy-container-security
 title: Apply capability dropping and no-new-privileges to the Squid proxy container
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-012-proxy-topology-and-egress-artifacts
@@ -11,7 +11,7 @@ spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#networking-and-egress
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-04-02T14:59:17Z"
+updated_at: "2026-04-03T10:38:21Z"
 areas:
     - proxy
     - container
@@ -73,3 +73,4 @@ The agent container already drops all capabilities and disables privilege escala
 
 - Likely files: `internal/proxy/squid.go` and proxy integration tests.
 - Keep the proxy container otherwise behavior-preserving; this task is about baseline containment, not broader resource limits.
+- 2026-04-03T10:38:21Z: Squid proxy container hardened with --cap-drop=ALL --cap-add=SETGID --cap-add=SETUID --security-opt=no-new-privileges. Fixed squid.conf temp file permissions (0644) for compatibility. Fixed CopyAccessLog to exec as proxy user. Tests: 4 unit, 1 integration (HostConfig inspection), 3 existing integration regression. Mutation: 85.64% efficacy.
