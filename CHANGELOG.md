@@ -47,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed evidence file permissions from world-readable (`0644`/`0755`) to owner-only (`0600`/`0700`) for all evidence directories and files.
 - Pinned workspace repair container image by digest (`alpine@sha256:...`) instead of mutable `alpine:latest` tag to prevent supply-chain attacks on the root-privileged ownership-fix container.
 - Changed `tessariq init` to create `.tessariq/` and `.tessariq/runs/` with owner-only permissions (`0700`) and tighten existing directories on re-run.
+- Reject allowlist hosts containing ASCII control characters (NUL, newline, carriage return, and others) to prevent Squid proxy config injection via malformed `--egress-allow` values or user config entries.
 
 ### Changed
 

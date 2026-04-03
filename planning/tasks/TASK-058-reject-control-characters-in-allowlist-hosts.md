@@ -1,7 +1,7 @@
 ---
 id: TASK-058-reject-control-characters-in-allowlist-hosts
 title: Reject control characters in allowlist hosts before Squid config generation
-status: todo
+status: done
 priority: p0
 depends_on:
     - TASK-011-egress-mode-resolution-and-manifest-recording
@@ -11,7 +11,7 @@ spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#networking-and-egress
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-04-02T14:59:17Z"
+updated_at: "2026-04-03T09:04:09Z"
 areas:
     - networking
     - proxy
@@ -73,3 +73,4 @@ verification:
 
 - Likely files: `internal/run/allowlist.go`, `internal/run/allowlist_test.go`, and proxy integration coverage.
 - Prefer rejecting all bytes `< 0x20` plus `0x7f` instead of trying to special-case only newline variants.
+- 2026-04-03T09:04:09Z: Tightened ParseDestination to reject all ASCII control bytes (0x00-0x1F, 0x7F) and space. Unit tests, integration tests, mutation testing (85.9% efficacy), and manual testing all pass.
