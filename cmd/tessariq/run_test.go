@@ -272,6 +272,14 @@ func TestResolveAllowlistCore_OpenCode(t *testing.T) {
 			files:           map[string]string{"config.yaml": "{{invalid yaml"},
 			wantErr:         "malformed config file",
 		},
+		{
+			name:            "proxy_no_cli_unknown_field_user_config_fails",
+			agent:           "claude-code",
+			egress:          "proxy",
+			configDirExists: true,
+			files:           map[string]string{"config.yaml": "egressAllow:\n  - api.example.com:443\n"},
+			wantErr:         "unknown field",
+		},
 	}
 
 	for _, tt := range tests {
