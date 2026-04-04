@@ -3,6 +3,9 @@
 package container_test
 
 import (
+	"bytes"
+	"context"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -462,4 +465,72 @@ func TestContainerLifecycle_WorkDir(t *testing.T) {
 	content, err := os.ReadFile(filepath.Join(hostDir, "pwd.txt"))
 	require.NoError(t, err)
 	require.Equal(t, "/myworkdir\n", string(content))
+}
+
+func TestContainerLifecycle_LogStreamNormalExit(t *testing.T) {
+	t.Parallel()
+	testutil.RequireDocker(t)
+
+	name := testutil.UniqueName(t)
+	cleanupContainer(t, name)
+
+	var stdout bytes.Buffer
+	p := container.New(container.Config{
+		Name:    name,
+		Image:   "alpine:latest",
+		Command: []string{"sh", "-c", "echo hello-logs"},
+	})
+	p.SetOutputWriter(&stdout, io.Discard)
+
+	err := p.Start(t.Context())
+	require.NoError(t, err)
+
+	code, err := p.Wait()
+	require.NoError(t, err)
+	require.Equal(t, 0, code)
+
+	require.Contains(t, stdout.String(), "hello-logs",
+		"normal exit must capture all log output")
+}
+
+func TestContainerLifecycle_LogStreamSurvivesContextCancel(t *testing.T) {
+	t.Parallel()
+	testutil.RequireDocker(t)
+
+	name := testutil.UniqueName(t)
+	cleanupContainer(t, name)
+
+	var stdout bytes.Buffer
+	p := container.New(container.Config{
+		Name:  name,
+		Image: "alpine:latest",
+		// Trap SIGTERM and print shutdown output before exiting.
+		Command: []string{"sh", "-c", "echo before-cancel; trap 'echo shutdown-output; exit 0' TERM; sleep 300 & wait"},
+	})
+	p.SetOutputWriter(&stdout, io.Discard)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	err := p.Start(ctx)
+	require.NoError(t, err)
+
+	// Let container start and emit initial output.
+	time.Sleep(500 * time.Millisecond)
+
+	// Cancel context — simulates timeout context expiry.
+	cancel()
+
+	// Container is still running. Send SIGTERM to trigger shutdown output.
+	time.Sleep(200 * time.Millisecond)
+	err = p.Signal(syscall.SIGTERM)
+	require.NoError(t, err)
+
+	code, err := p.Wait()
+	require.NoError(t, err)
+	require.Equal(t, 0, code)
+
+	output := stdout.String()
+	require.Contains(t, output, "before-cancel",
+		"pre-cancel output must be captured")
+	require.Contains(t, output, "shutdown-output",
+		"post-cancel shutdown output must be captured in run.log")
 }

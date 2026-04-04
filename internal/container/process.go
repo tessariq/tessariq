@@ -62,7 +62,7 @@ func (p *Process) Start(ctx context.Context) error {
 		_ = p.remove(context.Background())
 		return fmt.Errorf("docker start: %w", err)
 	}
-	p.streamLogs(ctx)
+	p.streamLogs()
 	return nil
 }
 
@@ -160,7 +160,12 @@ func (p *Process) remove(ctx context.Context) error {
 	return nil
 }
 
-func (p *Process) streamLogs(ctx context.Context) {
+// streamLogs starts a background goroutine that follows container logs until
+// the container exits. It intentionally does NOT use the caller's context to
+// control the docker-logs process lifetime. docker logs --follow exits
+// naturally when the container stops, which ensures that output emitted during
+// grace-period shutdown (after timeout) is still captured in run.log.
+func (p *Process) streamLogs() {
 	var stdout, stderr io.Writer
 	if p.stdoutWriter != nil {
 		stdout = p.stdoutWriter
@@ -176,7 +181,7 @@ func (p *Process) streamLogs(ctx context.Context) {
 		return
 	}
 	p.logsDone = make(chan struct{})
-	cmd := exec.CommandContext(ctx, p.docker, "logs", "--follow", p.cfg.Name)
+	cmd := exec.Command(p.docker, "logs", "--follow", p.cfg.Name)
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 	go func() {
