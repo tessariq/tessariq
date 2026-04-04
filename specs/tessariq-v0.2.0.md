@@ -52,6 +52,8 @@ Still out of scope:
 - devcontainer-derived runtime support
 - writable host credential or config mounts for agent auth refresh
 
+`clean` remains intentionally out of scope for v0.2.0. Users may still remove retained Tessariq-generated local state manually when they no longer need it for inspection, resume, or promote, and a first-class cleanup or prune command is deferred to a later release.
+
 ## Changes from v0.1.0
 
 v0.2.0 extends or overrides v0.1.0 in these areas:

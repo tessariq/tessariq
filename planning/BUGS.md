@@ -5,9 +5,9 @@ Automated adversarial testing against done tasks.
 | Key | Value |
 |-----|-------|
 | Started | 2026-03-31 |
-| Iteration | 21 |
-| Last bug found | iteration 20 |
-| Clean iterations | 1 / 20 |
+| Iteration | 27 |
+| Last bug found | iteration 27 |
+| Clean iterations | 5 / 26 |
 | Status | In progress |
 
 ---
@@ -16,7 +16,11 @@ Automated adversarial testing against done tasks.
 
 BUG-001 through BUG-007 were all fixed by TASK-030 through TASK-039 (done).
 
-BUG-037 through BUG-041 remain reproducible in the current code and are now tracked by TASK-071 through TASK-075.
+BUG-037 through BUG-042 and BUG-047 remain reproducible in the current code.
+
+This update adds tracked follow-up tasks for BUG-042 and BUG-047 as TASK-076 and TASK-077.
+
+BUG-043 through BUG-046 were reviewed against the current code and marked not reproducible.
 
 | Bug | Severity | File | One-liner | Status |
 |-----|----------|------|-----------|--------|
@@ -56,11 +60,17 @@ BUG-037 through BUG-041 remain reproducible in the current code and are now trac
 | BUG-034 | MEDIUM | `squid.go:49-103`, `topology.go:71` | Squid container and network leak on partial StartSquid failure | **Fixed** (TASK-067) |
 | BUG-035 | LOW | `manifest.go:80` | WriteManifest not atomic; partial write on crash corrupts evidence | **Fixed** (TASK-068) |
 | BUG-036 | LOW | `config.go:72` | `--egress open` silently discards `--egress-allow` without warning | **Fixed** (TASK-069) |
-| BUG-037 | HIGH | `cmd/tessariq/run.go:255`, `internal/runner/runner.go` | `run --attach` flag declared but never implemented; tmux session not attached | **Open** (TASK-071) |
-| BUG-038 | MEDIUM | `internal/runner/hooks.go:46`, `internal/runner/runner.go:88,110` | Pre/verify hooks run with CWD set to evidence directory, not repository root | **Open** (TASK-072) |
-| BUG-039 | MEDIUM | `cmd/tessariq/run.go:226-238` | Run failure output omits evidence path; contradicts spec failure-UX contract | **Open** (TASK-073) |
-| BUG-040 | LOW | `internal/run/userconfig.go:52` | UserConfig YAML silently ignores unknown fields; config typos cause undetected fallback | **Open** (TASK-074) |
-| BUG-041 | LOW | `internal/container/process.go:179`, `internal/runner/runner.go:130` | `docker logs --follow` cancelled by timeout context, truncating final agent output in `run.log` | **Open** (TASK-075) |
+| BUG-037 | HIGH | `cmd/tessariq/run.go:255`, `internal/runner/runner.go` | `run --attach` flag declared but never implemented; tmux session not attached | **Open** |
+| BUG-038 | MEDIUM | `internal/runner/hooks.go:46`, `internal/runner/runner.go:88,110` | Pre/verify hooks run with CWD set to evidence directory, not repository root | **Open** |
+| BUG-039 | MEDIUM | `cmd/tessariq/run.go:226-238` | Run failure output omits evidence path; contradicts spec failure-UX contract | **Open** |
+| BUG-040 | LOW | `internal/run/userconfig.go:52` | UserConfig YAML silently ignores unknown fields; config typos cause undetected fallback | **Open** |
+| BUG-041 | LOW | `internal/container/process.go:179`, `internal/runner/runner.go:130` | `docker logs --follow` cancelled by timeout context, truncating final agent output in `run.log` | **Open** |
+| BUG-042 | MEDIUM | `internal/adapter/claudecode/claudecode.go:8`, `internal/adapter/opencode/opencode.go:8` | Default agent images use unpinned `:latest` tags | **Open** (TASK-076) |
+| BUG-043 | MEDIUM | `cmd/tessariq/run.go:216`, `internal/runner/diff.go:15`, `internal/git/diff.go:22` | `WriteDiffArtifacts` called with cancelled CLI context after Ctrl+C; diff evidence silently lost | **Not reproducible** |
+| BUG-044 | MEDIUM | `cmd/tessariq/run.go:230` | Workspace not cleaned up after successful run; no prune mechanism; worktrees accumulate indefinitely | **Not reproducible** |
+| BUG-045 | LOW | `internal/container/probe.go:30` | `ProbeImageBinary` uses `fmt.Sprintf` inside `sh -c` for binary name; latent shell injection risk | **Not reproducible** |
+| BUG-046 | HIGH | `internal/runner/runner.go:169`, `cmd/tessariq/run.go:226-230` | `runDetachedProcess` misclassifies Ctrl+C as timeout; success output printed for cancelled runs | **Not reproducible** |
+| BUG-047 | HIGH | `cmd/tessariq/run.go:226-237`, `internal/runner/runner.go:81-118` | `tessariq run` treats terminal non-success outcomes as successful command completion | **Open** (TASK-077) |
 
 ---
 
@@ -1486,12 +1496,12 @@ Scope: status verification for the remaining open bugs and backlog synchronizati
 
 ### Previously open bugs - status update
 
-Confirmed still reproducible by code review and now tracked as explicit backlog items:
-- **BUG-037**: `cfg.Attach` is only used to suppress the interactive note in `cmd/tessariq/run.go`; `Runner.Run` never reads it and `tmux.AttachSession` is only wired through `tessariq attach`. Tracked by `TASK-071-implement-run-attach-live-session`.
-- **BUG-038**: `RunPreHooks` and `RunVerifyHooks` are still called with `r.EvidenceDir` as `workDir`, so host-side hooks execute from `.tessariq/runs/<run_id>/` instead of the repository root. Tracked by `TASK-072-run-hooks-from-repo-root`.
-- **BUG-039**: `printRunOutput` still runs only on the success path; any `runErr` returns before printing `run_id` or `evidence_path` for failed runs. Tracked by `TASK-073-print-evidence-path-on-run-failure`.
-- **BUG-040**: `LoadUserConfig` still uses `yaml.Unmarshal`, so unknown YAML keys are silently discarded rather than rejected or surfaced. Tracked by `TASK-074-reject-unknown-user-config-fields`.
-- **BUG-041**: `Process.Start` still binds `docker logs --follow` to the timeout context, so timeout cancellation kills the log follower before the grace-period shutdown output can be drained. Tracked by `TASK-075-keep-log-streaming-alive-through-timeout`.
+Confirmed still reproducible by code review:
+- **BUG-037**: `cfg.Attach` is only used to suppress the interactive note in `cmd/tessariq/run.go`; `Runner.Run` never reads it and `tmux.AttachSession` is only wired through `tessariq attach`.
+- **BUG-038**: `RunPreHooks` and `RunVerifyHooks` are still called with `r.EvidenceDir` as `workDir`, so host-side hooks execute from `.tessariq/runs/<run_id>/` instead of the repository root.
+- **BUG-039**: `printRunOutput` still runs only on the success path; any `runErr` returns before printing `run_id` or `evidence_path` for failed runs.
+- **BUG-040**: `LoadUserConfig` still uses `yaml.Unmarshal`, so unknown YAML keys are silently discarded rather than rejected or surfaced.
+- **BUG-041**: `Process.Start` still binds `docker logs --follow` to the timeout context, so timeout cancellation kills the log follower before the grace-period shutdown output can be drained.
 
 No new product bugs were identified in this iteration.
 
@@ -1502,3 +1512,140 @@ No new product bugs were identified in this iteration.
 | Open-bug status audit | Re-read BUG-037 through BUG-041 against current code paths | CLEAN |
 | Existing follow-up coverage | Checked `planning/tasks/` for matching tracked tasks | CLEAN |
 | Historical fix status | Confirmed TASK-063/TASK-065/TASK-067 task files are `done` and match BUG summary | CLEAN |
+
+---
+
+## Iteration 22
+
+Scope: adversarial review of default agent image pinning against the existing Squid and repair-image hardening pattern.
+
+### BUG-042: Default agent images still use mutable `:latest` tags
+
+**Severity:** MEDIUM
+**Files:** `internal/adapter/claudecode/claudecode.go:8`, `internal/adapter/opencode/opencode.go:8`
+
+**What was verified:**
+- `claudecode.DefaultImage = "ghcr.io/tessariq/claude-code:latest"`
+- `opencode.DefaultImage = "ghcr.io/tessariq/opencode:latest"`
+- By contrast, the Squid proxy image and the workspace-repair image are already digest-pinned.
+
+**Why this is a bug:** The default agent images are the last first-party runtime images still resolved through mutable tags. That leaves the normal `tessariq run` path exposed to the same supply-chain drift pattern already fixed for Squid and the repair helper.
+
+**Task:** `TASK-076-pin-default-agent-images-by-digest`
+
+### Areas tested (clean)
+
+| Area | Probe | Result |
+|------|-------|--------|
+| Squid image pinning | `DefaultSquidImage` uses `@sha256:` digest | CLEAN |
+| Repair image pinning | `repairImage` uses `@sha256:` digest | CLEAN |
+| Agent binary pre-validation | `ProbeImageBinary` still runs before container start | CLEAN |
+
+---
+
+## Iteration 23
+
+Scope: review of the proposed Ctrl+C diff-artifact bug from PR #61 against the actual CLI context wiring.
+
+### BUG-043 status update
+
+**Disposition:** Not reproducible
+
+**Why:** The current CLI does not install `signal.NotifyContext`, does not call `ExecuteContext`, and does not otherwise wire Ctrl+C into `cmd.Context()`. The proposed reproduction depends on `cmd.Context()` being cancelled while execution continues, which is not how the current binary is assembled in `cmd/tessariq/main.go`.
+
+**Note:** A real interrupt-handling lifecycle bug still exists, but it is different from this specific description and is tracked separately as BUG-047.
+
+### Areas tested (clean)
+
+| Area | Probe | Result |
+|------|-------|--------|
+| Root command wiring | `main.go` uses `cmd.Execute()` with no custom signal-derived context | CLEAN |
+| Run command context use | `cmd.Context()` is consumed by subcommands but not signal-wired at the CLI root | CLEAN |
+
+---
+
+## Iteration 24
+
+Scope: review of the proposed pruning bug against the v0.1.0 and v0.2.0 product scope.
+
+### BUG-044 status update
+
+**Disposition:** Not reproducible
+
+**Why:** Successful runs intentionally preserve the workspace today. That behavior is documented in completed task history (`TASK-038`) and aligns with the current product shape where `clean`/`prune` is explicitly out of scope. The absence of a cleanup command is a product gap worth noting in future specs, but it is not a verified v0.1.0 implementation defect.
+
+### Areas tested (clean)
+
+| Area | Probe | Result |
+|------|-------|--------|
+| Success-path workspace handling | `cleanupWorktree = false` intentionally preserves successful workspaces | CLEAN |
+| Product scope | `clean` remains out of scope in v0.1.0 and v0.2.0 | CLEAN |
+| Failure-path cleanup | Failed setup paths still defer `workspace.Cleanup` | CLEAN |
+
+---
+
+## Iteration 25
+
+Scope: review of the proposed image-probe injection bug against the current caller set.
+
+### BUG-045 status update
+
+**Disposition:** Not reproducible
+
+**Why:** `ProbeImageBinary` does interpolate `binaryName` into `sh -c`, but every current call site passes a compile-time constant (`claude` or `opencode`). That makes the described exploit path unreachable in the current code. This is still a reasonable hardening refactor candidate, but not a verified product bug.
+
+### Areas tested (clean)
+
+| Area | Probe | Result |
+|------|-------|--------|
+| Current probe callers | Only adapter-owned binary constants reach `ProbeImageBinary` | CLEAN |
+| Missing-binary handling | Probe still returns actionable `BinaryNotFoundError` | CLEAN |
+
+---
+
+## Iteration 26
+
+Scope: review of the proposed Ctrl+C timeout-misclassification bug from PR #61 against the actual detached-run control flow.
+
+### BUG-046 status update
+
+**Disposition:** Not reproducible
+
+**Why:** The reported path again depends on Ctrl+C cancelling `cmd.Context()` while the command continues into normal completion handling. That premise is not true for the current CLI wiring. The description therefore does not match a reproducible bug in the shipped code path.
+
+**Note:** The detached run lifecycle still has a real user-visible problem: terminal non-success states are surfaced as command success because `Runner.Run()` returns `nil` after writing terminal failure/timeout state. That verified issue is tracked separately as BUG-047.
+
+### Areas tested (clean)
+
+| Area | Probe | Result |
+|------|-------|--------|
+| Detached timeout path | Real timeout still writes `timeout.flag` and `StateTimeout` | CLEAN |
+| Interactive cancellation path | `runInteractiveProcess` has a separate `ctx.Done()` branch | CLEAN |
+
+---
+
+## Iteration 27
+
+Scope: review of terminal non-success CLI behavior for `tessariq run` after validating PR #61 findings.
+
+### BUG-047: `tessariq run` treats terminal non-success outcomes as successful command completion
+
+**Severity:** HIGH
+**Files:** `cmd/tessariq/run.go:226-237`, `internal/runner/runner.go:81-118`
+
+**What was verified:**
+- `Runner.Run()` writes terminal `failed` and `timeout` status and then returns `nil` when status writing succeeds.
+- `cmd/tessariq/run.go` only treats `runErr != nil` as failure.
+- As a result, the command reaches `cleanupWorktree = false` and `printRunOutput(...)` for ordinary terminal non-success states.
+
+**Impact:** A run whose agent exits non-zero, whose pre-hook fails, whose verify hook fails, or that times out can still exit through the success-style CLI path. That makes exit status, printed output, and workspace retention semantics inconsistent with the actual terminal run state.
+
+**Task:** `TASK-077-treat-terminal-non-success-run-outcomes-as-cli-failures`
+
+### Areas tested (clean)
+
+| Area | Probe | Result |
+|------|-------|--------|
+| Runner terminal status writes | `failed` and `timeout` paths return nil after writing status | CLEAN |
+| Run command success gate | Only `runErr != nil` prevents success-style output | CLEAN |
+| Existing failure-output follow-up | BUG-039 / TASK-073 still covers evidence-path output on actual error returns | CLEAN |

@@ -63,6 +63,8 @@ depends_on:
     - TASK-073-print-evidence-path-on-run-failure
     - TASK-074-reject-unknown-user-config-fields
     - TASK-075-keep-log-streaming-alive-through-timeout
+    - TASK-076-pin-default-agent-images-by-digest
+    - TASK-077-treat-terminal-non-success-run-outcomes-as-cli-failures
 milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:
@@ -78,7 +80,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#acceptance-scenarios
     - specs/tessariq-v0.1.0.md#failure-ux
     - specs/tessariq-v0.1.0.md#success-metrics
-updated_at: "2026-04-03T12:31:03Z"
+updated_at: "2026-04-04T07:55:00Z"
 areas:
     - verification
     - spec
@@ -140,3 +142,4 @@ Run the final v0.1.0 conformity sweep against the normative spec after the stren
 
 - This is the required final gate before considering `v0.1.0` complete.
 - Any newly discovered v0.1.0-spec bug fix tasks or release-readiness follow-ups must be added to this dependency list so the closeout sweep remains a true release gate.
+- 2026-04-04T07:55:00Z: Added TASK-076 and TASK-077 as explicit dependencies so the release closeout sweep cannot run before the newly verified v0.1.0 blockers are resolved.
