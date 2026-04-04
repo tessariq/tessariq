@@ -5,6 +5,7 @@ import (
 	"sort"
 	"syscall"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -328,6 +329,38 @@ func TestPrepareWritableMounts_SkipsReadOnly(t *testing.T) {
 	perm := info.Mode().Perm()
 	require.Equal(t, os.FileMode(0o600), perm,
 		"read-only mount source should not be chmod'd")
+}
+
+func TestWaitForLogs_ReturnsImmediatelyWhenNil(t *testing.T) {
+	t.Parallel()
+	p := &Process{}
+	// Must not block — logsDone is nil when no output is configured.
+	p.waitForLogs()
+}
+
+func TestWaitForLogs_BlocksUntilClosed(t *testing.T) {
+	t.Parallel()
+	p := &Process{logsDone: make(chan struct{})}
+
+	done := make(chan struct{})
+	go func() {
+		p.waitForLogs()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		t.Fatal("waitForLogs must block while logsDone is open")
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	close(p.logsDone)
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("waitForLogs must return after logsDone is closed")
+	}
 }
 
 // indexOf returns the first index of needle in args, or -1.

@@ -37,7 +37,7 @@ verification:
     manual_test:
         required: true
         commands: []
-        rationale: "Real hook commands like `ls Makefile` or `go test ./...` should be verified from a live repo."
+        rationale: Real hook commands like `ls Makefile` or `go test ./...` should be verified from a live repo.
 ---
 
 ## Summary

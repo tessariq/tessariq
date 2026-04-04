@@ -38,7 +38,7 @@ verification:
     manual_test:
         required: true
         commands: []
-        rationale: "Real config-typo behavior should be checked from the CLI to confirm the resulting guidance is actionable."
+        rationale: Real config-typo behavior should be checked from the CLI to confirm the resulting guidance is actionable.
 ---
 
 ## Summary

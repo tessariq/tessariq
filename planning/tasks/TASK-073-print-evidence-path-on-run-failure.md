@@ -39,7 +39,7 @@ verification:
     manual_test:
         required: true
         commands: []
-        rationale: "A real failed run should confirm evidence details are surfaced where users expect them."
+        rationale: A real failed run should confirm evidence details are surfaced where users expect them.
 ---
 
 ## Summary

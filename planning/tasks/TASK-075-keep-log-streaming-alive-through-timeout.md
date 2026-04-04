@@ -1,7 +1,7 @@
 ---
 id: TASK-075-keep-log-streaming-alive-through-timeout
 title: Keep run log streaming alive through timeout and grace-period shutdown
-status: todo
+status: done
 priority: p3
 depends_on:
     - TASK-013-diff-log-and-evidence-artifacts
@@ -12,7 +12,7 @@ spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#required-artifacts
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-04-03T12:31:03Z"
+updated_at: "2026-04-04T07:23:25Z"
 areas:
     - container
     - runner
@@ -41,7 +41,7 @@ verification:
     manual_test:
         required: true
         commands: []
-        rationale: "A real timeout scenario should confirm grace-period shutdown output reaches `run.log`."
+        rationale: A real timeout scenario should confirm grace-period shutdown output reaches `run.log`.
 ---
 
 ## Summary
@@ -76,3 +76,4 @@ verification:
 
 - Likely files: `internal/container/process.go`, `internal/runner/runner.go`, and timeout/log integration tests.
 - Prefer a dedicated log-streaming context or explicit cancel function over broadening the timeout context lifetime.
+- 2026-04-04T07:23:25Z: streamLogs decoupled from timeout context; docker logs --follow now exits naturally when container stops. Unit tests for drain behavior, integration tests for context-cancel survival, mutation testing at 85.79% efficacy, manual tests all pass.

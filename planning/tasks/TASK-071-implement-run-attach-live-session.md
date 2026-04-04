@@ -1,6 +1,6 @@
 ---
 id: TASK-071-implement-run-attach-live-session
-title: "Make `tessariq run --attach` attach to the live tmux session"
+title: Make `tessariq run --attach` attach to the live tmux session
 status: todo
 priority: p1
 depends_on:
@@ -34,7 +34,7 @@ verification:
         required: true
         commands:
             - go test -tags=e2e ./...
-        rationale: "`run --attach` is a primary user-visible CLI workflow and needs thin end-to-end coverage."
+        rationale: '`run --attach` is a primary user-visible CLI workflow and needs thin end-to-end coverage.'
     mutation:
         required: true
         commands:
