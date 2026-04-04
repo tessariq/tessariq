@@ -100,13 +100,37 @@ func TestLoadUserConfig_ValidConfig(t *testing.T) {
 func TestLoadUserConfig_UnknownKeys(t *testing.T) {
 	t.Parallel()
 
-	readFile := func(string) ([]byte, error) {
-		return []byte("egress_allow:\n  - api.example.com:443\nfuture_key: some_value\n"), nil
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{
+			name:  "camelCase_typo",
+			input: "egressAllow:\n  - api.example.com:443\n",
+		},
+		{
+			name:  "misspelled_key",
+			input: "egress_alow:\n  - api.example.com:443\n",
+		},
+		{
+			name:  "unknown_extra_key",
+			input: "egress_allow:\n  - api.example.com:443\nfuture_key: some_value\n",
+		},
 	}
-	cfg, err := LoadUserConfig("/some/config.yaml", readFile)
-	require.NoError(t, err)
-	require.NotNil(t, cfg)
-	require.Equal(t, []string{"api.example.com:443"}, cfg.EgressAllow)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			readFile := func(string) ([]byte, error) {
+				return []byte(tt.input), nil
+			}
+			_, err := LoadUserConfig("/some/config.yaml", readFile)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "unknown field")
+			require.Contains(t, err.Error(), "/some/config.yaml")
+		})
+	}
 }
 
 func TestLoadUserConfig_EmptyFile(t *testing.T) {

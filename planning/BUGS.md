@@ -16,7 +16,7 @@ Automated adversarial testing against done tasks.
 
 BUG-001 through BUG-007 were all fixed by TASK-030 through TASK-039 (done).
 
-BUG-037 through BUG-040, BUG-042, and BUG-047 remain reproducible in the current code.
+BUG-037 through BUG-039, BUG-042, and BUG-047 remain reproducible in the current code.
 
 This update adds tracked follow-up tasks for BUG-042 and BUG-047 as TASK-076 and TASK-077.
 
@@ -65,7 +65,7 @@ BUG-043 through BUG-046 were reviewed against the current code and marked not re
 | BUG-037 | HIGH | `cmd/tessariq/run.go:255`, `internal/runner/runner.go` | `run --attach` flag declared but never implemented; tmux session not attached | **Open** (TASK-071) |
 | BUG-038 | MEDIUM | `internal/runner/hooks.go:46`, `internal/runner/runner.go:88,110` | Pre/verify hooks run with CWD set to evidence directory, not repository root | **Open** (TASK-072) |
 | BUG-039 | MEDIUM | `cmd/tessariq/run.go:226-238` | Run failure output omits evidence path; contradicts spec failure-UX contract | **Open** (TASK-073) |
-| BUG-040 | LOW | `internal/run/userconfig.go:52` | UserConfig YAML silently ignores unknown fields; config typos cause undetected fallback | **Open** (TASK-074) |
+| BUG-040 | LOW | `internal/run/userconfig.go:52` | UserConfig YAML silently ignores unknown fields; config typos cause undetected fallback | **Fixed** (TASK-074) |
 | BUG-041 | LOW | `internal/container/process.go:179`, `internal/runner/runner.go:130` | `docker logs --follow` cancelled by timeout context, truncating final agent output in `run.log` | **Fixed** (TASK-075) |
 | BUG-042 | MEDIUM | `internal/adapter/claudecode/claudecode.go:8`, `internal/adapter/opencode/opencode.go:8` | Default agent images use unpinned `:latest` tags | **Open** (TASK-076) |
 | BUG-043 | MEDIUM | `cmd/tessariq/run.go:216`, `internal/runner/diff.go:15`, `internal/git/diff.go:22` | `WriteDiffArtifacts` called with cancelled CLI context after Ctrl+C; diff evidence silently lost | **Not reproducible** |
@@ -1502,7 +1502,7 @@ Confirmed still reproducible by code review and now tracked as explicit backlog 
 - **BUG-037**: `cfg.Attach` is only used to suppress the interactive note in `cmd/tessariq/run.go`; `Runner.Run` never reads it and `tmux.AttachSession` is only wired through `tessariq attach`. Tracked by `TASK-071-implement-run-attach-live-session`.
 - **BUG-038**: `RunPreHooks` and `RunVerifyHooks` are still called with `r.EvidenceDir` as `workDir`, so host-side hooks execute from `.tessariq/runs/<run_id>/` instead of the repository root. Tracked by `TASK-072-run-hooks-from-repo-root`.
 - **BUG-039**: `printRunOutput` still runs only on the success path; any `runErr` returns before printing `run_id` or `evidence_path` for failed runs. Tracked by `TASK-073-print-evidence-path-on-run-failure`.
-- **BUG-040**: `LoadUserConfig` still uses `yaml.Unmarshal`, so unknown YAML keys are silently discarded rather than rejected or surfaced. Tracked by `TASK-074-reject-unknown-user-config-fields`.
+- **BUG-040**: **Fixed.** `LoadUserConfig` now uses `yaml.NewDecoder` with `KnownFields(true)` to reject unknown YAML keys. Tracked by `TASK-074-reject-unknown-user-config-fields`.
 - **BUG-041**: ~~`Process.Start` still binds `docker logs --follow` to the timeout context, so timeout cancellation kills the log follower before the grace-period shutdown output can be drained.~~ **Fixed** by TASK-075: `streamLogs` now uses `exec.Command` instead of `exec.CommandContext`, so the log follower exits naturally when the container stops.
 
 No new product bugs were identified in this iteration.

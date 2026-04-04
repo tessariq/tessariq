@@ -586,6 +586,36 @@ func TestE2E_ExplicitEgressAllowIgnoresMalformedUserConfig(t *testing.T) {
 		"--egress-allow should skip user config; got: %s", output)
 }
 
+func TestE2E_UnknownFieldUserConfigFailsLoudly(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+
+	env := setupRunEnvCustom(t, bin, e2eSetupOpts{
+		extraFn: func(homeDir string) []string {
+			return []string{
+				fmt.Sprintf("mkdir -p %s/.config/tessariq", homeDir),
+				fmt.Sprintf(`printf 'egressAllow:\n  - api.example.com:443\n' > %s/.config/tessariq/config.yaml`, homeDir),
+			}
+		},
+	})
+
+	hostDir := env.Dir()
+	repoPath := filepath.Join(hostDir, "repo")
+	homeDir := filepath.Join(hostDir, "home")
+	binPath := filepath.Join(hostDir, "tessariq")
+
+	ctx := context.Background()
+	code, output, err := env.Exec(ctx, []string{"sh", "-c",
+		fmt.Sprintf("cd %s && HOME=%s %s run tasks/sample.md",
+			repoPath, homeDir, binPath)})
+	require.NoError(t, err)
+	require.NotEqual(t, 0, code, "expected non-zero exit for unknown config field")
+	require.Contains(t, output, "unknown field",
+		"typoed user config should fail with unknown field error; got: %s", output)
+	require.Contains(t, output, "config.yaml",
+		"error should identify the config file path; got: %s", output)
+}
+
 func TestE2E_InitFailsWithActionableGuidanceWhenGitMissing(t *testing.T) {
 	t.Parallel()
 	bin := buildBinary(t)
