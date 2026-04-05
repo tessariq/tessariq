@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strings"
 )
 
 // ProxyEnv holds the proxy configuration needed by the agent container.
@@ -90,7 +91,9 @@ func (t *Topology) Setup(ctx context.Context) (*ProxyEnv, error) {
 //  6. RemoveNetwork
 //
 // Safe to call multiple times (idempotent via tornDown flag).
-// Teardown is best-effort: errors are not returned.
+// Evidence extraction errors (steps 1-4) are ignored because they are
+// non-critical. Infrastructure cleanup errors (steps 5-6) are returned
+// so the caller can warn the user.
 func (t *Topology) Teardown(ctx context.Context) error {
 	if t.tornDown {
 		return nil
@@ -99,23 +102,22 @@ func (t *Topology) Teardown(ctx context.Context) error {
 
 	const maxSquidLogBytes = 10 * 1024 * 1024 // 10 MB
 
-	// Step 1: Extract access log from Squid container.
+	// Steps 1-4: Evidence extraction (best-effort).
 	logData, _ := CopyAccessLog(ctx, t.squidName)
-
-	// Step 2: Parse blocked events.
 	events, _ := ParseSquidAccessLog(bytes.NewReader(logData))
-
-	// Step 3: Write events evidence.
 	_ = WriteEventsJSONL(t.EvidenceDir, events)
-
-	// Step 4: Write raw Squid log evidence.
 	_ = CopySquidLog(t.EvidenceDir, bytes.NewReader(logData), maxSquidLogBytes)
 
-	// Step 5: Stop and remove Squid container.
-	_ = StopSquid(ctx, t.squidName)
-
-	// Step 6: Remove Docker network.
-	_ = RemoveNetwork(ctx, t.networkName)
-
+	// Steps 5-6: Infrastructure cleanup (errors surfaced).
+	var errs []string
+	if err := StopSquid(ctx, t.squidName); err != nil {
+		errs = append(errs, fmt.Sprintf("stop squid: %s", err))
+	}
+	if err := RemoveNetwork(ctx, t.networkName); err != nil {
+		errs = append(errs, fmt.Sprintf("remove network: %s", err))
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("%s", strings.Join(errs, "; "))
+	}
 	return nil
 }

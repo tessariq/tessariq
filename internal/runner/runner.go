@@ -239,17 +239,20 @@ func (r *Runner) runInteractiveProcess(ctx context.Context, startedAt time.Time,
 		waitCh <- waitResult{code, err}
 	}()
 
-	// Signal ready for attach — container is running.
-	if r.SessionReady != nil {
-		close(r.SessionReady)
-	}
-
-	// Create tmux session for log tailing (non-critical in interactive mode).
+	// Create tmux session BEFORE signaling ready, so the attach function
+	// can find it immediately. For interactive mode the session command is
+	// docker attach (user interacts with the agent TUI); for non-interactive
+	// it tails the run log.
 	if r.Session != nil && r.SessionName != "" {
 		fmt.Fprintf(logs.RunnerLog, "[%s] creating tmux session %s\n", r.clock().UTC().Format(time.RFC3339), r.SessionName)
 		if err := r.Session.StartSession(ctx, r.SessionName, r.sessionCommand(logs.RunLogPath())); err != nil {
 			fmt.Fprintf(logs.RunnerLog, "[%s] tmux session creation failed (non-fatal): %s\n", r.clock().UTC().Format(time.RFC3339), err)
 		}
+	}
+
+	// Signal ready for attach — tmux session exists.
+	if r.SessionReady != nil {
+		close(r.SessionReady)
 	}
 
 	select {

@@ -752,7 +752,7 @@ func (s *readyCheckingSession) StartSession(ctx context.Context, name string, co
 	return s.fakeSession.StartSession(ctx, name, command)
 }
 
-func TestRunner_InteractiveSessionReadyFiredBeforeTmux(t *testing.T) {
+func TestRunner_InteractiveSessionReadyFiredAfterTmux(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
@@ -769,8 +769,8 @@ func TestRunner_InteractiveSessionReadyFiredBeforeTmux(t *testing.T) {
 
 	require.NoError(t, r.Run(context.Background()))
 	require.True(t, sess.startCalled, "tmux session should still be created")
-	require.True(t, sess.readyBeforeSession,
-		"SessionReady must be closed before StartSession is called in interactive mode")
+	require.False(t, sess.readyBeforeSession,
+		"SessionReady must fire AFTER StartSession so tmux attach can find the session")
 }
 
 func TestRunner_InteractiveSessionCreatedAfterProcessStart(t *testing.T) {
