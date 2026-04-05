@@ -31,12 +31,14 @@ type runOutput struct {
 	ContainerName string
 }
 
-func printRunOutput(w io.Writer, out runOutput) {
+func printRunOutput(w io.Writer, out runOutput, attached bool) {
 	fmt.Fprintf(w, "run_id: %s\n", out.RunID)
 	fmt.Fprintf(w, "evidence_path: %s\n", out.EvidencePath)
 	fmt.Fprintf(w, "workspace_path: %s\n", out.WorkspacePath)
 	fmt.Fprintf(w, "container_name: %s\n", out.ContainerName)
-	fmt.Fprintf(w, "attach: tessariq attach %s\n", out.RunID)
+	if !attached {
+		fmt.Fprintf(w, "attach: tessariq attach %s\n", out.RunID)
+	}
 	fmt.Fprintf(w, "promote: tessariq promote %s\n", out.RunID)
 }
 
@@ -236,7 +238,13 @@ func newRunCmd() *cobra.Command {
 				SessionName:   sessionName,
 				ContainerName: containerName,
 			}
-			runErr := r.Run(cmd.Context())
+
+			var runErr error
+			if cfg.Attach {
+				runErr = runWithAttach(cmd.Context(), r, sessionName, attachSessionFn)
+			} else {
+				runErr = r.Run(cmd.Context())
+			}
 
 			// Generate diff artifacts when changes exist in the worktree.
 			warnDiffArtifacts(cmd.ErrOrStderr(), runner.WriteDiffArtifacts(cmd.Context(), evidenceDir, wsPath, baseSHA))
@@ -269,7 +277,7 @@ func newRunCmd() *cobra.Command {
 				EvidencePath:  evidenceDir,
 				WorkspacePath: wsPath,
 				ContainerName: containerName,
-			})
+			}, cfg.Attach)
 
 			return nil
 		},
@@ -417,6 +425,41 @@ func appendIndexEntry(w io.Writer, repoRoot, evidenceDir string) {
 func printInteractiveNote(w io.Writer, interactive, attach bool, sessionName string) {
 	if interactive && !attach {
 		fmt.Fprintf(w, "note: interactive mode without --attach; use 'tmux attach -t %s' to provide approval input\n", sessionName)
+	}
+}
+
+// attachSessionFn is injectable for testing.
+var attachSessionFn = func(ctx context.Context, name string) error {
+	return tmux.AttachSession(ctx, name)
+}
+
+// runWithAttach runs the runner in a background goroutine, waits for the tmux
+// session to be created, then attaches the terminal to it. The function blocks
+// until the runner completes regardless of whether the attach succeeds.
+func runWithAttach(ctx context.Context, r *runner.Runner, sessionName string, attachFn func(context.Context, string) error) error {
+	sessionReady := make(chan struct{})
+	r.SessionReady = sessionReady
+
+	var runErr error
+	runDone := make(chan struct{})
+	go func() {
+		runErr = r.Run(ctx)
+		close(runDone)
+	}()
+
+	select {
+	case <-sessionReady:
+		attachErr := attachFn(ctx, sessionName)
+		<-runDone
+		if runErr != nil {
+			return runErr
+		}
+		if attachErr != nil {
+			return fmt.Errorf("attach to run session: %w", attachErr)
+		}
+		return nil
+	case <-runDone:
+		return runErr
 	}
 }
 
