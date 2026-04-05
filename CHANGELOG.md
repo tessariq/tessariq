@@ -104,3 +104,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed `run.log` missing agent output emitted during grace-period shutdown after timeout; log streaming now survives timeout context cancellation and drains until the container exits.
 - Fixed `LoadUserConfig` silently ignoring unknown YAML keys (e.g. `egressAllow` instead of `egress_allow`), causing typos to widen egress by falling back to built-in allowlists; unknown fields now fail with an actionable error identifying the config path and invalid key.
 - Fixed `--pre` and `--verify` hooks executing with the evidence directory as working directory instead of the repository root, causing relative-path project commands like `go test ./...` to fail without an inline `cd` workaround.
+- Fixed `tessariq run` returning only the error string on post-bootstrap failures without printing `run_id` or `evidence_path`, forcing users to search for evidence artifacts manually.
