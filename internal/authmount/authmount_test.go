@@ -157,7 +157,7 @@ func TestDiscover_ClaudeCode_MountDetails(t *testing.T) {
 	// Config mount.
 	require.Equal(t, configPath, result.Mounts[1].HostPath)
 	require.Equal(t, filepath.Join(ContainerHome, ".claude.json"), result.Mounts[1].ContainerPath)
-	require.True(t, result.Mounts[1].ReadOnly)
+	require.False(t, result.Mounts[1].ReadOnly, ".claude.json is a state file that the agent must update")
 }
 
 func TestDiscover_ClaudeCode_NoHostHomeExposure(t *testing.T) {
@@ -288,6 +288,10 @@ func TestDiscover_AllMountsAreReadOnly(t *testing.T) {
 			require.NoError(t, err)
 
 			for _, m := range result.Mounts {
+				if filepath.Base(m.ContainerPath) == ".claude.json" {
+					require.False(t, m.ReadOnly, "mount %s is a state file and must be read-write", m.ContainerPath)
+					continue
+				}
 				require.True(t, m.ReadOnly, "mount %s must be read-only", m.ContainerPath)
 			}
 		})

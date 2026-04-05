@@ -66,7 +66,7 @@ func discoverClaudeCode(homeDir, goos string, fileExists func(string) bool) (*Re
 			{
 				HostPath:      configPath,
 				ContainerPath: filepath.Join(ContainerHome, ".claude.json"),
-				ReadOnly:      true,
+				ReadOnly:      false, // state file — agent must update numStartups, feature flags, etc.
 			},
 		},
 	}, nil
