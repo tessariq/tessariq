@@ -70,13 +70,13 @@ func (a *AgentConfig) EnvVars() map[string]string {
 }
 
 // buildArgs translates run.Config into claude CLI arguments.
-// Non-interactive (default): claude --print --dangerously-skip-permissions --output-format stream-json [--model M] <task>
+// Non-interactive (default): claude --print --dangerously-skip-permissions --verbose --output-format stream-json [--model M] <task>
 // Interactive: claude [--model M] <task>
 func buildArgs(cfg run.Config, taskContent string) []string {
 	var args []string
 
 	if !cfg.Interactive {
-		args = append(args, "--print", "--dangerously-skip-permissions", "--output-format", "stream-json")
+		args = append(args, "--print", "--dangerously-skip-permissions", "--verbose", "--output-format", "stream-json")
 	}
 
 	if cfg.Model != "" {

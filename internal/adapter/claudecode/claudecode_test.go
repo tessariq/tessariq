@@ -23,6 +23,7 @@ func TestBuildArgs_DefaultNonInteractive(t *testing.T) {
 
 	require.Contains(t, args, "--print")
 	require.Contains(t, args, "--dangerously-skip-permissions")
+	require.Contains(t, args, "--verbose")
 	require.Contains(t, args, "--output-format")
 	require.Contains(t, args, "stream-json")
 	require.Contains(t, args, "--")
@@ -41,6 +42,7 @@ func TestBuildArgs_WithModel(t *testing.T) {
 	require.Contains(t, args, "sonnet")
 	require.Contains(t, args, "--print")
 	require.Contains(t, args, "--dangerously-skip-permissions")
+	require.Contains(t, args, "--verbose")
 	require.Contains(t, args, "--output-format")
 	require.Contains(t, args, "stream-json")
 }
@@ -54,6 +56,7 @@ func TestBuildArgs_Interactive(t *testing.T) {
 
 	require.NotContains(t, args, "--print")
 	require.NotContains(t, args, "--dangerously-skip-permissions")
+	require.NotContains(t, args, "--verbose")
 	require.NotContains(t, args, "--output-format")
 	require.Contains(t, args, "--")
 	require.Contains(t, args, "review code",
@@ -84,6 +87,7 @@ func TestBuildArgs_TableDriven(t *testing.T) {
 		task           string
 		wantPrint      bool
 		wantSkip       bool
+		wantVerbose    bool
 		wantStreamJSON bool
 		wantModel      bool
 		wantTask       bool
@@ -91,26 +95,26 @@ func TestBuildArgs_TableDriven(t *testing.T) {
 		{
 			name:      "default autonomous no model",
 			task:      "do stuff",
-			wantPrint: true, wantSkip: true, wantStreamJSON: true, wantModel: false, wantTask: true,
+			wantPrint: true, wantSkip: true, wantVerbose: true, wantStreamJSON: true, wantModel: false, wantTask: true,
 		},
 		{
 			name:      "autonomous with model",
 			model:     "sonnet",
 			task:      "do stuff",
-			wantPrint: true, wantSkip: true, wantStreamJSON: true, wantModel: true, wantTask: true,
+			wantPrint: true, wantSkip: true, wantVerbose: true, wantStreamJSON: true, wantModel: true, wantTask: true,
 		},
 		{
 			name:        "interactive no model",
 			interactive: true,
 			task:        "do stuff",
-			wantPrint:   false, wantSkip: false, wantStreamJSON: false, wantModel: false, wantTask: true,
+			wantPrint:   false, wantSkip: false, wantVerbose: false, wantStreamJSON: false, wantModel: false, wantTask: true,
 		},
 		{
 			name:        "interactive with model",
 			interactive: true,
 			model:       "opus",
 			task:        "do stuff",
-			wantPrint:   false, wantSkip: false, wantStreamJSON: false, wantModel: true, wantTask: true,
+			wantPrint:   false, wantSkip: false, wantVerbose: false, wantStreamJSON: false, wantModel: true, wantTask: true,
 		},
 	}
 
@@ -133,6 +137,12 @@ func TestBuildArgs_TableDriven(t *testing.T) {
 				require.Contains(t, args, "--dangerously-skip-permissions")
 			} else {
 				require.NotContains(t, args, "--dangerously-skip-permissions")
+			}
+
+			if tt.wantVerbose {
+				require.Contains(t, args, "--verbose")
+			} else {
+				require.NotContains(t, args, "--verbose")
 			}
 
 			if tt.wantStreamJSON {
