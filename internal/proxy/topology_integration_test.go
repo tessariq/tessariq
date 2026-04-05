@@ -234,6 +234,9 @@ func TestIntegration_ProxyCrossPortBlocked(t *testing.T) {
 	out, err = curlBlocked.CombinedOutput()
 	require.Error(t, err, "curl to google.com (fully blocked) should fail: %s", string(out))
 
+	// Remove the curl container before teardown so the network has no active endpoints.
+	_ = exec.CommandContext(ctx, "docker", "rm", "-f", alpineName).Run()
+
 	err = topo.Teardown(ctx)
 	require.NoError(t, err, "Teardown must succeed")
 }
@@ -355,6 +358,9 @@ func TestIntegration_ProxyAllowsAndBlocks(t *testing.T) {
 	)
 	out, err = curlBlocked.CombinedOutput()
 	require.Error(t, err, "curl to example.com (blocked) should fail: %s", string(out))
+
+	// Remove the curl container before teardown so the network has no active endpoints.
+	_ = exec.CommandContext(ctx, "docker", "rm", "-f", alpineName).Run()
 
 	// Teardown and verify events.
 	err = topo.Teardown(ctx)
