@@ -82,6 +82,18 @@ func WriteStatus(evidenceDir string, s Status) error {
 	return nil
 }
 
+// TerminalStateError is returned by Runner.Run when the run completes with
+// a non-success terminal state. It is not an infrastructure error — status.json
+// has been written successfully.
+type TerminalStateError struct {
+	State    State
+	ExitCode int
+}
+
+func (e *TerminalStateError) Error() string {
+	return fmt.Sprintf("run finished with state %s (exit code %d)", e.State, e.ExitCode)
+}
+
 // ReadStatus reads and parses status.json from the evidence directory.
 func ReadStatus(evidenceDir string) (Status, error) {
 	data, err := os.ReadFile(filepath.Join(evidenceDir, "status.json"))

@@ -1,7 +1,7 @@
 ---
 id: TASK-077-treat-terminal-non-success-run-outcomes-as-cli-failures
 title: Treat terminal non-success run outcomes as CLI failures
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
@@ -13,7 +13,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#tessariq-run-task-path
     - specs/tessariq-v0.1.0.md#lifecycle-rules
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-04-04T07:34:33Z"
+updated_at: "2026-04-05T10:27:03Z"
 areas:
     - cli
     - runner
@@ -79,3 +79,4 @@ verification:
 
 - Likely files: `internal/runner/runner.go`, `cmd/tessariq/run.go`, and run/runner integration or e2e tests.
 - Keep this task focused on verified lifecycle semantics; do not fold speculative Ctrl+C context behavior into the implementation unless it is separately reproduced.
+- 2026-04-05T10:27:03Z: Runner.Run() now returns *TerminalStateError for non-success terminal states. CLI handles it with non-zero exit and evidence-only output. Unit, integration, e2e, mutation, and manual tests all pass.

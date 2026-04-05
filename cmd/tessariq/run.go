@@ -40,6 +40,12 @@ func printRunOutput(w io.Writer, out runOutput) {
 	fmt.Fprintf(w, "promote: tessariq promote %s\n", out.RunID)
 }
 
+func printNonSuccessOutput(w io.Writer, state runner.State, out runOutput) {
+	fmt.Fprintf(w, "run_id: %s\n", out.RunID)
+	fmt.Fprintf(w, "state: %s\n", state)
+	fmt.Fprintf(w, "evidence_path: %s\n", out.EvidencePath)
+}
+
 // printFailureOutput prints the minimum evidence locator fields for a
 // post-bootstrap failure so users can inspect logs and artifacts.
 func printFailureOutput(w io.Writer, runID, evidencePath string) {
@@ -122,6 +128,10 @@ func newRunCmd() *cobra.Command {
 			// can locate evidence artifacts for debugging.
 			defer func() {
 				if retErr != nil {
+					var termErr *runner.TerminalStateError
+					if errors.As(retErr, &termErr) {
+						return
+					}
 					printFailureOutput(cmd.OutOrStdout(), runID, evidenceDir)
 				}
 			}()
@@ -237,6 +247,15 @@ func newRunCmd() *cobra.Command {
 			// Print blocked egress destinations if proxy mode was active.
 			if proxyEnv != nil {
 				printBlockedDestinations(cmd.ErrOrStderr(), evidenceDir)
+			}
+
+			var termErr *runner.TerminalStateError
+			if errors.As(runErr, &termErr) {
+				printNonSuccessOutput(cmd.OutOrStdout(), termErr.State, runOutput{
+					RunID:        runID,
+					EvidencePath: evidenceDir,
+				})
+				return runErr
 			}
 
 			if runErr != nil {

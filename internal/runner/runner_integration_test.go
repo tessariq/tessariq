@@ -115,7 +115,10 @@ func TestRunnerIntegration_FailedProcess(t *testing.T) {
 	dir := t.TempDir()
 	r := newIntegrationRunner(dir, newShellProcess("exit 7"))
 
-	require.NoError(t, r.Run(context.Background()))
+	var termErr *TerminalStateError
+	require.ErrorAs(t, r.Run(context.Background()), &termErr)
+	require.Equal(t, StateFailed, termErr.State)
+	require.Equal(t, 7, termErr.ExitCode)
 
 	s, err := ReadStatus(dir)
 	require.NoError(t, err)
@@ -131,7 +134,9 @@ func TestRunnerIntegration_TimeoutWritesFlag(t *testing.T) {
 	r.Config.Timeout = 100 * time.Millisecond
 	r.Config.Grace = 50 * time.Millisecond
 
-	require.NoError(t, r.Run(context.Background()))
+	var termErr *TerminalStateError
+	require.ErrorAs(t, r.Run(context.Background()), &termErr)
+	require.Equal(t, StateTimeout, termErr.State)
 
 	s, err := ReadStatus(dir)
 	require.NoError(t, err)
@@ -151,7 +156,9 @@ func TestRunnerIntegration_TimeoutSIGTERMExitsGracefully(t *testing.T) {
 	r.Config.Timeout = 100 * time.Millisecond
 	r.Config.Grace = 2 * time.Second
 
-	require.NoError(t, r.Run(context.Background()))
+	var termErr *TerminalStateError
+	require.ErrorAs(t, r.Run(context.Background()), &termErr)
+	require.Equal(t, StateTimeout, termErr.State)
 
 	s, err := ReadStatus(dir)
 	require.NoError(t, err)
@@ -173,7 +180,9 @@ func TestRunnerIntegration_TimeoutEscalationToSIGKILL(t *testing.T) {
 	r.Config.Timeout = 100 * time.Millisecond
 	r.Config.Grace = 200 * time.Millisecond
 
-	require.NoError(t, r.Run(context.Background()))
+	var termErr *TerminalStateError
+	require.ErrorAs(t, r.Run(context.Background()), &termErr)
+	require.Equal(t, StateTimeout, termErr.State)
 
 	s, err := ReadStatus(dir)
 	require.NoError(t, err)
@@ -193,7 +202,9 @@ func TestRunnerIntegration_EvidenceDurability(t *testing.T) {
 	dir := t.TempDir()
 	r := newIntegrationRunner(dir, newShellProcess("exit 1"))
 
-	require.NoError(t, r.Run(context.Background()))
+	var termErr *TerminalStateError
+	require.ErrorAs(t, r.Run(context.Background()), &termErr)
+	require.Equal(t, StateFailed, termErr.State)
 
 	// status.json must exist
 	_, err := os.Stat(filepath.Join(dir, "status.json"))
@@ -283,7 +294,9 @@ func TestRunnerIntegration_PreHookFailurePreventsProcess(t *testing.T) {
 	r := newIntegrationRunner(dir, newShellProcess("echo should-not-run"))
 	r.Config.Pre = []string{"exit 1"}
 
-	require.NoError(t, r.Run(context.Background()))
+	var termErr *TerminalStateError
+	require.ErrorAs(t, r.Run(context.Background()), &termErr)
+	require.Equal(t, StateFailed, termErr.State)
 
 	s, err := ReadStatus(dir)
 	require.NoError(t, err)
@@ -310,7 +323,9 @@ func TestRunnerIntegration_VerifyHookFailure(t *testing.T) {
 	r := newIntegrationRunner(dir, newShellProcess("exit 0"))
 	r.Config.Verify = []string{"exit 1"}
 
-	require.NoError(t, r.Run(context.Background()))
+	var termErr *TerminalStateError
+	require.ErrorAs(t, r.Run(context.Background()), &termErr)
+	require.Equal(t, StateFailed, termErr.State)
 
 	s, err := ReadStatus(dir)
 	require.NoError(t, err)
@@ -356,7 +371,9 @@ func TestRunnerIntegration_TmuxSessionExistsAfterProcessFails(t *testing.T) {
 	r.Session = &tmux.Starter{}
 	r.SessionName = sessionName
 
-	require.NoError(t, r.Run(ctx))
+	var termErr *TerminalStateError
+	require.ErrorAs(t, r.Run(ctx), &termErr)
+	require.Equal(t, StateFailed, termErr.State)
 
 	s, err := ReadStatus(dir)
 	require.NoError(t, err)
