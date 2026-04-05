@@ -32,10 +32,10 @@ func TestBuildArgs_WithModel(t *testing.T) {
 	cfg.Model = "sonnet"
 	args := buildArgs(cfg, "fix bug")
 
-	require.Equal(t, []string{"run", "--format", "json", "--", "fix bug"}, args,
-		"model is not forwarded — opencode expects provider/model format")
-	require.NotContains(t, args, "--model")
-	require.NotContains(t, args, "sonnet")
+	require.Equal(t, []string{"run", "--format", "json", "--model", "sonnet", "--", "fix bug"}, args,
+		"model is forwarded as-is to opencode")
+	require.Contains(t, args, "--model")
+	require.Contains(t, args, "sonnet")
 }
 
 func TestBuildArgs_Interactive(t *testing.T) {
@@ -57,8 +57,8 @@ func TestBuildArgs_InteractiveWithModel(t *testing.T) {
 	cfg.Model = "opus"
 	args := buildArgs(cfg, "task content")
 
-	require.Equal(t, []string{"--", "task content"}, args,
-		"model is not forwarded in any mode")
+	require.Equal(t, []string{"--model", "opus", "--", "task content"}, args,
+		"model is forwarded in interactive mode too")
 }
 
 func TestBuildArgs_TableDriven(t *testing.T) {
@@ -80,7 +80,7 @@ func TestBuildArgs_TableDriven(t *testing.T) {
 			name:  "autonomous with model",
 			model: "sonnet",
 			task:  "do stuff",
-			want:  []string{"run", "--format", "json", "--", "do stuff"},
+			want:  []string{"run", "--format", "json", "--model", "sonnet", "--", "do stuff"},
 		},
 		{
 			name:        "interactive no model",
@@ -93,7 +93,7 @@ func TestBuildArgs_TableDriven(t *testing.T) {
 			interactive: true,
 			model:       "opus",
 			task:        "do stuff",
-			want:        []string{"--", "do stuff"},
+			want:        []string{"--model", "opus", "--", "do stuff"},
 		},
 	}
 
@@ -151,7 +151,7 @@ func TestBuildApplied_WithModel(t *testing.T) {
 	app := buildApplied(cfg)
 
 	require.False(t, app["interactive"], "opencode does not support interactive toggle")
-	require.False(t, app["model"], "opencode does not forward model — format mismatch")
+	require.True(t, app["model"], "opencode forwards model as-is")
 }
 
 func TestBuildApplied_WithoutModel(t *testing.T) {
@@ -206,7 +206,7 @@ func TestNew_ReturnsConfigWithMetadata(t *testing.T) {
 	require.Equal(t, DefaultImage(), a.Image())
 	require.Equal(t, "sonnet", a.Requested()["model"])
 	require.Equal(t, false, a.Requested()["interactive"])
-	require.False(t, a.Applied()["model"], "opencode does not forward model — format mismatch")
+	require.True(t, a.Applied()["model"], "opencode forwards model as-is")
 	require.False(t, a.Applied()["interactive"], "opencode does not apply interactive")
 }
 
@@ -272,6 +272,24 @@ func TestNew_WithEnvVars(t *testing.T) {
 	a := New(cfg, "task", envVars)
 
 	require.Equal(t, "value", a.EnvVars()["SOME_VAR"])
+}
+
+func TestAgentConfig_Name(t *testing.T) {
+	t.Parallel()
+
+	cfg := run.DefaultConfig()
+	a := New(cfg, "task", nil)
+
+	require.Equal(t, "opencode", a.Name())
+}
+
+func TestAgentConfig_BinaryName(t *testing.T) {
+	t.Parallel()
+
+	cfg := run.DefaultConfig()
+	a := New(cfg, "task", nil)
+
+	require.Equal(t, "opencode", a.BinaryName())
 }
 
 func TestNew_NilEnvVars(t *testing.T) {

@@ -22,6 +22,17 @@ const Name = "claude-code"
 // BinaryName is the expected binary name for the Claude Code agent.
 const BinaryName = "claude"
 
+// Verify AgentConfig satisfies the adapter.Agent interface at compile time.
+var _ interface {
+	Name() string
+	BinaryName() string
+	Args() []string
+	Image() string
+	Requested() map[string]any
+	Applied() map[string]bool
+	EnvVars() map[string]string
+} = (*AgentConfig)(nil)
+
 // AgentConfig holds agent-specific CLI arguments and metadata for Claude Code.
 // It is a config builder, not a process runner -- the container package handles execution.
 type AgentConfig struct {
@@ -42,6 +53,16 @@ func New(cfg run.Config, taskContent string, envVars map[string]string) *AgentCo
 		applied:   buildApplied(cfg),
 		envVars:   envVars,
 	}
+}
+
+// Name returns the agent identifier recorded in agent.json.
+func (a *AgentConfig) Name() string {
+	return Name
+}
+
+// BinaryName returns the binary name inside the container image.
+func (a *AgentConfig) BinaryName() string {
+	return BinaryName
 }
 
 // Args returns the CLI arguments for the agent binary.
