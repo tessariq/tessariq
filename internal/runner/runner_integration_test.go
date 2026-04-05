@@ -404,6 +404,36 @@ func TestRunnerIntegration_TmuxSessionShowsRunLogOutput(t *testing.T) {
 	require.Contains(t, string(out), "session-output")
 }
 
+func TestRunnerIntegration_SessionReadySignaled(t *testing.T) {
+	testutil.RequireTmux(t)
+
+	ctx := context.Background()
+	sessionName := "tessariq-test-ready-" + t.Name()
+	t.Cleanup(func() { _ = tmux.KillSession(ctx, sessionName) })
+
+	dir := t.TempDir()
+	r := newIntegrationRunner(dir, newShellProcess("exit 0"))
+	r.Session = &tmux.Starter{}
+	r.SessionName = sessionName
+
+	ready := make(chan struct{})
+	r.SessionReady = ready
+
+	require.NoError(t, r.Run(ctx))
+
+	// Channel must be closed after successful session creation.
+	select {
+	case <-ready:
+		// OK
+	default:
+		t.Fatal("SessionReady channel was not closed after real tmux session creation")
+	}
+
+	exists, err := tmux.HasSession(ctx, sessionName)
+	require.NoError(t, err)
+	require.True(t, exists, "tmux session should exist after runner completes")
+}
+
 func TestRunnerIntegration_CappedRunLog(t *testing.T) {
 	t.Parallel()
 

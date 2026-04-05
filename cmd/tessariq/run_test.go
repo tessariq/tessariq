@@ -2,12 +2,15 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"github.com/tessariq/tessariq/internal/adapter/opencode"
@@ -15,6 +18,47 @@ import (
 	"github.com/tessariq/tessariq/internal/run"
 	"github.com/tessariq/tessariq/internal/runner"
 )
+
+// cmdFakeProcess is a minimal ProcessRunner for cmd-layer tests.
+type cmdFakeProcess struct {
+	exitCode int
+	waitCh   chan struct{}
+}
+
+func newCmdFakeProcess(exitCode int) *cmdFakeProcess {
+	ch := make(chan struct{})
+	close(ch)
+	return &cmdFakeProcess{exitCode: exitCode, waitCh: ch}
+}
+
+func (f *cmdFakeProcess) Start(_ context.Context) error  { return nil }
+func (f *cmdFakeProcess) Wait() (int, error)             { <-f.waitCh; return f.exitCode, nil }
+func (f *cmdFakeProcess) Signal(_ os.Signal) error       { return nil }
+func (f *cmdFakeProcess) SetOutputWriter(_, _ io.Writer) {}
+
+// cmdFakeSession is a minimal SessionStarter for cmd-layer tests.
+type cmdFakeSession struct {
+	startErr error
+	called   bool
+}
+
+func (f *cmdFakeSession) StartSession(_ context.Context, _ string, _ []string) error {
+	f.called = true
+	return f.startErr
+}
+
+func newCmdTestRunner(dir string, proc runner.ProcessRunner) *runner.Runner {
+	cfg := run.DefaultConfig()
+	cfg.TaskPath = "specs/task.md"
+	return &runner.Runner{
+		RunID:       "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+		EvidenceDir: dir,
+		RepoRoot:    dir,
+		Config:      cfg,
+		Process:     proc,
+		Clock:       func() time.Time { return time.Date(2026, 3, 29, 12, 0, 0, 0, time.UTC) },
+	}
+}
 
 func TestPrintRunOutput_ContainsAllFields(t *testing.T) {
 	t.Parallel()
@@ -25,7 +69,7 @@ func TestPrintRunOutput_ContainsAllFields(t *testing.T) {
 		EvidencePath:  "/repo/.tessariq/runs/01ARZ3NDEKTSV4RRFFQ69G5FAV",
 		WorkspacePath: "/home/user/.tessariq/worktrees/abc/01ARZ3NDEKTSV4RRFFQ69G5FAV",
 		ContainerName: "tessariq-01ARZ3NDEKTSV4RRFFQ69G5FAV",
-	})
+	}, false)
 
 	output := buf.String()
 	require.Contains(t, output, "run_id: 01ARZ3NDEKTSV4RRFFQ69G5FAV")
@@ -45,7 +89,7 @@ func TestPrintRunOutput_ScriptFriendlyFormat(t *testing.T) {
 		EvidencePath:  "/evidence",
 		WorkspacePath: "/workspace",
 		ContainerName: "tessariq-TESTID",
-	})
+	}, false)
 
 	lines := strings.Split(strings.TrimSpace(buf.String()), "\n")
 	require.Equal(t, 6, len(lines), "expected exactly 6 output lines")
@@ -63,11 +107,109 @@ func TestPrintRunOutput_AttachCommandUsesRunID(t *testing.T) {
 		EvidencePath:  "/e",
 		WorkspacePath: "/w",
 		ContainerName: "tessariq-MYRUNID",
-	})
+	}, false)
 
 	output := buf.String()
 	require.Contains(t, output, "tessariq attach MYRUNID")
 	require.Contains(t, output, "tessariq promote MYRUNID")
+}
+
+func TestPrintRunOutput_OmitsAttachLineWhenAttached(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	printRunOutput(&buf, runOutput{
+		RunID:         "MYRUNID",
+		EvidencePath:  "/e",
+		WorkspacePath: "/w",
+		ContainerName: "tessariq-MYRUNID",
+	}, true)
+
+	output := buf.String()
+	require.NotContains(t, output, "attach:")
+	require.Contains(t, output, "promote: tessariq promote MYRUNID")
+}
+
+func TestRunWithAttach_AttachesAfterSessionReady(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	proc := newCmdFakeProcess(0)
+	r := newCmdTestRunner(dir, proc)
+	sess := &cmdFakeSession{}
+	r.Session = sess
+	r.SessionName = "test-session"
+
+	attachCalled := false
+	attachFn := func(_ context.Context, name string) error {
+		attachCalled = true
+		require.Equal(t, "test-session", name)
+		return nil
+	}
+
+	err := runWithAttach(context.Background(), r, "test-session", attachFn)
+	require.NoError(t, err)
+	require.True(t, attachCalled, "attach function must be called when session is ready")
+}
+
+func TestRunWithAttach_RunErrorReturnedOverAttachError(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	proc := newCmdFakeProcess(1) // process fails
+	r := newCmdTestRunner(dir, proc)
+	sess := &cmdFakeSession{}
+	r.Session = sess
+	r.SessionName = "test-session"
+
+	attachFn := func(_ context.Context, _ string) error {
+		return errors.New("attach failed")
+	}
+
+	err := runWithAttach(context.Background(), r, "test-session", attachFn)
+	require.Error(t, err)
+	// Runner error (TerminalStateError) takes precedence over attach error.
+	var termErr *runner.TerminalStateError
+	require.ErrorAs(t, err, &termErr)
+}
+
+func TestRunWithAttach_SessionFailureReturnsRunnerError(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	proc := newCmdFakeProcess(0)
+	r := newCmdTestRunner(dir, proc)
+	r.Session = &cmdFakeSession{startErr: errors.New("tmux not available")}
+	r.SessionName = "test-session"
+
+	attachCalled := false
+	attachFn := func(_ context.Context, _ string) error {
+		attachCalled = true
+		return nil
+	}
+
+	err := runWithAttach(context.Background(), r, "test-session", attachFn)
+	require.Error(t, err)
+	require.False(t, attachCalled, "attach must not be called when session creation fails")
+}
+
+func TestRunWithAttach_AttachErrorSurfaced(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	proc := newCmdFakeProcess(0)
+	r := newCmdTestRunner(dir, proc)
+	sess := &cmdFakeSession{}
+	r.Session = sess
+	r.SessionName = "test-session"
+
+	attachFn := func(_ context.Context, _ string) error {
+		return errors.New("terminal not available")
+	}
+
+	err := runWithAttach(context.Background(), r, "test-session", attachFn)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "attach to run session")
 }
 
 func TestPrintFailureOutput_ContainsOnlyFailureFields(t *testing.T) {

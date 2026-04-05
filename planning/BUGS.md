@@ -16,7 +16,7 @@ Automated adversarial testing against done tasks.
 
 BUG-001 through BUG-007 were all fixed by TASK-030 through TASK-039 (done).
 
-BUG-037 remains reproducible in the current code.
+BUG-037 was fixed by TASK-071.
 
 BUG-042 was fixed by TASK-076. BUG-047 was fixed by TASK-077.
 
@@ -62,7 +62,7 @@ BUG-043 through BUG-046 were reviewed against the current code and marked not re
 | BUG-034 | MEDIUM | `squid.go:49-103`, `topology.go:71` | Squid container and network leak on partial StartSquid failure | **Fixed** (TASK-067) |
 | BUG-035 | LOW | `manifest.go:80` | WriteManifest not atomic; partial write on crash corrupts evidence | **Fixed** (TASK-068) |
 | BUG-036 | LOW | `config.go:72` | `--egress open` silently discards `--egress-allow` without warning | **Fixed** (TASK-069) |
-| BUG-037 | HIGH | `cmd/tessariq/run.go:255`, `internal/runner/runner.go` | `run --attach` flag declared but never implemented; tmux session not attached | **Open** (TASK-071) |
+| BUG-037 | HIGH | `cmd/tessariq/run.go:255`, `internal/runner/runner.go` | `run --attach` flag declared but never implemented; tmux session not attached | **Fixed** (TASK-071) |
 | BUG-038 | MEDIUM | `internal/runner/hooks.go:46`, `internal/runner/runner.go:88,110` | Pre/verify hooks run with CWD set to evidence directory, not repository root | **Fixed** (TASK-072) |
 | BUG-039 | MEDIUM | `cmd/tessariq/run.go:226-238` | Run failure output omits evidence path; contradicts spec failure-UX contract | **Fixed** (TASK-073) |
 | BUG-040 | LOW | `internal/run/userconfig.go:52` | UserConfig YAML silently ignores unknown fields; config typos cause undetected fallback | **Fixed** (TASK-074) |

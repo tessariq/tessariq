@@ -36,7 +36,8 @@ type Runner struct {
 	Process       ProcessRunner
 	Session       SessionStarter
 	SessionName   string
-	ContainerName string // needed for interactive tmux session command
+	ContainerName string          // needed for interactive tmux session command
+	SessionReady  chan<- struct{} // closed after tmux session is created; nil = ignored
 	Clock         func() time.Time
 	LogCapBytes   int64 // 0 uses DefaultLogCapBytes
 }
@@ -80,6 +81,9 @@ func (r *Runner) Run(ctx context.Context) error {
 			finishedAt := r.clock()
 			fmt.Fprintf(logs.RunnerLog, "[%s] tmux session creation failed: %s\n", finishedAt.UTC().Format(time.RFC3339), err)
 			return r.writeTerminalStatus(StateFailed, startedAt, finishedAt, 1, false)
+		}
+		if r.SessionReady != nil {
+			close(r.SessionReady)
 		}
 	}
 

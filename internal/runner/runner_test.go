@@ -632,6 +632,66 @@ func TestRunner_PreHookRunsFromRepoRoot(t *testing.T) {
 	require.Equal(t, StateSuccess, s.State, "pre-hook should find Makefile in repo root")
 }
 
+func TestRunner_SessionReadySignaled(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	r := newTestRunner(dir, newFakeProcess(0))
+	sess := &fakeSession{}
+	r.Session = sess
+	r.SessionName = "tessariq-TESTID"
+
+	ready := make(chan struct{})
+	r.SessionReady = ready
+
+	require.NoError(t, r.Run(context.Background()))
+
+	// Channel must be closed after successful session creation.
+	select {
+	case <-ready:
+		// OK — channel was closed
+	default:
+		t.Fatal("SessionReady channel was not closed after successful session creation")
+	}
+}
+
+func TestRunner_SessionReadyNil_NoPanic(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	r := newTestRunner(dir, newFakeProcess(0))
+	sess := &fakeSession{}
+	r.Session = sess
+	r.SessionName = "tessariq-TESTID"
+	r.SessionReady = nil
+
+	require.NoError(t, r.Run(context.Background()))
+	require.True(t, sess.startCalled)
+}
+
+func TestRunner_SessionReadyNotSignaledOnFailure(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	r := newTestRunner(dir, newFakeProcess(0))
+	r.Session = &fakeSession{startErr: errors.New("tmux failed")}
+	r.SessionName = "tessariq-TESTID"
+
+	ready := make(chan struct{})
+	r.SessionReady = ready
+
+	var termErr *TerminalStateError
+	require.ErrorAs(t, r.Run(context.Background()), &termErr)
+
+	// Channel must NOT be closed when session creation fails.
+	select {
+	case <-ready:
+		t.Fatal("SessionReady channel should not be closed when session creation fails")
+	default:
+		// OK — channel remains open
+	}
+}
+
 func TestRunner_VerifyHookRunsFromRepoRoot(t *testing.T) {
 	t.Parallel()
 

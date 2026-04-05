@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added `tessariq run --attach` to attach the invoking terminal to the newly created tmux session for the run, providing live visibility into the agent's progress without a separate `tessariq attach` step.
 - Added `tessariq version` and root `tessariq --version`, both printing the same single-line build version without requiring repository context.
 - Added `tessariq init` repository bootstrap that creates `.tessariq/runs/` and idempotently updates `.gitignore` to keep runtime state untracked.
 - Added `tessariq run <task-path>` CLI wiring with initial flag surface, task-path validation, and manifest bootstrap with stable preflight fields.

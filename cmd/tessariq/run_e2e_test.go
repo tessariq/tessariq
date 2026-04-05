@@ -1356,6 +1356,38 @@ func TestE2E_FailedAgentExitsNonZero(t *testing.T) {
 	require.Equal(t, float64(1), status["exit_code"])
 }
 
+func TestE2E_RunAttachSuppressesHintAndWritesEvidence(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+	env := setupRunEnv(t, bin, 0)
+
+	// Run with --attach in a non-TTY container. tmux attach will fail because
+	// there is no terminal, but the runner itself should succeed and evidence
+	// should be written.
+	code, output := runTessariq(t, env, "claude", "--attach")
+
+	// The command exits non-zero because tmux attach fails without a terminal,
+	// but evidence artifacts are still produced because the run succeeded.
+	require.NotEqual(t, 0, code, "run --attach should fail in non-TTY: %s", output)
+	require.Contains(t, output, "attach to run session", "error should mention attach failure")
+
+	// The "attach:" hint line must NOT appear because --attach was used.
+	require.NotContains(t, output, "attach: tessariq attach ")
+
+	// Evidence must still be accessible.
+	evidencePath := extractField(output, "evidence_path")
+	require.NotEmpty(t, evidencePath, "evidence_path must be in output")
+
+	ctx := context.Background()
+	catCode, statusData, err := env.Exec(ctx, []string{"cat", filepath.Join(evidencePath, "status.json")})
+	require.NoError(t, err)
+	require.Equal(t, 0, catCode, "status.json must exist")
+
+	var status map[string]any
+	require.NoError(t, json.Unmarshal([]byte(statusData), &status))
+	require.Equal(t, "success", status["state"], "run itself should succeed even when attach fails")
+}
+
 func TestE2E_TimedOutRunExitsNonZero(t *testing.T) {
 	t.Parallel()
 	bin := buildBinary(t)
