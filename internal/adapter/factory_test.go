@@ -10,6 +10,58 @@ import (
 	"github.com/tessariq/tessariq/internal/run"
 )
 
+func TestNewAgent_ClaudeCode(t *testing.T) {
+	t.Parallel()
+
+	cfg := run.DefaultConfig()
+	a, err := NewAgent(cfg, "task content", nil)
+
+	require.NoError(t, err)
+	require.Equal(t, "claude-code", a.Name())
+	require.Equal(t, "claude", a.BinaryName())
+	require.NotEmpty(t, a.Image())
+	require.NotEmpty(t, a.Args())
+}
+
+func TestNewAgent_OpenCode(t *testing.T) {
+	t.Parallel()
+
+	cfg := run.DefaultConfig()
+	cfg.Agent = "opencode"
+	a, err := NewAgent(cfg, "task content", nil)
+
+	require.NoError(t, err)
+	require.Equal(t, "opencode", a.Name())
+	require.Equal(t, "opencode", a.BinaryName())
+	require.NotEmpty(t, a.Image())
+	require.NotEmpty(t, a.Args())
+}
+
+func TestNewAgent_OpenCodeWithModel(t *testing.T) {
+	t.Parallel()
+
+	cfg := run.DefaultConfig()
+	cfg.Agent = "opencode"
+	cfg.Model = "anthropic/claude-sonnet-4-20250514"
+	a, err := NewAgent(cfg, "task", nil)
+
+	require.NoError(t, err)
+	require.Contains(t, a.Args(), "--model")
+	require.Contains(t, a.Args(), "anthropic/claude-sonnet-4-20250514")
+	require.True(t, a.Applied()["model"])
+}
+
+func TestNewAgent_UnknownAgent(t *testing.T) {
+	t.Parallel()
+
+	cfg := run.DefaultConfig()
+	cfg.Agent = "unknown"
+	_, err := NewAgent(cfg, "task", nil)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unknown")
+}
+
 func TestNewProcess_ClaudeCode(t *testing.T) {
 	t.Parallel()
 
@@ -60,8 +112,8 @@ func TestNewProcess_OpenCodeWithModel(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, "sonnet", ap.AgentInfo.Requested["model"])
-	require.False(t, ap.AgentInfo.Applied["model"],
-		"opencode does not forward model — format mismatch")
+	require.True(t, ap.AgentInfo.Applied["model"],
+		"opencode forwards model as-is")
 }
 
 func TestNewProcess_OpenCodeInteractive(t *testing.T) {

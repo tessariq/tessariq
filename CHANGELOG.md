@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added detached-by-default tmux session startup with script-friendly stdout guidance for `attach` and `promote` commands.
 - Added shared adapter evidence contract with `adapter.json` requested-versus-applied recording semantics for exact and partial option application.
 - Added first-party `claude-code` adapter support integrated into run lifecycle execution and evidence output.
-- Added first-party `opencode` adapter with partial-application recording for unsupported `--model` and `--interactive` options.
+- Added first-party `opencode` adapter with partial-application recording for unsupported `--interactive` option and full `--model` forwarding.
 - Added actionable binary-not-found error messages for both `claude-code` and `opencode` adapters naming the missing binary and container image expectation.
 - Added per-agent auth discovery that auto-detects required auth files before agent start and fails with actionable messages when auth is missing, Keychain-only on macOS, or writable refresh is required.
 - Added `--mount-agent-config` flag to `tessariq run` for opt-in read-only mounting of supported agents' default config directories (Claude Code `~/.claude/`, OpenCode `~/.config/opencode/`) without exposing host `HOME`.
@@ -54,6 +54,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pinned default Squid proxy image by digest (`ubuntu/squid@sha256:...`) instead of mutable `ubuntu/squid:latest` tag to prevent supply-chain drift on the egress-boundary container.
 - Pinned default Claude Code and OpenCode reference agent images by digest instead of mutable `:latest` tags, completing supply-chain pinning for all first-party runtime images.
 - Added reference agent image Dockerfiles (`runtime/claude-code/`, `runtime/opencode/`) and CI workflow for automated image building, testing, and publishing with vulnerability scanning. These images are for quick onboarding and experimentation; production users should bring their own runtime images via `--image`.
+
+- Added `--model` passthrough for the OpenCode adapter so `tessariq run --agent opencode --model <provider/model>` forwards the model identifier to the OpenCode CLI. Previously the flag was silently dropped.
+- Added formal `Agent` interface in the adapter package, replacing duplicated per-agent field extraction in the factory with a single interface-based dispatch.
 
 ### Changed
 

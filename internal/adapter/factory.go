@@ -21,6 +21,18 @@ type AgentProcess struct {
 	BinaryName  string // agent binary name inside the container image
 }
 
+// NewAgent returns the Agent for the given config.
+func NewAgent(cfg run.Config, taskContent string, envVars map[string]string) (Agent, error) {
+	switch cfg.Agent {
+	case "claude-code":
+		return claudecode.New(cfg, taskContent, envVars), nil
+	case "opencode":
+		return opencode.New(cfg, taskContent, envVars), nil
+	default:
+		return nil, fmt.Errorf("unsupported agent: %s", cfg.Agent)
+	}
+}
+
 // NewProcess creates an AgentProcess for the agent specified in cfg.
 // The process runs inside a Docker container assembled from the agent config,
 // worktree/evidence paths, and discovered auth/config mounts.
@@ -36,36 +48,12 @@ func NewProcess(cfg run.Config, taskContent string, runID, worktreePath, evidenc
 		imageSource = "custom"
 	}
 
-	var binaryName string
-	var agentName string
-	var args []string
-	var image string
-	var requested map[string]any
-	var applied map[string]bool
-	var agentEnvVars map[string]string
-
-	switch cfg.Agent {
-	case "claude-code":
-		a := claudecode.New(cfg, taskContent, envVars)
-		binaryName = claudecode.BinaryName
-		agentName = claudecode.Name
-		args = a.Args()
-		image = a.Image()
-		requested = a.Requested()
-		applied = a.Applied()
-		agentEnvVars = a.EnvVars()
-	case "opencode":
-		a := opencode.New(cfg, taskContent, envVars)
-		binaryName = opencode.BinaryName
-		agentName = opencode.Name
-		args = a.Args()
-		image = a.Image()
-		requested = a.Requested()
-		applied = a.Applied()
-		agentEnvVars = a.EnvVars()
-	default:
-		return nil, fmt.Errorf("unsupported agent: %s", cfg.Agent)
+	a, err := NewAgent(cfg, taskContent, envVars)
+	if err != nil {
+		return nil, err
 	}
+
+	agentEnvVars := a.EnvVars()
 
 	// Merge proxy environment variables when proxy mode is active.
 	var networkName string
@@ -88,8 +76,8 @@ func NewProcess(cfg run.Config, taskContent string, runID, worktreePath, evidenc
 
 	containerCfg := container.Config{
 		Name:         run.ContainerName(runID),
-		Image:        image,
-		Command:      append([]string{binaryName}, args...),
+		Image:        a.Image(),
+		Command:      append([]string{a.BinaryName()}, a.Args()...),
 		WorkDir:      "/work",
 		User:         "tessariq",
 		Env:          agentEnvVars,
@@ -104,9 +92,9 @@ func NewProcess(cfg run.Config, taskContent string, runID, worktreePath, evidenc
 
 	return &AgentProcess{
 		Process:     proc,
-		AgentInfo:   NewAgentInfo(agentName, requested, applied),
-		RuntimeInfo: NewRuntimeInfo(image, imageSource, len(authMounts), agentConfigMount, agentConfigMountStatus),
-		BinaryName:  binaryName,
+		AgentInfo:   NewAgentInfo(a.Name(), a.Requested(), a.Applied()),
+		RuntimeInfo: NewRuntimeInfo(a.Image(), imageSource, len(authMounts), agentConfigMount, agentConfigMountStatus),
+		BinaryName:  a.BinaryName(),
 	}, nil
 }
 

@@ -329,6 +329,24 @@ func TestBinaryName_IsClaudeString(t *testing.T) {
 	require.Equal(t, "claude", BinaryName)
 }
 
+func TestAgentConfig_Name(t *testing.T) {
+	t.Parallel()
+
+	cfg := run.DefaultConfig()
+	a := New(cfg, "task", nil)
+
+	require.Equal(t, "claude-code", a.Name())
+}
+
+func TestAgentConfig_BinaryName(t *testing.T) {
+	t.Parallel()
+
+	cfg := run.DefaultConfig()
+	a := New(cfg, "task", nil)
+
+	require.Equal(t, "claude", a.BinaryName())
+}
+
 func TestNew_WithEnvVars(t *testing.T) {
 	t.Parallel()
 

@@ -22,6 +22,17 @@ const Name = "opencode"
 // BinaryName is the expected binary name for the OpenCode agent.
 const BinaryName = "opencode"
 
+// Verify AgentConfig satisfies the adapter.Agent interface at compile time.
+var _ interface {
+	Name() string
+	BinaryName() string
+	Args() []string
+	Image() string
+	Requested() map[string]any
+	Applied() map[string]bool
+	EnvVars() map[string]string
+} = (*AgentConfig)(nil)
+
 // AgentConfig holds agent-specific CLI arguments and metadata for OpenCode.
 // It is a config builder, not a process runner -- the container package handles execution.
 type AgentConfig struct {
@@ -42,6 +53,16 @@ func New(cfg run.Config, taskContent string, envVars map[string]string) *AgentCo
 		applied:   buildApplied(cfg),
 		envVars:   envVars,
 	}
+}
+
+// Name returns the agent identifier recorded in agent.json.
+func (a *AgentConfig) Name() string {
+	return Name
+}
+
+// BinaryName returns the binary name inside the container image.
+func (a *AgentConfig) BinaryName() string {
+	return BinaryName
 }
 
 // Args returns the CLI arguments for the agent binary.
@@ -70,16 +91,20 @@ func (a *AgentConfig) EnvVars() map[string]string {
 }
 
 // buildArgs translates run.Config into opencode CLI arguments.
-// Non-interactive (default): opencode run --format json -- <task>
-// Interactive: opencode -- <task> (TUI, not yet validated in tessariq)
+// Non-interactive (default): opencode run --format json [--model M] -- <task>
+// Interactive: opencode [--model M] -- <task> (TUI, not yet validated in tessariq)
 //
-// OpenCode's --model flag expects provider/model format (e.g. "anthropic/claude-sonnet-4-20250514")
-// which does not match tessariq's model shorthand, so model is not forwarded.
+// OpenCode's --model flag expects provider/model format (e.g. "anthropic/claude-sonnet-4-20250514").
+// Tessariq forwards the user-supplied string as-is; the user is responsible for the correct format.
 func buildArgs(cfg run.Config, taskContent string) []string {
 	var args []string
 
 	if !cfg.Interactive {
 		args = append(args, "run", "--format", "json")
+	}
+
+	if cfg.Model != "" {
+		args = append(args, "--model", cfg.Model)
 	}
 
 	args = append(args, "--", taskContent)
@@ -99,14 +124,12 @@ func buildRequested(cfg run.Config) map[string]any {
 }
 
 // buildApplied records which requested options the agent applied exactly.
-// OpenCode's --model expects provider/model format which does not match
-// tessariq's model shorthand, so model is not forwarded.
 func buildApplied(cfg run.Config) map[string]bool {
 	app := map[string]bool{
 		"interactive": false,
 	}
 	if cfg.Model != "" {
-		app["model"] = false
+		app["model"] = true
 	}
 	return app
 }
