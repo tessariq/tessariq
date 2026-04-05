@@ -122,21 +122,20 @@ func writableDirsForFileMounts(authMounts, configMounts []authmount.MountSpec) [
 	seen := make(map[string]bool)
 	var dirs []string
 	for _, m := range authMounts {
-		dir := filepath.Dir(m.ContainerPath)
-		// Only include subdirectories under ContainerHome — top-level mounts
-		// (e.g. ~/.claude.json) don't need intermediate directories.
-		if dir == authmount.ContainerHome || dir == "." || dir == "/" {
-			continue
-		}
-		// Skip directories already covered by a config directory mount —
-		// a bind-mounted directory provides the structure that tmpfs would,
-		// and Docker rejects duplicate mount points.
-		if configTargets[dir] {
-			continue
-		}
-		if !seen[dir] {
-			seen[dir] = true
-			dirs = append(dirs, dir)
+		// Walk from the file's parent up to ContainerHome, collecting all
+		// intermediate directories. Docker creates these as root-owned for
+		// file-level bind mounts; each needs a tmpfs to be writable.
+		for dir := filepath.Dir(m.ContainerPath); dir != authmount.ContainerHome && dir != "." && dir != "/"; dir = filepath.Dir(dir) {
+			// Skip directories already covered by a config directory mount —
+			// a bind-mounted directory provides the structure that tmpfs would,
+			// and Docker rejects duplicate mount points.
+			if configTargets[dir] {
+				continue
+			}
+			if !seen[dir] {
+				seen[dir] = true
+				dirs = append(dirs, dir)
+			}
 		}
 	}
 	return dirs

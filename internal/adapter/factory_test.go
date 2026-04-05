@@ -270,6 +270,34 @@ func TestWritableDirsForFileMounts_Empty(t *testing.T) {
 	require.Empty(t, dirs)
 }
 
+func TestWritableDirsForFileMounts_DeeplyNestedMount(t *testing.T) {
+	t.Parallel()
+	mounts := []authmount.MountSpec{
+		{ContainerPath: "/home/tessariq/.local/share/opencode/auth.json", ReadOnly: true},
+	}
+	dirs := writableDirsForFileMounts(mounts, nil)
+	require.ElementsMatch(t, []string{
+		"/home/tessariq/.local/share/opencode",
+		"/home/tessariq/.local/share",
+		"/home/tessariq/.local",
+	}, dirs)
+}
+
+func TestWritableDirsForFileMounts_DeeplyNestedWithConfigOverlap(t *testing.T) {
+	t.Parallel()
+	authMounts := []authmount.MountSpec{
+		{ContainerPath: "/home/tessariq/.local/share/opencode/auth.json", ReadOnly: true},
+	}
+	configMounts := []authmount.MountSpec{
+		{ContainerPath: "/home/tessariq/.local/share", ReadOnly: true},
+	}
+	dirs := writableDirsForFileMounts(authMounts, configMounts)
+	require.ElementsMatch(t, []string{
+		"/home/tessariq/.local/share/opencode",
+		"/home/tessariq/.local",
+	}, dirs, "dir covered by config mount must be excluded but ancestors and children still included")
+}
+
 func TestWritableDirsForFileMounts_ConfigMountOverlap(t *testing.T) {
 	t.Parallel()
 	authMounts := []authmount.MountSpec{
