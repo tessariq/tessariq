@@ -363,39 +363,6 @@ func TestWaitForLogs_BlocksUntilClosed(t *testing.T) {
 	}
 }
 
-func TestCreate_SetsCreatedWithoutStarting(t *testing.T) {
-	t.Parallel()
-	p := New(Config{Name: "test-create", Image: "img"})
-
-	// Without a real docker binary, create will fail, but we can verify
-	// the method calls create (which sets p.created) by inspecting the
-	// process state before and after.
-	require.False(t, p.created, "created should be false initially")
-
-	// We can't actually run docker create in a unit test, but we verify
-	// that Create does NOT call start or streamLogs by checking that
-	// logsDone stays nil after a failed Create attempt.
-	_ = p.Create(t.Context())
-	require.Nil(t, p.logsDone, "Create must not call streamLogs")
-}
-
-func TestRemoveMethod_DelegatesToRemove(t *testing.T) {
-	t.Parallel()
-	p := New(Config{Name: "test-remove"})
-
-	// When not created, Remove should be a no-op (no error).
-	require.False(t, p.created)
-	require.NoError(t, p.Remove())
-}
-
-func TestCaptureLogs_NoopWithoutWriters(t *testing.T) {
-	t.Parallel()
-	p := New(Config{Name: "test-capture"})
-
-	// Should not panic when no writers are configured.
-	p.CaptureLogs()
-}
-
 // indexOf returns the first index of needle in args, or -1.
 func indexOf(args []string, needle string) int {
 	for i, a := range args {

@@ -71,5 +71,6 @@ func ClaudeCodeEndpoints() []Destination {
 		{Host: "api.anthropic.com", Port: 443},
 		{Host: "claude.ai", Port: 443},
 		{Host: "platform.claude.com", Port: 443},
+		{Host: "raw.githubusercontent.com", Port: 443},
 	}
 }

@@ -6,11 +6,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestClaudeCodeEndpoints_ExactlyThree(t *testing.T) {
+func TestClaudeCodeEndpoints_Count(t *testing.T) {
 	t.Parallel()
 
 	endpoints := ClaudeCodeEndpoints()
-	require.Len(t, endpoints, 3)
+	require.Len(t, endpoints, 4)
 }
 
 func TestClaudeCodeEndpoints_RequiredHosts(t *testing.T) {
@@ -26,13 +26,14 @@ func TestClaudeCodeEndpoints_RequiredHosts(t *testing.T) {
 	require.True(t, hosts["api.anthropic.com"])
 	require.True(t, hosts["claude.ai"])
 	require.True(t, hosts["platform.claude.com"])
+	require.True(t, hosts["raw.githubusercontent.com"])
 }
 
 func TestAgentEndpoints_ClaudeCode(t *testing.T) {
 	t.Parallel()
 
 	endpoints := AgentEndpoints("claude-code")
-	require.Len(t, endpoints, 3)
+	require.Len(t, endpoints, 4)
 }
 
 func TestAgentEndpoints_OpenCode_ReturnsNil(t *testing.T) {
@@ -141,7 +142,7 @@ func TestFullBuiltInAllowlist_ClaudeCode(t *testing.T) {
 	t.Parallel()
 
 	full := FullBuiltInAllowlist(ClaudeCodeEndpoints())
-	require.Len(t, full, 13) // 10 baseline + 3 claude-code
+	require.Len(t, full, 14) // 10 baseline + 4 claude-code
 }
 
 func TestFullBuiltInAllowlist_OpenCode_NonHosted(t *testing.T) {
