@@ -246,34 +246,7 @@ func TestBuildCreateArgs_NonInteractiveNoTTYFlags(t *testing.T) {
 	require.Equal(t, -1, indexOf(args, "-t"))
 }
 
-func TestBuildCommand_NoWritableDirs(t *testing.T) {
-	t.Parallel()
-	p := New(Config{Name: "c", Image: "img", Command: []string{"claude", "--print", "task"}})
-	cmd := p.buildCommand()
-	require.Equal(t, []string{"claude", "--print", "task"}, cmd)
-}
-
-func TestBuildCommand_WithWritableDirs(t *testing.T) {
-	t.Parallel()
-	p := New(Config{
-		Name:         "c",
-		Image:        "img",
-		Command:      []string{"claude", "--", "do stuff"},
-		WritableDirs: []string{"/home/tessariq/.claude"},
-	})
-	cmd := p.buildCommand()
-
-	require.Equal(t, "sh", cmd[0])
-	require.Equal(t, "-c", cmd[1])
-	require.Contains(t, cmd[2], "mkdir -p")
-	require.Contains(t, cmd[2], "/home/tessariq/.claude")
-	require.Contains(t, cmd[2], `exec "$@"`)
-	require.Equal(t, "--", cmd[3])
-	// Original command preserved after the -- separator.
-	require.Equal(t, []string{"claude", "--", "do stuff"}, cmd[4:])
-}
-
-func TestBuildCreateArgs_WritableDirsWrapsCommand(t *testing.T) {
+func TestBuildCreateArgs_WritableDirsAddsTmpfs(t *testing.T) {
 	t.Parallel()
 	p := New(Config{
 		Name:         "c",
@@ -283,10 +256,23 @@ func TestBuildCreateArgs_WritableDirsWrapsCommand(t *testing.T) {
 	})
 	args := p.buildCreateArgs()
 
+	tmpfsIdx := indexOf(args, "--tmpfs")
+	require.GreaterOrEqual(t, tmpfsIdx, 0, "--tmpfs must be present")
+	require.Equal(t, "/home/tessariq/.claude:rw,exec", args[tmpfsIdx+1])
+
+	// tmpfs must appear before the image.
 	imgIdx := indexOf(args, "img")
-	require.GreaterOrEqual(t, imgIdx, 0)
-	// After the image, the command should be wrapped with sh -c.
-	require.Equal(t, "sh", args[imgIdx+1])
+	require.Less(t, tmpfsIdx, imgIdx, "--tmpfs must precede image")
+
+	// Command should NOT be wrapped — it follows the image directly.
+	require.Equal(t, "claude", args[imgIdx+1])
+}
+
+func TestBuildCreateArgs_NoWritableDirsNoTmpfs(t *testing.T) {
+	t.Parallel()
+	p := New(Config{Name: "c", Image: "img", Command: []string{"claude"}})
+	args := p.buildCreateArgs()
+	require.Equal(t, -1, indexOf(args, "--tmpfs"))
 }
 
 func TestBuildCreateArgs_Init(t *testing.T) {

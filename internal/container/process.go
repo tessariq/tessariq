@@ -231,28 +231,16 @@ func (p *Process) buildCreateArgs() []string {
 		args = append(args, "--env", k+"="+v)
 	}
 
+	// WritableDirs become tmpfs mounts so the container user can write
+	// to directories that Docker would otherwise create as root for
+	// file-level bind mounts. File bind mounts inside these directories
+	// nest on top of the tmpfs (Docker resolves mount ordering).
+	for _, d := range p.cfg.WritableDirs {
+		args = append(args, "--tmpfs", d+":rw,exec")
+	}
+
 	args = append(args, p.cfg.Image)
-	args = append(args, p.buildCommand()...)
+	args = append(args, p.cfg.Command...)
 
 	return args
-}
-
-// buildCommand returns the container command, optionally wrapped with mkdir
-// to ensure WritableDirs exist with proper ownership before the agent starts.
-// The wrapper uses exec "$@" so the agent replaces the shell process,
-// preserving signal delivery through --init (tini).
-func (p *Process) buildCommand() []string {
-	if len(p.cfg.WritableDirs) == 0 {
-		return p.cfg.Command
-	}
-	mkdirs := "mkdir -p"
-	for _, d := range p.cfg.WritableDirs {
-		mkdirs += " " + shellQuote(d)
-	}
-	wrapped := []string{"sh", "-c", mkdirs + ` && exec "$@"`, "--"}
-	return append(wrapped, p.cfg.Command...)
-}
-
-func shellQuote(s string) string {
-	return "'" + strings.ReplaceAll(s, "'", `'"'"'`) + "'"
 }

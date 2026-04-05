@@ -15,7 +15,9 @@ type Config struct {
 	// WritableDirs are container paths that must be writable by the
 	// container user. Docker creates intermediate directories as root for
 	// file-level bind mounts, so directories like ~/.claude/ end up
-	// root-owned. When non-empty, the container command is wrapped with
-	// mkdir -p to create these directories before exec'ing the agent.
+	// root-owned. Each entry becomes a --tmpfs mount so the directory is
+	// writable regardless of Docker's intermediate directory ownership.
+	// File-level bind mounts inside these directories still work (Docker
+	// supports nested mounts).
 	WritableDirs []string
 }
