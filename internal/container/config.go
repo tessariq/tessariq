@@ -12,6 +12,12 @@ type Config struct {
 	Interactive bool              // when true, docker create uses -i -t flags for TTY
 	NetworkName string            // Docker network to attach; empty = default bridge
 
+	// LineBuffered wraps the command with stdbuf -oL so that stdout is
+	// line-buffered instead of fully buffered. This ensures JSON event
+	// streams are visible in docker logs immediately rather than waiting
+	// for the buffer to fill.
+	LineBuffered bool
+
 	// WritableDirs are container paths that must be writable by the
 	// container user. Docker creates intermediate directories as root for
 	// file-level bind mounts, so directories like ~/.claude/ end up

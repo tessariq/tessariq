@@ -176,8 +176,6 @@ func TestBuildApplied_Interactive(t *testing.T) {
 		"opencode cannot apply interactive mode, so applied must be false")
 }
 
-
-
 func TestResolveImage_CustomOverride(t *testing.T) {
 	t.Parallel()
 

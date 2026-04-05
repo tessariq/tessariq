@@ -123,6 +123,50 @@ func DirReadable(path string) bool {
 	return true
 }
 
+// StateResult holds the outcome of optional state-file discovery for one agent.
+type StateResult struct {
+	Agent  string
+	Mounts []MountSpec
+	Status string // "mounted", "missing_optional"
+}
+
+// DiscoverState resolves optional state files for the given agent.
+// State files carry user preferences (e.g. recent model selection) that are not
+// required for authentication but affect agent behavior.
+func DiscoverState(agent, homeDir string, fileExists func(string) bool) (*StateResult, error) {
+	switch agent {
+	case "claude-code":
+		return &StateResult{Agent: "claude-code", Status: "missing_optional"}, nil
+	case "opencode":
+		return discoverOpenCodeState(homeDir, fileExists)
+	default:
+		return nil, fmt.Errorf("unsupported agent for state discovery: %s", agent)
+	}
+}
+
+func discoverOpenCodeState(homeDir string, fileExists func(string) bool) (*StateResult, error) {
+	result := &StateResult{Agent: "opencode"}
+
+	// model.json stores the user's recent model selections. Without it,
+	// opencode falls back to the first available provider which may not
+	// be the intended one.
+	modelPath := filepath.Join(homeDir, ".local", "state", "opencode", "model.json")
+	if !fileExists(modelPath) {
+		result.Status = "missing_optional"
+		return result, nil
+	}
+
+	result.Status = "mounted"
+	result.Mounts = []MountSpec{
+		{
+			HostPath:      modelPath,
+			ContainerPath: filepath.Join(ContainerHome, ".local", "state", "opencode", "model.json"),
+			ReadOnly:      true,
+		},
+	}
+	return result, nil
+}
+
 // ConfigDirResult holds the outcome of optional config-dir discovery for one agent.
 type ConfigDirResult struct {
 	Agent   string

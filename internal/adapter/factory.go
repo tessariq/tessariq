@@ -95,6 +95,7 @@ func NewProcess(cfg run.Config, taskContent string, runID, worktreePath, evidenc
 		Env:          agentEnvVars,
 		Mounts:       container.AssembleMounts(worktreePath, evidencePath, authMounts, configMounts),
 		Interactive:  cfg.Interactive,
+		LineBuffered: !cfg.Interactive,
 		NetworkName:  networkName,
 		WritableDirs: writableDirsForFileMounts(authMounts, configMounts),
 	}

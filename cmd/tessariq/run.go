@@ -180,6 +180,18 @@ func newRunCmd() *cobra.Command {
 				return err
 			}
 
+			// Discover optional state files (e.g. model preferences) and
+			// merge them with auth mounts — both are file-level read-only
+			// mounts that need writable parent directories via tmpfs.
+			allAuthMounts := authResult.Mounts
+			stateResult, stateErr := authmount.DiscoverState(cfg.Agent, homeDir, authmount.FileExists)
+			if stateErr != nil {
+				return fmt.Errorf("discover agent state: %w", stateErr)
+			}
+			if stateResult.Status == "mounted" {
+				allAuthMounts = append(allAuthMounts, stateResult.Mounts...)
+			}
+
 			agentConfigMount := "disabled"
 			agentConfigMountStatus := "disabled"
 			var containerEnvVars map[string]string
@@ -205,7 +217,7 @@ func newRunCmd() *cobra.Command {
 			}
 
 			agentProc, err := adapter.NewProcess(cfg, string(content), runID, wsPath, evidenceDir,
-				authResult.Mounts, configMounts, agentConfigMount, agentConfigMountStatus, containerEnvVars, proxyEnv, resolvedEgress)
+				allAuthMounts, configMounts, agentConfigMount, agentConfigMountStatus, containerEnvVars, proxyEnv, resolvedEgress)
 			if err != nil {
 				return fmt.Errorf("create agent process: %w", err)
 			}

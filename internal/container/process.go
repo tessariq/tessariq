@@ -240,6 +240,10 @@ func (p *Process) buildCreateArgs() []string {
 	}
 
 	args = append(args, p.cfg.Image)
+
+	if p.cfg.LineBuffered {
+		args = append(args, "stdbuf", "-oL")
+	}
 	args = append(args, p.cfg.Command...)
 
 	return args

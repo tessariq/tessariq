@@ -496,6 +496,80 @@ func TestDiscoverConfigDirs_OpenCode_NoEnvVars(t *testing.T) {
 	require.Empty(t, result.EnvVars)
 }
 
+func TestDiscoverState_OpenCode(t *testing.T) {
+	t.Parallel()
+
+	home := "/home/user"
+	modelPath := filepath.Join(home, ".local", "state", "opencode", "model.json")
+
+	tests := []struct {
+		name       string
+		existing   map[string]bool
+		wantStatus string
+		wantCount  int
+	}{
+		{
+			name:       "model.json present",
+			existing:   map[string]bool{modelPath: true},
+			wantStatus: "mounted",
+			wantCount:  1,
+		},
+		{
+			name:       "model.json absent",
+			existing:   map[string]bool{},
+			wantStatus: "missing_optional",
+			wantCount:  0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			result, err := DiscoverState("opencode", home, mockFileExists(tt.existing))
+			require.NoError(t, err)
+			require.Equal(t, "opencode", result.Agent)
+			require.Equal(t, tt.wantStatus, result.Status)
+			require.Len(t, result.Mounts, tt.wantCount)
+		})
+	}
+}
+
+func TestDiscoverState_OpenCode_MountDetails(t *testing.T) {
+	t.Parallel()
+
+	home := "/home/user"
+	modelPath := filepath.Join(home, ".local", "state", "opencode", "model.json")
+
+	result, err := DiscoverState("opencode", home, mockFileExists(map[string]bool{
+		modelPath: true,
+	}))
+	require.NoError(t, err)
+	require.Len(t, result.Mounts, 1)
+
+	require.Equal(t, modelPath, result.Mounts[0].HostPath)
+	require.Equal(t, filepath.Join(ContainerHome, ".local", "state", "opencode", "model.json"), result.Mounts[0].ContainerPath)
+	require.True(t, result.Mounts[0].ReadOnly)
+}
+
+func TestDiscoverState_ClaudeCode(t *testing.T) {
+	t.Parallel()
+
+	result, err := DiscoverState("claude-code", "/home/user", mockFileExists(nil))
+	require.NoError(t, err)
+	require.Equal(t, "claude-code", result.Agent)
+	require.Equal(t, "missing_optional", result.Status)
+	require.Empty(t, result.Mounts)
+}
+
+func TestDiscoverState_UnknownAgent(t *testing.T) {
+	t.Parallel()
+
+	_, err := DiscoverState("unknown-agent", "/home/user", func(string) bool { return true })
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unknown-agent")
+}
+
 func TestDiscoverConfigDirs_UnknownAgent(t *testing.T) {
 	t.Parallel()
 

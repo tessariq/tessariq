@@ -144,6 +144,36 @@ func TestBuildCreateArgs_CommandAtEnd(t *testing.T) {
 	require.Equal(t, []string{"myimg", "claude", "--print", "task"}, args[imgIdx:])
 }
 
+func TestBuildCreateArgs_LineBuffered(t *testing.T) {
+	t.Parallel()
+	p := New(Config{
+		Name:         "c",
+		Image:        "myimg",
+		Command:      []string{"opencode", "run", "--format", "json"},
+		LineBuffered: true,
+	})
+	args := p.buildCreateArgs()
+
+	imgIdx := indexOf(args, "myimg")
+	require.GreaterOrEqual(t, imgIdx, 0)
+	require.Equal(t, []string{"myimg", "stdbuf", "-oL", "opencode", "run", "--format", "json"}, args[imgIdx:])
+}
+
+func TestBuildCreateArgs_NoLineBuffered(t *testing.T) {
+	t.Parallel()
+	p := New(Config{
+		Name:    "c",
+		Image:   "myimg",
+		Command: []string{"claude", "--print"},
+	})
+	args := p.buildCreateArgs()
+
+	imgIdx := indexOf(args, "myimg")
+	require.GreaterOrEqual(t, imgIdx, 0)
+	require.Equal(t, []string{"myimg", "claude", "--print"}, args[imgIdx:],
+		"stdbuf must not appear when LineBuffered is false")
+}
+
 func TestSignalCommand_SIGTERM(t *testing.T) {
 	t.Parallel()
 	p := New(Config{Name: "test-container"})
