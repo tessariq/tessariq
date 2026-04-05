@@ -36,8 +36,8 @@ type Runner struct {
 	Process       ProcessRunner
 	Session       SessionStarter
 	SessionName   string
-	ContainerName string          // needed for interactive tmux session command
-	SessionReady  chan<- struct{} // closed after tmux session is created; nil = ignored
+	ContainerName string          // recorded in evidence; used by CLI for direct docker attach
+	SessionReady  chan<- struct{} // closed when ready for attach; nil = ignored
 	Clock         func() time.Time
 	LogCapBytes   int64 // 0 uses DefaultLogCapBytes
 }
@@ -239,17 +239,16 @@ func (r *Runner) runInteractiveProcess(ctx context.Context, startedAt time.Time,
 		waitCh <- waitResult{code, err}
 	}()
 
-	// Container is running — create tmux session so docker attach can connect.
+	// Signal ready for attach — container is running.
+	if r.SessionReady != nil {
+		close(r.SessionReady)
+	}
+
+	// Create tmux session for log tailing (non-critical in interactive mode).
 	if r.Session != nil && r.SessionName != "" {
 		fmt.Fprintf(logs.RunnerLog, "[%s] creating tmux session %s\n", r.clock().UTC().Format(time.RFC3339), r.SessionName)
 		if err := r.Session.StartSession(ctx, r.SessionName, r.sessionCommand(logs.RunLogPath())); err != nil {
-			fmt.Fprintf(logs.RunnerLog, "[%s] tmux session creation failed: %s\n", r.clock().UTC().Format(time.RFC3339), err)
-			_ = r.Process.Signal(os.Kill)
-			<-waitCh
-			return 1, false, StateFailed
-		}
-		if r.SessionReady != nil {
-			close(r.SessionReady)
+			fmt.Fprintf(logs.RunnerLog, "[%s] tmux session creation failed (non-fatal): %s\n", r.clock().UTC().Format(time.RFC3339), err)
 		}
 	}
 
@@ -307,9 +306,6 @@ func (r *Runner) runInteractiveProcess(ctx context.Context, startedAt time.Time,
 }
 
 func (r *Runner) sessionCommand(runLogPath string) []string {
-	if r.Config.Interactive && r.ContainerName != "" {
-		return []string{"docker", "attach", r.ContainerName}
-	}
 	return []string{"tail", "-n", "+1", "-f", runLogPath}
 }
 

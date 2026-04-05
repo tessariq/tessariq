@@ -49,8 +49,8 @@ func TestBuildArgs_Interactive(t *testing.T) {
 
 	require.NotContains(t, args, "--print")
 	require.NotContains(t, args, "--dangerously-skip-permissions")
-	require.NotContains(t, args, "review code",
-		"interactive mode should not pass task content as prompt arg")
+	require.Contains(t, args, "review code",
+		"interactive mode should pass task content as initial prompt")
 }
 
 func TestBuildArgs_InteractiveWithModel(t *testing.T) {
@@ -95,14 +95,14 @@ func TestBuildArgs_TableDriven(t *testing.T) {
 			name:        "interactive no model",
 			interactive: true,
 			task:        "do stuff",
-			wantPrint:   false, wantSkip: false, wantModel: false, wantTask: false,
+			wantPrint:   false, wantSkip: false, wantModel: false, wantTask: true,
 		},
 		{
 			name:        "interactive with model",
 			interactive: true,
 			model:       "opus",
 			task:        "do stuff",
-			wantPrint:   false, wantSkip: false, wantModel: true, wantTask: false,
+			wantPrint:   false, wantSkip: false, wantModel: true, wantTask: true,
 		},
 	}
 

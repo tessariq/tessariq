@@ -437,7 +437,8 @@ func TestRunner_InteractiveSessionCommand(t *testing.T) {
 
 	require.NoError(t, r.Run(context.Background()))
 	require.True(t, sess.startCalled)
-	require.Equal(t, []string{"docker", "attach", "tessariq-RUN123"}, sess.command)
+	require.Equal(t, "tail", sess.command[0],
+		"interactive mode should use log-tailing session, not docker attach")
 }
 
 func TestRunner_InteractiveSuccessPath(t *testing.T) {
@@ -734,6 +735,44 @@ func (o *orderTrackingSession) StartSession(ctx context.Context, name string, co
 	return o.fakeSession.StartSession(ctx, name, command)
 }
 
+// readyCheckingSession checks whether SessionReady was closed before StartSession.
+type readyCheckingSession struct {
+	fakeSession
+	readyCh            chan struct{}
+	readyBeforeSession bool
+}
+
+func (s *readyCheckingSession) StartSession(ctx context.Context, name string, command []string) error {
+	select {
+	case <-s.readyCh:
+		s.readyBeforeSession = true
+	default:
+		s.readyBeforeSession = false
+	}
+	return s.fakeSession.StartSession(ctx, name, command)
+}
+
+func TestRunner_InteractiveSessionReadyFiredBeforeTmux(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	r := newTestRunner(dir, newFakeProcess(0))
+	r.Config.Interactive = true
+	r.ContainerName = "tessariq-RUN123"
+
+	ready := make(chan struct{})
+	r.SessionReady = ready
+
+	sess := &readyCheckingSession{readyCh: ready}
+	r.Session = sess
+	r.SessionName = "tessariq-RUN123"
+
+	require.NoError(t, r.Run(context.Background()))
+	require.True(t, sess.startCalled, "tmux session should still be created")
+	require.True(t, sess.readyBeforeSession,
+		"SessionReady must be closed before StartSession is called in interactive mode")
+}
+
 func TestRunner_InteractiveSessionCreatedAfterProcessStart(t *testing.T) {
 	t.Parallel()
 
@@ -779,35 +818,29 @@ func TestRunner_InteractiveSessionReadySignaled(t *testing.T) {
 	}
 }
 
-func TestRunner_InteractiveSessionFailure_KillsProcess(t *testing.T) {
+func TestRunner_InteractiveSessionFailure_NonFatal(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	proc := newSignalRecordingProcess(0, false)
-	r := newTestRunner(dir, proc)
+	r := newTestRunner(dir, newFakeProcess(0))
 	r.Config.Interactive = true
 	r.ContainerName = "tessariq-RUN123"
 	r.Session = &fakeSession{startErr: errors.New("tmux not available")}
 	r.SessionName = "tessariq-RUN123"
 
-	var termErr *TerminalStateError
-	require.ErrorAs(t, r.Run(context.Background()), &termErr)
-	require.Equal(t, StateFailed, termErr.State)
-
-	signals := proc.Signals()
-	require.NotEmpty(t, signals, "process must receive kill signal when session creation fails")
+	require.NoError(t, r.Run(context.Background()),
+		"interactive mode must not fail when tmux session creation fails")
 
 	s, err := ReadStatus(dir)
 	require.NoError(t, err)
-	require.Equal(t, StateFailed, s.State)
+	require.Equal(t, StateSuccess, s.State)
 }
 
-func TestRunner_InteractiveSessionReadyNotSignaledOnFailure(t *testing.T) {
+func TestRunner_InteractiveSessionReadySignaledDespiteTmuxFailure(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	proc := newSignalRecordingProcess(0, false)
-	r := newTestRunner(dir, proc)
+	r := newTestRunner(dir, newFakeProcess(0))
 	r.Config.Interactive = true
 	r.ContainerName = "tessariq-RUN123"
 	r.Session = &fakeSession{startErr: errors.New("tmux failed")}
@@ -816,14 +849,13 @@ func TestRunner_InteractiveSessionReadyNotSignaledOnFailure(t *testing.T) {
 	ready := make(chan struct{})
 	r.SessionReady = ready
 
-	var termErr *TerminalStateError
-	require.ErrorAs(t, r.Run(context.Background()), &termErr)
+	require.NoError(t, r.Run(context.Background()))
 
 	select {
 	case <-ready:
-		t.Fatal("SessionReady channel should not be closed when interactive session creation fails")
+		// OK — SessionReady fires after process start, regardless of tmux outcome
 	default:
-		// OK — channel remains open
+		t.Fatal("SessionReady must be closed even when tmux session creation fails")
 	}
 }
 
