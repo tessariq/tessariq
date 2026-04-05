@@ -70,17 +70,16 @@ func (a *AgentConfig) EnvVars() map[string]string {
 }
 
 // buildArgs translates run.Config into opencode CLI arguments.
-// Non-interactive (default): opencode run --format json [--model provider/model] -- <task>
-// Interactive: opencode -- <task>
+// Non-interactive (default): opencode run --format json -- <task>
+// Interactive: opencode -- <task> (TUI, not yet validated in tessariq)
+//
+// OpenCode's --model flag expects provider/model format (e.g. "anthropic/claude-sonnet-4-20250514")
+// which does not match tessariq's model shorthand, so model is not forwarded.
 func buildArgs(cfg run.Config, taskContent string) []string {
 	var args []string
 
 	if !cfg.Interactive {
 		args = append(args, "run", "--format", "json")
-	}
-
-	if cfg.Model != "" {
-		args = append(args, "--model", cfg.Model)
 	}
 
 	args = append(args, "--", taskContent)
@@ -100,14 +99,14 @@ func buildRequested(cfg run.Config) map[string]any {
 }
 
 // buildApplied records which requested options the agent applied exactly.
-// OpenCode supports --model natively via the run subcommand.
-// Interactive mode falls back to the TUI which does not accept --model.
+// OpenCode's --model expects provider/model format which does not match
+// tessariq's model shorthand, so model is not forwarded.
 func buildApplied(cfg run.Config) map[string]bool {
 	app := map[string]bool{
 		"interactive": false,
 	}
 	if cfg.Model != "" {
-		app["model"] = !cfg.Interactive
+		app["model"] = false
 	}
 	return app
 }

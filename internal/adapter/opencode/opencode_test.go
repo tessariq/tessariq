@@ -32,8 +32,10 @@ func TestBuildArgs_WithModel(t *testing.T) {
 	cfg.Model = "sonnet"
 	args := buildArgs(cfg, "fix bug")
 
-	require.Equal(t, []string{"run", "--format", "json", "--model", "sonnet", "--", "fix bug"}, args,
-		"model is forwarded as a CLI flag in non-interactive mode")
+	require.Equal(t, []string{"run", "--format", "json", "--", "fix bug"}, args,
+		"model is not forwarded — opencode expects provider/model format")
+	require.NotContains(t, args, "--model")
+	require.NotContains(t, args, "sonnet")
 }
 
 func TestBuildArgs_Interactive(t *testing.T) {
@@ -55,8 +57,8 @@ func TestBuildArgs_InteractiveWithModel(t *testing.T) {
 	cfg.Model = "opus"
 	args := buildArgs(cfg, "task content")
 
-	require.Equal(t, []string{"--model", "opus", "--", "task content"}, args,
-		"interactive mode passes model but skips run subcommand")
+	require.Equal(t, []string{"--", "task content"}, args,
+		"model is not forwarded in any mode")
 }
 
 func TestBuildArgs_TableDriven(t *testing.T) {
@@ -78,7 +80,7 @@ func TestBuildArgs_TableDriven(t *testing.T) {
 			name:  "autonomous with model",
 			model: "sonnet",
 			task:  "do stuff",
-			want:  []string{"run", "--format", "json", "--model", "sonnet", "--", "do stuff"},
+			want:  []string{"run", "--format", "json", "--", "do stuff"},
 		},
 		{
 			name:        "interactive no model",
@@ -91,7 +93,7 @@ func TestBuildArgs_TableDriven(t *testing.T) {
 			interactive: true,
 			model:       "opus",
 			task:        "do stuff",
-			want:        []string{"--model", "opus", "--", "do stuff"},
+			want:        []string{"--", "do stuff"},
 		},
 	}
 
@@ -149,7 +151,7 @@ func TestBuildApplied_WithModel(t *testing.T) {
 	app := buildApplied(cfg)
 
 	require.False(t, app["interactive"], "opencode does not support interactive toggle")
-	require.True(t, app["model"], "opencode applies model in non-interactive run mode")
+	require.False(t, app["model"], "opencode does not forward model — format mismatch")
 }
 
 func TestBuildApplied_WithoutModel(t *testing.T) {
@@ -174,17 +176,7 @@ func TestBuildApplied_Interactive(t *testing.T) {
 		"opencode cannot apply interactive mode, so applied must be false")
 }
 
-func TestBuildApplied_InteractiveWithModel(t *testing.T) {
-	t.Parallel()
 
-	cfg := run.DefaultConfig()
-	cfg.Interactive = true
-	cfg.Model = "opus"
-	app := buildApplied(cfg)
-
-	require.False(t, app["model"],
-		"opencode TUI does not accept --model, so applied must be false in interactive mode")
-}
 
 func TestResolveImage_CustomOverride(t *testing.T) {
 	t.Parallel()
@@ -216,7 +208,7 @@ func TestNew_ReturnsConfigWithMetadata(t *testing.T) {
 	require.Equal(t, DefaultImage(), a.Image())
 	require.Equal(t, "sonnet", a.Requested()["model"])
 	require.Equal(t, false, a.Requested()["interactive"])
-	require.True(t, a.Applied()["model"], "opencode applies model in non-interactive run mode")
+	require.False(t, a.Applied()["model"], "opencode does not forward model — format mismatch")
 	require.False(t, a.Applied()["interactive"], "opencode does not apply interactive")
 }
 
