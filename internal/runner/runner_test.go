@@ -692,6 +692,161 @@ func TestRunner_SessionReadyNotSignaledOnFailure(t *testing.T) {
 	}
 }
 
+// orderTracker records the order of Start and StartSession calls.
+type orderTracker struct {
+	mu    sync.Mutex
+	calls []string
+}
+
+func (o *orderTracker) record(name string) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.calls = append(o.calls, name)
+}
+
+func (o *orderTracker) order() []string {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	result := make([]string, len(o.calls))
+	copy(result, o.calls)
+	return result
+}
+
+// orderTrackingProcess wraps fakeProcess and records Start calls.
+type orderTrackingProcess struct {
+	*fakeProcess
+	tracker *orderTracker
+}
+
+func (o *orderTrackingProcess) Start(ctx context.Context) error {
+	o.tracker.record("Start")
+	return o.fakeProcess.Start(ctx)
+}
+
+// orderTrackingSession wraps fakeSession and records StartSession calls.
+type orderTrackingSession struct {
+	fakeSession
+	tracker *orderTracker
+}
+
+func (o *orderTrackingSession) StartSession(ctx context.Context, name string, command []string) error {
+	o.tracker.record("StartSession")
+	return o.fakeSession.StartSession(ctx, name, command)
+}
+
+func TestRunner_InteractiveSessionCreatedAfterProcessStart(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	tracker := &orderTracker{}
+	proc := &orderTrackingProcess{fakeProcess: newFakeProcess(0), tracker: tracker}
+	r := newTestRunner(dir, proc)
+	r.Config.Interactive = true
+	r.ContainerName = "tessariq-RUN123"
+	sess := &orderTrackingSession{tracker: tracker}
+	r.Session = sess
+	r.SessionName = "tessariq-RUN123"
+
+	require.NoError(t, r.Run(context.Background()))
+	require.True(t, sess.startCalled)
+
+	calls := tracker.order()
+	require.Equal(t, []string{"Start", "StartSession"}, calls,
+		"interactive mode must start process before creating tmux session")
+}
+
+func TestRunner_InteractiveSessionReadySignaled(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	r := newTestRunner(dir, newFakeProcess(0))
+	r.Config.Interactive = true
+	r.ContainerName = "tessariq-RUN123"
+	sess := &fakeSession{}
+	r.Session = sess
+	r.SessionName = "tessariq-RUN123"
+
+	ready := make(chan struct{})
+	r.SessionReady = ready
+
+	require.NoError(t, r.Run(context.Background()))
+
+	select {
+	case <-ready:
+		// OK — channel was closed
+	default:
+		t.Fatal("SessionReady channel was not closed after interactive session creation")
+	}
+}
+
+func TestRunner_InteractiveSessionFailure_KillsProcess(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	proc := newSignalRecordingProcess(0, false)
+	r := newTestRunner(dir, proc)
+	r.Config.Interactive = true
+	r.ContainerName = "tessariq-RUN123"
+	r.Session = &fakeSession{startErr: errors.New("tmux not available")}
+	r.SessionName = "tessariq-RUN123"
+
+	var termErr *TerminalStateError
+	require.ErrorAs(t, r.Run(context.Background()), &termErr)
+	require.Equal(t, StateFailed, termErr.State)
+
+	signals := proc.Signals()
+	require.NotEmpty(t, signals, "process must receive kill signal when session creation fails")
+
+	s, err := ReadStatus(dir)
+	require.NoError(t, err)
+	require.Equal(t, StateFailed, s.State)
+}
+
+func TestRunner_InteractiveSessionReadyNotSignaledOnFailure(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	proc := newSignalRecordingProcess(0, false)
+	r := newTestRunner(dir, proc)
+	r.Config.Interactive = true
+	r.ContainerName = "tessariq-RUN123"
+	r.Session = &fakeSession{startErr: errors.New("tmux failed")}
+	r.SessionName = "tessariq-RUN123"
+
+	ready := make(chan struct{})
+	r.SessionReady = ready
+
+	var termErr *TerminalStateError
+	require.ErrorAs(t, r.Run(context.Background()), &termErr)
+
+	select {
+	case <-ready:
+		t.Fatal("SessionReady channel should not be closed when interactive session creation fails")
+	default:
+		// OK — channel remains open
+	}
+}
+
+func TestRunner_NonInteractiveSessionStillCreatedEarly(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	tracker := &orderTracker{}
+	proc := &orderTrackingProcess{fakeProcess: newFakeProcess(0), tracker: tracker}
+	r := newTestRunner(dir, proc)
+	// Interactive is false by default.
+	sess := &orderTrackingSession{tracker: tracker}
+	r.Session = sess
+	r.SessionName = "tessariq-TESTID"
+
+	require.NoError(t, r.Run(context.Background()))
+	require.True(t, sess.startCalled)
+
+	calls := tracker.order()
+	require.Equal(t, []string{"StartSession", "Start"}, calls,
+		"non-interactive mode must create tmux session before starting process")
+}
+
 func TestRunner_VerifyHookRunsFromRepoRoot(t *testing.T) {
 	t.Parallel()
 

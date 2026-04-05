@@ -74,8 +74,10 @@ func (r *Runner) Run(ctx context.Context) error {
 
 	fmt.Fprintf(logs.RunnerLog, "[%s] runner started for run %s\n", startedAt.UTC().Format(time.RFC3339), r.RunID)
 
-	// Create tmux session if a session starter is configured.
-	if r.Session != nil && r.SessionName != "" {
+	// Create tmux session for non-interactive mode (log tailing).
+	// For interactive mode, the session is created inside runInteractiveProcess
+	// after the container starts, so docker attach can connect.
+	if r.Session != nil && r.SessionName != "" && !r.Config.Interactive {
 		fmt.Fprintf(logs.RunnerLog, "[%s] creating tmux session %s\n", r.clock().UTC().Format(time.RFC3339), r.SessionName)
 		if err := r.Session.StartSession(ctx, r.SessionName, r.sessionCommand(logs.RunLogPath())); err != nil {
 			finishedAt := r.clock()
@@ -220,10 +222,8 @@ func (r *Runner) runInteractiveProcess(ctx context.Context, startedAt time.Time,
 		return 1, false, StateFailed
 	}
 
-	timer.Start()
-	defer timer.Stop()
-
-	// Wait for process in a goroutine.
+	// Wait for process in a goroutine — started before session creation
+	// so we can drain it if session creation fails.
 	type waitResult struct {
 		exitCode int
 		err      error
@@ -233,6 +233,23 @@ func (r *Runner) runInteractiveProcess(ctx context.Context, startedAt time.Time,
 		code, err := r.Process.Wait()
 		waitCh <- waitResult{code, err}
 	}()
+
+	// Container is running — create tmux session so docker attach can connect.
+	if r.Session != nil && r.SessionName != "" {
+		fmt.Fprintf(logs.RunnerLog, "[%s] creating tmux session %s\n", r.clock().UTC().Format(time.RFC3339), r.SessionName)
+		if err := r.Session.StartSession(ctx, r.SessionName, r.sessionCommand(logs.RunLogPath())); err != nil {
+			fmt.Fprintf(logs.RunnerLog, "[%s] tmux session creation failed: %s\n", r.clock().UTC().Format(time.RFC3339), err)
+			_ = r.Process.Signal(os.Kill)
+			<-waitCh
+			return 1, false, StateFailed
+		}
+		if r.SessionReady != nil {
+			close(r.SessionReady)
+		}
+	}
+
+	timer.Start()
+	defer timer.Stop()
 
 	select {
 	case result := <-waitCh:
