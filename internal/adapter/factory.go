@@ -96,7 +96,7 @@ func NewProcess(cfg run.Config, taskContent string, runID, worktreePath, evidenc
 		Mounts:       container.AssembleMounts(worktreePath, evidencePath, authMounts, configMounts),
 		Interactive:  cfg.Interactive,
 		NetworkName:  networkName,
-		WritableDirs: writableDirsForFileMounts(authMounts),
+		WritableDirs: writableDirsForFileMounts(authMounts, configMounts),
 	}
 
 	proc := container.New(containerCfg)
@@ -113,7 +113,12 @@ func NewProcess(cfg run.Config, taskContent string, runID, worktreePath, evidenc
 // auth mounts. Docker creates intermediate directories as root for file-level
 // bind mounts, making them unwritable by the container user. The returned paths
 // are used to mkdir -p before the agent starts.
-func writableDirsForFileMounts(authMounts []authmount.MountSpec) []string {
+func writableDirsForFileMounts(authMounts, configMounts []authmount.MountSpec) []string {
+	configTargets := make(map[string]bool, len(configMounts))
+	for _, cm := range configMounts {
+		configTargets[cm.ContainerPath] = true
+	}
+
 	seen := make(map[string]bool)
 	var dirs []string
 	for _, m := range authMounts {
@@ -121,6 +126,12 @@ func writableDirsForFileMounts(authMounts []authmount.MountSpec) []string {
 		// Only include subdirectories under ContainerHome — top-level mounts
 		// (e.g. ~/.claude.json) don't need intermediate directories.
 		if dir == authmount.ContainerHome || dir == "." || dir == "/" {
+			continue
+		}
+		// Skip directories already covered by a config directory mount —
+		// a bind-mounted directory provides the structure that tmpfs would,
+		// and Docker rejects duplicate mount points.
+		if configTargets[dir] {
 			continue
 		}
 		if !seen[dir] {

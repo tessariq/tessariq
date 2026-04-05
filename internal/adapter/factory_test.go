@@ -241,7 +241,7 @@ func TestWritableDirsForFileMounts_FileLevelMount(t *testing.T) {
 	mounts := []authmount.MountSpec{
 		{ContainerPath: "/home/tessariq/.claude/.credentials.json", ReadOnly: true},
 	}
-	dirs := writableDirsForFileMounts(mounts)
+	dirs := writableDirsForFileMounts(mounts, nil)
 	require.Equal(t, []string{"/home/tessariq/.claude"}, dirs)
 }
 
@@ -250,7 +250,7 @@ func TestWritableDirsForFileMounts_TopLevelSkipped(t *testing.T) {
 	mounts := []authmount.MountSpec{
 		{ContainerPath: "/home/tessariq/.claude.json", ReadOnly: true},
 	}
-	dirs := writableDirsForFileMounts(mounts)
+	dirs := writableDirsForFileMounts(mounts, nil)
 	require.Empty(t, dirs, "top-level home mounts should not produce writable dirs")
 }
 
@@ -260,14 +260,26 @@ func TestWritableDirsForFileMounts_Deduplication(t *testing.T) {
 		{ContainerPath: "/home/tessariq/.claude/.credentials.json", ReadOnly: true},
 		{ContainerPath: "/home/tessariq/.claude/settings.json", ReadOnly: true},
 	}
-	dirs := writableDirsForFileMounts(mounts)
+	dirs := writableDirsForFileMounts(mounts, nil)
 	require.Equal(t, []string{"/home/tessariq/.claude"}, dirs)
 }
 
 func TestWritableDirsForFileMounts_Empty(t *testing.T) {
 	t.Parallel()
-	dirs := writableDirsForFileMounts(nil)
+	dirs := writableDirsForFileMounts(nil, nil)
 	require.Empty(t, dirs)
+}
+
+func TestWritableDirsForFileMounts_ConfigMountOverlap(t *testing.T) {
+	t.Parallel()
+	authMounts := []authmount.MountSpec{
+		{ContainerPath: "/home/tessariq/.claude/.credentials.json", ReadOnly: true},
+	}
+	configMounts := []authmount.MountSpec{
+		{ContainerPath: "/home/tessariq/.claude", ReadOnly: true},
+	}
+	dirs := writableDirsForFileMounts(authMounts, configMounts)
+	require.Empty(t, dirs, "dir covered by config mount must not become a writable dir")
 }
 
 func TestMergeEnvVars_BothNil(t *testing.T) {
