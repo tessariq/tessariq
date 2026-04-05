@@ -23,6 +23,7 @@ func TestBuildArgs_DefaultNonInteractive(t *testing.T) {
 
 	require.Contains(t, args, "--print")
 	require.Contains(t, args, "--dangerously-skip-permissions")
+	require.Contains(t, args, "--")
 	require.Contains(t, args, "implement feature X")
 	require.NotContains(t, args, "--model")
 }
@@ -49,6 +50,7 @@ func TestBuildArgs_Interactive(t *testing.T) {
 
 	require.NotContains(t, args, "--print")
 	require.NotContains(t, args, "--dangerously-skip-permissions")
+	require.Contains(t, args, "--")
 	require.Contains(t, args, "review code",
 		"interactive mode should pass task content as initial prompt")
 }
@@ -141,6 +143,30 @@ func TestBuildArgs_TableDriven(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestBuildArgs_YAMLFrontmatterNotParsedAsFlag(t *testing.T) {
+	t.Parallel()
+
+	cfg := run.DefaultConfig()
+	task := "---\nid: TASK-001\ntitle: Fix the bug\n---\n\nDo the thing."
+	args := buildArgs(cfg, task)
+
+	require.Contains(t, args, "--")
+	require.Contains(t, args, task)
+	// Verify end-of-options marker appears before the task content.
+	dashIdx := -1
+	taskIdx := -1
+	for i, a := range args {
+		if a == "--" {
+			dashIdx = i
+		}
+		if a == task {
+			taskIdx = i
+		}
+	}
+	require.Greater(t, dashIdx, -1, "end-of-options marker must be present")
+	require.Greater(t, taskIdx, dashIdx, "task content must follow end-of-options marker")
 }
 
 func TestBuildRequested_WithModel(t *testing.T) {

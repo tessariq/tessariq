@@ -73,7 +73,7 @@ func (a *AgentConfig) EnvVars() map[string]string {
 // OpenCode takes only the task content as a positional argument.
 // It does not support --model or --interactive flags.
 func buildArgs(cfg run.Config, taskContent string) []string {
-	return []string{taskContent}
+	return []string{"--", taskContent}
 }
 
 // buildRequested records which agent options were requested by the user.

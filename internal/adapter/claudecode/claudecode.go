@@ -83,7 +83,7 @@ func buildArgs(cfg run.Config, taskContent string) []string {
 		args = append(args, "--model", cfg.Model)
 	}
 
-	args = append(args, taskContent)
+	args = append(args, "--", taskContent)
 
 	return args
 }

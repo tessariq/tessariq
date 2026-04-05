@@ -21,8 +21,8 @@ func TestBuildArgs_DefaultNonInteractive(t *testing.T) {
 	cfg := run.DefaultConfig()
 	args := buildArgs(cfg, "implement feature X")
 
-	require.Equal(t, []string{"implement feature X"}, args,
-		"opencode takes only the task as a positional arg, no flags")
+	require.Equal(t, []string{"--", "implement feature X"}, args,
+		"opencode takes only the task as a positional arg after end-of-options marker")
 }
 
 func TestBuildArgs_WithModel(t *testing.T) {
@@ -32,7 +32,7 @@ func TestBuildArgs_WithModel(t *testing.T) {
 	cfg.Model = "sonnet"
 	args := buildArgs(cfg, "fix bug")
 
-	require.Equal(t, []string{"fix bug"}, args,
+	require.Equal(t, []string{"--", "fix bug"}, args,
 		"model is not forwarded as a CLI flag")
 	require.NotContains(t, args, "--model")
 	require.NotContains(t, args, "sonnet")
@@ -45,7 +45,7 @@ func TestBuildArgs_Interactive(t *testing.T) {
 	cfg.Interactive = true
 	args := buildArgs(cfg, "review code")
 
-	require.Equal(t, []string{"review code"}, args,
+	require.Equal(t, []string{"--", "review code"}, args,
 		"interactive mode does not change CLI args")
 }
 
@@ -57,7 +57,7 @@ func TestBuildArgs_InteractiveWithModel(t *testing.T) {
 	cfg.Model = "opus"
 	args := buildArgs(cfg, "task content")
 
-	require.Equal(t, []string{"task content"}, args,
+	require.Equal(t, []string{"--", "task content"}, args,
 		"neither model nor interactive affect CLI args")
 }
 
@@ -85,8 +85,8 @@ func TestBuildArgs_TableDriven(t *testing.T) {
 			cfg.Interactive = tt.interactive
 			args := buildArgs(cfg, tt.task)
 
-			require.Equal(t, []string{tt.task}, args,
-				"opencode always produces a single positional arg regardless of config")
+			require.Equal(t, []string{"--", tt.task}, args,
+				"opencode always produces end-of-options marker plus positional arg regardless of config")
 		})
 	}
 }
@@ -230,7 +230,18 @@ func TestNew_Args(t *testing.T) {
 	cfg := run.DefaultConfig()
 	a := New(cfg, "do the thing", nil)
 
-	require.Equal(t, []string{"do the thing"}, a.Args())
+	require.Equal(t, []string{"--", "do the thing"}, a.Args())
+}
+
+func TestBuildArgs_YAMLFrontmatterNotParsedAsFlag(t *testing.T) {
+	t.Parallel()
+
+	cfg := run.DefaultConfig()
+	task := "---\nid: TASK-001\ntitle: Fix the bug\n---\n\nDo the thing."
+	args := buildArgs(cfg, task)
+
+	require.Equal(t, []string{"--", task}, args,
+		"YAML frontmatter starting with --- must not be parsed as a CLI flag")
 }
 
 func TestNew_WithEnvVars(t *testing.T) {
