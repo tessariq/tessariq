@@ -217,6 +217,11 @@ func (r *Runner) runInteractiveProcess(ctx context.Context, startedAt time.Time,
 		fmt.Fprintf(logs.RunLog, "[%s] process output end\n", r.clock().UTC().Format(time.RFC3339))
 	}()
 
+	// Start activity timer before the process so RecordActivity calls from
+	// docker log streaming find a properly initialized timer.
+	timer.Start()
+	defer timer.Stop()
+
 	if err := r.Process.Start(ctx); err != nil {
 		fmt.Fprintf(logs.RunnerLog, "[%s] process start failed: %s\n", r.clock().UTC().Format(time.RFC3339), err)
 		return 1, false, StateFailed
@@ -247,9 +252,6 @@ func (r *Runner) runInteractiveProcess(ctx context.Context, startedAt time.Time,
 			close(r.SessionReady)
 		}
 	}
-
-	timer.Start()
-	defer timer.Stop()
 
 	select {
 	case result := <-waitCh:

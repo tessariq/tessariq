@@ -202,6 +202,36 @@ func TestActivityWriter_DelegatesAndRecords(t *testing.T) {
 	require.Equal(t, "hello", buf.String())
 }
 
+func TestActivityTimer_RecordActivityBeforeStartDoesNotOverflow(t *testing.T) {
+	t.Parallel()
+
+	mu := sync.Mutex{}
+	now := time.Date(2026, 3, 29, 12, 0, 0, 0, time.UTC)
+	clock := func() time.Time {
+		mu.Lock()
+		defer mu.Unlock()
+		return now
+	}
+
+	timer := NewActivityTimer(1*time.Second,
+		WithIdleThreshold(500*time.Millisecond),
+		WithTickInterval(10*time.Millisecond),
+		WithClock(clock),
+	)
+
+	// RecordActivity before Start must not fire the timer.
+	timer.RecordActivity()
+
+	select {
+	case <-timer.Expired():
+		t.Fatal("timer should not have expired from pre-Start RecordActivity")
+	default:
+	}
+
+	require.Less(t, timer.Elapsed(), 100*time.Millisecond,
+		"elapsed should be near zero, not overflowed")
+}
+
 func TestActivityWriter_NoActivityOnZeroBytes(t *testing.T) {
 	t.Parallel()
 

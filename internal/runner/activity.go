@@ -58,6 +58,9 @@ func NewActivityTimer(timeout time.Duration, opts ...ActivityTimerOption) *Activ
 	for _, opt := range opts {
 		opt(t)
 	}
+	// Initialize lastCheckpoint to construction time so RecordActivity
+	// called before Start does not overflow elapsed from a zero baseline.
+	t.lastCheckpoint = t.clock()
 	return t
 }
 
