@@ -8,7 +8,7 @@ import (
 // It is provided for quick onboarding and experimentation only.
 // Production users should build and maintain their own runtime images
 // and pass them via --image. See docs/runtime-images.md.
-const DefaultImage = "ghcr.io/tessariq/opencode@sha256:e175663a1f01342f58d3e702e2b18e7e1e26a8868fdd3a349b9a1bc9ec5dcaa5"
+const DefaultImage = "ghcr.io/tessariq/opencode@sha256:66c799247196a15af789b1aacf502d43a856431e0e66c1f199fe4cfcedab5e03"
 
 // Name is the agent identifier recorded in agent.json.
 const Name = "opencode"
