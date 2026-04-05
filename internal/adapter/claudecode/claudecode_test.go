@@ -23,6 +23,8 @@ func TestBuildArgs_DefaultNonInteractive(t *testing.T) {
 
 	require.Contains(t, args, "--print")
 	require.Contains(t, args, "--dangerously-skip-permissions")
+	require.Contains(t, args, "--output-format")
+	require.Contains(t, args, "stream-json")
 	require.Contains(t, args, "--")
 	require.Contains(t, args, "implement feature X")
 	require.NotContains(t, args, "--model")
@@ -39,6 +41,8 @@ func TestBuildArgs_WithModel(t *testing.T) {
 	require.Contains(t, args, "sonnet")
 	require.Contains(t, args, "--print")
 	require.Contains(t, args, "--dangerously-skip-permissions")
+	require.Contains(t, args, "--output-format")
+	require.Contains(t, args, "stream-json")
 }
 
 func TestBuildArgs_Interactive(t *testing.T) {
@@ -50,6 +54,7 @@ func TestBuildArgs_Interactive(t *testing.T) {
 
 	require.NotContains(t, args, "--print")
 	require.NotContains(t, args, "--dangerously-skip-permissions")
+	require.NotContains(t, args, "--output-format")
 	require.Contains(t, args, "--")
 	require.Contains(t, args, "review code",
 		"interactive mode should pass task content as initial prompt")
@@ -73,38 +78,39 @@ func TestBuildArgs_TableDriven(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name        string
-		model       string
-		interactive bool
-		task        string
-		wantPrint   bool
-		wantSkip    bool
-		wantModel   bool
-		wantTask    bool
+		name           string
+		model          string
+		interactive    bool
+		task           string
+		wantPrint      bool
+		wantSkip       bool
+		wantStreamJSON bool
+		wantModel      bool
+		wantTask       bool
 	}{
 		{
 			name:      "default autonomous no model",
 			task:      "do stuff",
-			wantPrint: true, wantSkip: true, wantModel: false, wantTask: true,
+			wantPrint: true, wantSkip: true, wantStreamJSON: true, wantModel: false, wantTask: true,
 		},
 		{
 			name:      "autonomous with model",
 			model:     "sonnet",
 			task:      "do stuff",
-			wantPrint: true, wantSkip: true, wantModel: true, wantTask: true,
+			wantPrint: true, wantSkip: true, wantStreamJSON: true, wantModel: true, wantTask: true,
 		},
 		{
 			name:        "interactive no model",
 			interactive: true,
 			task:        "do stuff",
-			wantPrint:   false, wantSkip: false, wantModel: false, wantTask: true,
+			wantPrint:   false, wantSkip: false, wantStreamJSON: false, wantModel: false, wantTask: true,
 		},
 		{
 			name:        "interactive with model",
 			interactive: true,
 			model:       "opus",
 			task:        "do stuff",
-			wantPrint:   false, wantSkip: false, wantModel: true, wantTask: true,
+			wantPrint:   false, wantSkip: false, wantStreamJSON: false, wantModel: true, wantTask: true,
 		},
 	}
 
@@ -127,6 +133,13 @@ func TestBuildArgs_TableDriven(t *testing.T) {
 				require.Contains(t, args, "--dangerously-skip-permissions")
 			} else {
 				require.NotContains(t, args, "--dangerously-skip-permissions")
+			}
+
+			if tt.wantStreamJSON {
+				require.Contains(t, args, "--output-format")
+				require.Contains(t, args, "stream-json")
+			} else {
+				require.NotContains(t, args, "--output-format")
 			}
 
 			if tt.wantModel {
