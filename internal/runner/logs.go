@@ -13,6 +13,7 @@ type LogFiles struct {
 	runnerLogFile *os.File
 	RunLog        *CappedWriter
 	RunnerLog     *CappedWriter
+	capBytes      int64
 }
 
 // OpenLogs creates run.log and runner.log in the evidence directory,
@@ -39,12 +40,25 @@ func OpenLogs(evidenceDir string, capBytes int64) (*LogFiles, error) {
 		runnerLogFile: runnerLog,
 		RunLog:        NewCappedWriter(runLog, capBytes),
 		RunnerLog:     NewCappedWriter(runnerLog, capBytes),
+		capBytes:      capBytes,
 	}, nil
 }
 
 // RunLogPath returns the filesystem path of run.log.
 func (l *LogFiles) RunLogPath() string {
 	return l.runLogFile.Name()
+}
+
+// RunLogFile returns the underlying file handle for run.log.
+// This is used by the detached runner to pass the fd directly to
+// docker logs --follow, avoiding the Go pipe intermediary.
+func (l *LogFiles) RunLogFile() *os.File {
+	return l.runLogFile
+}
+
+// CapBytes returns the configured cap limit in bytes.
+func (l *LogFiles) CapBytes() int64 {
+	return l.capBytes
 }
 
 // Close flushes and closes both underlying log files.

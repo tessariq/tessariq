@@ -23,6 +23,10 @@ type SessionStarter interface {
 	StartSession(ctx context.Context, sessionName string, command []string) error
 }
 
+type outputFileConfigurer interface {
+	SetOutput(stdout, stderr *os.File)
+}
+
 type outputWriterConfigurer interface {
 	SetOutputWriter(stdout, stderr io.Writer)
 }
@@ -107,6 +111,13 @@ func (r *Runner) Run(ctx context.Context) error {
 
 	if r.Process != nil {
 		exitCode, timedOut, processState = r.runProcess(ctx, startedAt, logs)
+
+		// Cap run.log post-hoc — the detached path bypasses CappedWriter
+		// for direct fd streaming, so enforce the size limit here.
+		if _, err := CapLogFile(logs.RunLogPath(), logs.CapBytes()); err != nil {
+			fmt.Fprintf(logs.RunnerLog, "[%s] warning: cap run.log: %s\n",
+				r.clock().UTC().Format(time.RFC3339), err)
+		}
 	}
 
 	// Run verify hooks (only if process succeeded and not timed out).
@@ -140,13 +151,17 @@ func (r *Runner) runDetachedProcess(ctx context.Context, startedAt time.Time, lo
 	fmt.Fprintf(logs.RunnerLog, "[%s] starting process (timeout=%s, grace=%s)\n",
 		r.clock().UTC().Format(time.RFC3339), r.Config.Timeout, r.Config.Grace)
 
-	if proc, ok := r.Process.(outputWriterConfigurer); ok {
+	// Prefer direct fd pass-through so docker logs writes to run.log
+	// without a Go pipe intermediary — tail -f sees writes immediately.
+	if proc, ok := r.Process.(outputFileConfigurer); ok {
+		proc.SetOutput(logs.RunLogFile(), logs.RunLogFile())
+	} else if proc, ok := r.Process.(outputWriterConfigurer); ok {
 		proc.SetOutputWriter(logs.RunLog, logs.RunLog)
 	}
 
-	fmt.Fprintf(logs.RunLog, "[%s] process output start\n", r.clock().UTC().Format(time.RFC3339))
+	fmt.Fprintf(logs.RunLogFile(), "[%s] process output start\n", r.clock().UTC().Format(time.RFC3339))
 	defer func() {
-		fmt.Fprintf(logs.RunLog, "[%s] process output end\n", r.clock().UTC().Format(time.RFC3339))
+		fmt.Fprintf(logs.RunLogFile(), "[%s] process output end\n", r.clock().UTC().Format(time.RFC3339))
 	}()
 
 	if err := r.Process.Start(timeoutCtx); err != nil {
