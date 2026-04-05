@@ -9,7 +9,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"syscall"
 	"time"
+	"unsafe"
 
 	"github.com/spf13/cobra"
 	"github.com/tessariq/tessariq/internal/adapter"
@@ -444,15 +446,37 @@ var attachSessionFn = func(ctx context.Context, name string) error {
 // using docker start -ai, which atomically connects stdin/stdout from the
 // moment the container starts — avoiding the race condition where docker
 // attach after docker start fails to forward stdin reliably.
+//
+// The child process is placed in its own foreground process group via
+// SysProcAttr.Foreground so that Docker CLI gets exclusive terminal control
+// (matching what the shell does when running docker interactively).
 var attachContainerFn = func(ctx context.Context, name string) error {
 	cmd := exec.CommandContext(ctx, "docker", "start", "-ai", name)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Foreground: true,
+		Ctty:       int(os.Stdin.Fd()),
+	}
+	err := cmd.Run()
+	// Restore our process group as the terminal foreground group so
+	// subsequent writes to stdout do not trigger SIGTTOU.
+	restoreForeground(os.Stdin.Fd())
+	if err != nil {
 		return fmt.Errorf("docker start -ai %q: %w", name, err)
 	}
 	return nil
+}
+
+// restoreForeground sets the caller's process group as the foreground group
+// of the terminal on fd. This must be called after a child with
+// SysProcAttr.Foreground exits, otherwise the parent is left as a background
+// group and may receive SIGTTOU on terminal writes.
+func restoreForeground(fd uintptr) {
+	pgrp := int32(syscall.Getpgrp())
+	// TIOCSPGRP = tcsetpgrp: set the foreground process group of the terminal.
+	_, _, _ = syscall.Syscall(syscall.SYS_IOCTL, fd, syscall.TIOCSPGRP, uintptr(unsafe.Pointer(&pgrp)))
 }
 
 // runWithAttach runs the runner in a background goroutine, waits for the
