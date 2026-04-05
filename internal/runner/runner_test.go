@@ -134,6 +134,7 @@ func newTestRunner(dir string, proc ProcessRunner) *Runner {
 	return &Runner{
 		RunID:       "01ARZ3NDEKTSV4RRFFQ69G5FAV",
 		EvidenceDir: dir,
+		RepoRoot:    dir,
 		Config:      cfg,
 		Process:     proc,
 		Clock:       fixedClock(time.Date(2026, 3, 29, 12, 0, 0, 0, time.UTC)),
@@ -583,4 +584,43 @@ func TestRunner_InteractiveTimeoutSendsSIGTERMFirst(t *testing.T) {
 	require.Len(t, signals, 2, "expected two signals: SIGTERM then SIGKILL")
 	require.Equal(t, syscall.SIGTERM, signals[0], "first signal must be SIGTERM")
 	require.Equal(t, os.Kill, signals[1], "second signal must be SIGKILL")
+}
+
+func TestRunner_PreHookRunsFromRepoRoot(t *testing.T) {
+	t.Parallel()
+
+	evidenceDir := t.TempDir()
+	repoRoot := t.TempDir()
+
+	// Place a marker file in the repo root only.
+	require.NoError(t, os.WriteFile(filepath.Join(repoRoot, "Makefile"), []byte("all:"), 0o644))
+
+	r := newTestRunner(evidenceDir, newFakeProcess(0))
+	r.RepoRoot = repoRoot
+	r.Config.Pre = []string{"ls Makefile"}
+
+	require.NoError(t, r.Run(context.Background()))
+
+	s, err := ReadStatus(evidenceDir)
+	require.NoError(t, err)
+	require.Equal(t, StateSuccess, s.State, "pre-hook should find Makefile in repo root")
+}
+
+func TestRunner_VerifyHookRunsFromRepoRoot(t *testing.T) {
+	t.Parallel()
+
+	evidenceDir := t.TempDir()
+	repoRoot := t.TempDir()
+
+	require.NoError(t, os.WriteFile(filepath.Join(repoRoot, "Makefile"), []byte("all:"), 0o644))
+
+	r := newTestRunner(evidenceDir, newFakeProcess(0))
+	r.RepoRoot = repoRoot
+	r.Config.Verify = []string{"ls Makefile"}
+
+	require.NoError(t, r.Run(context.Background()))
+
+	s, err := ReadStatus(evidenceDir)
+	require.NoError(t, err)
+	require.Equal(t, StateSuccess, s.State, "verify-hook should find Makefile in repo root")
 }
