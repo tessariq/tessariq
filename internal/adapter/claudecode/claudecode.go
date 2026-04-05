@@ -4,8 +4,11 @@ import (
 	"github.com/tessariq/tessariq/internal/run"
 )
 
-// DefaultImage is the default container image for the Claude Code agent.
-const DefaultImage = "ghcr.io/tessariq/claude-code:latest"
+// DefaultImage is the reference runtime image for the Claude Code agent.
+// It is provided for quick onboarding and experimentation only.
+// Production users should build and maintain their own runtime images
+// and pass them via --image. See docs/runtime-images.md.
+const DefaultImage = "ghcr.io/tessariq/claude-code@sha256:a07ca270a45d219f348e1845a51067111567ec354d069f37252124e32f36c349"
 
 // Name is the agent identifier recorded in agent.json.
 const Name = "claude-code"

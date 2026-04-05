@@ -6,6 +6,25 @@ Tessariq runs AI coding agents inside Docker containers. Each `tessariq run` inv
 
 Tessariq ships one official **reference runtime image** that includes a broad development toolchain but does not bundle any third-party agent binary. Users derive their own images by adding the agent of their choice.
 
+## Pre-built Agent Images (Quickstart Only)
+
+Tessariq publishes pre-built agent images for **quick onboarding and experimentation**:
+
+| Image | Agent | Source |
+|-------|-------|--------|
+| `ghcr.io/tessariq/claude-code` | Claude Code | `runtime/claude-code/Dockerfile` |
+| `ghcr.io/tessariq/opencode` | OpenCode | `runtime/opencode/Dockerfile` |
+
+These are used as the default when no `--image` flag is provided.
+
+**These images are not intended for production use.** They exist to let new users try Tessariq without building a custom image first. For production workflows, build and maintain your own runtime images derived from the reference runtime (see below). This gives you control over agent versions, installed tools, and update cadence.
+
+To switch to your own image, pass `--image`:
+
+```sh
+tessariq run tasks/my-task.md --image my-registry/my-runtime:v1
+```
+
 ## Reference Runtime Image
 
 The official reference runtime image for v0.1.0:

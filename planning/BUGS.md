@@ -67,7 +67,7 @@ BUG-043 through BUG-046 were reviewed against the current code and marked not re
 | BUG-039 | MEDIUM | `cmd/tessariq/run.go:226-238` | Run failure output omits evidence path; contradicts spec failure-UX contract | **Open** (TASK-073) |
 | BUG-040 | LOW | `internal/run/userconfig.go:52` | UserConfig YAML silently ignores unknown fields; config typos cause undetected fallback | **Fixed** (TASK-074) |
 | BUG-041 | LOW | `internal/container/process.go:179`, `internal/runner/runner.go:130` | `docker logs --follow` cancelled by timeout context, truncating final agent output in `run.log` | **Fixed** (TASK-075) |
-| BUG-042 | MEDIUM | `internal/adapter/claudecode/claudecode.go:8`, `internal/adapter/opencode/opencode.go:8` | Default agent images use unpinned `:latest` tags | **Open** (TASK-076) |
+| BUG-042 | MEDIUM | `internal/adapter/claudecode/claudecode.go:8`, `internal/adapter/opencode/opencode.go:8` | Default agent images use unpinned `:latest` tags | **Fixed** (TASK-076) |
 | BUG-043 | MEDIUM | `cmd/tessariq/run.go:216`, `internal/runner/diff.go:15`, `internal/git/diff.go:22` | `WriteDiffArtifacts` called with cancelled CLI context after Ctrl+C; diff evidence silently lost | **Not reproducible** |
 | BUG-044 | MEDIUM | `cmd/tessariq/run.go:230` | Workspace not cleaned up after successful run; no prune mechanism; worktrees accumulate indefinitely | **Not reproducible** |
 | BUG-045 | LOW | `internal/container/probe.go:30` | `ProbeImageBinary` uses `fmt.Sprintf` inside `sh -c` for binary name; latent shell injection risk | **Not reproducible** |

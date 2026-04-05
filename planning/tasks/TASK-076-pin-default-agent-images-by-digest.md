@@ -1,7 +1,7 @@
 ---
 id: TASK-076-pin-default-agent-images-by-digest
 title: Pin default agent images by digest
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-024-claude-code-agent-runtime-integration
@@ -12,7 +12,7 @@ spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#tessariq-run-task-path
     - specs/tessariq-v0.1.0.md#agent-and-runtime-contract
-updated_at: "2026-04-04T07:34:33Z"
+updated_at: "2026-04-05T08:45:18Z"
 areas:
     - runtime
     - security
@@ -71,3 +71,4 @@ The default Claude Code and OpenCode runtime images still use mutable `:latest` 
 
 - Likely files: `internal/adapter/claudecode/claudecode.go`, `internal/adapter/opencode/opencode.go`, and nearby adapter/runtime tests.
 - Match the existing Squid-image pattern instead of introducing a new image-reference abstraction unless reuse becomes obvious.
+- 2026-04-05T08:45:18Z: DefaultImage constants pinned by digest for both claude-code and opencode adapters; guard tests added; agent Dockerfiles and CI workflow for image building/testing/pushing created
