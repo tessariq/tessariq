@@ -42,3 +42,19 @@ func TestProbeImageBinary_ErrorContainsBinaryAndImage(t *testing.T) {
 	require.Contains(t, err.Error(), "alpine:latest")
 	require.Contains(t, err.Error(), "--image")
 }
+
+func TestProbeImageBinary_InvalidImage_ReturnsImagePullError(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	err := container.ProbeImageBinary(ctx, "ghcr.io/tessariq/does-not-exist:v0.0.0", "sh")
+	require.Error(t, err)
+
+	// Must be ImagePullError, NOT BinaryNotFoundError.
+	var pullErr *container.ImagePullError
+	require.True(t, errors.As(err, &pullErr), "expected ImagePullError, got: %T", err)
+	require.Contains(t, pullErr.Image, "does-not-exist")
+
+	var binaryErr *container.BinaryNotFoundError
+	require.False(t, errors.As(err, &binaryErr), "must not misclassify pull failure as BinaryNotFoundError")
+}

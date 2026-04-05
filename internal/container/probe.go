@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"strings"
 )
 
 // BinaryNotFoundError indicates that the expected binary was not found in the
@@ -18,9 +19,21 @@ func (e *BinaryNotFoundError) Error() string {
 		e.Binary, e.Image)
 }
 
+// ImagePullError indicates that Docker could not pull the container image.
+// The Output field contains the Docker daemon's error message.
+type ImagePullError struct {
+	Image  string
+	Output string
+}
+
+func (e *ImagePullError) Error() string {
+	return fmt.Sprintf("cannot pull image %s: %s", e.Image, strings.TrimSpace(e.Output))
+}
+
 // ProbeImageBinary checks whether binaryName is available inside image by
 // running a short-lived container. It returns a *BinaryNotFoundError when the
-// binary cannot be found, or a generic error for Docker failures.
+// binary cannot be found, an *ImagePullError when Docker cannot pull the image,
+// or a generic error for other Docker failures.
 func ProbeImageBinary(ctx context.Context, image, binaryName string) error {
 	cmd := exec.CommandContext(ctx, "docker", "run", "--rm",
 		"--cap-drop", "ALL",
@@ -30,10 +43,15 @@ func ProbeImageBinary(ctx context.Context, image, binaryName string) error {
 		"sh", "-c", fmt.Sprintf("command -v %s", binaryName))
 
 	if out, err := cmd.CombinedOutput(); err != nil {
-		// Distinguish Docker infrastructure failures from missing binaries.
-		// When the probe container runs successfully but the binary is absent,
-		// `command -v` exits non-zero — the exit error has a non-nil ExitError.
-		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() > 0 {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			if exitErr.ExitCode() == 125 {
+				// Exit code 125 is reserved by Docker for daemon errors
+				// (image pull denied, manifest unknown, etc.).
+				return &ImagePullError{Image: image, Output: string(out)}
+			}
+			// Any other non-zero exit means the container ran but the
+			// binary was not found. `command -v` exits 1 in bash and 127
+			// in busybox when the binary is absent.
 			return &BinaryNotFoundError{Binary: binaryName, Image: image}
 		}
 		return fmt.Errorf("probe binary %q in image %s: %s: %w", binaryName, image, string(out), err)

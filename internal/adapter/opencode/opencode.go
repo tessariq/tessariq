@@ -1,14 +1,20 @@
 package opencode
 
 import (
+	"fmt"
+
 	"github.com/tessariq/tessariq/internal/run"
+	"github.com/tessariq/tessariq/internal/version"
 )
 
-// DefaultImage is the reference runtime image for the OpenCode agent.
+// DefaultImage returns the reference runtime image for the OpenCode agent.
+// The image tag matches the CLI version (e.g. ghcr.io/tessariq/opencode:v0.1.0).
 // It is provided for quick onboarding and experimentation only.
 // Production users should build and maintain their own runtime images
 // and pass them via --image. See docs/runtime-images.md.
-const DefaultImage = "ghcr.io/tessariq/opencode@sha256:66c799247196a15af789b1aacf502d43a856431e0e66c1f199fe4cfcedab5e03"
+func DefaultImage() string {
+	return fmt.Sprintf("ghcr.io/tessariq/opencode:v%s", version.Version)
+}
 
 // Name is the agent identifier recorded in agent.json.
 const Name = "opencode"
@@ -98,5 +104,5 @@ func resolveImage(cfg run.Config) string {
 	if cfg.Image != "" {
 		return cfg.Image
 	}
-	return DefaultImage
+	return DefaultImage()
 }

@@ -40,6 +40,10 @@ RUN ARCH="$(dpkg --print-architecture)" \
 
 ENV PATH="/usr/local/go/bin:${PATH}"
 
+LABEL org.opencontainers.image.source="https://github.com/tessariq/tessariq"
+LABEL org.opencontainers.image.description="Tessariq reference runtime base image"
+LABEL org.opencontainers.image.licenses="AGPL-3.0"
+
 # Non-root user.
 RUN useradd --create-home --shell /bin/bash tessariq
 

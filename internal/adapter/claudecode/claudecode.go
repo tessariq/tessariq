@@ -1,14 +1,20 @@
 package claudecode
 
 import (
+	"fmt"
+
 	"github.com/tessariq/tessariq/internal/run"
+	"github.com/tessariq/tessariq/internal/version"
 )
 
-// DefaultImage is the reference runtime image for the Claude Code agent.
+// DefaultImage returns the reference runtime image for the Claude Code agent.
+// The image tag matches the CLI version (e.g. ghcr.io/tessariq/claude-code:v0.1.0).
 // It is provided for quick onboarding and experimentation only.
 // Production users should build and maintain their own runtime images
 // and pass them via --image. See docs/runtime-images.md.
-const DefaultImage = "ghcr.io/tessariq/claude-code@sha256:5a07f3114731414b71663dd15afc6f27604aeb40b05a29df9e36c793b5331967"
+func DefaultImage() string {
+	return fmt.Sprintf("ghcr.io/tessariq/claude-code:v%s", version.Version)
+}
 
 // Name is the agent identifier recorded in agent.json.
 const Name = "claude-code"
@@ -112,5 +118,5 @@ func resolveImage(cfg run.Config) string {
 	if cfg.Image != "" {
 		return cfg.Image
 	}
-	return DefaultImage
+	return DefaultImage()
 }

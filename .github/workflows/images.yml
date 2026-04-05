@@ -103,5 +103,4 @@ jobs:
             digest=$(docker inspect --format='{{index .RepoDigests 0}}' "ghcr.io/tessariq/${image}:v0.1.0" 2>/dev/null | sed 's/.*@//')
             echo "## ${image}" >> "$GITHUB_STEP_SUMMARY"
             echo "Digest: \`${digest}\`" >> "$GITHUB_STEP_SUMMARY"
-            echo "Update DefaultImage to: \`ghcr.io/tessariq/${image}@${digest}\`" >> "$GITHUB_STEP_SUMMARY"
           done

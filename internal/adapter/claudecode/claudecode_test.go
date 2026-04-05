@@ -5,11 +5,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/tessariq/tessariq/internal/run"
+	"github.com/tessariq/tessariq/internal/version"
 )
 
-func TestDefaultImage_DigestPinned(t *testing.T) {
+func TestDefaultImage_UsesVersionTag(t *testing.T) {
 	t.Parallel()
-	require.Contains(t, DefaultImage, "@sha256:", "DefaultImage must be pinned by digest")
+	img := DefaultImage()
+	require.Contains(t, img, "ghcr.io/tessariq/claude-code:")
+	require.Contains(t, img, version.Version)
 }
 
 func TestBuildArgs_DefaultNonInteractive(t *testing.T) {
@@ -210,7 +213,7 @@ func TestResolveImage_Default(t *testing.T) {
 	cfg := run.DefaultConfig()
 	img := resolveImage(cfg)
 
-	require.Equal(t, DefaultImage, img)
+	require.Equal(t, DefaultImage(), img)
 	require.NotEmpty(t, img)
 }
 
@@ -221,7 +224,7 @@ func TestNew_ReturnsConfigWithMetadata(t *testing.T) {
 	cfg.Model = "sonnet"
 	a := New(cfg, "implement X", nil)
 
-	require.Equal(t, DefaultImage, a.Image())
+	require.Equal(t, DefaultImage(), a.Image())
 	require.Equal(t, "sonnet", a.Requested()["model"])
 	require.Equal(t, false, a.Requested()["interactive"])
 	require.True(t, a.Applied()["model"])
@@ -284,7 +287,7 @@ func TestNew_WithEnvVars(t *testing.T) {
 	envVars := map[string]string{"CLAUDE_CONFIG_DIR": "/home/tessariq/.claude"}
 	a := New(cfg, "task", envVars)
 
-	require.Equal(t, DefaultImage, a.Image())
+	require.Equal(t, DefaultImage(), a.Image())
 	require.Equal(t, "/home/tessariq/.claude", a.EnvVars()["CLAUDE_CONFIG_DIR"])
 }
 
@@ -295,5 +298,5 @@ func TestNew_NilEnvVars(t *testing.T) {
 	a := New(cfg, "task", nil)
 
 	require.Nil(t, a.EnvVars())
-	require.Equal(t, DefaultImage, a.Image())
+	require.Equal(t, DefaultImage(), a.Image())
 }
