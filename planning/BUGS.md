@@ -16,9 +16,9 @@ Automated adversarial testing against done tasks.
 
 BUG-001 through BUG-007 were all fixed by TASK-030 through TASK-039 (done).
 
-BUG-037 and BUG-047 remain reproducible in the current code.
+BUG-037 remains reproducible in the current code.
 
-This update adds tracked follow-up tasks for BUG-042 and BUG-047 as TASK-076 and TASK-077.
+BUG-042 was fixed by TASK-076. BUG-047 was fixed by TASK-077.
 
 BUG-041 was fixed by TASK-075.
 
@@ -72,7 +72,7 @@ BUG-043 through BUG-046 were reviewed against the current code and marked not re
 | BUG-044 | MEDIUM | `cmd/tessariq/run.go:230` | Workspace not cleaned up after successful run; no prune mechanism; worktrees accumulate indefinitely | **Not reproducible** |
 | BUG-045 | LOW | `internal/container/probe.go:30` | `ProbeImageBinary` uses `fmt.Sprintf` inside `sh -c` for binary name; latent shell injection risk | **Not reproducible** |
 | BUG-046 | HIGH | `internal/runner/runner.go:169`, `cmd/tessariq/run.go:226-230` | `runDetachedProcess` misclassifies Ctrl+C as timeout; success output printed for cancelled runs | **Not reproducible** |
-| BUG-047 | HIGH | `cmd/tessariq/run.go:226-237`, `internal/runner/runner.go:81-118` | `tessariq run` treats terminal non-success outcomes as successful command completion | **Open** (TASK-077) |
+| BUG-047 | HIGH | `cmd/tessariq/run.go:226-237`, `internal/runner/runner.go:81-118` | `tessariq run` treats terminal non-success outcomes as successful command completion | **Fixed** (TASK-077) |
 
 ---
 

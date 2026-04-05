@@ -164,7 +164,10 @@ func TestRunner_FailedProcess(t *testing.T) {
 	dir := t.TempDir()
 	r := newTestRunner(dir, newFakeProcess(1))
 
-	require.NoError(t, r.Run(context.Background()))
+	var termErr *TerminalStateError
+	require.ErrorAs(t, r.Run(context.Background()), &termErr)
+	require.Equal(t, StateFailed, termErr.State)
+	require.Equal(t, 1, termErr.ExitCode)
 
 	s, err := ReadStatus(dir)
 	require.NoError(t, err)
@@ -195,7 +198,9 @@ func TestRunner_TimeoutPath(t *testing.T) {
 	r.Config.Timeout = 50 * time.Millisecond
 	r.Config.Grace = 10 * time.Millisecond
 
-	require.NoError(t, r.Run(context.Background()))
+	var termErr *TerminalStateError
+	require.ErrorAs(t, r.Run(context.Background()), &termErr)
+	require.Equal(t, StateTimeout, termErr.State)
 
 	s, err := ReadStatus(dir)
 	require.NoError(t, err)
@@ -213,7 +218,9 @@ func TestRunner_PreHookFailure(t *testing.T) {
 	r := newTestRunner(dir, newFakeProcess(0))
 	r.Config.Pre = []string{"false"}
 
-	require.NoError(t, r.Run(context.Background()))
+	var termErr *TerminalStateError
+	require.ErrorAs(t, r.Run(context.Background()), &termErr)
+	require.Equal(t, StateFailed, termErr.State)
 
 	s, err := ReadStatus(dir)
 	require.NoError(t, err)
@@ -227,7 +234,9 @@ func TestRunner_VerifyHookFailure(t *testing.T) {
 	r := newTestRunner(dir, newFakeProcess(0))
 	r.Config.Verify = []string{"false"}
 
-	require.NoError(t, r.Run(context.Background()))
+	var termErr *TerminalStateError
+	require.ErrorAs(t, r.Run(context.Background()), &termErr)
+	require.Equal(t, StateFailed, termErr.State)
 
 	s, err := ReadStatus(dir)
 	require.NoError(t, err)
@@ -268,7 +277,8 @@ func TestRunner_LogFilesExistOnFailure(t *testing.T) {
 	dir := t.TempDir()
 	r := newTestRunner(dir, newFakeProcess(1))
 
-	require.NoError(t, r.Run(context.Background()))
+	var termErr *TerminalStateError
+	require.ErrorAs(t, r.Run(context.Background()), &termErr)
 
 	_, err := os.Stat(filepath.Join(dir, "run.log"))
 	require.NoError(t, err)
@@ -283,7 +293,8 @@ func TestRunner_StatusExistsOnPreHookFailure(t *testing.T) {
 	r := newTestRunner(dir, newFakeProcess(0))
 	r.Config.Pre = []string{"false"}
 
-	require.NoError(t, r.Run(context.Background()))
+	var termErr *TerminalStateError
+	require.ErrorAs(t, r.Run(context.Background()), &termErr)
 
 	s, err := ReadStatus(dir)
 	require.NoError(t, err)
@@ -343,7 +354,9 @@ func TestRunner_SessionStartFailure(t *testing.T) {
 	r.Session = &fakeSession{startErr: errors.New("tmux not available")}
 	r.SessionName = "tessariq-TESTID"
 
-	require.NoError(t, r.Run(context.Background()))
+	var termErr *TerminalStateError
+	require.ErrorAs(t, r.Run(context.Background()), &termErr)
+	require.Equal(t, StateFailed, termErr.State)
 
 	s, err := ReadStatus(dir)
 	require.NoError(t, err)
@@ -358,7 +371,8 @@ func TestRunner_SessionStartFailure_StatusExists(t *testing.T) {
 	r.Session = &fakeSession{startErr: errors.New("session error")}
 	r.SessionName = "tessariq-TESTID"
 
-	require.NoError(t, r.Run(context.Background()))
+	var termErr *TerminalStateError
+	require.ErrorAs(t, r.Run(context.Background()), &termErr)
 
 	s, err := ReadStatus(dir)
 	require.NoError(t, err)
@@ -453,7 +467,10 @@ func TestRunner_InteractiveFailedProcess(t *testing.T) {
 	r.Config.Interactive = true
 	r.ContainerName = "tessariq-RUN123"
 
-	require.NoError(t, r.Run(context.Background()))
+	var termErr *TerminalStateError
+	require.ErrorAs(t, r.Run(context.Background()), &termErr)
+	require.Equal(t, StateFailed, termErr.State)
+	require.Equal(t, 7, termErr.ExitCode)
 
 	s, err := ReadStatus(dir)
 	require.NoError(t, err)
@@ -475,7 +492,9 @@ func TestRunner_InteractiveTimeout(t *testing.T) {
 	// Use real clock for timeout (no idle detection since fakeProcess doesn't produce output).
 	r.Clock = nil
 
-	require.NoError(t, r.Run(context.Background()))
+	var termErr *TerminalStateError
+	require.ErrorAs(t, r.Run(context.Background()), &termErr)
+	require.Equal(t, StateTimeout, termErr.State)
 
 	s, err := ReadStatus(dir)
 	require.NoError(t, err)
@@ -505,7 +524,9 @@ func TestRunner_TimeoutSendsSIGTERMBeforeSIGKILL(t *testing.T) {
 	r.Config.Timeout = 50 * time.Millisecond
 	r.Config.Grace = 30 * time.Millisecond
 
-	require.NoError(t, r.Run(context.Background()))
+	var termErr *TerminalStateError
+	require.ErrorAs(t, r.Run(context.Background()), &termErr)
+	require.Equal(t, StateTimeout, termErr.State)
 
 	s, err := ReadStatus(dir)
 	require.NoError(t, err)
@@ -527,7 +548,9 @@ func TestRunner_TimeoutNoSIGKILLWhenProcessExitsAfterSIGTERM(t *testing.T) {
 	r.Config.Timeout = 50 * time.Millisecond
 	r.Config.Grace = 100 * time.Millisecond
 
-	require.NoError(t, r.Run(context.Background()))
+	var termErr *TerminalStateError
+	require.ErrorAs(t, r.Run(context.Background()), &termErr)
+	require.Equal(t, StateTimeout, termErr.State)
 
 	s, err := ReadStatus(dir)
 	require.NoError(t, err)
@@ -557,7 +580,8 @@ func TestRunner_TimeoutFlagWrittenBeforeFirstSignal(t *testing.T) {
 	r.Config.Timeout = 50 * time.Millisecond
 	r.Config.Grace = 100 * time.Millisecond
 
-	require.NoError(t, r.Run(context.Background()))
+	var termErr *TerminalStateError
+	require.ErrorAs(t, r.Run(context.Background()), &termErr)
 	require.True(t, flagExistedAtSignalTime, "timeout.flag must exist before first signal is sent")
 }
 
@@ -573,7 +597,9 @@ func TestRunner_InteractiveTimeoutSendsSIGTERMFirst(t *testing.T) {
 	r.ContainerName = "tessariq-RUN123"
 	r.Clock = nil // real clock for activity timer
 
-	require.NoError(t, r.Run(context.Background()))
+	var termErr *TerminalStateError
+	require.ErrorAs(t, r.Run(context.Background()), &termErr)
+	require.Equal(t, StateTimeout, termErr.State)
 
 	s, err := ReadStatus(dir)
 	require.NoError(t, err)

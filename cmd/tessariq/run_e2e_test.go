@@ -1326,3 +1326,60 @@ func TestE2E_EgressNone_NoNetworkAccess(t *testing.T) {
 	require.True(t, networkBlocked,
 		"container must have no network access under --egress none, but wget output was: %s", netResult)
 }
+
+func TestE2E_FailedAgentExitsNonZero(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+	env := setupRunEnv(t, bin, 1)
+
+	code, output := runTessariq(t, env, "claude", "")
+	require.NotEqual(t, 0, code, "failed run must exit non-zero")
+
+	require.Contains(t, output, "state: failed")
+	require.Contains(t, output, "run_id:")
+	require.Contains(t, output, "evidence_path:")
+	require.NotContains(t, output, "promote:")
+	require.NotContains(t, output, "attach:")
+
+	// Verify status.json records the failure.
+	evidencePath := extractField(output, "evidence_path")
+	require.NotEmpty(t, evidencePath)
+
+	ctx := context.Background()
+	catCode, statusData, err := env.Exec(ctx, []string{"cat", filepath.Join(evidencePath, "status.json")})
+	require.NoError(t, err)
+	require.Equal(t, 0, catCode, "status.json must exist")
+
+	var status map[string]any
+	require.NoError(t, json.Unmarshal([]byte(statusData), &status))
+	require.Equal(t, "failed", status["state"])
+	require.Equal(t, float64(1), status["exit_code"])
+}
+
+func TestE2E_TimedOutRunExitsNonZero(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+	env := setupRunEnvWithScript(t, bin, "claude", "sleep 300")
+
+	code, output := runTessariq(t, env, "claude", "--timeout 3s --grace 1s")
+	require.NotEqual(t, 0, code, "timed-out run must exit non-zero")
+
+	require.Contains(t, output, "state: timeout")
+	require.Contains(t, output, "run_id:")
+	require.Contains(t, output, "evidence_path:")
+	require.NotContains(t, output, "promote:")
+
+	// Verify status.json records the timeout.
+	evidencePath := extractField(output, "evidence_path")
+	require.NotEmpty(t, evidencePath)
+
+	ctx := context.Background()
+	catCode, statusData, err := env.Exec(ctx, []string{"cat", filepath.Join(evidencePath, "status.json")})
+	require.NoError(t, err)
+	require.Equal(t, 0, catCode, "status.json must exist")
+
+	var status map[string]any
+	require.NoError(t, json.Unmarshal([]byte(statusData), &status))
+	require.Equal(t, "timeout", status["state"])
+	require.Equal(t, true, status["timed_out"])
+}

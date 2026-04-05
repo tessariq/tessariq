@@ -295,5 +295,8 @@ func (r *Runner) writeTerminalStatus(state State, startedAt, finishedAt time.Tim
 	if err := WriteStatus(r.EvidenceDir, s); err != nil {
 		return fmt.Errorf("write terminal status: %w", err)
 	}
+	if state != StateSuccess {
+		return &TerminalStateError{State: state, ExitCode: exitCode}
+	}
 	return nil
 }

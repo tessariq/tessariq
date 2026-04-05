@@ -144,6 +144,40 @@ func TestPrintInteractiveNote(t *testing.T) {
 	}
 }
 
+func TestPrintNonSuccessOutput_ContainsStateAndEvidence(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		state runner.State
+	}{
+		{"failed", runner.StateFailed},
+		{"timeout", runner.StateTimeout},
+		{"killed", runner.StateKilled},
+		{"interrupted", runner.StateInterrupted},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			var buf bytes.Buffer
+			printNonSuccessOutput(&buf, tt.state, runOutput{
+				RunID:        "TEST01",
+				EvidencePath: "/repo/.tessariq/runs/TEST01",
+			})
+
+			output := buf.String()
+			require.Contains(t, output, "run_id: TEST01")
+			require.Contains(t, output, "state: "+string(tt.state))
+			require.Contains(t, output, "evidence_path: /repo/.tessariq/runs/TEST01")
+			require.NotContains(t, output, "attach")
+			require.NotContains(t, output, "promote")
+			require.NotContains(t, output, "workspace_path")
+			require.NotContains(t, output, "container_name")
+		})
+	}
+}
+
 // fakeReadFile returns a readFile func that serves canned content keyed by
 // suffix match on the path, and tracks which paths were actually read.
 func fakeReadFile(files map[string]string) (func(string) ([]byte, error), *[]string) {

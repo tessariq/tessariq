@@ -68,6 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed `tessariq run` exiting zero and printing success-style output for terminal non-success outcomes (failed, timeout, killed, interrupted); the CLI now exits non-zero with state and evidence path guidance for non-success runs.
 - Fixed `diff.patch` silently dropping binary file changes because `git diff` was invoked without `--binary`, causing `tessariq promote` to lose binary additions and modifications.
 - Fixed `tessariq promote` trusting forged `evidence_path` values from the run index, now rejecting absolute paths and relative paths that escape the repository's `.tessariq/runs/` directory before reading any evidence files.
 - Fixed `tessariq promote` accepting changed runs that are missing `diffstat.txt`, now requiring both `diff.patch` and `diffstat.txt` as the spec mandates.
