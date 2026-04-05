@@ -48,6 +48,48 @@ func (p *Process) SetOutputWriter(stdout, stderr io.Writer) {
 	p.stderrWriter = stderr
 }
 
+// Create prepares writable mounts and creates the container without starting it.
+// Used in interactive-attach mode where docker start -ai handles startup.
+func (p *Process) Create(ctx context.Context) error {
+	if err := p.prepareWritableMounts(); err != nil {
+		return fmt.Errorf("prepare writable mounts: %w", err)
+	}
+	if err := p.create(ctx); err != nil {
+		return fmt.Errorf("docker create: %w", err)
+	}
+	return nil
+}
+
+// Remove force-removes the container. Safe to call on created-but-never-started
+// containers. Used by the interactive-attach path where Wait() (which normally
+// handles removal) is not called.
+func (p *Process) Remove() error {
+	return p.remove(context.Background())
+}
+
+// CaptureLogs runs docker logs and writes output to the configured writers.
+// Used after interactive mode completes to capture container output for evidence.
+func (p *Process) CaptureLogs() {
+	var stdout, stderr io.Writer
+	if p.stdoutWriter != nil {
+		stdout = p.stdoutWriter
+	} else if p.stdout != nil {
+		stdout = p.stdout
+	}
+	if p.stderrWriter != nil {
+		stderr = p.stderrWriter
+	} else if p.stderr != nil {
+		stderr = p.stderr
+	}
+	if stdout == nil && stderr == nil {
+		return
+	}
+	cmd := exec.Command(p.docker, "logs", p.cfg.Name)
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
+	_ = cmd.Run()
+}
+
 // Start creates the container and starts it, then streams logs in the background.
 // Before creating the container, it makes writable bind-mount sources accessible
 // to the container user regardless of host UID.

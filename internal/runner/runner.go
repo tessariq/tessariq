@@ -27,6 +27,15 @@ type outputWriterConfigurer interface {
 	SetOutputWriter(stdout, stderr io.Writer)
 }
 
+// interactiveCreator is implemented by processes that support create-only mode
+// for interactive-attach. The runner uses this to create the container without
+// starting it, letting the attach function handle startup via docker start -ai.
+type interactiveCreator interface {
+	Create(ctx context.Context) error
+	Remove() error
+	CaptureLogs()
+}
+
 // Runner orchestrates the full run lifecycle.
 type Runner struct {
 	RunID         string
@@ -40,6 +49,12 @@ type Runner struct {
 	SessionReady  chan<- struct{} // closed when ready for attach; nil = ignored
 	Clock         func() time.Time
 	LogCapBytes   int64 // 0 uses DefaultLogCapBytes
+
+	// InteractiveExitCh receives the container exit code from the attach
+	// function in interactive-attach mode. When set and the process implements
+	// interactiveCreator, the runner uses create-only mode instead of the
+	// full start+wait lifecycle.
+	InteractiveExitCh <-chan int
 }
 
 func (r *Runner) clock() time.Time {
@@ -201,6 +216,117 @@ func (r *Runner) runDetachedProcess(ctx context.Context, startedAt time.Time, lo
 }
 
 func (r *Runner) runInteractiveProcess(ctx context.Context, startedAt time.Time, logs *LogFiles) (exitCode int, timedOut bool, state State) {
+	// When the attach function provides an exit channel and the process
+	// supports create-only mode, use the atomic docker start -ai flow.
+	if r.InteractiveExitCh != nil {
+		if creator, ok := r.Process.(interactiveCreator); ok {
+			return r.runInteractiveAttach(ctx, startedAt, logs, creator)
+		}
+	}
+	return r.runInteractiveFallback(ctx, startedAt, logs)
+}
+
+// runInteractiveAttach implements the interactive flow using create-only +
+// docker start -ai. The container is created but not started; the attach
+// function starts it atomically with stdin/stdout connected. The exit code
+// arrives via InteractiveExitCh.
+func (r *Runner) runInteractiveAttach(ctx context.Context, startedAt time.Time, logs *LogFiles, creator interactiveCreator) (exitCode int, timedOut bool, state State) {
+	timer := NewActivityTimer(r.Config.Timeout)
+
+	fmt.Fprintf(logs.RunnerLog, "[%s] starting interactive-attach process (activity-timeout=%s, grace=%s)\n",
+		r.clock().UTC().Format(time.RFC3339), r.Config.Timeout, r.Config.Grace)
+
+	// Set up output writers so CaptureLogs can write to run.log.
+	aw := NewActivityWriter(logs.RunLog, timer)
+	if proc, ok := r.Process.(outputWriterConfigurer); ok {
+		proc.SetOutputWriter(aw, aw)
+	}
+
+	fmt.Fprintf(logs.RunLog, "[%s] process output start\n", r.clock().UTC().Format(time.RFC3339))
+	defer func() {
+		fmt.Fprintf(logs.RunLog, "[%s] process output end\n", r.clock().UTC().Format(time.RFC3339))
+	}()
+
+	timer.Start()
+	defer timer.Stop()
+
+	// Create container without starting it.
+	if err := creator.Create(ctx); err != nil {
+		fmt.Fprintf(logs.RunnerLog, "[%s] process create failed: %s\n", r.clock().UTC().Format(time.RFC3339), err)
+		return 1, false, StateFailed
+	}
+	defer func() { _ = creator.Remove() }()
+
+	// Signal ready for attach — container exists, attach can run docker start -ai.
+	if r.SessionReady != nil {
+		close(r.SessionReady)
+	}
+
+	// Create tmux session for log tailing (non-critical in interactive mode).
+	if r.Session != nil && r.SessionName != "" {
+		fmt.Fprintf(logs.RunnerLog, "[%s] creating tmux session %s\n", r.clock().UTC().Format(time.RFC3339), r.SessionName)
+		if err := r.Session.StartSession(ctx, r.SessionName, r.sessionCommand(logs.RunLogPath())); err != nil {
+			fmt.Fprintf(logs.RunnerLog, "[%s] tmux session creation failed (non-fatal): %s\n", r.clock().UTC().Format(time.RFC3339), err)
+		}
+	}
+
+	select {
+	case code := <-r.InteractiveExitCh:
+		creator.CaptureLogs()
+		if code != 0 {
+			return code, false, StateFailed
+		}
+		return 0, false, StateSuccess
+
+	case <-timer.Expired():
+		fmt.Fprintf(logs.RunnerLog, "[%s] activity timeout reached (active time: %s), writing timeout flag\n",
+			r.clock().UTC().Format(time.RFC3339), timer.Elapsed())
+		_ = WriteTimeoutFlag(r.EvidenceDir)
+
+		fmt.Fprintf(logs.RunnerLog, "[%s] sending SIGTERM\n", r.clock().UTC().Format(time.RFC3339))
+		_ = r.Process.Signal(syscall.SIGTERM)
+
+		select {
+		case code := <-r.InteractiveExitCh:
+			creator.CaptureLogs()
+			return code, true, StateTimeout
+		case <-time.After(r.Config.Grace):
+			fmt.Fprintf(logs.RunnerLog, "[%s] grace period expired, sending SIGKILL\n", r.clock().UTC().Format(time.RFC3339))
+			_ = r.Process.Signal(os.Kill)
+			select {
+			case code := <-r.InteractiveExitCh:
+				creator.CaptureLogs()
+				return code, true, StateTimeout
+			case <-time.After(5 * time.Second):
+				return -1, true, StateTimeout
+			}
+		}
+
+	case <-ctx.Done():
+		fmt.Fprintf(logs.RunnerLog, "[%s] context cancelled, sending SIGTERM\n", r.clock().UTC().Format(time.RFC3339))
+		_ = r.Process.Signal(syscall.SIGTERM)
+		select {
+		case code := <-r.InteractiveExitCh:
+			creator.CaptureLogs()
+			return code, false, StateKilled
+		case <-time.After(r.Config.Grace):
+			fmt.Fprintf(logs.RunnerLog, "[%s] grace period expired, sending SIGKILL\n", r.clock().UTC().Format(time.RFC3339))
+			_ = r.Process.Signal(os.Kill)
+			select {
+			case code := <-r.InteractiveExitCh:
+				creator.CaptureLogs()
+				return code, false, StateKilled
+			case <-time.After(5 * time.Second):
+				return -1, false, StateKilled
+			}
+		}
+	}
+}
+
+// runInteractiveFallback is the original interactive path: start the container,
+// stream logs, and wait via docker wait. Used when --interactive is set without
+// --attach, or when the process does not support create-only mode.
+func (r *Runner) runInteractiveFallback(ctx context.Context, startedAt time.Time, logs *LogFiles) (exitCode int, timedOut bool, state State) {
 	timer := NewActivityTimer(r.Config.Timeout)
 
 	fmt.Fprintf(logs.RunnerLog, "[%s] starting interactive process (activity-timeout=%s, grace=%s)\n",

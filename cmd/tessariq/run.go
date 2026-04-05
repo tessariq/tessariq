@@ -440,25 +440,39 @@ var attachSessionFn = func(ctx context.Context, name string) error {
 	return tmux.AttachSession(ctx, name)
 }
 
-// attachContainerFn attaches the terminal directly to a running container,
-// bypassing tmux to avoid the double-PTY chain that breaks interactive TUIs.
+// attachContainerFn starts and attaches the terminal to a created container
+// using docker start -ai, which atomically connects stdin/stdout from the
+// moment the container starts — avoiding the race condition where docker
+// attach after docker start fails to forward stdin reliably.
 var attachContainerFn = func(ctx context.Context, name string) error {
-	cmd := exec.CommandContext(ctx, "docker", "attach", name)
+	cmd := exec.CommandContext(ctx, "docker", "start", "-ai", name)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("docker attach %q: %w", name, err)
+		return fmt.Errorf("docker start -ai %q: %w", name, err)
 	}
 	return nil
 }
 
-// runWithAttach runs the runner in a background goroutine, waits for the tmux
-// session to be created, then attaches the terminal to it. The function blocks
-// until the runner completes regardless of whether the attach succeeds.
+// runWithAttach runs the runner in a background goroutine, waits for the
+// session to be ready, then attaches the terminal. The function blocks until
+// the runner completes regardless of whether the attach succeeds.
+//
+// For interactive mode, runWithAttach creates an exit-code channel so the
+// runner can receive the container's exit code from the attach function
+// (docker start -ai) instead of using docker wait.
 func runWithAttach(ctx context.Context, r *runner.Runner, sessionName string, attachFn func(context.Context, string) error) error {
 	sessionReady := make(chan struct{})
 	r.SessionReady = sessionReady
+
+	// For interactive mode, wire the exit channel so the runner reads the
+	// container exit code from the attach function (docker start -ai).
+	var exitCh chan int
+	if r.Config.Interactive {
+		exitCh = make(chan int, 1)
+		r.InteractiveExitCh = exitCh
+	}
 
 	var runErr error
 	runDone := make(chan struct{})
@@ -470,17 +484,38 @@ func runWithAttach(ctx context.Context, r *runner.Runner, sessionName string, at
 	select {
 	case <-sessionReady:
 		attachErr := attachFn(ctx, sessionName)
+
+		// For interactive mode, forward the exit code to the runner.
+		if exitCh != nil {
+			exitCh <- exitCodeFromError(attachErr)
+		}
+
 		<-runDone
 		if runErr != nil {
 			return runErr
 		}
-		if attachErr != nil {
+		// In interactive mode the attach error is a container exit code,
+		// already handled by the runner via the exit channel.
+		if attachErr != nil && exitCh == nil {
 			return fmt.Errorf("attach to run session: %w", attachErr)
 		}
 		return nil
 	case <-runDone:
 		return runErr
 	}
+}
+
+// exitCodeFromError extracts the process exit code from an exec.ExitError.
+// Returns 0 for nil error, or 1 if the error is not an ExitError.
+func exitCodeFromError(err error) int {
+	if err == nil {
+		return 0
+	}
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		return exitErr.ExitCode()
+	}
+	return 1
 }
 
 // printBlockedDestinations reads egress events and prints guidance for blocked destinations.

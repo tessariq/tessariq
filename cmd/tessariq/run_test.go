@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -235,6 +236,109 @@ func TestRunWithAttach_InteractiveUsesContainerName(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "tessariq-RUN123", attachedName,
 		"interactive attach must receive container name for direct docker attach")
+}
+
+// cmdFakeInteractiveProcess implements ProcessRunner + interactiveCreator.
+type cmdFakeInteractiveProcess struct {
+	createCalled bool
+	removeCalled bool
+}
+
+func (f *cmdFakeInteractiveProcess) Start(_ context.Context) error  { return nil }
+func (f *cmdFakeInteractiveProcess) Wait() (int, error)             { return 0, nil }
+func (f *cmdFakeInteractiveProcess) Signal(_ os.Signal) error       { return nil }
+func (f *cmdFakeInteractiveProcess) SetOutputWriter(_, _ io.Writer) {}
+func (f *cmdFakeInteractiveProcess) Create(_ context.Context) error {
+	f.createCalled = true
+	return nil
+}
+func (f *cmdFakeInteractiveProcess) Remove() error { f.removeCalled = true; return nil }
+func (f *cmdFakeInteractiveProcess) CaptureLogs()  {}
+
+func TestExitCodeFromError_NilReturnsZero(t *testing.T) {
+	t.Parallel()
+	require.Equal(t, 0, exitCodeFromError(nil))
+}
+
+func TestExitCodeFromError_ExitError(t *testing.T) {
+	t.Parallel()
+	// Create a real exec.ExitError by running a command that exits non-zero.
+	cmd := exec.Command("sh", "-c", "exit 42")
+	err := cmd.Run()
+	require.Error(t, err)
+	require.Equal(t, 42, exitCodeFromError(err))
+}
+
+func TestExitCodeFromError_GenericError(t *testing.T) {
+	t.Parallel()
+	require.Equal(t, 1, exitCodeFromError(errors.New("something")))
+}
+
+func TestRunWithAttach_InteractiveExitChWired(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	proc := &cmdFakeInteractiveProcess{}
+	r := newCmdTestRunner(dir, proc)
+	r.Config.Interactive = true
+	r.ContainerName = "tessariq-RUN123"
+
+	var attachedName string
+	attachFn := func(_ context.Context, name string) error {
+		attachedName = name
+		return nil
+	}
+
+	err := runWithAttach(context.Background(), r, r.ContainerName, attachFn)
+	require.NoError(t, err)
+	require.Equal(t, "tessariq-RUN123", attachedName)
+
+	// Verify that the runner received the exit channel.
+	require.NotNil(t, r.InteractiveExitCh,
+		"runWithAttach must set InteractiveExitCh for interactive mode")
+}
+
+func TestRunWithAttach_InteractiveExitCodeForwarded(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	proc := &cmdFakeInteractiveProcess{}
+	r := newCmdTestRunner(dir, proc)
+	r.Config.Interactive = true
+	r.ContainerName = "tessariq-RUN123"
+
+	// Simulate an attach function that returns a non-zero exit.
+	attachFn := func(_ context.Context, _ string) error {
+		cmd := exec.Command("sh", "-c", "exit 7")
+		return cmd.Run()
+	}
+
+	var termErr *runner.TerminalStateError
+	err := runWithAttach(context.Background(), r, r.ContainerName, attachFn)
+	require.ErrorAs(t, err, &termErr)
+	require.Equal(t, runner.StateFailed, termErr.State)
+	require.Equal(t, 7, termErr.ExitCode)
+}
+
+func TestRunWithAttach_NonInteractiveAttachErrorStillSurfaced(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	proc := newCmdFakeProcess(0)
+	r := newCmdTestRunner(dir, proc)
+	// Interactive is false — attach errors should be surfaced as before.
+
+	attachFn := func(_ context.Context, _ string) error {
+		return errors.New("terminal not available")
+	}
+
+	sess := &cmdFakeSession{}
+	r.Session = sess
+	r.SessionName = "test-session"
+
+	err := runWithAttach(context.Background(), r, "test-session", attachFn)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "attach to run session")
 }
 
 func TestPrintFailureOutput_ContainsOnlyFailureFields(t *testing.T) {
