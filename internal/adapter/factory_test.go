@@ -236,6 +236,40 @@ func TestNewProcess_EgressProxy_UsesProxyNetwork(t *testing.T) {
 		"proxy mode must use proxy network")
 }
 
+func TestWritableDirsForFileMounts_FileLevelMount(t *testing.T) {
+	t.Parallel()
+	mounts := []authmount.MountSpec{
+		{ContainerPath: "/home/tessariq/.claude/.credentials.json", ReadOnly: true},
+	}
+	dirs := writableDirsForFileMounts(mounts)
+	require.Equal(t, []string{"/home/tessariq/.claude"}, dirs)
+}
+
+func TestWritableDirsForFileMounts_TopLevelSkipped(t *testing.T) {
+	t.Parallel()
+	mounts := []authmount.MountSpec{
+		{ContainerPath: "/home/tessariq/.claude.json", ReadOnly: true},
+	}
+	dirs := writableDirsForFileMounts(mounts)
+	require.Empty(t, dirs, "top-level home mounts should not produce writable dirs")
+}
+
+func TestWritableDirsForFileMounts_Deduplication(t *testing.T) {
+	t.Parallel()
+	mounts := []authmount.MountSpec{
+		{ContainerPath: "/home/tessariq/.claude/.credentials.json", ReadOnly: true},
+		{ContainerPath: "/home/tessariq/.claude/settings.json", ReadOnly: true},
+	}
+	dirs := writableDirsForFileMounts(mounts)
+	require.Equal(t, []string{"/home/tessariq/.claude"}, dirs)
+}
+
+func TestWritableDirsForFileMounts_Empty(t *testing.T) {
+	t.Parallel()
+	dirs := writableDirsForFileMounts(nil)
+	require.Empty(t, dirs)
+}
+
 func TestMergeEnvVars_BothNil(t *testing.T) {
 	t.Parallel()
 	require.Nil(t, mergeEnvVars(nil, nil))

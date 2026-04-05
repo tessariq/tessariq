@@ -232,7 +232,27 @@ func (p *Process) buildCreateArgs() []string {
 	}
 
 	args = append(args, p.cfg.Image)
-	args = append(args, p.cfg.Command...)
+	args = append(args, p.buildCommand()...)
 
 	return args
+}
+
+// buildCommand returns the container command, optionally wrapped with mkdir
+// to ensure WritableDirs exist with proper ownership before the agent starts.
+// The wrapper uses exec "$@" so the agent replaces the shell process,
+// preserving signal delivery through --init (tini).
+func (p *Process) buildCommand() []string {
+	if len(p.cfg.WritableDirs) == 0 {
+		return p.cfg.Command
+	}
+	mkdirs := "mkdir -p"
+	for _, d := range p.cfg.WritableDirs {
+		mkdirs += " " + shellQuote(d)
+	}
+	wrapped := []string{"sh", "-c", mkdirs + ` && exec "$@"`, "--"}
+	return append(wrapped, p.cfg.Command...)
+}
+
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'"'"'`) + "'"
 }

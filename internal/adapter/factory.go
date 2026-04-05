@@ -2,6 +2,7 @@ package adapter
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/tessariq/tessariq/internal/adapter/claudecode"
 	"github.com/tessariq/tessariq/internal/adapter/opencode"
@@ -86,15 +87,16 @@ func NewProcess(cfg run.Config, taskContent string, runID, worktreePath, evidenc
 	}
 
 	containerCfg := container.Config{
-		Name:        run.ContainerName(runID),
-		Image:       image,
-		Command:     append([]string{binaryName}, args...),
-		WorkDir:     "/work",
-		User:        "tessariq",
-		Env:         agentEnvVars,
-		Mounts:      container.AssembleMounts(worktreePath, evidencePath, authMounts, configMounts),
-		Interactive: cfg.Interactive,
-		NetworkName: networkName,
+		Name:         run.ContainerName(runID),
+		Image:        image,
+		Command:      append([]string{binaryName}, args...),
+		WorkDir:      "/work",
+		User:         "tessariq",
+		Env:          agentEnvVars,
+		Mounts:       container.AssembleMounts(worktreePath, evidencePath, authMounts, configMounts),
+		Interactive:  cfg.Interactive,
+		NetworkName:  networkName,
+		WritableDirs: writableDirsForFileMounts(authMounts),
 	}
 
 	proc := container.New(containerCfg)
@@ -105,6 +107,28 @@ func NewProcess(cfg run.Config, taskContent string, runID, worktreePath, evidenc
 		RuntimeInfo: NewRuntimeInfo(image, imageSource, len(authMounts), agentConfigMount, agentConfigMountStatus),
 		BinaryName:  binaryName,
 	}, nil
+}
+
+// writableDirsForFileMounts returns the unique parent directories of file-level
+// auth mounts. Docker creates intermediate directories as root for file-level
+// bind mounts, making them unwritable by the container user. The returned paths
+// are used to mkdir -p before the agent starts.
+func writableDirsForFileMounts(authMounts []authmount.MountSpec) []string {
+	seen := make(map[string]bool)
+	var dirs []string
+	for _, m := range authMounts {
+		dir := filepath.Dir(m.ContainerPath)
+		// Only include subdirectories under ContainerHome — top-level mounts
+		// (e.g. ~/.claude.json) don't need intermediate directories.
+		if dir == authmount.ContainerHome || dir == "." || dir == "/" {
+			continue
+		}
+		if !seen[dir] {
+			seen[dir] = true
+			dirs = append(dirs, dir)
+		}
+	}
+	return dirs
 }
 
 // mergeEnvVars combines two env var maps. Values in b override values in a.
