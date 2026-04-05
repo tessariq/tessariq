@@ -437,8 +437,8 @@ func TestRunner_InteractiveSessionCommand(t *testing.T) {
 
 	require.NoError(t, r.Run(context.Background()))
 	require.True(t, sess.startCalled)
-	require.Equal(t, "tail", sess.command[0],
-		"interactive mode should use log-tailing session, not docker attach")
+	require.Equal(t, []string{"docker", "attach", "tessariq-RUN123"}, sess.command,
+		"interactive mode must use docker attach in tmux session for detach/reattach support")
 }
 
 func TestRunner_InteractiveSuccessPath(t *testing.T) {

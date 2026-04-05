@@ -306,6 +306,9 @@ func (r *Runner) runInteractiveProcess(ctx context.Context, startedAt time.Time,
 }
 
 func (r *Runner) sessionCommand(runLogPath string) []string {
+	if r.Config.Interactive && r.ContainerName != "" {
+		return []string{"docker", "attach", r.ContainerName}
+	}
 	return []string{"tail", "-n", "+1", "-f", runLogPath}
 }
 

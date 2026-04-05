@@ -212,7 +212,7 @@ func TestRunWithAttach_AttachErrorSurfaced(t *testing.T) {
 	require.Contains(t, err.Error(), "attach to run session")
 }
 
-func TestRunWithAttach_InteractiveUsesContainerName(t *testing.T) {
+func TestRunWithAttach_InteractiveUsesSessionName(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
@@ -230,11 +230,12 @@ func TestRunWithAttach_InteractiveUsesContainerName(t *testing.T) {
 		return nil
 	}
 
-	// Simulate what run.go does: pass containerName (not sessionName) for interactive.
-	err := runWithAttach(context.Background(), r, r.ContainerName, attachFn)
+	// Interactive attach uses the tmux session name (same as non-interactive)
+	// so the user can detach with Ctrl+b d and reattach with tessariq attach.
+	err := runWithAttach(context.Background(), r, r.SessionName, attachFn)
 	require.NoError(t, err)
-	require.Equal(t, "tessariq-RUN123", attachedName,
-		"interactive attach must receive container name for direct docker attach")
+	require.Equal(t, "test-session", attachedName,
+		"interactive attach must use session name for tmux-based detach/reattach")
 }
 
 func TestPrintFailureOutput_ContainsOnlyFailureFields(t *testing.T) {
@@ -300,10 +301,10 @@ func TestPrintInteractiveNote(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			var buf bytes.Buffer
-			printInteractiveNote(&buf, tt.interactive, tt.attach, "tessariq-TESTID")
+			printInteractiveNote(&buf, tt.interactive, tt.attach, "tessariq-session-TESTID")
 			if tt.wantNote {
 				require.Contains(t, buf.String(), "note: interactive mode without --attach")
-				require.Contains(t, buf.String(), "docker attach tessariq-TESTID")
+				require.Contains(t, buf.String(), "tmux attach -t tessariq-session-TESTID")
 			} else {
 				require.Empty(t, buf.String())
 			}
