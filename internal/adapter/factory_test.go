@@ -60,8 +60,8 @@ func TestNewProcess_OpenCodeWithModel(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, "sonnet", ap.AgentInfo.Requested["model"])
-	require.False(t, ap.AgentInfo.Applied["model"],
-		"opencode does not apply model")
+	require.True(t, ap.AgentInfo.Applied["model"],
+		"opencode applies model in non-interactive run mode")
 }
 
 func TestNewProcess_OpenCodeInteractive(t *testing.T) {

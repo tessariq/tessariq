@@ -70,10 +70,22 @@ func (a *AgentConfig) EnvVars() map[string]string {
 }
 
 // buildArgs translates run.Config into opencode CLI arguments.
-// OpenCode takes only the task content as a positional argument.
-// It does not support --model or --interactive flags.
+// Non-interactive (default): opencode run --format json [--model provider/model] -- <task>
+// Interactive: opencode -- <task>
 func buildArgs(cfg run.Config, taskContent string) []string {
-	return []string{"--", taskContent}
+	var args []string
+
+	if !cfg.Interactive {
+		args = append(args, "run", "--format", "json")
+	}
+
+	if cfg.Model != "" {
+		args = append(args, "--model", cfg.Model)
+	}
+
+	args = append(args, "--", taskContent)
+
+	return args
 }
 
 // buildRequested records which agent options were requested by the user.
@@ -88,13 +100,14 @@ func buildRequested(cfg run.Config) map[string]any {
 }
 
 // buildApplied records which requested options the agent applied exactly.
-// OpenCode does not natively support --model or --interactive.
+// OpenCode supports --model natively via the run subcommand.
+// Interactive mode falls back to the TUI which does not accept --model.
 func buildApplied(cfg run.Config) map[string]bool {
 	app := map[string]bool{
 		"interactive": false,
 	}
 	if cfg.Model != "" {
-		app["model"] = false
+		app["model"] = !cfg.Interactive
 	}
 	return app
 }
