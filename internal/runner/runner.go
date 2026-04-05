@@ -31,6 +31,7 @@ type outputWriterConfigurer interface {
 type Runner struct {
 	RunID         string
 	EvidenceDir   string
+	RepoRoot      string // repository root for hook CWD
 	Config        run.Config
 	Process       ProcessRunner
 	Session       SessionStarter
@@ -85,7 +86,7 @@ func (r *Runner) Run(ctx context.Context) error {
 	// Run pre-hooks.
 	if len(r.Config.Pre) > 0 {
 		fmt.Fprintf(logs.RunnerLog, "[%s] running %d pre-hook(s)\n", r.clock().UTC().Format(time.RFC3339), len(r.Config.Pre))
-		_, preErr := RunPreHooks(ctx, r.Config.Pre, r.EvidenceDir, logs.RunnerLog)
+		_, preErr := RunPreHooks(ctx, r.Config.Pre, r.RepoRoot, logs.RunnerLog)
 		if preErr != nil {
 			finishedAt := r.clock()
 			fmt.Fprintf(logs.RunnerLog, "[%s] pre-hook failed: %s\n", finishedAt.UTC().Format(time.RFC3339), preErr)
@@ -105,7 +106,7 @@ func (r *Runner) Run(ctx context.Context) error {
 	// Run verify hooks (only if process succeeded and not timed out).
 	if processState == StateSuccess && len(r.Config.Verify) > 0 {
 		fmt.Fprintf(logs.RunnerLog, "[%s] running %d verify-hook(s)\n", r.clock().UTC().Format(time.RFC3339), len(r.Config.Verify))
-		_, verifyErr := RunVerifyHooks(ctx, r.Config.Verify, r.EvidenceDir, logs.RunnerLog)
+		_, verifyErr := RunVerifyHooks(ctx, r.Config.Verify, r.RepoRoot, logs.RunnerLog)
 		if verifyErr != nil {
 			finishedAt := r.clock()
 			fmt.Fprintf(logs.RunnerLog, "[%s] verify-hook failed: %s\n", finishedAt.UTC().Format(time.RFC3339), verifyErr)

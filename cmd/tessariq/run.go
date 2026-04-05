@@ -204,6 +204,7 @@ func newRunCmd() *cobra.Command {
 			r := &runner.Runner{
 				RunID:         runID,
 				EvidenceDir:   evidenceDir,
+				RepoRoot:      root,
 				Config:        cfg,
 				Process:       agentProc.Process,
 				Session:       &tmux.Starter{},

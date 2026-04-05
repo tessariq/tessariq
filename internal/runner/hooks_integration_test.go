@@ -5,6 +5,8 @@ package runner
 import (
 	"bytes"
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -69,4 +71,19 @@ func TestRunPreHooksIntegration_WorkDirUsed(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, results, 1)
 	require.Contains(t, buf.String(), dir)
+}
+
+func TestRunPreHooksIntegration_RelativePathFromRepoRoot(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	repoRoot := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(repoRoot, "Makefile"), []byte("all:"), 0o644))
+
+	var buf bytes.Buffer
+	results, err := RunPreHooks(ctx, []string{"ls Makefile"}, repoRoot, &buf)
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	require.Equal(t, 0, results[0].ExitCode)
+	require.Contains(t, buf.String(), "Makefile")
 }

@@ -88,6 +88,7 @@ func newIntegrationRunner(dir string, proc ProcessRunner) *Runner {
 	return &Runner{
 		RunID:       "01ARZ3NDEKTSV4RRFFQ69G5FAV",
 		EvidenceDir: dir,
+		RepoRoot:    dir,
 		Config:      cfg,
 		Process:     proc,
 	}

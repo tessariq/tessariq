@@ -1,7 +1,7 @@
 ---
 id: TASK-072-run-hooks-from-repo-root
 title: Run pre and verify hooks from the repository root
-status: todo
+status: done
 priority: p2
 depends_on:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
@@ -10,7 +10,7 @@ spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#tessariq-run-task-path
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-04-03T12:31:03Z"
+updated_at: "2026-04-05T10:17:14Z"
 areas:
     - runner
     - hooks
@@ -71,3 +71,4 @@ Pre and verify hooks currently execute from the evidence directory, which breaks
 
 - Likely files: `cmd/tessariq/run.go`, `internal/runner/runner.go`, and hook tests.
 - Keep the fix minimal; the problem is the chosen workdir, not hook ordering or shell behavior.
+- 2026-04-05T10:17:14Z: Added RepoRoot field to Runner struct; pre/verify hooks now execute from repository root instead of evidence directory. Unit and integration tests added. Manual test confirms relative-path commands work.
