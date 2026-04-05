@@ -7,6 +7,11 @@ import (
 	"github.com/tessariq/tessariq/internal/run"
 )
 
+func TestDefaultImage_DigestPinned(t *testing.T) {
+	t.Parallel()
+	require.Contains(t, DefaultImage, "@sha256:", "DefaultImage must be pinned by digest")
+}
+
 func TestBuildArgs_DefaultNonInteractive(t *testing.T) {
 	t.Parallel()
 

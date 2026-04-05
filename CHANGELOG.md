@@ -51,6 +51,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reject allowlist hosts with a leading dot (e.g. `.example.com`) to prevent Squid `dstdomain` wildcard matching that would widen a single host entry into a subdomain wildcard.
 - Added container security hardening to the Squid proxy container: `--cap-drop=ALL`, `--cap-add=SETGID`, `--cap-add=SETUID`, and `--security-opt=no-new-privileges` so the egress boundary matches the agent container's baseline restrictions.
 - Pinned default Squid proxy image by digest (`ubuntu/squid@sha256:...`) instead of mutable `ubuntu/squid:latest` tag to prevent supply-chain drift on the egress-boundary container.
+- Pinned default Claude Code and OpenCode reference agent images by digest instead of mutable `:latest` tags, completing supply-chain pinning for all first-party runtime images.
+- Added reference agent image Dockerfiles (`runtime/claude-code/`, `runtime/opencode/`) and CI workflow for automated image building, testing, and publishing with vulnerability scanning. These images are for quick onboarding and experimentation; production users should bring their own runtime images via `--image`.
 
 ### Changed
 
