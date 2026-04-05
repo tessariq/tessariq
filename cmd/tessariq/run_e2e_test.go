@@ -1027,7 +1027,12 @@ func TestE2E_MissingAgentBinaryFailsWithGuidance(t *testing.T) {
 	require.Contains(t, output, `"claude"`, "error must name the missing binary")
 	require.Contains(t, output, "claude-code", "error must name the selected agent")
 	require.Contains(t, output, "--image", "error must suggest --image override")
-	require.NotContains(t, output, "run_id:", "must fail before agent start")
+	// Post-bootstrap failure must surface evidence locators.
+	require.Contains(t, output, "run_id:", "post-bootstrap failure must print run_id")
+	require.Contains(t, output, "evidence_path:", "post-bootstrap failure must print evidence_path")
+	require.NotContains(t, output, "workspace_path:", "success-only field must not appear on failure")
+	require.NotContains(t, output, "attach:", "success-only field must not appear on failure")
+	require.NotContains(t, output, "promote:", "success-only field must not appear on failure")
 }
 
 func TestE2E_MissingOpenCodeBinaryFailsWithGuidance(t *testing.T) {
@@ -1050,7 +1055,13 @@ func TestE2E_MissingOpenCodeBinaryFailsWithGuidance(t *testing.T) {
 	require.Contains(t, output, `"opencode"`, "error must name the missing binary")
 	require.Contains(t, output, "opencode", "error must name the selected agent")
 	require.Contains(t, output, "--image", "error must suggest --image override")
-	require.NotContains(t, output, "run_id:", "must fail before agent start")
+
+	// Post-bootstrap failure must surface evidence locators.
+	require.Contains(t, output, "run_id:", "post-bootstrap failure must print run_id")
+	require.Contains(t, output, "evidence_path:", "post-bootstrap failure must print evidence_path")
+	require.NotContains(t, output, "workspace_path:", "success-only field must not appear on failure")
+	require.NotContains(t, output, "attach:", "success-only field must not appear on failure")
+	require.NotContains(t, output, "promote:", "success-only field must not appear on failure")
 }
 
 func TestE2E_FailedRunCleansUpWorktree(t *testing.T) {
@@ -1091,6 +1102,47 @@ func TestE2E_FailedRunCleansUpWorktree(t *testing.T) {
 	require.Equal(t, 0, wtCode)
 	require.Equal(t, "1", strings.TrimSpace(wtOut),
 		"only the main worktree should exist after failed run")
+}
+
+func TestE2E_PostBootstrapFailurePrintsEvidencePath(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+
+	// No auth files → authmount.Discover fails after evidence bootstrap.
+	env := setupRunEnvCustom(t, bin, e2eSetupOpts{
+		skipAuth:  true,
+		skipImage: true,
+	})
+
+	hostDir := env.Dir()
+	repoPath := filepath.Join(hostDir, "repo")
+	homeDir := filepath.Join(hostDir, "home")
+	binPath := filepath.Join(hostDir, "tessariq")
+
+	ctx := context.Background()
+	code, output, err := env.Exec(ctx, []string{"sh", "-c",
+		fmt.Sprintf("cd %s && HOME=%s %s run --egress none tasks/sample.md",
+			repoPath, homeDir, binPath)})
+	require.NoError(t, err)
+	require.NotEqual(t, 0, code, "run should fail when auth files are missing")
+
+	// Post-bootstrap failure must print run_id and evidence_path.
+	runID := extractField(output, "run_id")
+	require.NotEmpty(t, runID, "failed run must print run_id")
+
+	evidencePath := extractField(output, "evidence_path")
+	require.NotEmpty(t, evidencePath, "failed run must print evidence_path")
+
+	// Verify the evidence directory exists and contains manifest.json.
+	catCode, _, catErr := env.Exec(ctx, []string{"cat", filepath.Join(evidencePath, "manifest.json")})
+	require.NoError(t, catErr)
+	require.Equal(t, 0, catCode, "evidence_path must contain manifest.json")
+
+	// Success-only fields must NOT be printed for failed runs.
+	require.NotContains(t, output, "workspace_path:")
+	require.NotContains(t, output, "container_name:")
+	require.NotContains(t, output, "attach:")
+	require.NotContains(t, output, "promote:")
 }
 
 func TestE2E_EvidenceCompletenessAllRequiredFiles(t *testing.T) {

@@ -70,6 +70,36 @@ func TestPrintRunOutput_AttachCommandUsesRunID(t *testing.T) {
 	require.Contains(t, output, "tessariq promote MYRUNID")
 }
 
+func TestPrintFailureOutput_ContainsOnlyFailureFields(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	printFailureOutput(&buf, "01ARZ3NDEKTSV4RRFFQ69G5FAV", "/repo/.tessariq/runs/01ARZ3NDEKTSV4RRFFQ69G5FAV")
+
+	output := buf.String()
+	require.Contains(t, output, "run_id: 01ARZ3NDEKTSV4RRFFQ69G5FAV")
+	require.Contains(t, output, "evidence_path: /repo/.tessariq/runs/01ARZ3NDEKTSV4RRFFQ69G5FAV")
+
+	// Success-only fields must NOT appear.
+	require.NotContains(t, output, "workspace_path:")
+	require.NotContains(t, output, "container_name:")
+	require.NotContains(t, output, "attach:")
+	require.NotContains(t, output, "promote:")
+}
+
+func TestPrintFailureOutput_ScriptFriendlyFormat(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	printFailureOutput(&buf, "TESTID", "/evidence")
+
+	lines := strings.Split(strings.TrimSpace(buf.String()), "\n")
+	require.Equal(t, 2, len(lines), "expected exactly 2 output lines")
+	for _, line := range lines {
+		require.Contains(t, line, ": ", "each line must be key: value format")
+	}
+}
+
 func TestPrintInteractiveNote(t *testing.T) {
 	t.Parallel()
 

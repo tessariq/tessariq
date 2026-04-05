@@ -1,7 +1,7 @@
 ---
 id: TASK-073-print-evidence-path-on-run-failure
 title: Print failed run evidence details before returning run errors
-status: todo
+status: done
 priority: p2
 depends_on:
     - TASK-002-run-cli-flags-and-manifest-bootstrap
@@ -12,7 +12,7 @@ spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#tessariq-run-task-path
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-04-03T12:31:03Z"
+updated_at: "2026-04-05T10:25:11Z"
 areas:
     - cli
     - ux
@@ -73,3 +73,4 @@ When a run fails after evidence bootstrap, the CLI currently returns only the er
 
 - Likely files: `cmd/tessariq/run.go` and related command tests.
 - Prefer reusing the existing output formatting helpers instead of inventing a separate failure-only format unless the success fields would be misleading.
+- 2026-04-05T10:25:11Z: Post-bootstrap failures now print run_id and evidence_path via named-return defer; 2 unit tests, 1 new e2e test, 2 updated e2e tests; 4/4 manual tests pass

@@ -40,6 +40,13 @@ func printRunOutput(w io.Writer, out runOutput) {
 	fmt.Fprintf(w, "promote: tessariq promote %s\n", out.RunID)
 }
 
+// printFailureOutput prints the minimum evidence locator fields for a
+// post-bootstrap failure so users can inspect logs and artifacts.
+func printFailureOutput(w io.Writer, runID, evidencePath string) {
+	fmt.Fprintf(w, "run_id: %s\n", runID)
+	fmt.Fprintf(w, "evidence_path: %s\n", evidencePath)
+}
+
 func newRunCmd() *cobra.Command {
 	cfg := run.DefaultConfig()
 
@@ -47,7 +54,7 @@ func newRunCmd() *cobra.Command {
 		Use:   "run <task-path>",
 		Short: "Run a coding agent against a task file",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) (retErr error) {
 			cfg.TaskPath = args[0]
 
 			checker := prereq.NewChecker()
@@ -110,6 +117,14 @@ func newRunCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+
+			// Print failure details for any post-bootstrap error so users
+			// can locate evidence artifacts for debugging.
+			defer func() {
+				if retErr != nil {
+					printFailureOutput(cmd.OutOrStdout(), runID, evidenceDir)
+				}
+			}()
 
 			if err := run.CopyTaskFile(root, cfg.TaskPath, evidenceDir, content); err != nil {
 				return err

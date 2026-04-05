@@ -16,7 +16,7 @@ Automated adversarial testing against done tasks.
 
 BUG-001 through BUG-007 were all fixed by TASK-030 through TASK-039 (done).
 
-BUG-037 through BUG-039, BUG-042, and BUG-047 remain reproducible in the current code.
+BUG-037 and BUG-047 remain reproducible in the current code.
 
 This update adds tracked follow-up tasks for BUG-042 and BUG-047 as TASK-076 and TASK-077.
 
@@ -64,7 +64,7 @@ BUG-043 through BUG-046 were reviewed against the current code and marked not re
 | BUG-036 | LOW | `config.go:72` | `--egress open` silently discards `--egress-allow` without warning | **Fixed** (TASK-069) |
 | BUG-037 | HIGH | `cmd/tessariq/run.go:255`, `internal/runner/runner.go` | `run --attach` flag declared but never implemented; tmux session not attached | **Open** (TASK-071) |
 | BUG-038 | MEDIUM | `internal/runner/hooks.go:46`, `internal/runner/runner.go:88,110` | Pre/verify hooks run with CWD set to evidence directory, not repository root | **Fixed** (TASK-072) |
-| BUG-039 | MEDIUM | `cmd/tessariq/run.go:226-238` | Run failure output omits evidence path; contradicts spec failure-UX contract | **Open** (TASK-073) |
+| BUG-039 | MEDIUM | `cmd/tessariq/run.go:226-238` | Run failure output omits evidence path; contradicts spec failure-UX contract | **Fixed** (TASK-073) |
 | BUG-040 | LOW | `internal/run/userconfig.go:52` | UserConfig YAML silently ignores unknown fields; config typos cause undetected fallback | **Fixed** (TASK-074) |
 | BUG-041 | LOW | `internal/container/process.go:179`, `internal/runner/runner.go:130` | `docker logs --follow` cancelled by timeout context, truncating final agent output in `run.log` | **Fixed** (TASK-075) |
 | BUG-042 | MEDIUM | `internal/adapter/claudecode/claudecode.go:8`, `internal/adapter/opencode/opencode.go:8` | Default agent images use unpinned `:latest` tags | **Fixed** (TASK-076) |
