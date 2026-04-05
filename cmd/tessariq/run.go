@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"time"
@@ -226,7 +227,7 @@ func newRunCmd() *cobra.Command {
 			sessionName := run.SessionName(runID)
 			appendRunningIndexEntry(cmd.ErrOrStderr(), root, evidenceDir)
 
-			printInteractiveNote(cmd.ErrOrStderr(), cfg.Interactive, cfg.Attach, sessionName)
+			printInteractiveNote(cmd.ErrOrStderr(), cfg.Interactive, cfg.Attach, containerName)
 
 			r := &runner.Runner{
 				RunID:         runID,
@@ -241,7 +242,13 @@ func newRunCmd() *cobra.Command {
 
 			var runErr error
 			if cfg.Attach {
-				runErr = runWithAttach(cmd.Context(), r, sessionName, attachSessionFn)
+				attachFn := attachSessionFn
+				attachName := sessionName
+				if cfg.Interactive {
+					attachFn = attachContainerFn
+					attachName = containerName
+				}
+				runErr = runWithAttach(cmd.Context(), r, attachName, attachFn)
 			} else {
 				runErr = r.Run(cmd.Context())
 			}
@@ -421,16 +428,29 @@ func appendIndexEntry(w io.Writer, repoRoot, evidenceDir string) {
 }
 
 // printInteractiveNote emits a stderr hint when the user explicitly requested
-// --interactive without --attach, so they know how to reach the session.
-func printInteractiveNote(w io.Writer, interactive, attach bool, sessionName string) {
+// --interactive without --attach, so they know how to reach the container.
+func printInteractiveNote(w io.Writer, interactive, attach bool, containerName string) {
 	if interactive && !attach {
-		fmt.Fprintf(w, "note: interactive mode without --attach; use 'tmux attach -t %s' to provide approval input\n", sessionName)
+		fmt.Fprintf(w, "note: interactive mode without --attach; use 'docker attach %s' to provide approval input\n", containerName)
 	}
 }
 
 // attachSessionFn is injectable for testing.
 var attachSessionFn = func(ctx context.Context, name string) error {
 	return tmux.AttachSession(ctx, name)
+}
+
+// attachContainerFn attaches the terminal directly to a running container,
+// bypassing tmux to avoid the double-PTY chain that breaks interactive TUIs.
+var attachContainerFn = func(ctx context.Context, name string) error {
+	cmd := exec.CommandContext(ctx, "docker", "attach", name)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("docker attach %q: %w", name, err)
+	}
+	return nil
 }
 
 // runWithAttach runs the runner in a background goroutine, waits for the tmux
