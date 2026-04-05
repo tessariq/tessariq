@@ -147,7 +147,7 @@ func setupRunEnvCustom(t *testing.T, bin string, opts e2eSetupOpts) *containers.
 			buildCmds := []string{
 				`cat > /work/Dockerfile.bare <<'DEOF'
 FROM alpine:latest
-RUN addgroup -S tessariq && adduser -S tessariq -G tessariq -h /home/tessariq
+RUN apk add --no-cache coreutils && addgroup -S tessariq && adduser -S tessariq -G tessariq -h /home/tessariq
 USER tessariq
 WORKDIR /work
 DEOF`,
@@ -165,7 +165,7 @@ DEOF`,
 			buildCmds := []string{
 				fmt.Sprintf(`cat > /work/Dockerfile.test <<'DEOF'
 FROM alpine:latest
-RUN addgroup -S tessariq && adduser -S tessariq -G tessariq -h /home/tessariq
+RUN apk add --no-cache coreutils && addgroup -S tessariq && adduser -S tessariq -G tessariq -h /home/tessariq
 COPY fake-agent.sh /usr/local/bin/%s
 RUN chmod +x /usr/local/bin/%s
 USER tessariq
