@@ -222,7 +222,8 @@ func newRunCmd() *cobra.Command {
 				return fmt.Errorf("create agent process: %w", err)
 			}
 
-			if err := container.ProbeImageBinary(cmd.Context(), agentProc.RuntimeInfo.Image, agentProc.BinaryName); err != nil {
+			if err := container.ProbeImageBinaries(cmd.Context(), agentProc.RuntimeInfo.Image,
+				requiredImageBinaries(cfg, agentProc.BinaryName)...); err != nil {
 				return fmt.Errorf("agent %s: %w", agentProc.AgentInfo.Agent, err)
 			}
 
@@ -438,6 +439,13 @@ func printInteractiveNote(w io.Writer, interactive, attach bool, sessionName str
 	if interactive && !attach {
 		fmt.Fprintf(w, "note: interactive mode without --attach; use 'tmux attach -t %s' to provide approval input\n", sessionName)
 	}
+}
+
+func requiredImageBinaries(cfg run.Config, agentBinary string) []string {
+	if cfg.Interactive {
+		return []string{agentBinary}
+	}
+	return []string{"stdbuf", agentBinary}
 }
 
 // attachSessionFn is injectable for testing.

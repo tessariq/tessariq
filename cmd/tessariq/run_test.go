@@ -312,6 +312,25 @@ func TestPrintInteractiveNote(t *testing.T) {
 	}
 }
 
+func TestRequiredImageBinaries_NonInteractiveIncludesStdbuf(t *testing.T) {
+	t.Parallel()
+
+	cfg := run.DefaultConfig()
+	binaries := requiredImageBinaries(cfg, "claude")
+
+	require.Equal(t, []string{"stdbuf", "claude"}, binaries)
+}
+
+func TestRequiredImageBinaries_InteractiveSkipsStdbuf(t *testing.T) {
+	t.Parallel()
+
+	cfg := run.DefaultConfig()
+	cfg.Interactive = true
+	binaries := requiredImageBinaries(cfg, "opencode")
+
+	require.Equal(t, []string{"opencode"}, binaries)
+}
+
 func TestPrintNonSuccessOutput_ContainsStateAndEvidence(t *testing.T) {
 	t.Parallel()
 
