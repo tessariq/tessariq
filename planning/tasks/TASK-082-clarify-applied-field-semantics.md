@@ -72,6 +72,19 @@ Shows `applied.model = false` for an unsupported model, `applied.interactive = t
 - All existing tests remain green with no assertion changes (or assertions are updated to match the chosen semantics).
 - If per-run semantics are chosen: `buildApplied` must check `cfg.Interactive` and only return `true` when interactive is both requested and supported.
 
+## Test Expectations
+
+- Add/adjust unit tests in adapter packages so `applied` expectations match the selected semantics.
+- Keep `cmd/tessariq` tests and e2e artifact assertions consistent with the selected semantics for `requested` vs `applied`.
+- Verify no regressions by running the commands listed in `verification.unit` and `verification.e2e`.
+
+## TDD Plan
+
+1. RED: add or adjust adapter tests to encode the chosen `applied` semantics.
+2. GREEN: update implementation and comments/spec text until the new tests pass.
+3. REFACTOR: align remaining tests (including e2e assertions) and remove ambiguity in docs/comments.
+4. VERIFY: run the required verification commands from this task's front matter.
+
 ## Notes
 
 - This divergence has existed since TASK-008 and was surfaced during TASK-080 code review.
