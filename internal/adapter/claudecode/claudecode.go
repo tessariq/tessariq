@@ -120,8 +120,10 @@ func buildRequested(cfg run.Config) map[string]any {
 	return req
 }
 
-// buildApplied records which requested options the agent applied exactly.
-// Claude Code supports both --model and --interactive natively.
+// buildApplied records which requested options the adapter is capable of
+// honoring. A true value means "this adapter supports this option"; false
+// means the option was requested but could not be forwarded to the agent CLI.
+// This is a capability flag, not an echo of the requested value.
 func buildApplied(cfg run.Config) map[string]bool {
 	app := map[string]bool{
 		"interactive": true,
