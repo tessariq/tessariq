@@ -58,3 +58,24 @@ func TestProbeImageBinary_InvalidImage_ReturnsImagePullError(t *testing.T) {
 	var binaryErr *container.BinaryNotFoundError
 	require.False(t, errors.As(err, &binaryErr), "must not misclassify pull failure as BinaryNotFoundError")
 }
+
+func TestProbeImageBinaries_AllExist(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	err := container.ProbeImageBinaries(ctx, "alpine:latest", "sh", "cat")
+	require.NoError(t, err)
+}
+
+func TestProbeImageBinaries_ReportsFirstMissingBinary(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	err := container.ProbeImageBinaries(ctx, "alpine:latest", "sh", "stdbuf")
+	require.Error(t, err)
+
+	var target *container.BinaryNotFoundError
+	require.True(t, errors.As(err, &target))
+	require.Equal(t, "stdbuf", target.Binary)
+	require.Equal(t, "alpine:latest", target.Image)
+}

@@ -58,3 +58,14 @@ func ProbeImageBinary(ctx context.Context, image, binaryName string) error {
 	}
 	return nil
 }
+
+// ProbeImageBinaries checks that every required binary is available inside the
+// image. It returns the first probe error encountered.
+func ProbeImageBinaries(ctx context.Context, image string, binaryNames ...string) error {
+	for _, binaryName := range binaryNames {
+		if err := ProbeImageBinary(ctx, image, binaryName); err != nil {
+			return err
+		}
+	}
+	return nil
+}
