@@ -65,6 +65,7 @@ depends_on:
     - TASK-075-keep-log-streaming-alive-through-timeout
     - TASK-076-pin-default-agent-images-by-digest
     - TASK-077-treat-terminal-non-success-run-outcomes-as-cli-failures
+    - TASK-080-opencode-interactive-support
 milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:
