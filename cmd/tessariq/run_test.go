@@ -366,11 +366,13 @@ func TestResolveAllowlistCore_OpenCode(t *testing.T) {
 	t.Parallel()
 
 	validAuth := `{"provider":"https://api.example.com/v1"}`
+	anthropicAuth := `{"provider":"https://api.anthropic.com/v1"}`
 	noProviderAuth := `{"token":"fake"}`
 
 	tests := []struct {
 		name              string
 		agent             string
+		model             string
 		egress            string
 		cliAllow          []string
 		noDefaults        bool
@@ -381,6 +383,8 @@ func TestResolveAllowlistCore_OpenCode(t *testing.T) {
 		wantErrType       any
 		wantProvSkipped   bool // true if auth.json should NOT be read
 		wantConfigSkipped bool // true if config.yaml should NOT be read
+		wantHostPresent   []string
+		wantHostAbsent    []string
 	}{
 		{
 			name:            "cli_bypasses_unresolvable_provider",
@@ -469,6 +473,81 @@ func TestResolveAllowlistCore_OpenCode(t *testing.T) {
 			wantProvSkipped: true,
 		},
 		{
+			name:            "different_known_provider_adds_endpoint",
+			agent:           "opencode",
+			model:           "openai/gpt-4o",
+			egress:          "proxy",
+			files:           map[string]string{"auth.json": anthropicAuth},
+			wantSource:      "built_in",
+			wantHostPresent: []string{"api.anthropic.com", "api.openai.com"},
+		},
+		{
+			name:           "same_provider_no_extra_endpoint",
+			agent:          "opencode",
+			model:          "anthropic/claude-sonnet-4",
+			egress:         "proxy",
+			files:          map[string]string{"auth.json": anthropicAuth},
+			wantSource:     "built_in",
+			wantHostAbsent: []string{"api.openai.com"},
+		},
+		{
+			name:        "unknown_provider_errors",
+			agent:       "opencode",
+			model:       "bedrock/model",
+			egress:      "proxy",
+			files:       map[string]string{"auth.json": anthropicAuth},
+			wantErrType: &opencode.ModelProviderUnknownError{},
+		},
+		{
+			name:           "no_prefix_uses_configured_only",
+			agent:          "opencode",
+			model:          "claude-sonnet-4",
+			egress:         "proxy",
+			files:          map[string]string{"auth.json": anthropicAuth},
+			wantSource:     "built_in",
+			wantHostAbsent: []string{"api.openai.com"},
+		},
+		{
+			name:            "known_model_fallback_when_config_unresolvable",
+			agent:           "opencode",
+			model:           "openai/gpt-4o",
+			egress:          "proxy",
+			files:           map[string]string{"auth.json": noProviderAuth},
+			wantSource:      "built_in",
+			wantHostPresent: []string{"api.openai.com"},
+		},
+		{
+			name:            "cli_bypasses_model_resolution",
+			agent:           "opencode",
+			model:           "unknown-provider/model",
+			egress:          "proxy",
+			cliAllow:        []string{"custom.host:443"},
+			files:           map[string]string{},
+			wantSource:      "cli",
+			wantProvSkipped: true,
+		},
+		{
+			name:            "user_config_bypasses_model_resolution",
+			agent:           "opencode",
+			model:           "unknown-provider/model",
+			egress:          "proxy",
+			configDirExists: true,
+			files: map[string]string{
+				"config.yaml": "egress_allow:\n  - api.example.com:443\n",
+			},
+			wantSource:      "user_config",
+			wantProvSkipped: true,
+		},
+		{
+			name:            "model_provider_opencode_sets_includeOpenCodeAI",
+			agent:           "opencode",
+			model:           "opencode/some-model",
+			egress:          "proxy",
+			files:           map[string]string{"auth.json": anthropicAuth},
+			wantSource:      "built_in",
+			wantHostPresent: []string{"opencode.ai"},
+		},
+		{
 			name:              "open_ignores_malformed_user_config",
 			agent:             "claude-code",
 			egress:            "open",
@@ -527,6 +606,7 @@ func TestResolveAllowlistCore_OpenCode(t *testing.T) {
 
 			cfg := run.Config{
 				Agent:            tt.agent,
+				Model:            tt.model,
 				EgressAllow:      tt.cliAllow,
 				EgressNoDefaults: tt.noDefaults,
 			}
@@ -573,6 +653,20 @@ func TestResolveAllowlistCore_OpenCode(t *testing.T) {
 				for _, path := range *called {
 					require.False(t, strings.HasSuffix(path, "config.yaml"),
 						"user config should not have been read; got read of %s", path)
+				}
+			}
+
+			if len(tt.wantHostPresent) > 0 || len(tt.wantHostAbsent) > 0 {
+				destSet := make(map[string]bool)
+				for _, d := range result.Destinations {
+					host, _, _ := run.ParseDestination(d)
+					destSet[host] = true
+				}
+				for _, h := range tt.wantHostPresent {
+					require.True(t, destSet[h], "expected host %q in destinations %v", h, result.Destinations)
+				}
+				for _, h := range tt.wantHostAbsent {
+					require.False(t, destSet[h], "unexpected host %q in destinations %v", h, result.Destinations)
 				}
 			}
 		})
