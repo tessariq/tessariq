@@ -20,7 +20,74 @@ type ProviderUnresolvableError struct{}
 
 func (e *ProviderUnresolvableError) Error() string {
 	return "cannot determine the OpenCode provider host from available config and auth state; " +
-		"configure the provider explicitly so Tessariq can derive the required host, or pass --egress-allow manually"
+		"configure the provider explicitly, use --model provider/model with a known provider, or pass --egress-allow manually"
+}
+
+// ModelProviderUnknownError indicates a --model provider prefix that is not
+// in the curated known-providers map.
+type ModelProviderUnknownError struct {
+	Provider string
+}
+
+func (e *ModelProviderUnknownError) Error() string {
+	return fmt.Sprintf(
+		"unknown model provider %q: Tessariq cannot determine the API host; "+
+			"use --egress-allow to allowlist the provider's endpoint, or use --egress open",
+		e.Provider,
+	)
+}
+
+// knownProviderHosts maps provider prefixes (as used in "provider/model" format
+// by models.dev) to their single-host API endpoints. Providers requiring
+// wildcard host patterns (Bedrock, Azure OpenAI, Vertex AI) are excluded.
+var knownProviderHosts = map[string]string{
+	"anthropic":       "api.anthropic.com",
+	"openai":          "api.openai.com",
+	"google":          "generativelanguage.googleapis.com",
+	"mistral":         "api.mistral.ai",
+	"deepseek":        "api.deepseek.com",
+	"cohere":          "api.cohere.com",
+	"groq":            "api.groq.com",
+	"fireworks":       "api.fireworks.ai",
+	"together":        "api.together.xyz",
+	"cerebras":        "api.cerebras.ai",
+	"deepinfra":       "api.deepinfra.com",
+	"perplexity":      "api.perplexity.ai",
+	"openrouter":      "openrouter.ai",
+	"opencode":        "opencode.ai",
+	"minimax":         "api.minimax.io",
+	"moonshot":        "api.moonshot.ai",
+	"zai":             "api.z.ai",
+	"zai-coding-plan": "api.z.ai",
+	"github-copilot":  "api.githubcopilot.com",
+	"github-models":   "models.github.ai",
+	"nvidia":          "integrate.api.nvidia.com",
+	"huggingface":     "router.huggingface.co",
+	"llama":           "api.llama.com",
+	"morph":           "api.morphllm.com",
+	"venice":          "api.venice.ai",
+}
+
+// ParseModelProvider extracts the provider prefix before the first "/" in a
+// model identifier. Returns "" if model has no "/" or the prefix is empty.
+func ParseModelProvider(model string) string {
+	i := strings.Index(model, "/")
+	if i <= 0 {
+		return ""
+	}
+	return model[:i]
+}
+
+// KnownProviderHost returns the API host for a known provider prefix.
+// Returns ("", false) when the provider is not in the curated map.
+func KnownProviderHost(provider string) (string, bool) {
+	host, ok := knownProviderHosts[provider]
+	return host, ok
+}
+
+// IsOpenCodeHostedHost reports whether host is opencode.ai or a subdomain.
+func IsOpenCodeHostedHost(host string) bool {
+	return isOpenCodeHosted(host)
 }
 
 // ResolveProvider determines the OpenCode provider host from parsed auth and

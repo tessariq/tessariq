@@ -353,12 +353,45 @@ func resolveAllowlistCore(cfg run.Config, homeDir, resolvedEgress string, deps r
 			configDir := filepath.Join(homeDir, ".config", "opencode")
 			provInfo, provErr := opencode.ResolveProviderFromPaths(authPath, configDir, deps.readFile)
 			if provErr != nil {
-				if errors.Is(provErr, os.ErrNotExist) {
-					return nil, &authmount.AuthMissingError{Agent: "opencode"}
+				var unresolvable *opencode.ProviderUnresolvableError
+				if !errors.As(provErr, &unresolvable) {
+					if errors.Is(provErr, os.ErrNotExist) {
+						return nil, &authmount.AuthMissingError{Agent: "opencode"}
+					}
+					return nil, provErr
 				}
+			}
+
+			// Resolve model provider if --model has a prefix.
+			modelProvider := opencode.ParseModelProvider(cfg.Model)
+			var modelHost string
+			if modelProvider != "" {
+				var ok bool
+				modelHost, ok = opencode.KnownProviderHost(modelProvider)
+				if !ok {
+					return nil, &opencode.ModelProviderUnknownError{Provider: modelProvider}
+				}
+			}
+
+			// Determine the primary provider host.
+			var configuredHost string
+			var configuredIsOC bool
+			if provErr == nil {
+				configuredHost = provInfo.Host
+				configuredIsOC = provInfo.IsOpenCodeHosted
+			} else if modelHost != "" {
+				configuredHost = modelHost
+				configuredIsOC = opencode.IsOpenCodeHostedHost(modelHost)
+			} else {
 				return nil, provErr
 			}
-			agentEndpoints = adapter.OpenCodeEndpoints(provInfo.Host, provInfo.IsOpenCodeHosted)
+
+			includeOpenCodeAI := configuredIsOC || opencode.IsOpenCodeHostedHost(modelHost)
+			agentEndpoints = adapter.OpenCodeEndpoints(configuredHost, includeOpenCodeAI)
+
+			if modelHost != "" && modelHost != configuredHost {
+				agentEndpoints = append(agentEndpoints, adapter.Destination{Host: modelHost, Port: 443})
+			}
 		}
 	}
 

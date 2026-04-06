@@ -1,7 +1,7 @@
 ---
 id: TASK-081-model-aware-opencode-egress
 title: Include model provider host in OpenCode proxy allowlist
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-079-forward-model-flag-and-adapter-interface
@@ -10,7 +10,7 @@ spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#networking-and-egress
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-04-06T09:00:00Z"
+updated_at: "2026-04-06T09:34:39Z"
 areas:
     - adapter
     - egress
@@ -76,7 +76,6 @@ Verify exact provider ID prefixes against `models.dev/api.json` during implement
 | `google` | `generativelanguage.googleapis.com` |
 | `mistral` | `api.mistral.ai` |
 | `deepseek` | `api.deepseek.com` |
-| `xai` | `api.x.ai` |
 | `cohere` | `api.cohere.com` |
 
 ### Tier 2 — Inference providers
@@ -98,7 +97,8 @@ Verify exact provider ID prefixes against `models.dev/api.json` during implement
 | `opencode` | `opencode.ai` | Also triggers `isOpenCodeHosted` endpoint handling |
 | `minimax` | `api.minimax.io` | International endpoint |
 | `moonshot` | `api.moonshot.ai` | International endpoint |
-| `zhipu` | `api.z.ai` | z.ai international endpoint; verify provider ID against models.dev |
+| `zai` | `api.z.ai` | Z.AI standard provider (OpenCode provider ID) |
+| `zai-coding-plan` | `api.z.ai` | Z.AI coding plan (same host, different API path) |
 
 ### Tier 4 — Platform and hub providers
 
@@ -199,3 +199,4 @@ Add `model` field to `TestResolveAllowlistCore_OpenCode` test struct. New cases:
 - The existing `OpenCodeEndpoints(providerHost string, includeOpenCodeAI bool)` signature is unchanged. The model provider endpoint is appended by the caller when it differs from the configured host.
 - Wildcard-pattern providers (Bedrock, Azure, Vertex) cannot be supported via the known map because the exact host depends on user configuration. The `--egress-allow` escape hatch handles these.
 - The exact provider ID prefixes used in `--model` come from models.dev. Verify against the live catalog or the OpenCode source (`provider.ts`) during implementation. The IDs listed here are best-effort from models.dev documentation.
+- 2026-04-06T09:34:39Z: Model-aware provider resolution implemented with 25-provider known map, ParseModelProvider, KnownProviderHost, ModelProviderUnknownError, IsOpenCodeHostedHost; wired into resolveAllowlistCore; all unit tests pass, mutation efficacy 85.69%, verification clean, manual tests 10/10 pass

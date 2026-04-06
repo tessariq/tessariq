@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added Claude Code built-in egress endpoint profile (`api.anthropic.com`, `claude.ai`, `platform.claude.com`) for `--egress auto` allowlist resolution.
 - Added OpenCode provider-aware egress endpoint profile (`models.dev`, resolved provider host, conditional `opencode.ai`) for `--egress auto` allowlist resolution.
 - Added pre-start provider resolution for OpenCode under `--egress auto` that reads auth and config state to determine the required provider host, failing before container start with actionable guidance when the host cannot be determined.
+- Added model-aware provider resolution for OpenCode `--egress auto`: when `--model provider/model` specifies a known provider whose API host differs from the configured provider, the built-in allowlist now includes both hosts; unknown provider prefixes fail before container start with `--egress-allow` guidance.
 - Added built-in baseline package-manager allowlist profile (npm, PyPI, RubyGems, crates.io, Go module proxy/checksum, Maven Central, Wikipedia) for `--egress auto` and `--egress proxy` modes.
 - Added user-level config loading from `$XDG_CONFIG_HOME/tessariq/config.yaml` (or `~/.config/tessariq/config.yaml`) for default proxy allowlist selection.
 - Added `--egress-no-defaults` behavior that discards built-in and user-configured default allowlists, requiring explicit `--egress-allow` entries.
