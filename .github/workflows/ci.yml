@@ -127,7 +127,7 @@ jobs:
           docker images --filter "reference=tessariq-test-*" -q | xargs -r docker rmi -f || true
 
   e2e-tests:
-    needs: [integration-tests, smoke-tests]
+    needs: [unit-tests, smoke-tests]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
