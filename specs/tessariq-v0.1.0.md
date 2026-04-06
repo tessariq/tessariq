@@ -345,8 +345,10 @@ Built-in Tessariq allowlist profile:
 - the implementation MUST maintain a documented per-agent endpoint profile for Claude Code and a documented provider-aware endpoint profile for OpenCode so `auto` remains predictable as endpoints evolve
 - Claude Code built-in endpoints MUST include `api.anthropic.com:443`, `claude.ai:443`, and `platform.claude.com:443`
 - OpenCode built-in endpoints MUST include `models.dev:443` and the resolved provider base-URL host on `443`
-- `opencode.ai:443` MUST be added only when the resolved OpenCode configuration uses an OpenCode-hosted provider or auth flow that requires it
-- when OpenCode is selected and Tessariq cannot determine the provider host required for `--egress auto` from the available config and auth state, Tessariq MUST fail before container start and tell the user to configure the provider explicitly or use `--egress-allow`
+- when `--model provider/model` specifies a provider prefix that maps to a known API host, that host MUST also be included in the built-in endpoint list alongside the configured provider host
+- when `--model provider/model` specifies a provider prefix that Tessariq cannot map to a known API host and the built-in allowlist is the active source, Tessariq MUST fail before container start and tell the user to use `--egress-allow` or `--egress open`
+- `opencode.ai:443` MUST be added only when the resolved OpenCode configuration or the model provider uses an OpenCode-hosted provider or auth flow that requires it
+- when OpenCode is selected and Tessariq cannot determine any provider host required for `--egress auto` from the available config, auth state, or `--model` flag, Tessariq MUST fail before container start and tell the user to configure the provider explicitly, use `--model provider/model` with a known provider, or use `--egress-allow`
 - the fully resolved allowlist MUST be written to `egress.compiled.yaml`
 
 User-visible `proxy` contract:
@@ -526,7 +528,8 @@ Minimum `index.jsonl` entry shape:
 - `proxy` mode enforces destination allowlists and records the compiled configuration
 - `auto` uses the built-in allowlist profile when no explicit allowlist source is present
 - `auto` includes the maintained endpoints required for Claude Code and the resolved provider endpoints required for OpenCode
-- `run --agent opencode --egress auto` fails before container start when the required provider host cannot be determined from the available config and auth state
+- `run --agent opencode --egress auto` fails before container start when the required provider host cannot be determined from the available config, auth state, or `--model` flag
+- `run --agent opencode --model provider/model --egress auto` includes the model provider's API host in the built-in allowlist when the provider prefix is known
 - user-level config replaces the built-in allowlist profile for `auto`
 - CLI `--egress-allow` values override user-level config and the built-in allowlist profile
 
@@ -542,7 +545,8 @@ Minimum `index.jsonl` entry shape:
 | Claude Code is selected on macOS and only Keychain-backed auth exists with no file-backed credential mirror | fail before agent start | explain that v0.1.0 supports Claude Code auth reuse on macOS only when `~/.claude/.credentials.json` exists and tell the user to use a compatible file-backed setup |
 | the selected agent requires writable auth refresh or config mutation | fail before agent start | explain that v0.1.0 supports only read-only auth and config mounts and tell the user to use a compatible pre-authenticated setup |
 | `--mount-agent-config` is enabled and optional config directories are missing or unreadable | continue the run if required auth mounts are valid, and record a warning in run artifacts | tell the user which optional config path could not be mounted and that Tessariq continued with required auth mounts only |
-| OpenCode is selected with `--egress auto` and the provider host cannot be determined | fail before container start | tell the user to configure the provider explicitly so Tessariq can derive the required host, or pass `--egress-allow` manually |
+| OpenCode is selected with `--egress auto` and the provider host cannot be determined from config, auth, or `--model` | fail before container start | tell the user to configure the provider explicitly, use `--model provider/model` with a known provider, or pass `--egress-allow` manually |
+| OpenCode is selected with `--egress auto` and `--model` specifies an unknown provider prefix while the built-in allowlist is the active source | fail before container start | name the unrecognized provider prefix and tell the user to use `--egress-allow` to allowlist the provider's endpoint, or use `--egress open` |
 | proxy mode blocks a destination that is not present in the resolved allowlist | fail the network attempt and record it in proxy evidence | tell the user which `host:port` was blocked and how to add it through user config or CLI flags, or to rerun with explicit open egress |
 | `attach` references an unknown or finished run | fail without attaching | print the evidence path when known and tell the user the run is not live |
 | `promote` sees zero diff | fail without creating a branch or commit | tell the user there were no code changes to promote |
@@ -687,6 +691,24 @@ Bootstrap is expected to:
 - write the final `status.json`
 
 ## Specification changelog
+
+### 2026-04-06: Model-aware provider resolution for OpenCode egress
+
+**Changed:**
+
+1. **`--model provider/model` is now an additional signal for OpenCode provider resolution**
+   - When the `--model` flag contains a provider prefix that maps to a known API host, that host is included in the built-in allowlist alongside the configured provider host.
+   - When the prefix is not recognized and the built-in allowlist is the active source, tessariq fails before container start with guidance to use `--egress-allow`.
+   - When the configured provider is unresolvable from config/auth but `--model` provides a known provider, the model provider is used as a fallback for allowlist construction.
+   - Rationale: TASK-079 forwarded `--model` to OpenCode but did not update egress resolution. Choosing a model from a different provider than the configured one caused silent egress denial under the default secure networking mode.
+
+2. **Failure UX table updated with model-provider edge case**
+   - New row for unknown `--model` provider prefix.
+   - Existing provider-unresolvable row now includes `--model` as an alternative resolution path.
+
+**Tasks affected:**
+
+- New task TASK-081 for model-aware OpenCode egress.
 
 ### 2026-04-01: Add version command contract to v0.1.0
 

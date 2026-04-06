@@ -66,6 +66,7 @@ depends_on:
     - TASK-076-pin-default-agent-images-by-digest
     - TASK-077-treat-terminal-non-success-run-outcomes-as-cli-failures
     - TASK-080-opencode-interactive-support
+    - TASK-081-model-aware-opencode-egress
 milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:
