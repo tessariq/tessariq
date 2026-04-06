@@ -1,6 +1,6 @@
 ---
 schema_version: 1
-updated_at: "2026-04-06T05:51:29Z"
+updated_at: "2026-04-06T07:00:25Z"
 mode: user_request
 run_id: wf-20260405T203434Z
 agent_id: claude-code
@@ -11,6 +11,7 @@ attempt: 0
 last_completed: TASK-079-forward-model-flag-and-adapter-interface
 next_tasks:
     - TASK-080-opencode-interactive-support
+    - TASK-081-model-aware-opencode-egress
 repo_state: idle
 last_transition: finish
 last_transition_at: "2026-04-05T20:41:35Z"
@@ -34,10 +35,11 @@ max_retries: 2
 - Active spec: v0.1.0 (specs/tessariq-v0.1.0.md)
 - Next tasks:
   - TASK-080-opencode-interactive-support
+  - TASK-081-model-aware-opencode-egress
 
 ## Task Counts
 
-- todo: 2
+- todo: 3
 - in_progress: 0
 - done: 77
 - blocked: 1
