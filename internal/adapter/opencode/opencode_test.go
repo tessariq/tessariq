@@ -32,8 +32,8 @@ func TestBuildArgs_WithModel(t *testing.T) {
 	cfg.Model = "sonnet"
 	args := buildArgs(cfg, "fix bug")
 
-	require.Equal(t, []string{"run", "--format", "json", "--model", "sonnet", "--", "fix bug"}, args,
-		"model is forwarded as-is to opencode")
+	require.Equal(t, []string{"--model", "sonnet", "run", "--format", "json", "--", "fix bug"}, args,
+		"model is a root-level flag and must precede the run subcommand")
 	require.Contains(t, args, "--model")
 	require.Contains(t, args, "sonnet")
 }
@@ -80,7 +80,7 @@ func TestBuildArgs_TableDriven(t *testing.T) {
 			name:  "autonomous with model",
 			model: "sonnet",
 			task:  "do stuff",
-			want:  []string{"run", "--format", "json", "--model", "sonnet", "--", "do stuff"},
+			want:  []string{"--model", "sonnet", "run", "--format", "json", "--", "do stuff"},
 		},
 		{
 			name:        "interactive no model",

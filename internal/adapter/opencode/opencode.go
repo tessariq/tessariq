@@ -91,20 +91,22 @@ func (a *AgentConfig) EnvVars() map[string]string {
 }
 
 // buildArgs translates run.Config into opencode CLI arguments.
-// Non-interactive (default): opencode run --format json [--model M] -- <task>
+// Non-interactive (default): opencode [--model M] run --format json -- <task>
 // Interactive: opencode [--model M] -- <task> (TUI, not yet validated in tessariq)
 //
-// OpenCode's --model flag expects provider/model format (e.g. "anthropic/claude-sonnet-4-20250514").
+// --model is a root-level opencode flag (not a subcommand flag) so it must
+// precede the run subcommand for yargs to parse it correctly.
+// OpenCode's --model expects provider/model format (e.g. "anthropic/claude-sonnet-4-20250514").
 // Tessariq forwards the user-supplied string as-is; the user is responsible for the correct format.
 func buildArgs(cfg run.Config, taskContent string) []string {
 	var args []string
 
-	if !cfg.Interactive {
-		args = append(args, "run", "--format", "json")
-	}
-
 	if cfg.Model != "" {
 		args = append(args, "--model", cfg.Model)
+	}
+
+	if !cfg.Interactive {
+		args = append(args, "run", "--format", "json")
 	}
 
 	args = append(args, "--", taskContent)
