@@ -172,8 +172,8 @@ func TestBuildApplied_Interactive(t *testing.T) {
 	cfg.Interactive = true
 	app := buildApplied(cfg)
 
-	require.False(t, app["interactive"],
-		"opencode cannot apply interactive mode, so applied must be false")
+	require.True(t, app["interactive"],
+		"opencode applies interactive mode when requested")
 }
 
 func TestResolveImage_CustomOverride(t *testing.T) {
@@ -228,8 +228,8 @@ func TestNew_InteractiveMode(t *testing.T) {
 	a := New(cfg, "task", nil)
 
 	require.Equal(t, true, a.Requested()["interactive"])
-	require.False(t, a.Applied()["interactive"],
-		"opencode does not support interactive toggle")
+	require.True(t, a.Applied()["interactive"],
+		"opencode applies interactive when requested")
 }
 
 func TestNew_NoModelOmitsFromMetadata(t *testing.T) {

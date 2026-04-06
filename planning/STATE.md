@@ -1,25 +1,24 @@
 ---
 schema_version: 1
-updated_at: "2026-04-06T07:00:25Z"
+updated_at: "2026-04-06T09:31:35Z"
 mode: user_request
-run_id: wf-20260405T203434Z
+run_id: wf-20260406T092329Z
 agent_id: claude-code
-model: opus
+model: opus-4
 active_task: ""
 active_task_started_at: ""
 attempt: 0
-last_completed: TASK-079-forward-model-flag-and-adapter-interface
+last_completed: TASK-080-opencode-interactive-support
 next_tasks:
-    - TASK-080-opencode-interactive-support
     - TASK-081-model-aware-opencode-egress
 repo_state: idle
 last_transition: finish
-last_transition_at: "2026-04-05T20:41:35Z"
+last_transition_at: "2026-04-06T09:31:30Z"
 selection_reason: next eligible todo by priority
-validation_last_run: "2026-04-05T20:39:54Z"
-validation_status: passed
+validation_last_run: "2026-04-06T09:30:42Z"
+validation_status: warnings
 validation_scope: task:v0.1.0
-validation_checked_at: "2026-04-05T20:39:54Z"
+validation_checked_at: "2026-04-06T09:30:42Z"
 milestone_focus: v0.1.0
 active_spec_version: v0.1.0
 active_spec_path: specs/tessariq-v0.1.0.md
@@ -30,17 +29,16 @@ max_retries: 2
 ## Machine Snapshot
 
 - Active task: none
-- Last completed: TASK-079-forward-model-flag-and-adapter-interface
-- Validation status: passed
+- Last completed: TASK-080-opencode-interactive-support
+- Validation status: warnings
 - Active spec: v0.1.0 (specs/tessariq-v0.1.0.md)
 - Next tasks:
-  - TASK-080-opencode-interactive-support
   - TASK-081-model-aware-opencode-egress
 
 ## Task Counts
 
-- todo: 3
+- todo: 2
 - in_progress: 0
-- done: 77
+- done: 78
 - blocked: 1
 - cancelled: 0

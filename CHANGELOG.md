@@ -55,6 +55,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pinned default Claude Code and OpenCode reference agent images by digest instead of mutable `:latest` tags, completing supply-chain pinning for all first-party runtime images.
 - Added reference agent image Dockerfiles (`runtime/claude-code/`, `runtime/opencode/`) and CI workflow for automated image building, testing, and publishing with vulnerability scanning. These images are for quick onboarding and experimentation; production users should bring their own runtime images via `--image`.
 
+- Added `--interactive` support for the OpenCode adapter so `tessariq run --agent opencode --interactive` launches OpenCode in TUI mode with full TTY allocation and direct container attach via `--attach`.
 - Added `--model` passthrough for the OpenCode adapter so `tessariq run --agent opencode --model <provider/model>` forwards the model identifier to the OpenCode CLI. Previously the flag was silently dropped.
 - Added formal `Agent` interface in the adapter package, replacing duplicated per-agent field extraction in the factory with a single interface-based dispatch.
 
