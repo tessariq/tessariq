@@ -76,7 +76,6 @@ Verify exact provider ID prefixes against `models.dev/api.json` during implement
 | `google` | `generativelanguage.googleapis.com` |
 | `mistral` | `api.mistral.ai` |
 | `deepseek` | `api.deepseek.com` |
-| `xai` | `api.x.ai` |
 | `cohere` | `api.cohere.com` |
 
 ### Tier 2 — Inference providers
@@ -98,7 +97,8 @@ Verify exact provider ID prefixes against `models.dev/api.json` during implement
 | `opencode` | `opencode.ai` | Also triggers `isOpenCodeHosted` endpoint handling |
 | `minimax` | `api.minimax.io` | International endpoint |
 | `moonshot` | `api.moonshot.ai` | International endpoint |
-| `zhipu` | `api.z.ai` | z.ai international endpoint; verify provider ID against models.dev |
+| `zai` | `api.z.ai` | Z.AI standard provider (OpenCode provider ID) |
+| `zai-coding-plan` | `api.z.ai` | Z.AI coding plan (same host, different API path) |
 
 ### Tier 4 — Platform and hub providers
 
