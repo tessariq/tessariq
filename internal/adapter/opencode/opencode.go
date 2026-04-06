@@ -92,7 +92,7 @@ func (a *AgentConfig) EnvVars() map[string]string {
 
 // buildArgs translates run.Config into opencode CLI arguments.
 // Non-interactive (default): opencode [--model M] run --format json -- <task>
-// Interactive: opencode [--model M] -- <task> (TUI, not yet validated in tessariq)
+// Interactive: opencode [--model M] -- <task> (TUI mode)
 //
 // --model is a root-level opencode flag (not a subcommand flag) so it must
 // precede the run subcommand for yargs to parse it correctly.
@@ -125,10 +125,13 @@ func buildRequested(cfg run.Config) map[string]any {
 	return req
 }
 
-// buildApplied records which requested options the agent applied exactly.
+// buildApplied records which requested options the adapter is capable of
+// honoring. A true value means "this adapter supports this option"; false
+// means the option was requested but could not be forwarded to the agent CLI.
+// This is a capability flag, not an echo of the requested value.
 func buildApplied(cfg run.Config) map[string]bool {
 	app := map[string]bool{
-		"interactive": false,
+		"interactive": true,
 	}
 	if cfg.Model != "" {
 		app["model"] = true

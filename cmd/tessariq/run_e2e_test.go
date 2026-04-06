@@ -390,8 +390,8 @@ func TestE2E_OpenCodeAgentAndRuntimeJSONWritten(t *testing.T) {
 	require.Equal(t, "opencode", agentInfo.Agent)
 	require.NotNil(t, agentInfo.Requested)
 	require.NotNil(t, agentInfo.Applied)
-	require.False(t, agentInfo.Applied["interactive"],
-		"opencode does not apply interactive")
+	require.True(t, agentInfo.Applied["interactive"],
+		"opencode applies interactive")
 
 	// Read runtime.json from inside the container.
 	catCode, runtimeData, err := env.Exec(ctx, []string{"cat", filepath.Join(evidencePath, "runtime.json")})
@@ -795,8 +795,8 @@ func TestE2E_InteractiveOpenCodeRecordsEvidence(t *testing.T) {
 	require.Equal(t, "opencode", info.Agent)
 	require.Equal(t, true, info.Requested["interactive"],
 		"interactive must be recorded as requested")
-	require.Equal(t, false, info.Applied["interactive"],
-		"opencode must record interactive as not applied")
+	require.Equal(t, true, info.Applied["interactive"],
+		"opencode must record interactive as applied")
 }
 
 func TestE2E_InteractiveClaudeCodeAccepted(t *testing.T) {

@@ -87,11 +87,6 @@ func newRunCmd() *cobra.Command {
 				return err
 			}
 
-			if cfg.Interactive && cfg.Agent == "opencode" {
-				fmt.Fprintf(cmd.ErrOrStderr(),
-					"note: --interactive is not natively supported by opencode; option recorded in agent.json as not applied\n")
-			}
-
 			if err := git.IsClean(cmd.Context(), root); err != nil {
 				return err
 			}

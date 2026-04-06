@@ -94,8 +94,8 @@ func TestNewProcess_OpenCode(t *testing.T) {
 	require.NotNil(t, ap.Process)
 	require.Equal(t, "opencode", ap.AgentInfo.Agent)
 	require.Equal(t, 1, ap.AgentInfo.SchemaVersion)
-	require.False(t, ap.AgentInfo.Applied["interactive"],
-		"opencode does not apply interactive")
+	require.True(t, ap.AgentInfo.Applied["interactive"],
+		"applied is a capability flag: adapter supports interactive")
 	require.Equal(t, "reference", ap.RuntimeInfo.ImageSource)
 	require.Equal(t, "opencode", ap.BinaryName)
 }
@@ -129,8 +129,8 @@ func TestNewProcess_OpenCodeInteractive(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, true, ap.AgentInfo.Requested["interactive"],
 		"interactive must be recorded as requested")
-	require.False(t, ap.AgentInfo.Applied["interactive"],
-		"opencode does not apply interactive")
+	require.True(t, ap.AgentInfo.Applied["interactive"],
+		"opencode applies interactive when requested")
 }
 
 func TestNewProcess_CustomImageSource(t *testing.T) {
