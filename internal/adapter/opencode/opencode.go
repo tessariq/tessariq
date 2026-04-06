@@ -92,7 +92,7 @@ func (a *AgentConfig) EnvVars() map[string]string {
 
 // buildArgs translates run.Config into opencode CLI arguments.
 // Non-interactive (default): opencode [--model M] run --format json -- <task>
-// Interactive: opencode [--model M] -- <task> (TUI, not yet validated in tessariq)
+// Interactive: opencode [--model M] -- <task> (TUI mode)
 //
 // --model is a root-level opencode flag (not a subcommand flag) so it must
 // precede the run subcommand for yargs to parse it correctly.
@@ -128,7 +128,7 @@ func buildRequested(cfg run.Config) map[string]any {
 // buildApplied records which requested options the agent applied exactly.
 func buildApplied(cfg run.Config) map[string]bool {
 	app := map[string]bool{
-		"interactive": false,
+		"interactive": cfg.Interactive,
 	}
 	if cfg.Model != "" {
 		app["model"] = true

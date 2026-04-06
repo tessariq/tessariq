@@ -129,8 +129,8 @@ func TestNewProcess_OpenCodeInteractive(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, true, ap.AgentInfo.Requested["interactive"],
 		"interactive must be recorded as requested")
-	require.False(t, ap.AgentInfo.Applied["interactive"],
-		"opencode does not apply interactive")
+	require.True(t, ap.AgentInfo.Applied["interactive"],
+		"opencode applies interactive when requested")
 }
 
 func TestNewProcess_CustomImageSource(t *testing.T) {

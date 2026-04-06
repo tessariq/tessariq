@@ -795,8 +795,8 @@ func TestE2E_InteractiveOpenCodeRecordsEvidence(t *testing.T) {
 	require.Equal(t, "opencode", info.Agent)
 	require.Equal(t, true, info.Requested["interactive"],
 		"interactive must be recorded as requested")
-	require.Equal(t, false, info.Applied["interactive"],
-		"opencode must record interactive as not applied")
+	require.Equal(t, true, info.Applied["interactive"],
+		"opencode must record interactive as applied")
 }
 
 func TestE2E_InteractiveClaudeCodeAccepted(t *testing.T) {

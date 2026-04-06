@@ -1,7 +1,7 @@
 ---
 id: TASK-080-opencode-interactive-support
 title: Support --interactive flag for OpenCode adapter
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-033-opencode-interactive-request-recording
@@ -13,7 +13,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#tessariq-run-task-path
     - specs/tessariq-v0.1.0.md#agent-and-runtime-contract
     - specs/tessariq-v0.1.0.md#evidence-contract
-updated_at: "2026-04-06T00:00:00Z"
+updated_at: "2026-04-06T09:31:30Z"
 areas:
     - adapter
     - opencode
@@ -87,3 +87,4 @@ verification:
 - The runtime infrastructure (container TTY, activity timer, docker attach, session ready signaling) is agent-agnostic and requires no changes.
 - If manual testing reveals that `opencode -- <task>` does not accept task content as initial prompt in TUI mode, `buildArgs()` will need adjustment to omit the task content in interactive mode. Document findings in the completion note.
 - Likely files: `internal/adapter/opencode/opencode.go`, `internal/adapter/opencode/opencode_test.go`, `internal/adapter/factory_test.go`, `cmd/tessariq/run.go`, `cmd/tessariq/run_e2e_test.go`.
+- 2026-04-06T09:31:30Z: OpenCode adapter now applies --interactive: buildApplied returns cfg.Interactive, warning removed from run.go, tests updated (2 unit, 1 factory, 1 e2e). Manual test verdict: pass (5/5). Mutation efficacy: 85.79%.
