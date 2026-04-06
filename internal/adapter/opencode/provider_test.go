@@ -183,6 +183,107 @@ func TestProviderUnresolvableError_Message(t *testing.T) {
 	err := &ProviderUnresolvableError{}
 	require.Contains(t, err.Error(), "configure the provider")
 	require.Contains(t, err.Error(), "--egress-allow")
+	require.Contains(t, err.Error(), "--model")
+}
+
+func TestParseModelProvider(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name  string
+		model string
+		want  string
+	}{
+		{"with_prefix", "openai/gpt-4o", "openai"},
+		{"no_prefix", "claude-sonnet-4", ""},
+		{"empty", "", ""},
+		{"slash_at_start", "/gpt-4o", ""},
+		{"slash_at_end", "openai/", "openai"},
+		{"multiple_slashes", "openai/gpt-4o/latest", "openai"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			require.Equal(t, tt.want, ParseModelProvider(tt.model))
+		})
+	}
+}
+
+func TestKnownProviderHost(t *testing.T) {
+	t.Parallel()
+	known := map[string]string{
+		"anthropic":      "api.anthropic.com",
+		"openai":         "api.openai.com",
+		"google":         "generativelanguage.googleapis.com",
+		"mistral":        "api.mistral.ai",
+		"deepseek":       "api.deepseek.com",
+		"xai":            "api.x.ai",
+		"cohere":         "api.cohere.com",
+		"groq":           "api.groq.com",
+		"fireworks":      "api.fireworks.ai",
+		"together":       "api.together.xyz",
+		"cerebras":       "api.cerebras.ai",
+		"deepinfra":      "api.deepinfra.com",
+		"perplexity":     "api.perplexity.ai",
+		"openrouter":     "openrouter.ai",
+		"opencode":       "opencode.ai",
+		"minimax":        "api.minimax.io",
+		"moonshot":       "api.moonshot.ai",
+		"zhipu":          "api.z.ai",
+		"github-copilot": "api.githubcopilot.com",
+		"github-models":  "models.github.ai",
+		"nvidia":         "integrate.api.nvidia.com",
+		"huggingface":    "router.huggingface.co",
+		"llama":          "api.llama.com",
+		"morph":          "api.morphllm.com",
+		"venice":         "api.venice.ai",
+	}
+	for provider, wantHost := range known {
+		t.Run("known_"+provider, func(t *testing.T) {
+			t.Parallel()
+			host, ok := KnownProviderHost(provider)
+			require.True(t, ok)
+			require.Equal(t, wantHost, host)
+		})
+	}
+	t.Run("unknown", func(t *testing.T) {
+		t.Parallel()
+		_, ok := KnownProviderHost("bedrock")
+		require.False(t, ok)
+	})
+	t.Run("empty", func(t *testing.T) {
+		t.Parallel()
+		_, ok := KnownProviderHost("")
+		require.False(t, ok)
+	})
+}
+
+func TestModelProviderUnknownError_Message(t *testing.T) {
+	t.Parallel()
+	err := &ModelProviderUnknownError{Provider: "bedrock"}
+	require.Contains(t, err.Error(), "bedrock")
+	require.Contains(t, err.Error(), "--egress-allow")
+	require.Contains(t, err.Error(), "--egress open")
+}
+
+func TestIsOpenCodeHostedHost(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		host string
+		want bool
+	}{
+		{"opencode.ai", true},
+		{"api.opencode.ai", true},
+		{"sub.api.opencode.ai", true},
+		{"api.anthropic.com", false},
+		{"notopencode.ai", false},
+		{"", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.host, func(t *testing.T) {
+			t.Parallel()
+			require.Equal(t, tt.want, IsOpenCodeHostedHost(tt.host))
+		})
+	}
 }
 
 func TestResolveProviderFromPaths_WithConfigDir(t *testing.T) {
