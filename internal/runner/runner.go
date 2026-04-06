@@ -31,6 +31,10 @@ type outputWriterConfigurer interface {
 	SetOutputWriter(stdout, stderr io.Writer)
 }
 
+type logStreamStopper interface {
+	StopLogStream() error
+}
+
 // Runner orchestrates the full run lifecycle.
 type Runner struct {
 	RunID         string
@@ -151,9 +155,11 @@ func (r *Runner) runDetachedProcess(ctx context.Context, startedAt time.Time, lo
 	fmt.Fprintf(logs.RunnerLog, "[%s] starting process (timeout=%s, grace=%s)\n",
 		r.clock().UTC().Format(time.RFC3339), r.Config.Timeout, r.Config.Grace)
 
+	directOutput := false
 	// Prefer direct fd pass-through so docker logs writes to run.log
 	// without a Go pipe intermediary — tail -f sees writes immediately.
 	if proc, ok := r.Process.(outputFileConfigurer); ok {
+		directOutput = true
 		proc.SetOutput(logs.RunLogFile(), logs.RunLogFile())
 	} else if proc, ok := r.Process.(outputWriterConfigurer); ok {
 		proc.SetOutputWriter(logs.RunLog, logs.RunLog)
@@ -168,6 +174,12 @@ func (r *Runner) runDetachedProcess(ctx context.Context, startedAt time.Time, lo
 		fmt.Fprintf(logs.RunnerLog, "[%s] process start failed: %s\n", r.clock().UTC().Format(time.RFC3339), err)
 		return 1, false, StateFailed
 	}
+
+	stopLogCapMonitor := func() {}
+	if directOutput {
+		stopLogCapMonitor = r.startDetachedLogCapMonitor(logs, r.Process)
+	}
+	defer stopLogCapMonitor()
 
 	// Wait for process in a goroutine.
 	type waitResult struct {
@@ -212,6 +224,61 @@ func (r *Runner) runDetachedProcess(ctx context.Context, startedAt time.Time, lo
 				return -1, true, StateTimeout
 			}
 		}
+	}
+}
+
+func (r *Runner) startDetachedLogCapMonitor(logs *LogFiles, process ProcessRunner) func() {
+	stopCh := make(chan struct{})
+	doneCh := make(chan struct{})
+
+	go func() {
+		defer close(doneCh)
+		ticker := time.NewTicker(25 * time.Millisecond)
+		defer ticker.Stop()
+
+		stopper, canStopStream := process.(logStreamStopper)
+		warnedStopFailure := false
+
+		for {
+			select {
+			case <-stopCh:
+				return
+			case <-ticker.C:
+				info, err := os.Stat(logs.RunLogPath())
+				if err != nil || info.Size() <= logs.CapBytes() {
+					continue
+				}
+
+				truncated, err := CapLogFile(logs.RunLogPath(), logs.CapBytes())
+				if err != nil {
+					fmt.Fprintf(logs.RunnerLog, "[%s] warning: cap detached run.log: %s\n",
+						r.clock().UTC().Format(time.RFC3339), err)
+					continue
+				}
+				if truncated {
+					fmt.Fprintf(logs.RunnerLog, "[%s] detached run.log reached cap; truncating active stream\n",
+						r.clock().UTC().Format(time.RFC3339))
+				}
+
+				if !canStopStream {
+					continue
+				}
+				if err := stopper.StopLogStream(); err != nil {
+					if !warnedStopFailure {
+						fmt.Fprintf(logs.RunnerLog, "[%s] warning: stop detached log stream: %s\n",
+							r.clock().UTC().Format(time.RFC3339), err)
+						warnedStopFailure = true
+					}
+					continue
+				}
+				return
+			}
+		}
+	}()
+
+	return func() {
+		close(stopCh)
+		<-doneCh
 	}
 }
 

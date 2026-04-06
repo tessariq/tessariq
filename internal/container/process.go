@@ -2,12 +2,14 @@ package container
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 )
 
@@ -22,6 +24,8 @@ type Process struct {
 	stdoutWriter io.Writer // optional: io.Writer target (takes precedence over stdout)
 	stderrWriter io.Writer // optional: io.Writer target (takes precedence over stderr)
 	logsDone     chan struct{}
+	logsCmd      *exec.Cmd
+	logsMu       sync.Mutex
 }
 
 // New creates a container Process from the given configuration.
@@ -46,6 +50,20 @@ func (p *Process) SetOutput(stdout, stderr *os.File) {
 func (p *Process) SetOutputWriter(stdout, stderr io.Writer) {
 	p.stdoutWriter = stdout
 	p.stderrWriter = stderr
+}
+
+// StopLogStream stops the background `docker logs --follow` process when it is
+// no longer needed, such as after run.log reaches its cap.
+func (p *Process) StopLogStream() error {
+	p.logsMu.Lock()
+	defer p.logsMu.Unlock()
+	if p.logsCmd == nil || p.logsCmd.Process == nil {
+		return nil
+	}
+	if err := p.logsCmd.Process.Kill(); err != nil && !errors.Is(err, os.ErrProcessDone) {
+		return fmt.Errorf("stop docker logs: %w", err)
+	}
+	return nil
 }
 
 // Start creates the container and starts it, then streams logs in the background.
@@ -184,7 +202,15 @@ func (p *Process) streamLogs() {
 	cmd := exec.Command(p.docker, "logs", "--follow", p.cfg.Name)
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
+	p.logsMu.Lock()
+	p.logsCmd = cmd
+	p.logsMu.Unlock()
 	go func() {
+		defer func() {
+			p.logsMu.Lock()
+			p.logsCmd = nil
+			p.logsMu.Unlock()
+		}()
 		defer close(p.logsDone)
 		_ = cmd.Run()
 	}()

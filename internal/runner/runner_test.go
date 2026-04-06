@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 	"testing"
@@ -122,6 +123,89 @@ func (s *signalRecordingProcess) Signals() []os.Signal {
 	result := make([]os.Signal, len(s.signals))
 	copy(result, s.signals)
 	return result
+}
+
+type directOutputProcess struct {
+	mu           sync.Mutex
+	stdout       *os.File
+	stderr       *os.File
+	stopCh       chan struct{}
+	stoppedCh    chan struct{}
+	startedWrite chan struct{}
+	stopLogsCh   chan struct{}
+	onWrite      func()
+	exitCode     int
+}
+
+func newDirectOutputProcess(exitCode int) *directOutputProcess {
+	return &directOutputProcess{
+		stopCh:       make(chan struct{}),
+		stoppedCh:    make(chan struct{}),
+		startedWrite: make(chan struct{}),
+		stopLogsCh:   make(chan struct{}),
+		exitCode:     exitCode,
+	}
+}
+
+func (p *directOutputProcess) Start(_ context.Context) error {
+	go func() {
+		defer close(p.stoppedCh)
+		close(p.startedWrite)
+		chunk := []byte(strings.Repeat("x", 256))
+		for {
+			select {
+			case <-p.stopCh:
+				return
+			case <-p.stopLogsCh:
+				<-p.stopCh
+				return
+			default:
+			}
+
+			p.mu.Lock()
+			stdout := p.stdout
+			onWrite := p.onWrite
+			p.mu.Unlock()
+			if stdout != nil {
+				_, _ = stdout.Write(chunk)
+				if onWrite != nil {
+					onWrite()
+				}
+			}
+			time.Sleep(5 * time.Millisecond)
+		}
+	}()
+	return nil
+}
+
+func (p *directOutputProcess) Wait() (int, error) {
+	<-p.stoppedCh
+	return p.exitCode, nil
+}
+
+func (p *directOutputProcess) Signal(_ os.Signal) error {
+	select {
+	case <-p.stopCh:
+	default:
+		close(p.stopCh)
+	}
+	return nil
+}
+
+func (p *directOutputProcess) SetOutput(stdout, stderr *os.File) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.stdout = stdout
+	p.stderr = stderr
+}
+
+func (p *directOutputProcess) StopLogStream() error {
+	select {
+	case <-p.stopLogsCh:
+	default:
+		close(p.stopLogsCh)
+	}
+	return nil
 }
 
 func fixedClock(t time.Time) func() time.Time {
@@ -857,6 +941,48 @@ func TestRunner_InteractiveSessionReadySignaledDespiteTmuxFailure(t *testing.T) 
 	default:
 		t.Fatal("SessionReady must be closed even when tmux session creation fails")
 	}
+}
+
+func TestRunner_DetachedDirectOutputCapsLogBeforeProcessExit(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	proc := newDirectOutputProcess(0)
+	r := newTestRunner(dir, proc)
+	r.Config.Timeout = 200 * time.Millisecond
+	r.Config.Grace = 20 * time.Millisecond
+	r.LogCapBytes = 512
+	r.Clock = nil
+
+	runDone := make(chan error, 1)
+	go func() {
+		runDone <- r.Run(context.Background())
+	}()
+
+	<-proc.startedWrite
+
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		data, err := os.ReadFile(filepath.Join(dir, "run.log"))
+		if err == nil && strings.HasSuffix(string(data), TruncationMarker) {
+			select {
+			case err := <-runDone:
+				t.Fatalf("runner exited before timeout after early cap: %v", err)
+			default:
+			}
+
+			require.LessOrEqual(t, len(data), int(r.LogCapBytes)+len(TruncationMarker))
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("run.log was not capped before process exit")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	var termErr *TerminalStateError
+	require.ErrorAs(t, <-runDone, &termErr)
+	require.Equal(t, StateTimeout, termErr.State)
 }
 
 func TestRunner_NonInteractiveSessionStillCreatedEarly(t *testing.T) {

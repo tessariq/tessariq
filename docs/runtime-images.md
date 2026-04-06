@@ -70,6 +70,9 @@ Since the reference runtime does not include agent binaries, you need to derive 
 - Use a glibc-based Linux base image
 - Have a non-root default user
 - Have the agent binary available in `PATH`
+- For detached/non-interactive runs, have `stdbuf` available in `PATH`
+
+The published reference runtime and agent images satisfy the `stdbuf` requirement via GNU coreutils.
 
 ### Example: Adding Claude Code
 
