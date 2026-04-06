@@ -4,7 +4,7 @@ import "fmt"
 
 // Version, Commit, and Date are set via ldflags at build time.
 var (
-	Version = "dev"
+	Version = "0.1.0"
 	Commit  = "unknown"
 	Date    = "unknown"
 )
