@@ -245,8 +245,8 @@ func TestIntegration_SetupFailureCleanup(t *testing.T) {
 	t.Parallel()
 	testutil.RequireDocker(t)
 
-	// Use a short timeout — the readiness probe will time out after 10s.
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	// Use a timeout that exceeds the readiness probe timeout (30s).
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
 	runID := testutil.UniqueName(t)

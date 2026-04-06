@@ -63,7 +63,7 @@ func buildSquidCreateArgs(cfg SquidConfig, image string) []string {
 //     sibling containers where the host daemon can't see container-local files)
 //  3. docker network connect bridge <name> (add outbound internet access)
 //  4. docker start <name>
-//  5. Wait for readiness (TCP port probe, retry up to 10s with 500ms intervals).
+//  5. Wait for readiness (TCP port probe inside the container, up to 30s).
 func StartSquid(ctx context.Context, cfg SquidConfig) error {
 	// Step 1: docker create (no bind mount for squid.conf).
 	image := cfg.Image
@@ -134,36 +134,34 @@ func StartSquid(ctx context.Context, cfg SquidConfig) error {
 	return nil
 }
 
-// waitForSquid probes Squid's listen port inside the container up to 10 seconds
-// with 500ms intervals. It checks /proc/net/tcp for the listen port, which is
-// portable across all Linux images (bash /dev/tcp is not available on
-// Debian/Ubuntu where bash is compiled with --disable-net-redirections).
+// waitForSquid probes Squid's listen port inside the container up to 30 seconds.
+// A single docker exec runs the retry loop inside the container, avoiding
+// per-probe docker-exec overhead that caused flaky timeouts on CI runners.
+// It checks /proc/net/tcp for the listen port, which is portable across all
+// Linux images (bash /dev/tcp is not available on Debian/Ubuntu where bash
+// is compiled with --disable-net-redirections).
 func waitForSquid(ctx context.Context, containerName string) error {
-	const (
-		timeout  = 10 * time.Second
-		interval = 500 * time.Millisecond
+	const timeout = 30 * time.Second
+
+	probeCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	// Run the retry loop inside the container so there is no per-probe
+	// docker-exec overhead. The host-side context enforces the overall
+	// timeout by killing the exec process.
+	cmd := exec.CommandContext(probeCtx, "docker", "exec", containerName,
+		"sh", "-c", fmt.Sprintf(
+			"while ! grep -q ':%04X' /proc/net/tcp /proc/net/tcp6 2>/dev/null; do sleep 0.5; done",
+			squidListenPort,
+		),
 	)
-
-	deadline := time.Now().Add(timeout)
-	var lastErr error
-
-	for time.Now().Before(deadline) {
-		cmd := exec.CommandContext(ctx, "docker", "exec", containerName,
-			"sh", "-c", fmt.Sprintf("grep -q ':%04X' /proc/net/tcp /proc/net/tcp6 2>/dev/null", squidListenPort),
-		)
-		if _, err := cmd.CombinedOutput(); err != nil {
-			lastErr = err
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(interval):
-			}
-			continue
+	if out, err := cmd.CombinedOutput(); err != nil {
+		if probeCtx.Err() != nil {
+			return fmt.Errorf("squid not ready after %s: %w", timeout, probeCtx.Err())
 		}
-		return nil
+		return fmt.Errorf("squid not ready: %s: %w", strings.TrimSpace(string(out)), err)
 	}
-
-	return fmt.Errorf("squid not ready after %s: %w", timeout, lastErr)
+	return nil
 }
 
 // StopSquid stops and removes the Squid container. Idempotent: if the
