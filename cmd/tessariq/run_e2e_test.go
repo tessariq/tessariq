@@ -335,7 +335,7 @@ func TestE2E_AgentAndRuntimeJSONWritten(t *testing.T) {
 	require.Equal(t, 1, agentInfo.SchemaVersion)
 	require.Equal(t, "claude-code", agentInfo.Agent)
 	require.NotNil(t, agentInfo.Requested)
-	require.NotNil(t, agentInfo.Applied)
+	require.NotNil(t, agentInfo.Supported)
 
 	// Read runtime.json from inside the container.
 	catCode, runtimeData, err := env.Exec(ctx, []string{"cat", filepath.Join(evidencePath, "runtime.json")})
@@ -389,9 +389,9 @@ func TestE2E_OpenCodeAgentAndRuntimeJSONWritten(t *testing.T) {
 	require.Equal(t, 1, agentInfo.SchemaVersion)
 	require.Equal(t, "opencode", agentInfo.Agent)
 	require.NotNil(t, agentInfo.Requested)
-	require.NotNil(t, agentInfo.Applied)
-	require.True(t, agentInfo.Applied["interactive"],
-		"opencode applies interactive")
+	require.NotNil(t, agentInfo.Supported)
+	require.True(t, agentInfo.Supported["interactive"],
+		"opencode supports interactive")
 
 	// Read runtime.json from inside the container.
 	catCode, runtimeData, err := env.Exec(ctx, []string{"cat", filepath.Join(evidencePath, "runtime.json")})
@@ -795,8 +795,8 @@ func TestE2E_InteractiveOpenCodeRecordsEvidence(t *testing.T) {
 	require.Equal(t, "opencode", info.Agent)
 	require.Equal(t, true, info.Requested["interactive"],
 		"interactive must be recorded as requested")
-	require.Equal(t, true, info.Applied["interactive"],
-		"opencode must record interactive as applied")
+	require.Equal(t, true, info.Supported["interactive"],
+		"opencode must record interactive as supported")
 }
 
 func TestE2E_InteractiveClaudeCodeAccepted(t *testing.T) {
@@ -869,7 +869,7 @@ func TestE2E_InteractiveClaudeCodeAgentMetadata(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(agentJSON), &info))
 
 	require.Equal(t, true, info.Requested["interactive"])
-	require.Equal(t, true, info.Applied["interactive"])
+	require.Equal(t, true, info.Supported["interactive"])
 }
 
 func TestE2E_ProxyModeWritesEgressEvidence(t *testing.T) {

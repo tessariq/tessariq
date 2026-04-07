@@ -29,7 +29,7 @@ var _ interface {
 	Args() []string
 	Image() string
 	Requested() map[string]any
-	Applied() map[string]bool
+	Supported() map[string]bool
 	EnvVars() map[string]string
 } = (*AgentConfig)(nil)
 
@@ -39,7 +39,7 @@ type AgentConfig struct {
 	args      []string
 	image     string
 	requested map[string]any
-	applied   map[string]bool
+	supported map[string]bool
 	envVars   map[string]string
 }
 
@@ -50,7 +50,7 @@ func New(cfg run.Config, taskContent string, envVars map[string]string) *AgentCo
 		args:      buildArgs(cfg, taskContent),
 		image:     resolveImage(cfg),
 		requested: buildRequested(cfg),
-		applied:   buildApplied(cfg),
+		supported: buildSupported(cfg),
 		envVars:   envVars,
 	}
 }
@@ -80,9 +80,9 @@ func (a *AgentConfig) Requested() map[string]any {
 	return a.requested
 }
 
-// Applied returns which recorded options the selected agent can honor exactly.
-func (a *AgentConfig) Applied() map[string]bool {
-	return a.applied
+// Supported returns which recorded options the selected agent can honor exactly.
+func (a *AgentConfig) Supported() map[string]bool {
+	return a.supported
 }
 
 // EnvVars returns the environment variables to inject into the container.
@@ -120,11 +120,11 @@ func buildRequested(cfg run.Config) map[string]any {
 	return req
 }
 
-// buildApplied records which agent options the adapter is capable of honoring.
+// buildSupported records which agent options the adapter is capable of honoring.
 // A true value means "this adapter supports this option"; false means the
 // requested value could not be forwarded exactly to the agent CLI. This is a
 // capability flag, not an echo of the requested value.
-func buildApplied(cfg run.Config) map[string]bool {
+func buildSupported(cfg run.Config) map[string]bool {
 	app := map[string]bool{
 		"interactive": true,
 	}

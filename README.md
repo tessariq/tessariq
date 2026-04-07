@@ -168,7 +168,7 @@ Every run writes repo-local evidence under `.tessariq/runs/<run_id>/`.
     <run_id>/
       manifest.json        # run metadata and resolved execution settings
       status.json          # lifecycle state, timing, exit code
-      agent.json           # requested vs applied agent options
+      agent.json           # requested vs supported agent options
       runtime.json         # image identity and mount-policy metadata
       workspace.json       # workspace path, base SHA, reproducibility metadata
       task.md              # exact task file copied into evidence

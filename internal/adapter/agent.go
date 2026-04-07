@@ -12,18 +12,18 @@ type AgentInfo struct {
 	SchemaVersion int             `json:"schema_version"`
 	Agent         string          `json:"agent"`
 	Requested     map[string]any  `json:"requested"`
-	Applied       map[string]bool `json:"applied"`
+	Supported     map[string]bool `json:"supported"`
 }
 
 // NewAgentInfo creates an agent.json artifact with the given fields.
-// Requested records raw user-provided option values; applied records
+// Requested records raw user-provided option values; supported records
 // whether the selected agent supports honoring each recorded option exactly.
-func NewAgentInfo(agent string, requested map[string]any, applied map[string]bool) AgentInfo {
+func NewAgentInfo(agent string, requested map[string]any, supported map[string]bool) AgentInfo {
 	return AgentInfo{
 		SchemaVersion: 1,
 		Agent:         agent,
 		Requested:     requested,
-		Applied:       applied,
+		Supported:     supported,
 	}
 }
 

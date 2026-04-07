@@ -48,7 +48,7 @@ func TestNewAgent_OpenCodeWithModel(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, a.Args(), "--model")
 	require.Contains(t, a.Args(), "anthropic/claude-sonnet-4-20250514")
-	require.True(t, a.Applied()["model"])
+	require.True(t, a.Supported()["model"])
 }
 
 func TestNewAgent_UnknownAgent(t *testing.T) {
@@ -94,8 +94,8 @@ func TestNewProcess_OpenCode(t *testing.T) {
 	require.NotNil(t, ap.Process)
 	require.Equal(t, "opencode", ap.AgentInfo.Agent)
 	require.Equal(t, 1, ap.AgentInfo.SchemaVersion)
-	require.True(t, ap.AgentInfo.Applied["interactive"],
-		"applied is a capability flag: adapter supports interactive")
+	require.True(t, ap.AgentInfo.Supported["interactive"],
+		"supported is a capability flag: adapter supports interactive")
 	require.Equal(t, "reference", ap.RuntimeInfo.ImageSource)
 	require.Equal(t, "opencode", ap.BinaryName)
 }
@@ -112,7 +112,7 @@ func TestNewProcess_OpenCodeWithModel(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, "sonnet", ap.AgentInfo.Requested["model"])
-	require.True(t, ap.AgentInfo.Applied["model"],
+	require.True(t, ap.AgentInfo.Supported["model"],
 		"opencode forwards model as-is")
 }
 
@@ -129,8 +129,8 @@ func TestNewProcess_OpenCodeInteractive(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, true, ap.AgentInfo.Requested["interactive"],
 		"interactive must be recorded as requested")
-	require.True(t, ap.AgentInfo.Applied["interactive"],
-		"applied is a capability flag: adapter supports interactive")
+	require.True(t, ap.AgentInfo.Supported["interactive"],
+		"supported is a capability flag: adapter supports interactive")
 }
 
 func TestNewProcess_CustomImageSource(t *testing.T) {
