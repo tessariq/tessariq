@@ -17,6 +17,7 @@ depends_on:
     - TASK-014-run-index-and-run-ref-resolution
     - TASK-015-promote-branch-commit-trailers-and-zero-diff-guard
     - TASK-016-v0-1-0-spec-conformity-verification
+    - TASK-083-rename-agent-json-applied-to-supported
     - TASK-020-prerequisite-preflight-and-missing-dependency-ux
     - TASK-021-reference-runtime-image-and-docs
     - TASK-022-agent-and-runtime-evidence-migration
@@ -82,7 +83,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#acceptance-scenarios
     - specs/tessariq-v0.1.0.md#failure-ux
     - specs/tessariq-v0.1.0.md#success-metrics
-updated_at: "2026-04-04T07:55:00Z"
+updated_at: "2026-04-07T15:37:32Z"
 areas:
     - verification
     - spec
@@ -145,3 +146,4 @@ Run the final v0.1.0 conformity sweep against the normative spec after the stren
 - This is the required final gate before considering `v0.1.0` complete.
 - Any newly discovered v0.1.0-spec bug fix tasks or release-readiness follow-ups must be added to this dependency list so the closeout sweep remains a true release gate.
 - 2026-04-04T07:55:00Z: Added TASK-076 and TASK-077 as explicit dependencies so the release closeout sweep cannot run before the newly verified v0.1.0 blockers are resolved.
+- 2026-04-07T15:37:32Z: Added TASK-083 as an explicit dependency so the final closeout sweep cannot run before the planned `agent.json` `applied` -> `supported` breaking rename lands.
