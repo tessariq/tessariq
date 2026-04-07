@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added detached worktree provisioning under `~/.tessariq/worktrees/<repo_id>/<run_id>` and `workspace.json` evidence with reproducibility-focused metadata.
 - Added runner lifecycle evidence contracts, including durable `status.json`, `run.log`, `runner.log`, deterministic container naming, and timeout bookkeeping.
 - Added detached-by-default tmux session startup with script-friendly stdout guidance for `attach` and `promote` commands.
-- Added shared adapter evidence contract with `adapter.json` requested-versus-applied recording semantics for exact and partial option application.
+- Added shared adapter evidence contract with `adapter.json` requested-versus-supported recording semantics for exact and partial option support.
 - Added first-party `claude-code` adapter support integrated into run lifecycle execution and evidence output.
 - Added first-party `opencode` adapter with partial-application recording for unsupported `--interactive` option and full `--model` forwarding.
 - Added actionable binary-not-found error messages for both `claude-code` and `opencode` adapters naming the missing binary and container image expectation.
@@ -66,8 +66,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed log capping from post-run file truncation to write-time enforcement via `CappedWriter`, so `run.log` and `runner.log` never exceed the configured limit during execution and include a `[truncated]` marker when capped.
 - Changed agent execution model from direct host `exec.CommandContext` to Docker container lifecycle (`docker create` + `docker start` + `docker wait` + `docker rm`) with deterministic container names (`tessariq-<run_id>`) and cleanup on all exit paths.
 
-- Changed evidence model from single `adapter.json` to split `agent.json` (requested/applied options) and `runtime.json` (image identity and mount-policy metadata), aligning with v0.1.0 agent-and-runtime contract.
-- Clarified `agent.json.applied` as an agent-capability map rather than a per-run echo of requested option values; the spec example and adapter comments now show `requested.interactive=false` alongside `applied.interactive=true` when interactive support exists.
+- Changed evidence model from single `adapter.json` to split `agent.json` (requested/supported options) and `runtime.json` (image identity and mount-policy metadata), aligning with v0.1.0 agent-and-runtime contract.
+- Renamed `agent.json.applied` to `agent.json.supported` to reflect its agent-capability-map semantics; the spec example and adapter comments now show `requested.interactive=false` alongside `supported.interactive=true` when interactive support exists.
 - Changed `manifest.json` to use `agent` instead of `adapter` and added `resolved_egress_mode` and `allowlist_source` fields per v0.1.0 spec.
 - Changed CLI approval and egress flag UX: replaced `--yolo` with `--interactive` (autonomous-by-default) and renamed `--egress-allow-reset` to `--egress-no-defaults` for clearer intent.
 - Changed prerequisite preflight UX for local CLI execution so `tessariq init`, `tessariq run`, and `tessariq attach` fail fast with actionable missing-dependency guidance before lifecycle side effects.
@@ -85,7 +85,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed timeout signal escalation to send SIGTERM before SIGKILL, giving containers a grace period for clean shutdown before forced termination.
 - Fixed `--grace` flag being ignored for container-backed runs because `docker stop --time=10` hardcoded a 10-second grace period; container SIGTERM now uses non-blocking `docker kill --signal=SIGTERM` so the runner's own grace timer controls escalation.
 - Added `--init` to container creation so tini runs as PID 1 and forwards signals to the agent process, ensuring SIGTERM is reliably delivered regardless of whether the agent registers a signal handler.
-- Fixed `--agent opencode --interactive` being rejected at CLI validation instead of proceeding with requested/applied evidence recording; runs now preserve `requested.interactive=true`, and `applied.interactive` continues to record the adapter's interactive capability.
+- Fixed `--agent opencode --interactive` being rejected at CLI validation instead of proceeding with requested/supported evidence recording; runs now preserve `requested.interactive=true`, and `supported.interactive` continues to record the adapter's interactive capability.
 - Fixed `--egress-allow` being ignored for OpenCode when provider auto-resolution fails: explicit CLI allowlist entries now take precedence, skipping provider detection entirely so runs proceed without requiring auth state.
 - Fixed OpenCode proxy runs failing when user-config `egress_allow` is present but `auth.json` lacks provider info: provider resolution is now skipped when a higher-precedence allowlist source (CLI or user config) already determines egress destinations.
 - Fixed OpenCode proxy runs surfacing raw filesystem errors when auth state is missing: provider resolution now returns actionable guidance telling the user to authenticate OpenCode locally first.

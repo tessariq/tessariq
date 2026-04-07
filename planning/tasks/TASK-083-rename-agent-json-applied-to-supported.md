@@ -1,7 +1,7 @@
 ---
 id: TASK-083-rename-agent-json-applied-to-supported
 title: Rename agent.json applied field to supported
-status: todo
+status: done
 priority: p0
 depends_on:
     - TASK-022-agent-and-runtime-evidence-migration
@@ -12,7 +12,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#agent-and-runtime-contract
     - specs/tessariq-v0.1.0.md#compatibility-rules
     - specs/tessariq-v0.1.0.md#evidence-contract
-updated_at: "2026-04-07T15:37:32Z"
+updated_at: "2026-04-07T17:57:10Z"
 areas:
     - adapters
     - evidence
@@ -91,3 +91,4 @@ This is an intentional breaking evidence-contract change within the v0.1.0 line.
 - This task intentionally removes `applied` outright rather than emitting both names.
 - The repository is explicitly allowing this breaking evidence-contract change without a schema-version bump.
 - Likely touched files include `specs/tessariq-v0.1.0.md`, `internal/adapter/agent.go`, `internal/adapter/agent_iface.go`, `internal/adapter/claudecode/claudecode.go`, `internal/adapter/opencode/opencode.go`, `internal/adapter/*_test.go`, `cmd/tessariq/run_e2e_test.go`, `README.md`, `CHANGELOG.md`, and `planning/tasks/TASK-017-v0-1-0-spec-conformity-closeout.md`.
+- 2026-04-07T17:57:10Z: Renamed agent.json applied→supported across spec, implementation, tests, and docs. All unit tests pass, mutation efficacy 85.14%, manual testing 6/6 pass, zero verification findings.

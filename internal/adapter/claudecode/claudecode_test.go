@@ -224,38 +224,38 @@ func TestBuildRequested_Interactive(t *testing.T) {
 	require.Equal(t, true, req["interactive"])
 }
 
-func TestBuildApplied_WithModel(t *testing.T) {
+func TestBuildSupported_WithModel(t *testing.T) {
 	t.Parallel()
 
 	cfg := run.DefaultConfig()
 	cfg.Model = "sonnet"
-	app := buildApplied(cfg)
+	app := buildSupported(cfg)
 
 	require.True(t, app["interactive"])
 	require.True(t, app["model"])
 }
 
-func TestBuildApplied_WithoutModel(t *testing.T) {
+func TestBuildSupported_WithoutModel(t *testing.T) {
 	t.Parallel()
 
 	cfg := run.DefaultConfig()
-	app := buildApplied(cfg)
+	app := buildSupported(cfg)
 
 	require.True(t, app["interactive"],
-		"applied is a capability flag: adapter supports interactive even when false was requested")
+		"supported is a capability flag: adapter supports interactive even when false was requested")
 	_, hasModel := app["model"]
 	require.False(t, hasModel, "model should be absent when not requested")
 }
 
-func TestBuildApplied_InteractiveNotRequested(t *testing.T) {
+func TestBuildSupported_InteractiveNotRequested(t *testing.T) {
 	t.Parallel()
 
 	cfg := run.DefaultConfig()
-	app := buildApplied(cfg)
+	app := buildSupported(cfg)
 
 	require.False(t, cfg.Interactive, "default config does not request interactive mode")
 	require.True(t, app["interactive"],
-		"applied is a capability flag: true even when interactive is not requested")
+		"supported is a capability flag: true even when interactive is not requested")
 }
 
 func TestResolveImage_CustomOverride(t *testing.T) {
@@ -288,9 +288,9 @@ func TestNew_ReturnsConfigWithMetadata(t *testing.T) {
 	require.Equal(t, DefaultImage(), a.Image())
 	require.Equal(t, "sonnet", a.Requested()["model"])
 	require.Equal(t, false, a.Requested()["interactive"])
-	require.True(t, a.Applied()["model"])
-	require.True(t, a.Applied()["interactive"],
-		"applied is a capability flag: adapter supports interactive even when false was requested")
+	require.True(t, a.Supported()["model"])
+	require.True(t, a.Supported()["interactive"],
+		"supported is a capability flag: adapter supports interactive even when false was requested")
 }
 
 func TestNew_CustomImage(t *testing.T) {
@@ -311,7 +311,7 @@ func TestNew_InteractiveMode(t *testing.T) {
 	a := New(cfg, "task", nil)
 
 	require.Equal(t, true, a.Requested()["interactive"])
-	require.True(t, a.Applied()["interactive"])
+	require.True(t, a.Supported()["interactive"])
 }
 
 func TestNew_NoModelOmitsFromMetadata(t *testing.T) {
@@ -322,8 +322,8 @@ func TestNew_NoModelOmitsFromMetadata(t *testing.T) {
 
 	_, hasModel := a.Requested()["model"]
 	require.False(t, hasModel)
-	_, hasModelApplied := a.Applied()["model"]
-	require.False(t, hasModelApplied)
+	_, hasModelSupported := a.Supported()["model"]
+	require.False(t, hasModelSupported)
 }
 
 func TestNew_Args(t *testing.T) {

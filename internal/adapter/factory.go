@@ -92,7 +92,7 @@ func NewProcess(cfg run.Config, taskContent string, runID, worktreePath, evidenc
 
 	return &AgentProcess{
 		Process:     proc,
-		AgentInfo:   NewAgentInfo(a.Name(), a.Requested(), a.Applied()),
+		AgentInfo:   NewAgentInfo(a.Name(), a.Requested(), a.Supported()),
 		RuntimeInfo: NewRuntimeInfo(a.Image(), imageSource, len(authMounts), agentConfigMount, agentConfigMountStatus),
 		BinaryName:  a.BinaryName(),
 	}, nil

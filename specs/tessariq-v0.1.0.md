@@ -272,8 +272,8 @@ Common agent rules:
 
 - each run MUST write `agent.json`
 - `agent.json` MUST record requested agent options
-- `agent.json.applied` MUST record whether the selected agent can honor each recorded option exactly for that run shape; it is a capability map, not an echo of the requested value
-- when a recorded option value such as `--model` cannot be applied exactly, the selected agent MUST preserve the requested value and record `applied: false` for that option
+- `agent.json.supported` MUST record whether the selected agent can honor each recorded option exactly for that run shape; it is a capability map, not an echo of the requested value
+- when a recorded option value such as `--model` cannot be supported exactly, the selected agent MUST preserve the requested value and record `supported: false` for that option
 
 Common runtime rules:
 
@@ -433,7 +433,7 @@ Minimum `agent.json` shape:
     "model": "gpt-5.4",
     "interactive": false
   },
-  "applied": {
+  "supported": {
     "model": false,
     "interactive": true
   }
@@ -765,8 +765,8 @@ Bootstrap is expected to:
    - v0.1.0 now treats `agent` as the user-facing concept in CLI semantics, evidence, and planning references.
 
 2. **The evidence contract now splits agent metadata from runtime metadata**
-   - Old: `adapter.json` mixed requested/applied agent options with runtime image identity.
-   - New: `agent.json` records requested/applied agent options, and `runtime.json` records runtime-image and mount-policy metadata.
+   - Old: `adapter.json` mixed requested/supported agent options with runtime image identity.
+   - New: `agent.json` records requested/supported agent options, and `runtime.json` records runtime-image and mount-policy metadata.
    - `manifest.json` and `index.jsonl` now use `agent` instead of `adapter`.
 
 3. **v0.1.0 now defines one official minimal Tessariq reference runtime image**
@@ -830,6 +830,6 @@ Bootstrap is expected to:
    - Rationale: making the autonomous default explicit in the spec removes ambiguity for implementers and users.
 
 4. **Agent-option evidence example updated**
-   - The minimum requested/applied option shape now uses `interactive` instead of `yolo`.
+   - The minimum requested/supported option shape now uses `interactive` instead of `yolo`.
 
 **Tasks affected:** TASK-002 (done, code update tracked in TASK-018), TASK-009, TASK-010, TASK-011. New tasks created: TASK-018 (v0.1.0, code changes), TASK-019 (v0.2.0, `--prompt` backlog).

@@ -20,8 +20,8 @@ type Agent interface {
 	// Requested returns the agent options requested by the user.
 	Requested() map[string]any
 
-	// Applied returns which recorded options the selected agent can honor exactly.
-	Applied() map[string]bool
+	// Supported returns which recorded options the selected agent can honor exactly.
+	Supported() map[string]bool
 
 	// EnvVars returns environment variables to inject into the container.
 	EnvVars() map[string]string

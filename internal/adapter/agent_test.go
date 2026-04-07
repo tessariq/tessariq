@@ -16,17 +16,17 @@ func TestNewAgentInfo_RequiredFields(t *testing.T) {
 		"model":       "gpt-5.4",
 		"interactive": true,
 	}
-	applied := map[string]bool{
+	supported := map[string]bool{
 		"model":       false,
 		"interactive": true,
 	}
 
-	info := NewAgentInfo("claude-code", requested, applied)
+	info := NewAgentInfo("claude-code", requested, supported)
 
 	require.Equal(t, 1, info.SchemaVersion)
 	require.Equal(t, "claude-code", info.Agent)
 	require.Equal(t, requested, info.Requested)
-	require.Equal(t, applied, info.Applied)
+	require.Equal(t, supported, info.Supported)
 }
 
 func TestNewAgentInfo_RecordsUnsupportedRequested(t *testing.T) {
@@ -36,36 +36,36 @@ func TestNewAgentInfo_RecordsUnsupportedRequested(t *testing.T) {
 		"model":       "gpt-5.4",
 		"interactive": true,
 	}
-	applied := map[string]bool{
+	supported := map[string]bool{
 		"model":       false,
 		"interactive": true,
 	}
 
-	info := NewAgentInfo("claude-code", requested, applied)
+	info := NewAgentInfo("claude-code", requested, supported)
 
 	require.Equal(t, "gpt-5.4", info.Requested["model"])
-	require.False(t, info.Applied["model"])
+	require.False(t, info.Supported["model"])
 }
 
-func TestNewAgentInfo_AppliedDiffersFromRequested(t *testing.T) {
+func TestNewAgentInfo_SupportedDiffersFromRequested(t *testing.T) {
 	t.Parallel()
 
 	requested := map[string]any{
 		"model":       "o3-pro",
 		"interactive": false,
 	}
-	applied := map[string]bool{
+	supported := map[string]bool{
 		"model":       false,
 		"interactive": false,
 	}
 
-	info := NewAgentInfo("opencode", requested, applied)
+	info := NewAgentInfo("opencode", requested, supported)
 
 	require.Equal(t, "o3-pro", info.Requested["model"],
-		"requested value must be preserved even when not applied")
-	require.False(t, info.Applied["model"],
-		"applied must reflect actual agent capability")
-	require.False(t, info.Applied["interactive"])
+		"requested value must be preserved even when not supported")
+	require.False(t, info.Supported["model"],
+		"supported must reflect actual agent capability")
+	require.False(t, info.Supported["interactive"])
 }
 
 func TestNewAgentInfo_Extensibility(t *testing.T) {
@@ -76,18 +76,18 @@ func TestNewAgentInfo_Extensibility(t *testing.T) {
 		"interactive": true,
 		"custom_flag": "extra-value",
 	}
-	applied := map[string]bool{
+	supported := map[string]bool{
 		"model":       true,
 		"interactive": true,
 		"custom_flag": false,
 	}
 
-	info := NewAgentInfo("claude-code", requested, applied)
+	info := NewAgentInfo("claude-code", requested, supported)
 
 	require.Equal(t, 1, info.SchemaVersion,
 		"extra options must not change schema_version")
 	require.Equal(t, "extra-value", info.Requested["custom_flag"])
-	require.False(t, info.Applied["custom_flag"])
+	require.False(t, info.Supported["custom_flag"])
 }
 
 func TestNewAgentInfo_ExactlyFourTopLevelKeys(t *testing.T) {
@@ -108,7 +108,7 @@ func TestNewAgentInfo_ExactlyFourTopLevelKeys(t *testing.T) {
 		"schema_version": true,
 		"agent":          true,
 		"requested":      true,
-		"applied":        true,
+		"supported":      true,
 	}
 
 	for k := range raw {
@@ -219,8 +219,8 @@ func TestWriteAgentInfo_JSONMatchesSpecShape(t *testing.T) {
 	require.Equal(t, "gpt-5.4", requested["model"])
 	require.Equal(t, true, requested["interactive"])
 
-	var applied map[string]bool
-	require.NoError(t, json.Unmarshal(raw["applied"], &applied))
-	require.False(t, applied["model"])
-	require.True(t, applied["interactive"])
+	var supported map[string]bool
+	require.NoError(t, json.Unmarshal(raw["supported"], &supported))
+	require.False(t, supported["model"])
+	require.True(t, supported["interactive"])
 }
