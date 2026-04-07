@@ -43,7 +43,7 @@ Tessariq v0.1.0 provides a Git-native, sandboxed way to run coding agents agains
 - multi-agent orchestration
 - web UI or database
 - automatic push or PR creation
-- tracking or pinning upstream third-party agent versions as a Tessariq product responsibility
+- tracking or pinning upstream third-party agent versions as a Tessariq product responsibility; opportunistic user-controlled agent updates at container start are in scope but Tessariq does not catalog or manage upstream release cadence
 - devcontainer-derived runtime support
 - writable host credential or config mounts for agent auth refresh
 
@@ -152,6 +152,7 @@ Defaults:
 - `--interactive=false`
 - `--attach=false`
 - `--mount-agent-config=false`
+- `--no-update-agent=false`
 
 Supported flags:
 
@@ -167,6 +168,7 @@ Supported flags:
 - `--pre "<cmd>"` repeatable
 - `--verify "<cmd>"` repeatable
 - `--attach`
+- `--no-update-agent`
 
 Hook execution context:
 
@@ -191,6 +193,12 @@ Runtime-image behavior:
 - the reference runtime image MUST NOT bundle third-party agent binaries such as Claude Code or OpenCode
 - `--image` overrides the runtime image for that run
 - the selected agent binary MUST already exist in the resolved runtime image
+- by default, Tessariq MUST attempt to update the selected agent to the latest available version at container start using a cache-aware init container
+- the init container MUST use the same runtime image as the agent container and MUST NOT receive auth, config, or workdir mounts
+- updated agent binaries MUST be installed into a persistent global cache at `~/.tessariq/agent-cache/<agent>/` and mounted read-only into the agent container
+- the baked agent version in the runtime image is the version floor; the agent container MUST NOT run a version older than the baked version
+- `--no-update-agent` MUST skip the init phase and use the baked agent version
+- if the update fails (network error, install failure, timeout), Tessariq MUST fall back to the baked version, log a warning, and record the failure in `runtime.json`
 
 Container security posture:
 
@@ -449,7 +457,15 @@ Minimum `runtime.json` shape:
   "image_source": "reference",
   "auth_mount_mode": "read-only",
   "agent_config_mount": "disabled",
-  "agent_config_mount_status": "disabled"
+  "agent_config_mount_status": "disabled",
+  "agent_update": {
+    "attempted": true,
+    "success": true,
+    "cached_version": "2.3.0",
+    "baked_version": "2.1.92",
+    "elapsed_ms": 4200,
+    "error": ""
+  }
 }
 ```
 
@@ -533,6 +549,9 @@ Minimum `index.jsonl` entry shape:
 - `run --agent opencode --model provider/model --egress auto` includes the model provider's API host in the built-in allowlist when the provider prefix is known
 - user-level config replaces the built-in allowlist profile for `auto`
 - CLI `--egress-allow` values override user-level config and the built-in allowlist profile
+- `run` updates the selected agent to the latest version via init container and records the update result in `runtime.json`
+- `run --no-update-agent` skips the init phase and uses the baked agent version
+- `run` falls back to the baked agent version when the init container fails and continues the run
 
 ## Failure UX
 
@@ -552,6 +571,8 @@ Minimum `index.jsonl` entry shape:
 | `attach` references an unknown or finished run | fail without attaching | print the evidence path when known and tell the user the run is not live |
 | `promote` sees zero diff | fail without creating a branch or commit | tell the user there were no code changes to promote |
 | `promote` cannot find required evidence | fail without creating a branch or commit | identify the missing artifact and tell the user the run cannot be promoted until evidence is intact |
+| agent update init container fails (network, npm, timeout) | fall back to baked version and continue the run | warn that the update failed, show the baked version being used, and record the failure in `runtime.json` |
+| agent update init container exceeds timeout | terminate init container and fall back to baked version | warn that the update timed out and the baked version is being used |
 
 ## Success metrics
 
@@ -601,6 +622,8 @@ Detached worktrees, when needed, live outside the repository under the user's ho
   worktrees/
     <repo_id>/
       <run_id>/
+  agent-cache/
+    <agent>/
 ```
 
 ### Derived identifiers
@@ -692,6 +715,41 @@ Bootstrap is expected to:
 - write the final `status.json`
 
 ## Specification changelog
+
+### 2026-04-07: Agent auto-update via cache-aware init container
+
+**Changed:**
+
+1. **Non-goals amended to clarify auto-update scope**
+   - "tracking or pinning upstream third-party agent versions" now clarifies that opportunistic user-controlled agent updates at container start are in scope, while cataloging or managing upstream release cadence is not.
+   - Rationale: auto-update is a user convenience feature, not a version-tracking product responsibility.
+
+2. **Runtime-image behavior now includes agent auto-update**
+   - By default, Tessariq attempts to update the selected agent to the latest version at container start using a cache-aware init container.
+   - Updated binaries are installed into a persistent global cache at `~/.tessariq/agent-cache/<agent>/` and mounted read-only into the agent container.
+   - The baked version in the runtime image is the version floor.
+   - `--no-update-agent` skips the init phase.
+   - Update failures fall back to the baked version with a warning.
+   - Rationale: users should get agent improvements without rebuilding Docker images, but the baked version must remain a known-good fallback.
+
+3. **`runtime.json` extended with `agent_update` field**
+   - Records whether an update was attempted, whether it succeeded, the baked and cached versions, elapsed time, and any error message.
+   - Added under the existing compatibility rule that allows extra fields without changing `schema_version`.
+
+4. **New `--no-update-agent` flag**
+   - Added to supported flags and defaults for `tessariq run`.
+   - Default is `false` (update enabled).
+
+5. **Acceptance scenarios and failure UX updated**
+   - Three new acceptance scenarios for update success, opt-out, and fallback.
+   - Two new failure UX rows for init container failure and timeout.
+
+6. **Storage layout extended**
+   - `~/.tessariq/agent-cache/<agent>/` added to the generated storage layout.
+
+**Tasks affected:**
+
+- New task TASK-084 for agent auto-update implementation.
 
 ### 2026-04-06: Model-aware provider resolution for OpenCode egress
 

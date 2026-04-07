@@ -18,6 +18,7 @@ depends_on:
     - TASK-015-promote-branch-commit-trailers-and-zero-diff-guard
     - TASK-016-v0-1-0-spec-conformity-verification
     - TASK-083-rename-agent-json-applied-to-supported
+    - TASK-084-agent-auto-update
     - TASK-020-prerequisite-preflight-and-missing-dependency-ux
     - TASK-021-reference-runtime-image-and-docs
     - TASK-022-agent-and-runtime-evidence-migration
@@ -147,3 +148,4 @@ Run the final v0.1.0 conformity sweep against the normative spec after the stren
 - Any newly discovered v0.1.0-spec bug fix tasks or release-readiness follow-ups must be added to this dependency list so the closeout sweep remains a true release gate.
 - 2026-04-04T07:55:00Z: Added TASK-076 and TASK-077 as explicit dependencies so the release closeout sweep cannot run before the newly verified v0.1.0 blockers are resolved.
 - 2026-04-07T15:37:32Z: Added TASK-083 as an explicit dependency so the final closeout sweep cannot run before the planned `agent.json` `applied` -> `supported` breaking rename lands.
+- 2026-04-07T20:30:00Z: Added TASK-084 as an explicit dependency so the final closeout sweep cannot run before the agent auto-update feature lands.
