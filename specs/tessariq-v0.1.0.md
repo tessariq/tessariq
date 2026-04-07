@@ -272,7 +272,8 @@ Common agent rules:
 
 - each run MUST write `agent.json`
 - `agent.json` MUST record requested agent options
-- if an option such as `--model` or `--interactive` cannot be applied exactly, the selected agent MUST record that it was requested but not applied
+- `agent.json.applied` MUST record whether the selected agent can honor each recorded option exactly for that run shape; it is a capability map, not an echo of the requested value
+- when a recorded option value such as `--model` cannot be applied exactly, the selected agent MUST preserve the requested value and record `applied: false` for that option
 
 Common runtime rules:
 
@@ -430,7 +431,7 @@ Minimum `agent.json` shape:
   "agent": "claude-code",
   "requested": {
     "model": "gpt-5.4",
-    "interactive": true
+    "interactive": false
   },
   "applied": {
     "model": false,

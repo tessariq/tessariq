@@ -80,7 +80,7 @@ func (a *AgentConfig) Requested() map[string]any {
 	return a.requested
 }
 
-// Applied returns which requested options were applied exactly.
+// Applied returns which recorded options the selected agent can honor exactly.
 func (a *AgentConfig) Applied() map[string]bool {
 	return a.applied
 }
@@ -125,10 +125,10 @@ func buildRequested(cfg run.Config) map[string]any {
 	return req
 }
 
-// buildApplied records which requested options the adapter is capable of
-// honoring. A true value means "this adapter supports this option"; false
-// means the option was requested but could not be forwarded to the agent CLI.
-// This is a capability flag, not an echo of the requested value.
+// buildApplied records which agent options the adapter is capable of honoring.
+// A true value means "this adapter supports this option"; false means the
+// requested value could not be forwarded exactly to the agent CLI. This is a
+// capability flag, not an echo of the requested value.
 func buildApplied(cfg run.Config) map[string]bool {
 	app := map[string]bool{
 		"interactive": true,
