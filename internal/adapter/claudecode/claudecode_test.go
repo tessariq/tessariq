@@ -241,9 +241,21 @@ func TestBuildApplied_WithoutModel(t *testing.T) {
 	cfg := run.DefaultConfig()
 	app := buildApplied(cfg)
 
-	require.True(t, app["interactive"])
+	require.True(t, app["interactive"],
+		"applied is a capability flag: adapter supports interactive even when false was requested")
 	_, hasModel := app["model"]
 	require.False(t, hasModel, "model should be absent when not requested")
+}
+
+func TestBuildApplied_InteractiveNotRequested(t *testing.T) {
+	t.Parallel()
+
+	cfg := run.DefaultConfig()
+	app := buildApplied(cfg)
+
+	require.False(t, cfg.Interactive, "default config does not request interactive mode")
+	require.True(t, app["interactive"],
+		"applied is a capability flag: true even when interactive is not requested")
 }
 
 func TestResolveImage_CustomOverride(t *testing.T) {
@@ -277,7 +289,8 @@ func TestNew_ReturnsConfigWithMetadata(t *testing.T) {
 	require.Equal(t, "sonnet", a.Requested()["model"])
 	require.Equal(t, false, a.Requested()["interactive"])
 	require.True(t, a.Applied()["model"])
-	require.True(t, a.Applied()["interactive"])
+	require.True(t, a.Applied()["interactive"],
+		"applied is a capability flag: adapter supports interactive even when false was requested")
 }
 
 func TestNew_CustomImage(t *testing.T) {

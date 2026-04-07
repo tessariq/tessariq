@@ -1,7 +1,7 @@
 ---
 id: TASK-082-clarify-applied-field-semantics
 title: Align applied-field semantics between spec, code comments, and implementation
-status: todo
+status: done
 priority: p2
 depends_on:
     - TASK-008-adapter-contract-and-adapter-json
@@ -11,7 +11,7 @@ spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#agent-and-runtime-contract
     - specs/tessariq-v0.1.0.md#evidence-contract
-updated_at: "2026-04-06T12:00:00Z"
+updated_at: "2026-04-07T15:00:01Z"
 areas:
     - adapters
     - evidence
@@ -91,3 +91,4 @@ Shows `applied.model = false` for an unsupported model, `applied.interactive = t
 - The capability-flag interpretation has been the de-facto behavior since day one — changing to per-run would require implementation changes in both adapters.
 - The capability-flag interpretation makes `applied` useful for tooling that needs to know "what can this adapter do?" without needing to cross-reference `requested`.
 - Key files: `specs/tessariq-v0.1.0.md`, `internal/adapter/agent.go`, `internal/adapter/claudecode/claudecode.go`, `internal/adapter/opencode/opencode.go`.
+- 2026-04-07T15:00:01Z: Aligned agent.json applied semantics as capability flags; go test ./..., go test -tags=e2e ./..., gremlins efficacy 85.11%, manual test planning/artifacts/manual-test/TASK-082-clarify-applied-field-semantics/20260407T145717Z/report.md, verify planning/artifacts/verify/task/TASK-082-clarify-applied-field-semantics/20260407T145952Z/report.json

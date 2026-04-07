@@ -17,7 +17,7 @@ type AgentInfo struct {
 
 // NewAgentInfo creates an agent.json artifact with the given fields.
 // Requested records raw user-provided option values; applied records
-// whether each requested option was successfully applied by the agent.
+// whether the selected agent supports honoring each recorded option exactly.
 func NewAgentInfo(agent string, requested map[string]any, applied map[string]bool) AgentInfo {
 	return AgentInfo{
 		SchemaVersion: 1,

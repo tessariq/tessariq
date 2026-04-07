@@ -67,6 +67,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed agent execution model from direct host `exec.CommandContext` to Docker container lifecycle (`docker create` + `docker start` + `docker wait` + `docker rm`) with deterministic container names (`tessariq-<run_id>`) and cleanup on all exit paths.
 
 - Changed evidence model from single `adapter.json` to split `agent.json` (requested/applied options) and `runtime.json` (image identity and mount-policy metadata), aligning with v0.1.0 agent-and-runtime contract.
+- Clarified `agent.json.applied` as an agent-capability map rather than a per-run echo of requested option values; the spec example and adapter comments now show `requested.interactive=false` alongside `applied.interactive=true` when interactive support exists.
 - Changed `manifest.json` to use `agent` instead of `adapter` and added `resolved_egress_mode` and `allowlist_source` fields per v0.1.0 spec.
 - Changed CLI approval and egress flag UX: replaced `--yolo` with `--interactive` (autonomous-by-default) and renamed `--egress-allow-reset` to `--egress-no-defaults` for clearer intent.
 - Changed prerequisite preflight UX for local CLI execution so `tessariq init`, `tessariq run`, and `tessariq attach` fail fast with actionable missing-dependency guidance before lifecycle side effects.
@@ -84,7 +85,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed timeout signal escalation to send SIGTERM before SIGKILL, giving containers a grace period for clean shutdown before forced termination.
 - Fixed `--grace` flag being ignored for container-backed runs because `docker stop --time=10` hardcoded a 10-second grace period; container SIGTERM now uses non-blocking `docker kill --signal=SIGTERM` so the runner's own grace timer controls escalation.
 - Added `--init` to container creation so tini runs as PID 1 and forwards signals to the agent process, ensuring SIGTERM is reliably delivered regardless of whether the agent registers a signal handler.
-- Fixed `--agent opencode --interactive` being rejected at CLI validation instead of proceeding with requested/applied evidence recording; `agent.json` now correctly records `requested.interactive=true` and `applied.interactive=false`.
+- Fixed `--agent opencode --interactive` being rejected at CLI validation instead of proceeding with requested/applied evidence recording; runs now preserve `requested.interactive=true`, and `applied.interactive` continues to record the adapter's interactive capability.
 - Fixed `--egress-allow` being ignored for OpenCode when provider auto-resolution fails: explicit CLI allowlist entries now take precedence, skipping provider detection entirely so runs proceed without requiring auth state.
 - Fixed OpenCode proxy runs failing when user-config `egress_allow` is present but `auth.json` lacks provider info: provider resolution is now skipped when a higher-precedence allowlist source (CLI or user config) already determines egress destinations.
 - Fixed OpenCode proxy runs surfacing raw filesystem errors when auth state is missing: provider resolution now returns actionable guidance telling the user to authenticate OpenCode locally first.

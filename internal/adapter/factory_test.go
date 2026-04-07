@@ -130,7 +130,7 @@ func TestNewProcess_OpenCodeInteractive(t *testing.T) {
 	require.Equal(t, true, ap.AgentInfo.Requested["interactive"],
 		"interactive must be recorded as requested")
 	require.True(t, ap.AgentInfo.Applied["interactive"],
-		"opencode applies interactive when requested")
+		"applied is a capability flag: adapter supports interactive")
 }
 
 func TestNewProcess_CustomImageSource(t *testing.T) {
