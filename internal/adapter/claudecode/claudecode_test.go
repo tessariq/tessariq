@@ -380,3 +380,31 @@ func TestNew_NilEnvVars(t *testing.T) {
 	require.Nil(t, a.EnvVars())
 	require.Equal(t, DefaultImage(), a.Image())
 }
+
+func TestAgentConfig_UpdateCommand(t *testing.T) {
+	t.Parallel()
+
+	cfg := run.DefaultConfig()
+	a := New(cfg, "task", nil)
+
+	require.Equal(t, []string{"npm", "install", "--global", "--prefix", "/cache", "@anthropic-ai/claude-code@latest"}, a.UpdateCommand("/cache"))
+}
+
+func TestAgentConfig_UpdateCommand_PrefixSubstitution(t *testing.T) {
+	t.Parallel()
+
+	cfg := run.DefaultConfig()
+	a := New(cfg, "task", nil)
+
+	cmd := a.UpdateCommand("/custom/prefix")
+	require.Equal(t, "/custom/prefix", cmd[4])
+}
+
+func TestAgentConfig_VersionCommand(t *testing.T) {
+	t.Parallel()
+
+	cfg := run.DefaultConfig()
+	a := New(cfg, "task", nil)
+
+	require.Equal(t, []string{"claude", "--version"}, a.VersionCommand())
+}

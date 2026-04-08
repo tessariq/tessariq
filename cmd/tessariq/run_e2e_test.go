@@ -1415,3 +1415,60 @@ func TestE2E_TimedOutRunExitsNonZero(t *testing.T) {
 	require.Equal(t, "timeout", status["state"])
 	require.Equal(t, true, status["timed_out"])
 }
+
+func TestE2E_NoUpdateAgent_SkipsInitPhase(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+	env := setupRunEnv(t, bin, 0)
+
+	code, output := runTessariq(t, env, "claude", "--no-update-agent")
+	require.Equal(t, 0, code, "run failed: %s", output)
+
+	evidencePath := extractField(output, "evidence_path")
+	require.NotEmpty(t, evidencePath)
+
+	ctx := context.Background()
+
+	catCode, runtimeData, err := env.Exec(ctx, []string{"cat", filepath.Join(evidencePath, "runtime.json")})
+	require.NoError(t, err)
+	require.Equal(t, 0, catCode, "runtime.json must exist")
+
+	var runtimeInfo adapter.RuntimeInfo
+	require.NoError(t, json.Unmarshal([]byte(runtimeData), &runtimeInfo))
+
+	// --no-update-agent must not produce an agent_update field.
+	require.Nil(t, runtimeInfo.AgentUpdate,
+		"agent_update must be nil when --no-update-agent is used")
+}
+
+func TestE2E_AgentUpdateFallback_RecordsEvidence(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+	env := setupRunEnv(t, bin, 0)
+
+	// Default run (no --no-update-agent): the init container will fail because
+	// npm is not in the test alpine image, triggering the fallback path.
+	code, output := runTessariq(t, env, "claude", "")
+	require.Equal(t, 0, code, "run must succeed even when agent update fails: %s", output)
+
+	evidencePath := extractField(output, "evidence_path")
+	require.NotEmpty(t, evidencePath)
+
+	ctx := context.Background()
+
+	catCode, runtimeData, err := env.Exec(ctx, []string{"cat", filepath.Join(evidencePath, "runtime.json")})
+	require.NoError(t, err)
+	require.Equal(t, 0, catCode, "runtime.json must exist")
+
+	var runtimeInfo adapter.RuntimeInfo
+	require.NoError(t, json.Unmarshal([]byte(runtimeData), &runtimeInfo))
+
+	// Agent update must be attempted and recorded as failure.
+	require.NotNil(t, runtimeInfo.AgentUpdate,
+		"agent_update must be present when update was attempted")
+	require.True(t, runtimeInfo.AgentUpdate.Attempted)
+	require.False(t, runtimeInfo.AgentUpdate.Success,
+		"update must fail in test environment (no npm)")
+	require.NotEmpty(t, runtimeInfo.AgentUpdate.Error)
+	require.Greater(t, runtimeInfo.AgentUpdate.ElapsedMs, int64(0))
+}

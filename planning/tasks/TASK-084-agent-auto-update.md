@@ -1,7 +1,7 @@
 ---
 id: TASK-084-agent-auto-update
 title: Agent auto-update via cache-aware init container
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-008-adapter-contract-and-adapter-json
@@ -18,7 +18,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#tessariq-run-task-path
     - specs/tessariq-v0.1.0.md#agent-and-runtime-contract
     - specs/tessariq-v0.1.0.md#evidence-contract
-updated_at: "2026-04-07T20:30:00Z"
+updated_at: "2026-04-08T13:31:13Z"
 areas:
     - adapters
     - container
@@ -100,3 +100,4 @@ Add a cache-aware init container mechanism that automatically updates agents to 
 - This feature is compatible with the v0.3.0 `tessariq runtime bake` direction — baked images provide a floor, auto-update provides freshness.
 - Future work may add user-configurable version pinning or update channels; the current design uses `@latest`.
 - Design doc: `/home/felix/.claude/plans/robust-stargazing-cloud.md`
+- 2026-04-08T13:31:13Z: Implemented agent auto-update via cache-aware init container. Agent interface extended with UpdateCommand/VersionCommand. Init container runs before agent, installs latest version into persistent cache. Fallback to baked version on failure. --no-update-agent flag to opt out. Evidence in runtime.json agent_update field. All tests pass: unit, integration, e2e, mutation (85.19%), manual (8/8).

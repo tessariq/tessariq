@@ -7,15 +7,26 @@ import (
 	"path/filepath"
 )
 
+// AgentUpdate records the outcome of the agent auto-update init container.
+type AgentUpdate struct {
+	Attempted     bool   `json:"attempted"`
+	Success       bool   `json:"success"`
+	CachedVersion string `json:"cached_version"`
+	BakedVersion  string `json:"baked_version"`
+	ElapsedMs     int64  `json:"elapsed_ms"`
+	Error         string `json:"error"`
+}
+
 // RuntimeInfo represents the runtime.json evidence artifact.
 type RuntimeInfo struct {
-	SchemaVersion          int    `json:"schema_version"`
-	Image                  string `json:"image"`
-	ImageSource            string `json:"image_source"`
-	AuthMountMode          string `json:"auth_mount_mode"`
-	AuthMountCount         int    `json:"auth_mount_count"`
-	AgentConfigMount       string `json:"agent_config_mount"`
-	AgentConfigMountStatus string `json:"agent_config_mount_status"`
+	SchemaVersion          int          `json:"schema_version"`
+	Image                  string       `json:"image"`
+	ImageSource            string       `json:"image_source"`
+	AuthMountMode          string       `json:"auth_mount_mode"`
+	AuthMountCount         int          `json:"auth_mount_count"`
+	AgentConfigMount       string       `json:"agent_config_mount"`
+	AgentConfigMountStatus string       `json:"agent_config_mount_status"`
+	AgentUpdate            *AgentUpdate `json:"agent_update,omitempty"`
 }
 
 // NewRuntimeInfo creates a runtime.json artifact with the given fields.

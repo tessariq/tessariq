@@ -1,24 +1,24 @@
 ---
 schema_version: 1
-updated_at: "2026-04-07T17:57:15Z"
+updated_at: "2026-04-08T13:31:17Z"
 mode: user_request
-run_id: wf-20260407T175040Z
-agent_id: claude-code
-model: claude-opus-4-6
+run_id: wf-20260408T131609Z
+agent_id: claude-opus-4-6
+model: opus
 active_task: ""
 active_task_started_at: ""
 attempt: 0
-last_completed: TASK-083-rename-agent-json-applied-to-supported
+last_completed: TASK-084-agent-auto-update
 next_tasks:
     - TASK-017-v0-1-0-spec-conformity-closeout
 repo_state: idle
 last_transition: finish
-last_transition_at: "2026-04-07T17:57:10Z"
+last_transition_at: "2026-04-08T13:31:13Z"
 selection_reason: next eligible todo by priority
-validation_last_run: "2026-04-07T17:56:27Z"
-validation_status: passed
+validation_last_run: "2026-04-08T13:30:48Z"
+validation_status: warnings
 validation_scope: task:v0.1.0
-validation_checked_at: "2026-04-07T17:56:27Z"
+validation_checked_at: "2026-04-08T13:30:48Z"
 milestone_focus: v0.1.0
 active_spec_version: v0.1.0
 active_spec_path: specs/tessariq-v0.1.0.md
@@ -29,8 +29,8 @@ max_retries: 2
 ## Machine Snapshot
 
 - Active task: none
-- Last completed: TASK-083-rename-agent-json-applied-to-supported
-- Validation status: passed
+- Last completed: TASK-084-agent-auto-update
+- Validation status: warnings
 - Active spec: v0.1.0 (specs/tessariq-v0.1.0.md)
 - Next tasks:
   - TASK-017-v0-1-0-spec-conformity-closeout
@@ -39,6 +39,6 @@ max_retries: 2
 
 - todo: 1
 - in_progress: 0
-- done: 81
+- done: 82
 - blocked: 1
 - cancelled: 0

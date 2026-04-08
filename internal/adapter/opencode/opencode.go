@@ -31,6 +31,8 @@ var _ interface {
 	Requested() map[string]any
 	Supported() map[string]bool
 	EnvVars() map[string]string
+	UpdateCommand(string) []string
+	VersionCommand() []string
 } = (*AgentConfig)(nil)
 
 // AgentConfig holds agent-specific CLI arguments and metadata for OpenCode.
@@ -88,6 +90,16 @@ func (a *AgentConfig) Supported() map[string]bool {
 // EnvVars returns the environment variables to inject into the container.
 func (a *AgentConfig) EnvVars() map[string]string {
 	return a.envVars
+}
+
+// UpdateCommand returns the npm install command to update OpenCode.
+func (a *AgentConfig) UpdateCommand(prefix string) []string {
+	return []string{"npm", "install", "--global", "--prefix", prefix, "opencode-ai@latest"}
+}
+
+// VersionCommand returns the command to check the installed OpenCode version.
+func (a *AgentConfig) VersionCommand() []string {
+	return []string{"opencode", "--version"}
 }
 
 // buildArgs translates run.Config into opencode CLI arguments.

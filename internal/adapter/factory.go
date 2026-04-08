@@ -41,7 +41,7 @@ func NewAgent(cfg run.Config, taskContent string, envVars map[string]string) (Ag
 func NewProcess(cfg run.Config, taskContent string, runID, worktreePath, evidencePath string,
 	authMounts []authmount.MountSpec, configMounts []authmount.MountSpec,
 	agentConfigMount, agentConfigMountStatus string, envVars map[string]string,
-	proxyEnv *proxy.ProxyEnv, resolvedEgress string) (*AgentProcess, error) {
+	proxyEnv *proxy.ProxyEnv, resolvedEgress string, updateResult UpdateResult) (*AgentProcess, error) {
 
 	imageSource := "reference"
 	if cfg.Image != "" {
@@ -74,6 +74,20 @@ func NewProcess(cfg run.Config, taskContent string, runID, worktreePath, evidenc
 		networkName = "none"
 	}
 
+	mounts := container.AssembleMounts(worktreePath, evidencePath, authMounts, configMounts)
+
+	// Apply cache mount when agent auto-update succeeded.
+	if updateResult.Success && updateResult.CacheHostPath != "" {
+		mounts = append(mounts, container.Mount{
+			Source:   updateResult.CacheHostPath,
+			Target:   "/cache",
+			ReadOnly: true,
+		})
+		agentEnvVars = mergeEnvVars(agentEnvVars, map[string]string{
+			"PATH": "/cache/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+		})
+	}
+
 	containerCfg := container.Config{
 		Name:         run.ContainerName(runID),
 		Image:        a.Image(),
@@ -81,7 +95,7 @@ func NewProcess(cfg run.Config, taskContent string, runID, worktreePath, evidenc
 		WorkDir:      "/work",
 		User:         "tessariq",
 		Env:          agentEnvVars,
-		Mounts:       container.AssembleMounts(worktreePath, evidencePath, authMounts, configMounts),
+		Mounts:       mounts,
 		Interactive:  cfg.Interactive,
 		LineBuffered: !cfg.Interactive,
 		NetworkName:  networkName,
@@ -90,10 +104,22 @@ func NewProcess(cfg run.Config, taskContent string, runID, worktreePath, evidenc
 
 	proc := container.New(containerCfg)
 
+	runtimeInfo := NewRuntimeInfo(a.Image(), imageSource, len(authMounts), agentConfigMount, agentConfigMountStatus)
+	if updateResult.Attempted {
+		runtimeInfo.AgentUpdate = &AgentUpdate{
+			Attempted:     true,
+			Success:       updateResult.Success,
+			CachedVersion: updateResult.CachedVersion,
+			BakedVersion:  updateResult.BakedVersion,
+			ElapsedMs:     updateResult.ElapsedMs,
+			Error:         updateResult.Error,
+		}
+	}
+
 	return &AgentProcess{
 		Process:     proc,
 		AgentInfo:   NewAgentInfo(a.Name(), a.Requested(), a.Supported()),
-		RuntimeInfo: NewRuntimeInfo(a.Image(), imageSource, len(authMounts), agentConfigMount, agentConfigMountStatus),
+		RuntimeInfo: runtimeInfo,
 		BinaryName:  a.BinaryName(),
 	}, nil
 }

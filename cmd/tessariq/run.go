@@ -211,15 +211,63 @@ func newRunCmd() *cobra.Command {
 				}
 			}
 
-			agentProc, err := adapter.NewProcess(cfg, string(content), runID, wsPath, evidenceDir,
-				allAuthMounts, configMounts, agentConfigMount, agentConfigMountStatus, containerEnvVars, proxyEnv, resolvedEgress)
+			// Create agent config early for image probe and auto-update.
+			agent, err := adapter.NewAgent(cfg, string(content), containerEnvVars)
 			if err != nil {
-				return fmt.Errorf("create agent process: %w", err)
+				return fmt.Errorf("create agent config: %w", err)
 			}
 
-			if err := container.ProbeImageBinaries(cmd.Context(), agentProc.RuntimeInfo.Image,
-				requiredImageBinaries(cfg, agentProc.BinaryName)...); err != nil {
-				return fmt.Errorf("agent %s: %w", agentProc.AgentInfo.Agent, err)
+			if err := container.ProbeImageBinaries(cmd.Context(), agent.Image(),
+				requiredImageBinaries(cfg, agent.BinaryName())...); err != nil {
+				return fmt.Errorf("agent %s: %w", agent.Name(), err)
+			}
+
+			// Agent auto-update via init container.
+			var updateResult adapter.UpdateResult
+			if !cfg.NoUpdateAgent {
+				updateCmd := agent.UpdateCommand("/cache")
+				if updateCmd != nil {
+					cacheDir := filepath.Join(homeDir, ".tessariq", "agent-cache", agent.Name())
+					if mkErr := os.MkdirAll(cacheDir, 0o755); mkErr != nil {
+						return fmt.Errorf("create agent cache directory: %w", mkErr)
+					}
+
+					fmt.Fprintf(cmd.ErrOrStderr(), "Updating %s agent...", agent.Name())
+
+					initResult := container.RunInitContainer(cmd.Context(), container.InitConfig{
+						Image:         agent.Image(),
+						Command:       updateCmd,
+						VersionCmd:    agent.VersionCommand(),
+						CacheHostPath: cacheDir,
+						AgentName:     agent.Name(),
+						Timeout:       120 * time.Second,
+					})
+
+					updateResult = adapter.UpdateResult{
+						Attempted:     true,
+						Success:       initResult.Success,
+						CachedVersion: initResult.CachedVersion,
+						BakedVersion:  initResult.BakedVersion,
+						ElapsedMs:     initResult.ElapsedMs,
+						Error:         initResult.Error,
+						CacheHostPath: cacheDir,
+					}
+
+					if initResult.Success {
+						fmt.Fprintf(cmd.ErrOrStderr(), " done (%s -> %s, %.1fs)\n",
+							initResult.BakedVersion, initResult.CachedVersion,
+							float64(initResult.ElapsedMs)/1000)
+					} else {
+						fmt.Fprintf(cmd.ErrOrStderr(), " failed (using baked version %s)\n", initResult.BakedVersion)
+						fmt.Fprintf(cmd.ErrOrStderr(), "warning: agent update failed: %s\n", initResult.Error)
+					}
+				}
+			}
+
+			agentProc, err := adapter.NewProcess(cfg, string(content), runID, wsPath, evidenceDir,
+				allAuthMounts, configMounts, agentConfigMount, agentConfigMountStatus, containerEnvVars, proxyEnv, resolvedEgress, updateResult)
+			if err != nil {
+				return fmt.Errorf("create agent process: %w", err)
 			}
 
 			if err := adapter.WriteAgentInfo(evidenceDir, agentProc.AgentInfo); err != nil {
@@ -305,6 +353,7 @@ func newRunCmd() *cobra.Command {
 	cmd.Flags().StringArrayVar(&cfg.Verify, "verify", cfg.Verify, "verify command to run after the agent (repeatable)")
 	cmd.Flags().BoolVar(&cfg.Attach, "attach", cfg.Attach, "attach to the run session immediately")
 	cmd.Flags().BoolVar(&cfg.MountAgentConfig, "mount-agent-config", cfg.MountAgentConfig, "mount the agent's default config directory read-only")
+	cmd.Flags().BoolVar(&cfg.NoUpdateAgent, "no-update-agent", cfg.NoUpdateAgent, "skip agent auto-update")
 
 	return cmd
 }
