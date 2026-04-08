@@ -28,6 +28,7 @@ type Config struct {
 	Verify           []string
 	Attach           bool
 	MountAgentConfig bool
+	NoUpdateAgent    bool
 }
 
 func DefaultConfig() Config {

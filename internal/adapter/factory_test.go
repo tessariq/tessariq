@@ -68,7 +68,7 @@ func TestNewProcess_ClaudeCode(t *testing.T) {
 	cfg := run.DefaultConfig()
 	cfg.TaskPath = "specs/task.md"
 	ap, err := NewProcess(cfg, "implement feature", "run-1", "/wt", "/ev",
-		nil, nil, "disabled", "disabled", nil, nil, "open")
+		nil, nil, "disabled", "disabled", nil, nil, "open", UpdateResult{})
 
 	require.NoError(t, err)
 	require.NotNil(t, ap)
@@ -87,7 +87,7 @@ func TestNewProcess_OpenCode(t *testing.T) {
 	cfg.Agent = "opencode"
 	cfg.TaskPath = "specs/task.md"
 	ap, err := NewProcess(cfg, "implement feature", "run-1", "/wt", "/ev",
-		nil, nil, "disabled", "disabled", nil, nil, "open")
+		nil, nil, "disabled", "disabled", nil, nil, "open", UpdateResult{})
 
 	require.NoError(t, err)
 	require.NotNil(t, ap)
@@ -108,7 +108,7 @@ func TestNewProcess_OpenCodeWithModel(t *testing.T) {
 	cfg.TaskPath = "specs/task.md"
 	cfg.Model = "sonnet"
 	ap, err := NewProcess(cfg, "task", "run-1", "/wt", "/ev",
-		nil, nil, "disabled", "disabled", nil, nil, "open")
+		nil, nil, "disabled", "disabled", nil, nil, "open", UpdateResult{})
 
 	require.NoError(t, err)
 	require.Equal(t, "sonnet", ap.AgentInfo.Requested["model"])
@@ -124,7 +124,7 @@ func TestNewProcess_OpenCodeInteractive(t *testing.T) {
 	cfg.TaskPath = "specs/task.md"
 	cfg.Interactive = true
 	ap, err := NewProcess(cfg, "task", "run-1", "/wt", "/ev",
-		nil, nil, "disabled", "disabled", nil, nil, "open")
+		nil, nil, "disabled", "disabled", nil, nil, "open", UpdateResult{})
 
 	require.NoError(t, err)
 	require.Equal(t, true, ap.AgentInfo.Requested["interactive"],
@@ -140,7 +140,7 @@ func TestNewProcess_CustomImageSource(t *testing.T) {
 	cfg.TaskPath = "specs/task.md"
 	cfg.Image = "my-registry/custom:v1"
 	ap, err := NewProcess(cfg, "task", "run-1", "/wt", "/ev",
-		nil, nil, "disabled", "disabled", nil, nil, "open")
+		nil, nil, "disabled", "disabled", nil, nil, "open", UpdateResult{})
 
 	require.NoError(t, err)
 	require.Equal(t, "custom", ap.RuntimeInfo.ImageSource)
@@ -153,7 +153,7 @@ func TestNewProcess_ReturnsContainerProcess(t *testing.T) {
 	cfg := run.DefaultConfig()
 	cfg.TaskPath = "specs/task.md"
 	ap, err := NewProcess(cfg, "task", "run-42", "/wt", "/ev",
-		nil, nil, "disabled", "disabled", nil, nil, "open")
+		nil, nil, "disabled", "disabled", nil, nil, "open", UpdateResult{})
 
 	require.NoError(t, err)
 	_, ok := ap.Process.(*container.Process)
@@ -167,7 +167,7 @@ func TestNewProcess_UnknownAgent(t *testing.T) {
 	cfg.Agent = "unknown-agent"
 	cfg.TaskPath = "specs/task.md"
 	_, err := NewProcess(cfg, "task", "run-1", "/wt", "/ev",
-		nil, nil, "disabled", "disabled", nil, nil, "open")
+		nil, nil, "disabled", "disabled", nil, nil, "open", UpdateResult{})
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unknown-agent")
@@ -180,7 +180,7 @@ func TestNewProcess_ClaudeCode_WithEnvVars(t *testing.T) {
 	cfg.TaskPath = "specs/task.md"
 	envVars := map[string]string{"CLAUDE_CONFIG_DIR": "/home/tessariq/.claude"}
 	ap, err := NewProcess(cfg, "implement feature", "run-1", "/wt", "/ev",
-		nil, nil, "enabled", "mounted", envVars, nil, "open")
+		nil, nil, "enabled", "mounted", envVars, nil, "open", UpdateResult{})
 
 	require.NoError(t, err)
 	require.NotNil(t, ap)
@@ -199,7 +199,7 @@ func TestNewProcess_AuthMountCount(t *testing.T) {
 		{HostPath: "/h/cfg", ContainerPath: "/c/cfg", ReadOnly: true},
 	}
 	ap, err := NewProcess(cfg, "task", "run-1", "/wt", "/ev",
-		authMounts, nil, "disabled", "disabled", nil, nil, "open")
+		authMounts, nil, "disabled", "disabled", nil, nil, "open", UpdateResult{})
 
 	require.NoError(t, err)
 	require.Equal(t, 2, ap.RuntimeInfo.AuthMountCount)
@@ -215,7 +215,7 @@ func TestNewProcess_WithProxyEnv(t *testing.T) {
 		NetworkName: "tessariq-net-run1",
 	}
 	ap, err := NewProcess(cfg, "task", "run-1", "/wt", "/ev",
-		nil, nil, "disabled", "disabled", nil, pEnv, "proxy")
+		nil, nil, "disabled", "disabled", nil, pEnv, "proxy", UpdateResult{})
 
 	require.NoError(t, err)
 	require.NotNil(t, ap)
@@ -230,7 +230,7 @@ func TestNewProcess_NilProxyEnv(t *testing.T) {
 	cfg := run.DefaultConfig()
 	cfg.TaskPath = "specs/task.md"
 	ap, err := NewProcess(cfg, "task", "run-1", "/wt", "/ev",
-		nil, nil, "disabled", "disabled", nil, nil, "open")
+		nil, nil, "disabled", "disabled", nil, nil, "open", UpdateResult{})
 
 	require.NoError(t, err)
 	require.NotNil(t, ap)
@@ -245,7 +245,7 @@ func TestNewProcess_EgressNone_SetsNetworkNone(t *testing.T) {
 	cfg := run.DefaultConfig()
 	cfg.TaskPath = "specs/task.md"
 	ap, err := NewProcess(cfg, "task", "run-1", "/wt", "/ev",
-		nil, nil, "disabled", "disabled", nil, nil, "none")
+		nil, nil, "disabled", "disabled", nil, nil, "none", UpdateResult{})
 
 	require.NoError(t, err)
 
@@ -260,7 +260,7 @@ func TestNewProcess_EgressOpen_NoNetworkOverride(t *testing.T) {
 	cfg := run.DefaultConfig()
 	cfg.TaskPath = "specs/task.md"
 	ap, err := NewProcess(cfg, "task", "run-1", "/wt", "/ev",
-		nil, nil, "disabled", "disabled", nil, nil, "open")
+		nil, nil, "disabled", "disabled", nil, nil, "open", UpdateResult{})
 
 	require.NoError(t, err)
 
@@ -279,7 +279,7 @@ func TestNewProcess_EgressProxy_UsesProxyNetwork(t *testing.T) {
 		NetworkName: "tessariq-net-run1",
 	}
 	ap, err := NewProcess(cfg, "task", "run-1", "/wt", "/ev",
-		nil, nil, "disabled", "disabled", nil, pEnv, "proxy")
+		nil, nil, "disabled", "disabled", nil, pEnv, "proxy", UpdateResult{})
 
 	require.NoError(t, err)
 
@@ -382,4 +382,84 @@ func TestMergeEnvVars_BOverrides(t *testing.T) {
 	require.Equal(t, "1", m["A"])
 	require.Equal(t, "3", m["B"])
 	require.Equal(t, "4", m["C"])
+}
+
+func TestNewProcess_WithSuccessfulUpdate_RuntimeInfo(t *testing.T) {
+	t.Parallel()
+
+	cfg := run.DefaultConfig()
+	cfg.TaskPath = "specs/task.md"
+	update := UpdateResult{
+		Attempted:     true,
+		Success:       true,
+		CachedVersion: "2.3.0",
+		BakedVersion:  "2.1.92",
+		ElapsedMs:     4200,
+		CacheHostPath: "/home/user/.tessariq/agent-cache/claude-code",
+	}
+	ap, err := NewProcess(cfg, "task", "run-1", "/wt", "/ev",
+		nil, nil, "disabled", "disabled", nil, nil, "open", update)
+
+	require.NoError(t, err)
+	require.NotNil(t, ap.RuntimeInfo.AgentUpdate)
+	require.True(t, ap.RuntimeInfo.AgentUpdate.Success)
+	require.Equal(t, "2.3.0", ap.RuntimeInfo.AgentUpdate.CachedVersion)
+}
+
+func TestNewProcess_WithFailedUpdate_RuntimeInfo(t *testing.T) {
+	t.Parallel()
+
+	cfg := run.DefaultConfig()
+	cfg.TaskPath = "specs/task.md"
+	update := UpdateResult{
+		Attempted:    true,
+		Success:      false,
+		BakedVersion: "2.1.92",
+		ElapsedMs:    1500,
+		Error:        "npm install failed",
+	}
+	ap, err := NewProcess(cfg, "task", "run-1", "/wt", "/ev",
+		nil, nil, "disabled", "disabled", nil, nil, "open", update)
+
+	require.NoError(t, err)
+	require.NotNil(t, ap.RuntimeInfo.AgentUpdate)
+	require.False(t, ap.RuntimeInfo.AgentUpdate.Success)
+	require.Equal(t, "npm install failed", ap.RuntimeInfo.AgentUpdate.Error)
+}
+
+func TestNewProcess_RuntimeInfo_IncludesAgentUpdate(t *testing.T) {
+	t.Parallel()
+
+	cfg := run.DefaultConfig()
+	cfg.TaskPath = "specs/task.md"
+	update := UpdateResult{
+		Attempted:     true,
+		Success:       true,
+		CachedVersion: "2.3.0",
+		BakedVersion:  "2.1.92",
+		ElapsedMs:     4200,
+		CacheHostPath: "/cache/path",
+	}
+	ap, err := NewProcess(cfg, "task", "run-1", "/wt", "/ev",
+		nil, nil, "disabled", "disabled", nil, nil, "open", update)
+
+	require.NoError(t, err)
+	require.NotNil(t, ap.RuntimeInfo.AgentUpdate)
+	require.True(t, ap.RuntimeInfo.AgentUpdate.Attempted)
+	require.True(t, ap.RuntimeInfo.AgentUpdate.Success)
+	require.Equal(t, "2.3.0", ap.RuntimeInfo.AgentUpdate.CachedVersion)
+	require.Equal(t, "2.1.92", ap.RuntimeInfo.AgentUpdate.BakedVersion)
+	require.Equal(t, int64(4200), ap.RuntimeInfo.AgentUpdate.ElapsedMs)
+}
+
+func TestNewProcess_RuntimeInfo_NilAgentUpdateWhenNotAttempted(t *testing.T) {
+	t.Parallel()
+
+	cfg := run.DefaultConfig()
+	cfg.TaskPath = "specs/task.md"
+	ap, err := NewProcess(cfg, "task", "run-1", "/wt", "/ev",
+		nil, nil, "disabled", "disabled", nil, nil, "open", UpdateResult{})
+
+	require.NoError(t, err)
+	require.Nil(t, ap.RuntimeInfo.AgentUpdate)
 }

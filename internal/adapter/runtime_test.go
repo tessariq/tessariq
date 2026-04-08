@@ -151,6 +151,146 @@ func TestWriteRuntimeInfo_WritesValidJSON(t *testing.T) {
 	require.Equal(t, info, parsed)
 }
 
+func TestAgentUpdate_SuccessJSON(t *testing.T) {
+	t.Parallel()
+
+	update := AgentUpdate{
+		Attempted:     true,
+		Success:       true,
+		CachedVersion: "2.3.0",
+		BakedVersion:  "2.1.92",
+		ElapsedMs:     4200,
+		Error:         "",
+	}
+
+	data, err := json.Marshal(update)
+	require.NoError(t, err)
+
+	var raw map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(data, &raw))
+
+	var attempted bool
+	require.NoError(t, json.Unmarshal(raw["attempted"], &attempted))
+	require.True(t, attempted)
+
+	var success bool
+	require.NoError(t, json.Unmarshal(raw["success"], &success))
+	require.True(t, success)
+
+	var cachedVersion string
+	require.NoError(t, json.Unmarshal(raw["cached_version"], &cachedVersion))
+	require.Equal(t, "2.3.0", cachedVersion)
+
+	var bakedVersion string
+	require.NoError(t, json.Unmarshal(raw["baked_version"], &bakedVersion))
+	require.Equal(t, "2.1.92", bakedVersion)
+
+	var elapsedMs int64
+	require.NoError(t, json.Unmarshal(raw["elapsed_ms"], &elapsedMs))
+	require.Equal(t, int64(4200), elapsedMs)
+}
+
+func TestAgentUpdate_FailureJSON(t *testing.T) {
+	t.Parallel()
+
+	update := AgentUpdate{
+		Attempted:    true,
+		Success:      false,
+		BakedVersion: "2.1.92",
+		ElapsedMs:    1500,
+		Error:        "npm ERR! network timeout",
+	}
+
+	data, err := json.Marshal(update)
+	require.NoError(t, err)
+
+	var parsed AgentUpdate
+	require.NoError(t, json.Unmarshal(data, &parsed))
+	require.False(t, parsed.Success)
+	require.Equal(t, "npm ERR! network timeout", parsed.Error)
+	require.Empty(t, parsed.CachedVersion)
+}
+
+func TestAgentUpdate_SkippedJSON(t *testing.T) {
+	t.Parallel()
+
+	update := AgentUpdate{
+		Attempted: false,
+	}
+
+	data, err := json.Marshal(update)
+	require.NoError(t, err)
+
+	var parsed AgentUpdate
+	require.NoError(t, json.Unmarshal(data, &parsed))
+	require.False(t, parsed.Attempted)
+	require.False(t, parsed.Success)
+}
+
+func TestRuntimeInfo_OmitsAgentUpdateWhenNil(t *testing.T) {
+	t.Parallel()
+
+	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", 0, "disabled", "disabled")
+
+	data, err := json.Marshal(info)
+	require.NoError(t, err)
+
+	var raw map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(data, &raw))
+	_, hasUpdate := raw["agent_update"]
+	require.False(t, hasUpdate, "agent_update must be omitted when nil")
+}
+
+func TestRuntimeInfo_IncludesAgentUpdateWhenSet(t *testing.T) {
+	t.Parallel()
+
+	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", 0, "disabled", "disabled")
+	info.AgentUpdate = &AgentUpdate{
+		Attempted:     true,
+		Success:       true,
+		CachedVersion: "2.3.0",
+		BakedVersion:  "2.1.92",
+		ElapsedMs:     4200,
+	}
+
+	data, err := json.Marshal(info)
+	require.NoError(t, err)
+
+	var raw map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(data, &raw))
+	require.Len(t, raw, 8, "runtime.json must have 8 top-level keys when agent_update is set")
+	_, hasUpdate := raw["agent_update"]
+	require.True(t, hasUpdate, "agent_update must be present")
+}
+
+func TestWriteRuntimeInfo_WithAgentUpdate(t *testing.T) {
+	t.Parallel()
+
+	dir := filepath.Join(t.TempDir(), "evidence")
+	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", 0, "disabled", "disabled")
+	info.AgentUpdate = &AgentUpdate{
+		Attempted:     true,
+		Success:       true,
+		CachedVersion: "2.3.0",
+		BakedVersion:  "2.1.92",
+		ElapsedMs:     4200,
+	}
+
+	require.NoError(t, WriteRuntimeInfo(dir, info))
+
+	data, err := os.ReadFile(filepath.Join(dir, "runtime.json"))
+	require.NoError(t, err)
+
+	var parsed RuntimeInfo
+	require.NoError(t, json.Unmarshal(data, &parsed))
+	require.NotNil(t, parsed.AgentUpdate)
+	require.True(t, parsed.AgentUpdate.Attempted)
+	require.True(t, parsed.AgentUpdate.Success)
+	require.Equal(t, "2.3.0", parsed.AgentUpdate.CachedVersion)
+	require.Equal(t, "2.1.92", parsed.AgentUpdate.BakedVersion)
+	require.Equal(t, int64(4200), parsed.AgentUpdate.ElapsedMs)
+}
+
 func TestWriteRuntimeInfo_JSONMatchesSpecShape(t *testing.T) {
 	t.Parallel()
 

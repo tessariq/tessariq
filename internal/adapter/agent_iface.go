@@ -25,4 +25,12 @@ type Agent interface {
 
 	// EnvVars returns environment variables to inject into the container.
 	EnvVars() map[string]string
+
+	// UpdateCommand returns the command to install/update the agent into
+	// the given prefix directory, or nil if the agent does not support
+	// auto-update. Binaries are installed into prefix/bin/.
+	UpdateCommand(prefix string) []string
+
+	// VersionCommand returns the command to check the installed agent version.
+	VersionCommand() []string
 }
