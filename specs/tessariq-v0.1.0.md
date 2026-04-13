@@ -309,6 +309,7 @@ Common runtime rules:
 - direct reuse of the macOS Keychain for Claude Code is out of scope for v0.1.0; Claude Code auth reuse on macOS is supported only when the file-backed credential mirror exists
 - Tessariq MUST NOT support auth flows that require writable credential or config mounts in v0.1.0
 - Tessariq MUST fail cleanly when the selected agent requires writable auth refresh behavior that is incompatible with the read-only mount contract
+- when a supported agent's startup behavior requires writable access to a state file that Tessariq has mounted read-only from the host, Tessariq MUST satisfy those writes through a disposable per-run runtime-state layer rather than by making the host bind writable; the disposable layer is seeded from the host read-only inputs before the agent starts and is discarded after the run completes; host auth, state, and config paths MUST NOT be writable from inside the container for any supported agent
 - the confidentiality of mounted auth credentials depends on egress enforcement restricting which hosts the agent can reach; read-only auth mounts and egress restrictions are complementary controls and neither is sufficient alone
 
 ## Adapter contract
@@ -455,7 +456,7 @@ Minimum `runtime.json` shape:
   "schema_version": 1,
   "image": "ghcr.io/tessariq/reference-runtime:v0.1.0",
   "image_source": "reference",
-  "auth_mount_mode": "read-only",
+  "auth_mount_mode": "read-only",  // host-side policy; always "read-only" — disposable runtime-state copies are an implementation detail, not a mount-mode change
   "agent_config_mount": "disabled",
   "agent_config_mount_status": "disabled",
   "agent_update": {
@@ -668,6 +669,8 @@ Current supported auth and config reuse paths are:
   - optional config via `--mount-agent-config`:
     - `~/.config/opencode/`
 
+Auth and config paths are always mounted read-only from the host. When a supported agent requires writable access to a state file at runtime (for example, Claude Code's `~/.claude.json` startup counter and feature-flag mutations), Tessariq copies the host input into a disposable tmpfs-backed runtime path before the agent starts. The agent writes into the disposable copy; the host file is never modified. This pattern applies uniformly across all supported agents.
+
 ### Future macOS Claude helper sketch
 
 Direct Claude Code Keychain reuse is not part of the v0.1.0 contract. A future host-helper approach on macOS could look like this:
@@ -715,6 +718,30 @@ Bootstrap is expected to:
 - write the final `status.json`
 
 ## Specification changelog
+
+### 2026-04-13: Disposable writable runtime-state layer for agent auth and config
+
+**Changed:**
+
+1. **The agent and runtime contract now explicitly requires a disposable runtime-state layer when agents need writable state**
+   - Added normative rule: when a supported agent's startup behavior requires writable access to a state file that Tessariq has mounted read-only from the host, Tessariq MUST satisfy those writes through a disposable per-run runtime-state layer rather than by making the host bind writable.
+   - The disposable layer is seeded from host read-only inputs before the agent starts and is discarded after the run completes.
+   - Host auth, state, and config paths MUST NOT be writable from inside the container for any supported agent.
+   - Rationale: BUG-050 found that Claude Code's `~/.claude.json` was mounted writable from the container, violating the read-only mount contract and enabling container-to-host persistence attacks via MCP server injection.
+
+2. **Implementation notes now describe the seed-then-copy pattern**
+   - Auth and config paths are always mounted read-only from the host.
+   - When a supported agent requires writable access to a state file at runtime, Tessariq copies the host input into a disposable tmpfs-backed runtime path before the agent starts.
+   - The agent writes into the disposable copy; the host file is never modified.
+   - This pattern applies uniformly across all supported agents.
+
+3. **`runtime.json.auth_mount_mode` semantics clarified**
+   - The field records the host-side mount policy, which remains `"read-only"`.
+   - Disposable runtime-state copies are an implementation detail, not a mount-mode change.
+
+**Tasks affected:**
+
+- New task TASK-087 for implementing the disposable runtime-state layer and restoring the read-only host auth mount contract across all supported agents.
 
 ### 2026-04-07: Agent auto-update via cache-aware init container
 
