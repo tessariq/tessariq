@@ -961,28 +961,23 @@ func TestRunner_DetachedDirectOutputCapsLogBeforeProcessExit(t *testing.T) {
 
 	<-proc.startedWrite
 
-	deadline := time.Now().Add(2 * time.Second)
-	for {
-		data, err := os.ReadFile(filepath.Join(dir, "run.log"))
-		if err == nil && strings.HasSuffix(string(data), TruncationMarker) {
-			select {
-			case err := <-runDone:
-				t.Fatalf("runner exited before timeout after early cap: %v", err)
-			default:
-			}
-
-			require.LessOrEqual(t, len(data), int(r.LogCapBytes)+len(TruncationMarker))
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("run.log was not capped before process exit")
-		}
-		time.Sleep(10 * time.Millisecond)
+	select {
+	case <-proc.stopLogsCh:
+		// The detached cap monitor requests the active stream to stop before timeout.
+	case err := <-runDone:
+		t.Fatalf("runner exited before detached log stream was capped: %v", err)
+	case <-time.After(2 * time.Second):
+		t.Fatal("detached log stream was not capped before timeout")
 	}
 
 	var termErr *TerminalStateError
 	require.ErrorAs(t, <-runDone, &termErr)
 	require.Equal(t, StateTimeout, termErr.State)
+
+	data, err := os.ReadFile(filepath.Join(dir, "run.log"))
+	require.NoError(t, err)
+	require.True(t, strings.HasSuffix(string(data), TruncationMarker))
+	require.LessOrEqual(t, len(data), int(r.LogCapBytes)+len(TruncationMarker))
 }
 
 func TestRunner_NonInteractiveSessionStillCreatedEarly(t *testing.T) {
