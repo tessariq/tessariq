@@ -1,7 +1,7 @@
 ---
 id: TASK-085-harden-run-finalization-and-orphaned-run-recovery
 title: Harden run finalization and orphaned run recovery across all supported agents
-status: todo
+status: done
 priority: p0
 depends_on:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
@@ -24,7 +24,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#required-artifacts
     - specs/tessariq-v0.1.0.md#failure-ux
     - specs/tessariq-v0.1.0.md#success-metrics
-updated_at: "2026-04-13T20:55:00Z"
+updated_at: "2026-04-13T19:37:30Z"
 areas:
     - runner
     - lifecycle
@@ -104,3 +104,4 @@ The fix must work for every supported agent, not just OpenCode. Detached and int
 - The same fix must apply to all supported agents, because the underlying failure is host-side lifecycle finalization rather than agent-specific task execution.
 - Likely touched areas include `cmd/tessariq/run.go`, `internal/runner/`, `internal/container/`, attach or run-index resolution paths, and the relevant integration and e2e suites.
 - The preferred fix is one that is robust to host-process interruption, not a narrow OpenCode-only patch.
+- 2026-04-13T19:37:30Z: Implemented signal-aware terminal finalization, deferred container cleanup, and stale-run reconciliation for attach/promote. Evidence: planning/artifacts/manual-test/TASK-085-harden-run-finalization-and-orphaned-run-recovery/20260413T193600Z/report.md ; planning/artifacts/verify/task/TASK-085-harden-run-finalization-and-orphaned-run-recovery/20260413T193559Z/report.json ; go test ./... ; go vet ./... ; go test -tags=integration ./... ; go test -tags=e2e ./... ; gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70

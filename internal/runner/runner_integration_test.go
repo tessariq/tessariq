@@ -196,6 +196,35 @@ func TestRunnerIntegration_TimeoutEscalationToSIGKILL(t *testing.T) {
 	require.Contains(t, string(logData), "sending SIGKILL")
 }
 
+func TestRunnerIntegration_ContextCancellationWritesInterruptedStatus(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	r := newIntegrationRunner(dir, newShellProcess("trap 'exit 130' TERM; sleep 60"))
+	r.Config.Timeout = time.Minute
+	r.Config.Grace = 250 * time.Millisecond
+
+	ctx, cancel := context.WithCancelCause(context.Background())
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		cancel(SignalCause(syscall.SIGINT))
+	}()
+
+	var termErr *TerminalStateError
+	require.ErrorAs(t, r.Run(ctx), &termErr)
+	require.Equal(t, StateInterrupted, termErr.State)
+
+	s, err := ReadStatus(dir)
+	require.NoError(t, err)
+	require.Equal(t, StateInterrupted, s.State)
+	require.False(t, s.TimedOut)
+
+	logData, err := os.ReadFile(filepath.Join(dir, "runner.log"))
+	require.NoError(t, err)
+	require.Contains(t, string(logData), "context cancelled")
+	require.NotContains(t, string(logData), "timeout reached")
+}
+
 func TestRunnerIntegration_EvidenceDurability(t *testing.T) {
 	t.Parallel()
 

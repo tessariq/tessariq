@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/tessariq/tessariq/internal/lifecycle"
 	"github.com/tessariq/tessariq/internal/run"
 	"github.com/tessariq/tessariq/internal/runner"
 	"github.com/tessariq/tessariq/internal/tmux"
@@ -21,14 +22,14 @@ type Result struct {
 
 type dependencies struct {
 	resolveRunRef func(runsDir, ref string) (run.IndexEntry, error)
-	readStatus    func(evidenceDir string) (runner.Status, error)
+	reconcileRun  func(ctx context.Context, repoRoot string, entry run.IndexEntry) (lifecycle.Result, error)
 	hasSession    func(ctx context.Context, name string) (bool, error)
 }
 
 func ResolveLiveRun(ctx context.Context, repoRoot, ref string) (Result, error) {
 	return resolveLiveRun(ctx, repoRoot, ref, dependencies{
 		resolveRunRef: run.ResolveRunRef,
-		readStatus:    runner.ReadStatus,
+		reconcileRun:  lifecycle.ReconcileRun,
 		hasSession:    tmux.HasSession,
 	})
 }
@@ -51,10 +52,11 @@ func resolveLiveRun(ctx context.Context, repoRoot, ref string, deps dependencies
 		return Result{}, fmt.Errorf("%w: run %s is not live; evidence path: %s: %v", ErrRunNotLive, entry.RunID, entry.EvidencePath, err)
 	}
 
-	status, err := deps.readStatus(evidenceDir)
+	reconciled, err := deps.reconcileRun(ctx, repoRoot, entry)
 	if err != nil {
 		return Result{}, fmt.Errorf("%w: run %s is not live; evidence path: %s: %v", ErrRunNotLive, entry.RunID, evidenceDir, err)
 	}
+	status := reconciled.Status
 	if status.State != runner.StateRunning {
 		return Result{}, fmt.Errorf("%w: run %s is not live; state %s; evidence path: %s", ErrRunNotLive, entry.RunID, status.State, evidenceDir)
 	}

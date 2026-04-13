@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/tessariq/tessariq/internal/lifecycle"
 	"github.com/tessariq/tessariq/internal/run"
 	"github.com/tessariq/tessariq/internal/runner"
 )
@@ -35,9 +36,10 @@ func TestResolveLiveRun_ReturnsLiveSession(t *testing.T) {
 			require.Equal(t, "last", ref)
 			return run.IndexEntry{RunID: "RUN123", EvidencePath: filepath.Join(".tessariq", "runs", "RUN123")}, nil
 		},
-		readStatus: func(got string) (runner.Status, error) {
-			require.Equal(t, evidenceDir, got)
-			return runner.Status{State: runner.StateRunning}, nil
+		reconcileRun: func(ctx context.Context, repoRoot string, entry run.IndexEntry) (lifecycle.Result, error) {
+			require.Equal(t, root, repoRoot)
+			require.Equal(t, "RUN123", entry.RunID)
+			return lifecycle.Result{Status: runner.Status{State: runner.StateRunning}}, nil
 		},
 		hasSession: func(ctx context.Context, sessionName string) (bool, error) {
 			require.Equal(t, run.SessionName("RUN123"), sessionName)
@@ -60,8 +62,8 @@ func TestResolveLiveRun_FinishedRunReturnsNotLiveError(t *testing.T) {
 		resolveRunRef: func(runsDir, ref string) (run.IndexEntry, error) {
 			return run.IndexEntry{RunID: "RUN123", EvidencePath: filepath.Join(".tessariq", "runs", "RUN123")}, nil
 		},
-		readStatus: func(string) (runner.Status, error) {
-			return runner.Status{State: runner.StateSuccess}, nil
+		reconcileRun: func(ctx context.Context, repoRoot string, entry run.IndexEntry) (lifecycle.Result, error) {
+			return lifecycle.Result{Status: runner.Status{State: runner.StateSuccess}}, nil
 		},
 		hasSession: func(ctx context.Context, sessionName string) (bool, error) {
 			return true, nil
@@ -94,8 +96,8 @@ func TestResolveLiveRun_MissingSessionReturnsNotLiveError(t *testing.T) {
 		resolveRunRef: func(runsDir, ref string) (run.IndexEntry, error) {
 			return run.IndexEntry{RunID: "RUN123", EvidencePath: filepath.Join(".tessariq", "runs", "RUN123")}, nil
 		},
-		readStatus: func(string) (runner.Status, error) {
-			return runner.Status{State: runner.StateRunning}, nil
+		reconcileRun: func(ctx context.Context, repoRoot string, entry run.IndexEntry) (lifecycle.Result, error) {
+			return lifecycle.Result{Status: runner.Status{State: runner.StateRunning}}, nil
 		},
 		hasSession: func(ctx context.Context, sessionName string) (bool, error) {
 			return false, nil
@@ -115,9 +117,9 @@ func TestResolveLiveRun_RejectsAbsoluteEvidencePathBeforeStatusRead(t *testing.T
 		resolveRunRef: func(runsDir, ref string) (run.IndexEntry, error) {
 			return run.IndexEntry{RunID: "RUN123", EvidencePath: "/tmp/evil-evidence"}, nil
 		},
-		readStatus: func(evidenceDir string) (runner.Status, error) {
-			t.Fatalf("readStatus should not be called for invalid evidence path %q", evidenceDir)
-			return runner.Status{}, nil
+		reconcileRun: func(ctx context.Context, repoRoot string, entry run.IndexEntry) (lifecycle.Result, error) {
+			t.Fatal("reconcileRun should not be called for invalid evidence path")
+			return lifecycle.Result{}, nil
 		},
 		hasSession: func(ctx context.Context, sessionName string) (bool, error) {
 			t.Fatalf("hasSession should not be called for invalid evidence path %q", sessionName)
@@ -138,9 +140,9 @@ func TestResolveLiveRun_RejectsTraversalEvidencePathBeforeStatusRead(t *testing.
 		resolveRunRef: func(runsDir, ref string) (run.IndexEntry, error) {
 			return run.IndexEntry{RunID: "RUN123", EvidencePath: filepath.Join(".tessariq", "runs", "..", "..", "outside")}, nil
 		},
-		readStatus: func(evidenceDir string) (runner.Status, error) {
-			t.Fatalf("readStatus should not be called for invalid evidence path %q", evidenceDir)
-			return runner.Status{}, nil
+		reconcileRun: func(ctx context.Context, repoRoot string, entry run.IndexEntry) (lifecycle.Result, error) {
+			t.Fatal("reconcileRun should not be called for invalid evidence path")
+			return lifecycle.Result{}, nil
 		},
 		hasSession: func(ctx context.Context, sessionName string) (bool, error) {
 			t.Fatalf("hasSession should not be called for invalid evidence path %q", sessionName)
@@ -180,9 +182,9 @@ func TestResolveLiveRun_RejectsSymlinkedEvidenceOutsideRepo(t *testing.T) {
 		resolveRunRef: func(_, _ string) (run.IndexEntry, error) {
 			return run.IndexEntry{RunID: runID, EvidencePath: filepath.Join(".tessariq", "runs", runID)}, nil
 		},
-		readStatus: func(string) (runner.Status, error) {
-			t.Fatalf("readStatus must not be called for forged symlink evidence")
-			return runner.Status{}, nil
+		reconcileRun: func(context.Context, string, run.IndexEntry) (lifecycle.Result, error) {
+			t.Fatal("reconcileRun must not be called for forged symlink evidence")
+			return lifecycle.Result{}, nil
 		},
 		hasSession: func(context.Context, string) (bool, error) {
 			t.Fatalf("hasSession must not be called for forged symlink evidence")
@@ -201,9 +203,9 @@ func TestResolveLiveRun_RejectsMismatchedEvidenceRunIDBeforeStatusRead(t *testin
 		resolveRunRef: func(runsDir, ref string) (run.IndexEntry, error) {
 			return run.IndexEntry{RunID: "RUN_A", EvidencePath: filepath.Join(".tessariq", "runs", "RUN_B")}, nil
 		},
-		readStatus: func(evidenceDir string) (runner.Status, error) {
-			t.Fatalf("readStatus should not be called for mismatched evidence run ID %q", evidenceDir)
-			return runner.Status{}, nil
+		reconcileRun: func(context.Context, string, run.IndexEntry) (lifecycle.Result, error) {
+			t.Fatal("reconcileRun should not be called for mismatched evidence run ID")
+			return lifecycle.Result{}, nil
 		},
 		hasSession: func(ctx context.Context, sessionName string) (bool, error) {
 			t.Fatalf("hasSession should not be called for mismatched evidence run ID %q", sessionName)
@@ -223,8 +225,8 @@ func TestResolveLiveRun_SessionCheckErrorReturned(t *testing.T) {
 		resolveRunRef: func(runsDir, ref string) (run.IndexEntry, error) {
 			return run.IndexEntry{RunID: "RUN123", EvidencePath: filepath.Join(".tessariq", "runs", "RUN123")}, nil
 		},
-		readStatus: func(evidenceDir string) (runner.Status, error) {
-			return runner.Status{State: runner.StateRunning}, nil
+		reconcileRun: func(ctx context.Context, repoRoot string, entry run.IndexEntry) (lifecycle.Result, error) {
+			return lifecycle.Result{Status: runner.Status{State: runner.StateRunning}}, nil
 		},
 		hasSession: func(ctx context.Context, sessionName string) (bool, error) {
 			return false, errors.New("tmux exploded")

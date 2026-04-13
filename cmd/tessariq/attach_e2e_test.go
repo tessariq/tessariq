@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -132,6 +133,53 @@ func TestE2E_AttachForgedCrossRunEvidenceRejectsBeforeAttaching(t *testing.T) {
 	require.NotEqual(t, 0, code, "attach should fail for cross-run evidence forgery")
 	require.Contains(t, output, "run "+runA+" is not live")
 	require.Contains(t, output, "run_id mismatch")
+}
+
+func TestE2E_AttachReconcilesExitedOrphanedRun(t *testing.T) {
+	t.Parallel()
+
+	bin := buildBinary(t)
+	env := setupRunEnvWithScript(t, bin, "claude", "sleep 2; echo orphan-recovered; exit 0")
+	hostDir := env.Dir()
+	repoPath := filepath.Join(hostDir, "repo")
+	homeDir := filepath.Join(hostDir, "home")
+	binPath := filepath.Join(hostDir, "tessariq")
+	ctx := context.Background()
+
+	imgFlag := fmt.Sprintf("--image tessariq-test-agent-%s-%s", "claude", testImageTag(t))
+	launchCmd := fmt.Sprintf("cd %s && HOME=%s %s run %s tasks/sample.md >/work/orphan-run.log 2>&1 & echo $! >/work/orphan-run.pid", repoPath, homeDir, binPath, imgFlag)
+	execCmd(t, env, ctx, launchCmd, "launch orphanable run")
+
+	runID := waitForRunningEvidence(t, env, repoPath)
+	containerName := "tessariq-" + runID
+	execCmd(t, env, ctx, "kill -9 $(cat /work/orphan-run.pid)", "kill host tessariq process")
+
+	require.Eventually(t, func() bool {
+		code, output, err := env.Exec(context.Background(), []string{"sh", "-c", fmt.Sprintf("docker inspect -f '{{.State.Running}} {{.State.ExitCode}}' %s 2>/dev/null || true", containerName)})
+		return err == nil && code == 0 && strings.Contains(output, "false 0")
+	}, 10*time.Second, 250*time.Millisecond, "orphaned agent container must exit successfully")
+
+	code, output := runAttachInEnv(t, env, repoPath, homeDir, binPath, "last", "")
+	require.NotEqual(t, 0, code, "attach should refuse a reconciled terminal run")
+	require.Contains(t, output, "run "+runID+" is not live")
+	require.Contains(t, output, "state success")
+
+	evidencePath := filepath.Join(repoPath, ".tessariq", "runs", runID)
+	statusCode, statusData, err := env.Exec(ctx, []string{"cat", filepath.Join(evidencePath, "status.json")})
+	require.NoError(t, err)
+	require.Equal(t, 0, statusCode, "status.json must exist")
+
+	var status map[string]any
+	require.NoError(t, json.Unmarshal([]byte(statusData), &status))
+	require.Equal(t, "success", status["state"])
+
+	indexEntry := readLastIndexEntry(t, env, repoPath)
+	require.Equal(t, runID, indexEntry["run_id"])
+	require.Equal(t, "success", indexEntry["state"])
+
+	inspectCode, _, err := env.Exec(ctx, []string{"sh", "-c", fmt.Sprintf("docker inspect %s >/dev/null 2>&1", containerName)})
+	require.NoError(t, err)
+	require.NotEqual(t, 0, inspectCode, "reconciliation must remove the stale exited container")
 }
 
 func startBackgroundRun(t *testing.T, env *containers.RunEnv, repoPath, homeDir, binPath, binaryName string) {

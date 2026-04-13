@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/tessariq/tessariq/internal/lifecycle"
 	"github.com/tessariq/tessariq/internal/run"
 	"github.com/tessariq/tessariq/internal/runner"
 )
@@ -63,7 +64,15 @@ func Run(ctx context.Context, repoRoot string, opts Options) (Result, error) {
 		return Result{}, err
 	}
 	if !status.State.IsTerminal() {
-		return Result{}, fmt.Errorf("%w: run %s is in state %s", ErrRunNotFinished, manifest.RunID, status.State)
+		reconciled, err := lifecycle.ReconcileRun(ctx, repoRoot, entry)
+		if err != nil {
+			return Result{}, err
+		}
+		entry = reconciled.Entry
+		status = reconciled.Status
+		if !status.State.IsTerminal() {
+			return Result{}, fmt.Errorf("%w: run %s is in state %s", ErrRunNotFinished, manifest.RunID, status.State)
+		}
 	}
 
 	patchPath := filepath.Join(evidenceDir, "diff.patch")

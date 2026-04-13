@@ -654,6 +654,44 @@ func TestRunner_TimeoutNoSIGKILLWhenProcessExitsAfterSIGTERM(t *testing.T) {
 	require.Equal(t, syscall.SIGTERM, signals[0], "only signal must be SIGTERM")
 }
 
+func TestRunner_DetachedContextCancellationMarksInterrupted(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	proc := newSignalRecordingProcess(130, true)
+	r := newTestRunner(dir, proc)
+	r.Config.Timeout = time.Minute
+	r.Config.Grace = 100 * time.Millisecond
+
+	ctx, cancel := context.WithCancelCause(context.Background())
+	go func() {
+		time.Sleep(20 * time.Millisecond)
+		cancel(SignalCause(syscall.SIGINT))
+	}()
+
+	var termErr *TerminalStateError
+	require.ErrorAs(t, r.Run(ctx), &termErr)
+	require.Equal(t, StateInterrupted, termErr.State)
+	require.Equal(t, 130, termErr.ExitCode)
+
+	s, err := ReadStatus(dir)
+	require.NoError(t, err)
+	require.Equal(t, StateInterrupted, s.State)
+	require.Equal(t, 130, s.ExitCode)
+	require.False(t, s.TimedOut)
+
+	signals := proc.Signals()
+	require.Len(t, signals, 1)
+	require.Equal(t, syscall.SIGTERM, signals[0], "runner must gracefully terminate the process before finalizing")
+
+	logData, err := os.ReadFile(filepath.Join(dir, "runner.log"))
+	require.NoError(t, err)
+	require.Contains(t, string(logData), "context cancelled")
+	if strings.Contains(string(logData), "timeout reached") {
+		t.Fatal("context cancellation must not be treated as a timeout")
+	}
+}
+
 func TestRunner_TimeoutFlagWrittenBeforeFirstSignal(t *testing.T) {
 	t.Parallel()
 
