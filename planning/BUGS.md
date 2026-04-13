@@ -5,9 +5,9 @@ Automated adversarial testing against done tasks.
 | Key | Value |
 |-----|-------|
 | Started | 2026-03-31 |
-| Iteration | 27 |
-| Last bug found | iteration 27 |
-| Clean iterations | 5 / 26 |
+| Iteration | 30 |
+| Last bug found | iteration 29 |
+| Clean iterations | 6 / 29 |
 | Status | In progress |
 
 ---
@@ -73,6 +73,8 @@ BUG-043 through BUG-046 were reviewed against the current code and marked not re
 | BUG-045 | LOW | `internal/container/probe.go:30` | `ProbeImageBinary` uses `fmt.Sprintf` inside `sh -c` for binary name; latent shell injection risk | **Not reproducible** |
 | BUG-046 | HIGH | `internal/runner/runner.go:169`, `cmd/tessariq/run.go:226-230` | `runDetachedProcess` misclassifies Ctrl+C as timeout; success output printed for cancelled runs | **Not reproducible** |
 | BUG-047 | HIGH | `cmd/tessariq/run.go:226-237`, `internal/runner/runner.go:81-118` | `tessariq run` treats terminal non-success outcomes as successful command completion | **Fixed** (TASK-077) |
+| BUG-048 | HIGH | `cmd/tessariq/main.go:11-17` | No SIGINT/SIGTERM handler; Ctrl+C during run leaks worktree, agent container, squid container, and Docker network | **Open** |
+| BUG-049 | MEDIUM | `internal/runner/diff.go:30-36`, `cmd/tessariq/run.go:306,468-472` | `WriteDiffArtifacts` partial-write can leave orphan `diff.patch` without `diffstat.txt`; successful run produces evidence that `promote` later rejects | **Open** |
 
 ---
 
@@ -1651,3 +1653,151 @@ Scope: review of terminal non-success CLI behavior for `tessariq run` after vali
 | Runner terminal status writes | `failed` and `timeout` paths return nil after writing status | CLEAN |
 | Run command success gate | Only `runErr != nil` prevents success-style output | CLEAN |
 | Existing failure-output follow-up | BUG-039 / TASK-073 still covers evidence-path output on actual error returns | CLEAN |
+
+---
+
+## Iteration 28
+
+Scope: runner/runtime/hooks + CLI signal handling. Probed how `tessariq run` behaves on user interrupt and whether in-flight resources are reclaimed.
+
+### BUG-048: No SIGINT/SIGTERM handler; Ctrl+C during a run leaks worktree, agent container, squid container, and Docker network
+
+**Severity:** HIGH
+**Files:** `cmd/tessariq/main.go:11-17`, `cmd/tessariq/run.go:140-306`, `internal/proxy/topology.go:97-123`
+
+**What was verified:**
+
+`main.go` builds the root command and calls `cmd.Execute()` with no signal wiring:
+
+```go
+func main() {
+    cmd := newRootCmd()
+    if err := cmd.Execute(); err != nil { ... }
+}
+```
+
+Cobra does **not** install a `signal.NotifyContext` by default, so `cmd.Context()` is a plain `context.Background()` that is never cancelled. `grep -rn "signal\." cmd/ internal/cli/` returns zero hits anywhere in the binary entrypoint.
+
+The run flow relies entirely on `defer`-based cleanup:
+
+- `cmd/tessariq/run.go:140` provisions the worktree; cleanup is registered as `defer func() { if cleanupWorktree { workspace.Cleanup(...) } }()`.
+- `cmd/tessariq/run.go:167` registers `defer topo.Teardown(context.Background())` for squid and the internal Docker network.
+- Runner process management relies on `defer cancel()` / `defer stopLogCapMonitor()` inside `runDetachedProcess`.
+
+When the user presses Ctrl+C, the Go runtime's default SIGINT handler terminates the process immediately. `defer`s do **not** run on signal-driven termination, so:
+
+1. The worktree under `~/.tessariq/worktrees/<repo_id>/<run_id>/` stays on disk forever (and the detached git ref created by `git worktree add --detach` is orphaned).
+2. The agent container (`tessariq-<run_id>`) is managed by dockerd; when tessariq dies its foreground `docker start --attach` / `docker logs --follow` child exits but the container itself keeps running on the daemon.
+3. When `--egress proxy` is active, the squid container (`tessariq-squid-<run_id>`) and the internal network (`tessariq-net-<run_id>`) also stay alive on the daemon.
+4. Partially-written evidence artifacts (status.json, manifest.json, run.log) are left in whatever intermediate state they were in.
+
+**Spec alignment:** `specs/tessariq-v0.1.0.md` lists `interrupted` as a terminal run state and requires evidence artifacts to be valid even when a run fails. With no signal handler, a user interrupt produces no terminal state at all and the `interrupted` path is unreachable from the CLI.
+
+**Impact:**
+
+- Accumulating orphan worktrees eventually exhaust disk and leave the repo with detached refs that `git worktree prune` only partially cleans.
+- Orphan `tessariq-<run_id>` and `tessariq-squid-<run_id>` containers prevent later runs with the same `run_id` (deterministic container names collide) and consume memory/CPU indefinitely.
+- Orphan `tessariq-net-<run_id>` networks are never auto-removed; repeated interrupts push against Docker's default 31-network limit on Linux.
+- The `interrupted` terminal state in the spec is effectively unreachable from normal CLI use.
+
+Reproduction: `tessariq run task.md --egress proxy --egress-allow example.com:443`, then Ctrl+C while the agent is running. Observe `docker ps -a | grep tessariq-`, `docker network ls | grep tessariq-net-`, and `ls ~/.tessariq/worktrees/`.
+
+### Areas tested (clean)
+
+| Area | Probe | Result |
+|------|-------|--------|
+| Detached timeout path | Real timeout still writes `timeout.flag` and terminal state | CLEAN |
+| Error-path worktree cleanup | `defer workspace.Cleanup` still fires on normal `return err` | CLEAN |
+| Error-path proxy teardown | `defer topo.Teardown(context.Background())` uses background ctx | CLEAN |
+| Interactive run cancellation | `runInteractiveProcess` has its own `ctx.Done()` branch — unreachable today but correct if ctx is ever cancelled | CLEAN |
+
+---
+
+## Iteration 29
+
+Scope: diff artifact generation and completeness contract between `run` and `promote`. Probed whether a successful run can produce evidence that `promote` will reject.
+
+### BUG-049: `WriteDiffArtifacts` partial-write leaves orphan `diff.patch` without `diffstat.txt`; promote-blocking evidence attached to a successful run
+
+**Severity:** MEDIUM
+**Files:** `internal/runner/diff.go:30-36`, `cmd/tessariq/run.go:306`, `cmd/tessariq/run.go:465-472`
+
+**Spec says** (`specs/tessariq-v0.1.0.md`, evidence artifact contract):
+
+> `diff.patch` when there are changes
+> `diffstat.txt` when there are changes
+
+Both files are required together. `promote` enforces this via `completeness.go` (see historical BUG-014 / TASK-047): if the worktree has changes, both artifacts must exist.
+
+**What was verified:**
+
+`WriteDiffArtifacts` writes the two artifacts sequentially and returns on the first write error:
+
+```go
+if err := os.WriteFile(filepath.Join(evidenceDir, "diff.patch"), patch, 0o600); err != nil {
+    return fmt.Errorf("write diff.patch: %w", err)
+}
+
+if err := os.WriteFile(filepath.Join(evidenceDir, "diffstat.txt"), stat, 0o600); err != nil {
+    return fmt.Errorf("write diffstat.txt: %w", err)
+}
+```
+
+The caller treats the result as non-fatal:
+
+```go
+// cmd/tessariq/run.go:306
+warnDiffArtifacts(cmd.ErrOrStderr(), runner.WriteDiffArtifacts(cmd.Context(), evidenceDir, wsPath, baseSHA))
+```
+
+And `warnDiffArtifacts` only prints a warning:
+
+```go
+func warnDiffArtifacts(w io.Writer, err error) {
+    if err != nil {
+        fmt.Fprintf(w, "warning: diff artifacts skipped: %s\n", err)
+    }
+}
+```
+
+If `diff.patch` writes successfully but `diffstat.txt` fails (ENOSPC, EDQUOT, EACCES on the evidence dir, inode exhaustion, interrupted I/O), the partial `diff.patch` is not removed and no error propagates to the run state. The runner can still return `StateSuccess` with `exit_code=0`, the index entry is appended with `state=done`, and the CLI prints the success banner.
+
+`promote` then walks the evidence directory, sees `diff.patch` present, and enforces `diffstat.txt` existence. The completeness check fails and `promote` refuses to promote this run — but the run has already been marked as a terminal success and its worktree has been preserved for promotion.
+
+**Impact:**
+
+- A successful run produces evidence that is guaranteed to fail `promote` completeness validation, with no way to regenerate the missing `diffstat.txt` after the fact (the worktree may have drifted, and `WriteDiffArtifacts` is only called from the run flow).
+- The user sees "run succeeded" followed later by "promote failed: diffstat.txt missing", with no evidence in the run output that anything went wrong (only a `warning:` line on stderr that is easy to miss under `--attach`).
+- The fix is to write both artifacts atomically — either `os.CreateTemp` + `os.Rename` per file with cleanup on partial failure, or remove `diff.patch` if `diffstat.txt` fails, or promote `warnDiffArtifacts` to a terminal failure for the run.
+
+### Areas tested (clean)
+
+| Area | Probe | Result |
+|------|-------|--------|
+| No-changes path | `WriteDiffArtifacts` early-returns before any write when `len(patch) == 0` | CLEAN |
+| `--binary` flag regression | `git diff --binary` is still passed (BUG-033 / TASK-066 fix holds) | CLEAN |
+| `base_sha` injection surface | `baseSHA` is always sourced from `git.HeadSHA` — never attacker-controlled in current wiring | CLEAN |
+| File mode | Both artifacts written with `0o600` matching evidence ACL | CLEAN |
+
+---
+
+## Iteration 30
+
+Scope: index append safety, proxy topology cleanup, git diff arg injection surface, and workspace provisioning. Looked for partial-state races and injection pivots not covered by iterations 28/29.
+
+### No bug found
+
+**Summary:** All probed behaviors are consistent with current specs and prior fixes.
+
+### Areas tested (clean)
+
+| Area | Probe | Result |
+|------|-------|--------|
+| `AppendIndex` concurrent safety | `Open → Flock EX → Seek end → Write → Unlock` ordering is correct for POSIX advisory locks | CLEAN |
+| `ReadIndex` malformed-line resilience | Scanner silently skips unmarshal failures and `isComplete()`-fail entries; partial index still readable (BUG-021 / TASK-056 holds) | CLEAN |
+| `git diff` baseSHA arg injection | `baseSHA` is sourced only from `git.HeadSHA`; `Diff` / `DiffStat` pass it after `--binary` / `--stat` and before `--`, which is safe for 40-char SHAs | CLEAN |
+| `Topology.Setup` cleanup on `StartSquid` error | Teardown uses the same `ctx` but `cmd.Context()` is never cancelled in current CLI wiring (BUG-046 review still applies), so the `_ = StopSquid` / `_ = RemoveNetwork` path executes against a live context | CLEAN |
+| Proxy teardown-after-success | `defer topo.Teardown(context.Background())` correctly uses a fresh background context so teardown always completes | CLEAN |
+| Workspace provisioning lock ordering | `workspace.Provision` still defers cleanup before any fallible Docker step | CLEAN |
+
+**Note:** The `_ = StopSquid(ctx, ...)` pattern in `internal/proxy/topology.go:72-76` is latent tech debt — if a future change introduces a CLI signal handler that cancels `cmd.Context()` (see BUG-048), this cleanup path will start silently leaking. Worth flagging as a hardening target when BUG-048 is addressed, but not a reproducible bug today.
