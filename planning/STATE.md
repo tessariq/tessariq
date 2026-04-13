@@ -1,6 +1,6 @@
 ---
 schema_version: 1
-updated_at: "2026-04-08T13:31:17Z"
+updated_at: "2026-04-13T20:55:00Z"
 mode: user_request
 run_id: wf-20260408T131609Z
 agent_id: claude-opus-4-6
@@ -10,6 +10,7 @@ active_task_started_at: ""
 attempt: 0
 last_completed: TASK-084-agent-auto-update
 next_tasks:
+    - TASK-085-harden-run-finalization-and-orphaned-run-recovery
     - TASK-017-v0-1-0-spec-conformity-closeout
 repo_state: idle
 last_transition: finish
@@ -33,11 +34,12 @@ max_retries: 2
 - Validation status: warnings
 - Active spec: v0.1.0 (specs/tessariq-v0.1.0.md)
 - Next tasks:
+  - TASK-085-harden-run-finalization-and-orphaned-run-recovery
   - TASK-017-v0-1-0-spec-conformity-closeout
 
 ## Task Counts
 
-- todo: 1
+- todo: 2
 - in_progress: 0
 - done: 82
 - blocked: 1

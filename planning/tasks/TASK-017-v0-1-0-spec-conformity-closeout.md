@@ -69,6 +69,7 @@ depends_on:
     - TASK-077-treat-terminal-non-success-run-outcomes-as-cli-failures
     - TASK-080-opencode-interactive-support
     - TASK-081-model-aware-opencode-egress
+    - TASK-085-harden-run-finalization-and-orphaned-run-recovery
 milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:
@@ -149,3 +150,4 @@ Run the final v0.1.0 conformity sweep against the normative spec after the stren
 - 2026-04-04T07:55:00Z: Added TASK-076 and TASK-077 as explicit dependencies so the release closeout sweep cannot run before the newly verified v0.1.0 blockers are resolved.
 - 2026-04-07T15:37:32Z: Added TASK-083 as an explicit dependency so the final closeout sweep cannot run before the planned `agent.json` `applied` -> `supported` breaking rename lands.
 - 2026-04-07T20:30:00Z: Added TASK-084 as an explicit dependency so the final closeout sweep cannot run before the agent auto-update feature lands.
+- 2026-04-13T20:55:00Z: Added TASK-085 as an explicit dependency so the final closeout sweep cannot run before stale `running` run state and orphaned-run recovery are fixed across all supported agents.
