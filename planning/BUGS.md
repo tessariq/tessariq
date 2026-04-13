@@ -5,9 +5,9 @@ Automated adversarial testing against done tasks.
 | Key | Value |
 |-----|-------|
 | Started | 2026-03-31 |
-| Iteration | 30 |
-| Last bug found | iteration 29 |
-| Clean iterations | 6 / 29 |
+| Iteration | 35 |
+| Last bug found | iteration 35 |
+| Clean iterations | 6 / 34 |
 | Status | In progress |
 
 ---
@@ -75,6 +75,11 @@ BUG-043 through BUG-046 were reviewed against the current code and marked not re
 | BUG-047 | HIGH | `cmd/tessariq/run.go:226-237`, `internal/runner/runner.go:81-118` | `tessariq run` treats terminal non-success outcomes as successful command completion | **Fixed** (TASK-077) |
 | BUG-048 | HIGH | `cmd/tessariq/main.go:11-17` | No SIGINT/SIGTERM handler; Ctrl+C during run leaks worktree, agent container, squid container, and Docker network | **Open** |
 | BUG-049 | MEDIUM | `internal/runner/diff.go:30-36`, `cmd/tessariq/run.go:306,468-472` | `WriteDiffArtifacts` partial-write can leave orphan `diff.patch` without `diffstat.txt`; successful run produces evidence that `promote` later rejects | **Open** |
+| BUG-050 | HIGH | `internal/authmount/authmount.go:66-70`, `internal/adapter/runtime.go:39` | `~/.claude.json` auth mount is **read-write** despite spec requiring read-only auth mounts; agent inside container can persist arbitrary settings (including MCP server entries) on the host — later Claude Code sessions can then execute attacker-planted commands | **Open** |
+| BUG-051 | MEDIUM | `internal/runner/completeness.go:12-21`, `cmd/tessariq/promote.go` | `CheckEvidenceCompleteness` never requires proxy-mode conditional evidence (`egress.compiled.yaml`, `egress.events.jsonl`); a proxy-mode run missing those artifacts still passes completeness and promotes | **Open** |
+| BUG-052 | MEDIUM | `internal/proxy/topology.go:105-109` | `Topology.Teardown` silently discards `CopyAccessLog` errors and unconditionally writes an empty `egress.events.jsonl` + `squid.log`, producing misleading "zero blocked destinations" evidence when telemetry extraction actually failed | **Open** |
+| BUG-053 | LOW | `internal/workspace/metadata.go:46`, `internal/adapter/agent.go:42`, `internal/adapter/runtime.go:58` | `workspace.json`, `agent.json`, and `runtime.json` are written with plain `os.WriteFile` (no tmp+rename); crashes mid-write leave partial/empty evidence — the BUG-035 atomic-write fix was applied only to `manifest.json` and `status.json` | **Open** |
+| BUG-054 | LOW | `internal/run/evidencepath.go:21-34` | `ValidateEvidencePath` does not resolve symlinks; a symlink planted at `.tessariq/runs/<run-id>` whose target points outside the repo passes the prefix check, letting `promote`/`attach` read forged evidence and bypass the BUG-013 containment fix | **Open** |
 
 ---
 
@@ -1801,3 +1806,297 @@ Scope: index append safety, proxy topology cleanup, git diff arg injection surfa
 | Workspace provisioning lock ordering | `workspace.Provision` still defers cleanup before any fallible Docker step | CLEAN |
 
 **Note:** The `_ = StopSquid(ctx, ...)` pattern in `internal/proxy/topology.go:72-76` is latent tech debt — if a future change introduces a CLI signal handler that cancels `cmd.Context()` (see BUG-048), this cleanup path will start silently leaking. Worth flagging as a hardening target when BUG-048 is addressed, but not a reproducible bug today.
+
+---
+
+## Iteration 31
+
+Scope: auth and config mount contract. Probed whether the implementation honors the v0.1.0 spec requirement that auth and config mounts MUST be read-only.
+
+### BUG-050: `~/.claude.json` auth mount is read-write; breaks spec contract and enables container-to-host persistence
+
+**Severity:** HIGH
+**Files:** `internal/authmount/authmount.go:58-72`, `internal/adapter/runtime.go:34-44`
+
+**Spec says** (`specs/tessariq-v0.1.0.md`):
+- Line 293: "Tessariq MUST auto-detect the required auth files or directories and mount them **read-only** when present"
+- Line 310: "Tessariq MUST NOT support auth flows that require writable credential or config mounts in v0.1.0"
+- Line 311: "Tessariq MUST fail cleanly when the selected agent requires writable auth refresh behavior that is incompatible with the read-only mount contract"
+- Line 458 (manifest schema example): `"auth_mount_mode": "read-only"`
+- Line 691: "mount that file read-only into the container at `$HOME/.claude/.credentials.json`"
+
+**What was verified:**
+
+`discoverClaudeCode` at `internal/authmount/authmount.go:58-72` returns two auth mounts for Claude Code:
+
+```go
+return &Result{
+    Agent: "claude-code",
+    Mounts: []MountSpec{
+        {
+            HostPath:      credPath,
+            ContainerPath: filepath.Join(ContainerHome, ".claude", ".credentials.json"),
+            ReadOnly:      true,
+        },
+        {
+            HostPath:      configPath,
+            ContainerPath: filepath.Join(ContainerHome, ".claude.json"),
+            ReadOnly:      false, // state file — agent must update numStartups, feature flags, etc.
+        },
+    },
+}, nil
+```
+
+The second mount for `~/.claude.json` sets `ReadOnly: false`. The surrounding `MountSpec.ReadOnly` field still carries the comment `// always true in v0.1.0` at `authmount.go:17`, and every other auth/config mount in the file does set `ReadOnly: true` — this is the only exception.
+
+`internal/adapter/runtime.go:39` then hard-codes `AuthMountMode: "read-only"` into `runtime.json` regardless of the actual mount flags, so the evidence artifact reports read-only to downstream reviewers while the running container actually has a writable bind into the user's live Claude Code configuration file.
+
+Two earlier adversarial iterations (BUGS.md line 929 and line 1064) both listed "All auth/config mounts set ReadOnly: true" as a CLEAN area. They missed this single exception.
+
+**Impact:**
+
+- `~/.claude.json` on Linux contains Claude Code's per-project MCP server configuration, OAuth/account state, feature flags, and project history. Any process with write access to this file can inject arbitrary MCP server entries, which Claude Code loads and executes on the next host-side startup. An untrusted agent running inside the tessariq container with a malicious task can therefore achieve **persistent host-side code execution** after the sandbox tears down.
+- The `auth_mount_mode` field in `runtime.json` is dishonest: it always reports `"read-only"` even when a writable bind exists. Downstream reviewers relying on evidence cannot detect this drift.
+- The v0.1.0 spec's whole "complementary controls" argument (line 312) — that read-only auth mounts and egress restrictions are jointly sufficient — is broken by a single writable mount that the documentation does not acknowledge.
+
+**Implementation note (from follow-up discussion):**
+
+The read-write mount was introduced because Claude Code mutates `~/.claude.json` on every startup (numStartups counter, MCP state, feature flags) and will fail or degrade if the file is read-only. The trade-off was deliberate. The bug is still worth recording because:
+
+1. The spec and the evidence schema both still say read-only — at minimum one of them has to change.
+2. The write surface is larger than "numStartups": MCP server entries in `.claude.json` are an arbitrary code-execution channel.
+3. The implementation should pick one of the safer alternatives rather than binding the live host file:
+   - mount a per-run copy under tmpfs and discard on teardown,
+   - overlay-mount the file so writes land in a disposable upper layer,
+   - or narrow the writable surface (e.g. mount only a `numStartups` shim).
+
+**Suggested fix direction:** Either mount a disposable copy of `.claude.json` (tmpfs or per-run overlay), or update the spec plus `runtime.json` to explicitly acknowledge one writable state file and describe the residual host-persistence risk. Track separately from BUG-003/048.
+
+### Areas tested (clean)
+
+| Area | Probe | Result |
+|------|-------|--------|
+| OpenCode auth mount | `authmount.go:87` sets `ReadOnly: true` for `auth.json` | CLEAN |
+| Claude Code credentials mount | `authmount.go:64` sets `ReadOnly: true` for `.credentials.json` | CLEAN |
+| Claude Code state discovery (`DiscoverState`) | All returned mounts set `ReadOnly: true` | CLEAN |
+| `--mount-agent-config` config-dir mounts | `DiscoverConfigDirs` sets `ReadOnly: true` for every config directory | CLEAN |
+
+---
+
+## Iteration 32
+
+Scope: promote completeness contract against the v0.1.0 evidence artifact spec, focusing on conditional artifacts required only in proxy mode.
+
+### BUG-051: `CheckEvidenceCompleteness` never requires proxy-mode evidence; a run missing `egress.compiled.yaml` and `egress.events.jsonl` can still be promoted
+
+**Severity:** MEDIUM
+**Files:** `internal/runner/completeness.go:10-41`, `internal/promote/promote.go:48-50`, `specs/tessariq-v0.1.0.md:394-395`
+
+**Spec says** (evidence artifact contract):
+
+> - `egress.compiled.yaml` only in proxy mode
+> - `egress.events.jsonl` only in proxy mode
+
+Both files are required evidence when `resolved_egress_mode == "proxy"`. `promote` is supposed to refuse to promote a run whose evidence contract is incomplete.
+
+**What was verified:**
+
+`requiredEvidenceFiles` in `internal/runner/completeness.go:12-21` is a hard-coded list:
+
+```go
+var requiredEvidenceFiles = []string{
+    "manifest.json",
+    "status.json",
+    "agent.json",
+    "runtime.json",
+    "task.md",
+    "run.log",
+    "runner.log",
+    "workspace.json",
+}
+```
+
+This list is unconditional. Neither `egress.compiled.yaml` nor `egress.events.jsonl` is ever referenced. `promote.Run` calls `runner.CheckEvidenceCompleteness(evidenceDir)` at `internal/promote/promote.go:48` and, for proxy runs, relies on nothing else to enforce the conditional-evidence rule. The manifest is not inspected for its `resolved_egress_mode` field during promote completeness, and no code path cross-references the mode against the artifact list.
+
+As a result, a proxy-mode run whose `Topology.Setup` failed after bootstrap (or whose evidence directory had the egress files removed after the fact) still passes completeness and is eligible for promotion as long as the eight hard-coded files exist. The promoted commit then carries no auditable proof that proxy enforcement and egress telemetry ever applied, in direct contradiction to the evidence contract the spec lists as the reason proxy mode is trustworthy.
+
+BUG-014 historically addressed the same class of gap for `diffstat.txt` (conditional on the presence of code changes). `diff.patch`/`diffstat.txt` now have bespoke checks inside `promote.Run` itself (lines 69-85), but no analogous check exists for egress artifacts.
+
+**Impact:**
+
+- `promote` can stamp a branch and commit trailers for a run that has no proof it ever enforced the allowlist it claims in the manifest. The `Tessariq-Run:` / `Tessariq-Base:` trailers remain intact, giving a false impression of due diligence.
+- A run where `Topology.Setup` partially wrote `egress.compiled.yaml` but `Teardown` never ran (see BUG-052 below for the empty-write variant) will still promote even when telemetry is missing.
+- Operators cannot rely on `tessariq promote` alone as an evidence gate for proxy-mode policy enforcement.
+
+**Fix direction:** Read `manifest.json` inside `CheckEvidenceCompleteness` (or layer a separate `CheckProxyEvidence(manifest)` helper on top of it) and require `egress.compiled.yaml` + `egress.events.jsonl` when `resolved_egress_mode == "proxy"`. Alternatively, gate them inside `promote.Run` the same way `diff.patch`/`diffstat.txt` are checked today.
+
+### Areas tested (clean)
+
+| Area | Probe | Result |
+|------|-------|--------|
+| Unconditional-evidence file set | Eight always-required files enumerated and each stat-checked for size > 0 | CLEAN |
+| `diff.patch` / `diffstat.txt` gate | `promote.go:69-85` still enforces both when changes exist (BUG-014/TASK-047 holds) | CLEAN |
+| File-size check | `info.Size() == 0` correctly flags zero-byte artifacts as missing | CLEAN |
+
+---
+
+## Iteration 33
+
+Scope: proxy topology teardown error handling. Probed whether evidence extraction failures during Squid tear-down silently produce misleading telemetry.
+
+### BUG-052: `Topology.Teardown` discards `CopyAccessLog` errors and unconditionally overwrites `egress.events.jsonl` / `squid.log` with empty data
+
+**Severity:** MEDIUM
+**Files:** `internal/proxy/topology.go:97-123`, `internal/proxy/squid.go:183`, `internal/proxy/events.go:157,216`
+
+**What was verified:**
+
+`Topology.Teardown` writes the two proxy-mode evidence artifacts like this:
+
+```go
+// Steps 1-4: Evidence extraction (best-effort).
+logData, _ := CopyAccessLog(ctx, t.squidName)
+events, _ := ParseSquidAccessLog(bytes.NewReader(logData))
+_ = WriteEventsJSONL(t.EvidenceDir, events)
+_ = CopySquidLog(t.EvidenceDir, bytes.NewReader(logData), maxSquidLogBytes)
+```
+
+`CopyAccessLog` (`internal/proxy/squid.go:186`) runs `docker cp tessariq-squid-<id>:/var/log/squid/access.log -` and returns `([]byte, error)`. When the container has already been removed (e.g., dockerd crashed, someone ran `docker rm`, the Squid container never started because `StartSquid` failed partway), the function returns `(nil, err)`.
+
+Because the error is discarded with `_`, the subsequent code runs against `logData == nil`:
+
+1. `ParseSquidAccessLog(bytes.NewReader(nil))` returns an empty `events` slice with no error.
+2. `WriteEventsJSONL(t.EvidenceDir, events)` atomically writes a brand-new, zero-byte `egress.events.jsonl` via its tmp+rename pattern.
+3. `CopySquidLog(t.EvidenceDir, bytes.NewReader(nil), maxSquidLogBytes)` atomically writes a brand-new zero-byte `squid.log`.
+
+Both files end up present and readable — zero events, zero log lines — with no indication whatsoever that telemetry was lost. The runner log and runtime.json do not record the error either.
+
+`BUGS.md:1496` previously listed this path as `CLEAN` under "CopyAccessLog fails gracefully when container is gone." The earlier sweep only checked that teardown does not crash, and missed the semantic-correctness angle.
+
+**Impact:**
+
+- Operators reviewing promoted runs cannot distinguish "no egress requests were blocked" from "we failed to read the telemetry and decided to lie about it." The difference is the entire point of proxy-mode evidence.
+- When combined with BUG-051, this double-failure is especially silent: a proxy-mode run that lost its telemetry still passes completeness (unconditionally required set) AND produces empty telemetry files, which visually look like valid evidence.
+- `printBlockedDestinations` in `cmd/tessariq/run.go:564` is a downstream victim: it reads the empty events file and prints nothing, completing the illusion that no destinations were blocked.
+
+**Fix direction:** Either (a) refuse to overwrite existing telemetry when `CopyAccessLog` fails and instead log a `telemetry_extraction_failed` marker into `runner.log` + `runtime.json`, or (b) write `egress.events.jsonl` with an explicit error record (e.g., a single `{"kind":"extraction_error","error":"..."}` line) when the access log could not be read. Surface the error from `Topology.Teardown` alongside the existing `errs` slice so the CLI's teardown warning includes extraction failures, not just infrastructure failures.
+
+### Areas tested (clean)
+
+| Area | Probe | Result |
+|------|-------|--------|
+| `WriteEventsJSONL` atomicity | tmp+rename with 0o600 permissions; BUGS.md:1497 still holds | CLEAN |
+| `CopySquidLog` cap enforcement | `io.CopyN` with maxBytes and truncation marker | CLEAN |
+| Teardown idempotency | `tornDown` flag prevents double execution | CLEAN |
+| Infrastructure cleanup errors | `StopSquid` and `RemoveNetwork` errors are surfaced via `errs` and returned to caller | CLEAN |
+
+---
+
+## Iteration 34
+
+Scope: atomic-write contract for evidence artifacts. BUG-035 / TASK-068 fixed `manifest.json`; verified whether the same pattern was applied to every evidence writer.
+
+### BUG-053: BUG-035 atomic-write fix is incomplete — `workspace.json`, `agent.json`, and `runtime.json` are still written non-atomically
+
+**Severity:** LOW
+**Files:** `internal/workspace/metadata.go:34-51`, `internal/adapter/agent.go:30-47`, `internal/adapter/runtime.go:46-63`
+
+**What was verified:**
+
+After BUG-035 / TASK-068, `WriteManifest` in `internal/run/manifest.go:70-93` and `WriteStatus` in `internal/runner/status.go:64-83` both follow the atomic tmp+rename pattern:
+
+```go
+if err := os.WriteFile(tmp, data, 0o600); err != nil { ... }
+if err := os.Rename(tmp, target); err != nil { ... }
+```
+
+The three other evidence writers still use plain `os.WriteFile` that opens the target with `O_WRONLY|O_CREATE|O_TRUNC`:
+
+- `internal/workspace/metadata.go:46` — `WriteMetadata` for `workspace.json`
+- `internal/adapter/agent.go:42` — `WriteAgentInfo` for `agent.json`
+- `internal/adapter/runtime.go:58` — `WriteRuntimeInfo` for `runtime.json`
+
+If the process is killed between `O_TRUNC` and the final write completion (SIGKILL after grace timeout, panic in a goroutine, container shutdown), the target file is left in a partial or zero-byte state. `CheckEvidenceCompleteness` would then report the file as present-but-empty (missing), and `promote` would refuse to promote the run.
+
+Both BUG-035 and BUG-049 are open acknowledgements of the same class of partial-write hazard for other evidence files. BUG-035's task description scoped the fix to `WriteManifest` only; nothing extends it to the remaining three artifacts.
+
+**Impact:**
+
+- A tessariq process crash at the wrong moment during `Provision` (for `workspace.json`) or during agent-info/runtime-info emission can produce an otherwise successful run whose evidence cannot be promoted.
+- This partially overlaps with BUG-048 (no SIGINT/SIGTERM handler): a Ctrl+C hitting mid-`WriteAgentInfo` leaves a corrupted `agent.json` file and there is no recovery path.
+- The failure is silent from the user's perspective — the run may still be marked "success" in `status.json` while other artifacts are truncated.
+
+**Fix direction:** Apply the `WriteManifest` tmp+rename template to `WriteMetadata`, `WriteAgentInfo`, and `WriteRuntimeInfo`. Consider extracting a shared `atomicWriteJSON(evidenceDir, filename string, payload any)` helper to prevent the next new evidence artifact from reintroducing the same bug.
+
+### Areas tested (clean)
+
+| Area | Probe | Result |
+|------|-------|--------|
+| `WriteManifest` atomicity | `internal/run/manifest.go:80-90` uses tmp+rename (BUG-035 fix holds) | CLEAN |
+| `WriteStatus` atomicity | `internal/runner/status.go:72-80` uses tmp+rename | CLEAN |
+| `WriteEventsJSONL` atomicity | `internal/proxy/events.go:157-185` uses tmp+rename | CLEAN |
+| `CopySquidLog` atomicity | `internal/proxy/events.go:219` uses tmp+rename | CLEAN |
+| `WriteCompiledYAML` atomicity | Already routed through an atomic writer helper | CLEAN |
+
+---
+
+## Iteration 35
+
+Scope: evidence-path boundary enforcement. BUG-013 / BUG-016 fixed absolute-path and `../` traversal; verified whether symlink escapes inside `.tessariq/runs/` are likewise guarded.
+
+### BUG-054: `ValidateEvidencePath` does not call `EvalSymlinks`; a symlink under `.tessariq/runs/` bypasses BUG-013's repository-containment guarantee
+
+**Severity:** LOW
+**Files:** `internal/run/evidencepath.go:21-34`, `internal/promote/promote.go:43`, `internal/attach/attach.go:46`, `internal/run/taskpath.go:28-37` (contrast)
+
+**What was verified:**
+
+`ValidateEvidencePath` enforces containment via logical-path cleaning and a string prefix check:
+
+```go
+func ValidateEvidencePath(repoRoot, evidencePath string) (string, error) {
+    if evidencePath == "" || filepath.IsAbs(evidencePath) {
+        return "", fmt.Errorf("%w: %s", ErrEvidencePathOutsideRepo, evidencePath)
+    }
+
+    absPath := filepath.Clean(filepath.Join(repoRoot, evidencePath))
+    runsPrefix := filepath.Join(filepath.Clean(repoRoot), ".tessariq", "runs") + string(filepath.Separator)
+
+    if !strings.HasPrefix(absPath+string(filepath.Separator), runsPrefix) {
+        return "", fmt.Errorf("%w: %s", ErrEvidencePathOutsideRepo, evidencePath)
+    }
+
+    return absPath, nil
+}
+```
+
+`filepath.Clean` operates purely on the string form of the path — it does not resolve symlinks. A symlink located at `.tessariq/runs/<run-id>` whose target is `/tmp/forged-evidence/` has a **logical** path that starts with `<repoRoot>/.tessariq/runs/`, so the prefix check passes. Subsequent `os.ReadFile(...)` calls inside `promote.Run` and `attach.ResolveLiveRun` follow the symlink, reading forged `manifest.json`, `status.json`, `diff.patch`, `task.md`, etc. from the attacker-chosen target.
+
+Contrast with `ValidateTaskPath` (`internal/run/taskpath.go:28-37`), which explicitly resolves symlinks on both the path and the repository root using `filepath.EvalSymlinks` before comparing the real locations. That stricter discipline was introduced by BUG-022 / TASK-057 but was never back-ported to `ValidateEvidencePath`.
+
+`BUGS.md:1064` previously listed "Evidence path validation — Absolute paths, `../`, symlinks, out-of-repo" as `CLEAN`, citing BUG-013/016. The symlink portion of that sweep was not actually enforced in code.
+
+**Reproduction (concept):**
+
+1. Inside the repository, create a symlink: `ln -s /tmp/forged .tessariq/runs/01JCFORGED000000000000000`.
+2. Populate `/tmp/forged/` with a crafted `manifest.json`, `status.json`, and the eight required evidence files.
+3. Append an `index.jsonl` entry referencing the symlink path.
+4. Run `tessariq promote last-0` (or `tessariq attach 01JCFORGED000000000000000`) — the promote or attach operation will proceed against the forged evidence despite never touching repository storage directly.
+
+**Impact:**
+
+- BUG-013 closed the "absolute or `../` evidence path" escape. BUG-054 reopens the class at a lower severity by leveraging symlinks *inside* `.tessariq/runs/`.
+- Practical exploitability is low because writing into `.tessariq/runs/` already requires repo write access, and agents run with the evidence mount read-only. The realistic attack is a malicious task file that runs `ln -s` via a pre-hook (hooks execute on the host, not in the container) and then triggers a downstream `promote`. In multi-user shared-repo setups, symlink planting by one user could redirect another user's `promote`/`attach`.
+- The bug also matters for forensic integrity: an operator who has the evidence directory rewritten under their feet (e.g., by a compromised tool in the repo) has no detection because `ValidateEvidencePath` returns success.
+
+**Fix direction:** Mirror `ValidateTaskPath`: call `filepath.EvalSymlinks` on both the resolved evidence directory and the repository root, and require the real path to remain strictly inside the real `<repoRoot>/.tessariq/runs/` tree before returning it. Consider also rejecting the path if any intermediate component along `evidenceDir` is a symlink, to prevent partial-escape tricks.
+
+### Areas tested (clean)
+
+| Area | Probe | Result |
+|------|-------|--------|
+| Absolute-path rejection | `filepath.IsAbs(evidencePath)` still returns an error (BUG-013 fix holds) | CLEAN |
+| `../` traversal rejection | Prefix check still catches `..` components after `filepath.Clean` | CLEAN |
+| Empty-string rejection | Explicit empty-string guard in the opening `if` block | CLEAN |
+| Task-path symlink guard | `ValidateTaskPath` still calls `filepath.EvalSymlinks` (BUG-022 / TASK-057 fix holds) | CLEAN |
+| Run-ID/evidence-dir cross-check | `ValidateEvidenceRunID` rejects mismatched directory names (BUG-017 fix holds) | CLEAN |
