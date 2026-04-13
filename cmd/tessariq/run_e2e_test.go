@@ -293,6 +293,23 @@ func extractField(output, key string) string {
 	return ""
 }
 
+func readLastIndexEntry(t *testing.T, env *containers.RunEnv, repoPath string) map[string]any {
+	t.Helper()
+
+	ctx := context.Background()
+	indexPath := filepath.Join(repoPath, ".tessariq", "runs", "index.jsonl")
+	code, data, err := env.Exec(ctx, []string{"cat", indexPath})
+	require.NoError(t, err)
+	require.Equal(t, 0, code, "index.jsonl must exist")
+
+	lines := strings.Split(strings.TrimSpace(data), "\n")
+	require.NotEmpty(t, lines)
+
+	var entry map[string]any
+	require.NoError(t, json.Unmarshal([]byte(lines[len(lines)-1]), &entry))
+	return entry
+}
+
 func TestE2E_DetachedRunPrintsGuidance(t *testing.T) {
 	t.Parallel()
 	bin := buildBinary(t)
@@ -744,6 +761,53 @@ func TestE2E_AgentExecutesInsideContainer(t *testing.T) {
 	containerName := extractField(output, "container_name")
 	require.True(t, strings.HasPrefix(containerName, "tessariq-"),
 		"container name must start with tessariq-")
+}
+
+func TestE2E_DetachedRunsAppendTerminalIndexEntries(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		binaryName string
+		extraFlags string
+		agent      string
+	}{
+		{name: "claude-code", binaryName: "claude", agent: "claude-code"},
+		{name: "opencode", binaryName: "opencode", extraFlags: "--agent opencode", agent: "opencode"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			bin := buildBinary(t)
+			env := setupRunEnvForBinary(t, bin, tt.binaryName, 0)
+			hostDir := env.Dir()
+			repoPath := filepath.Join(hostDir, "repo")
+
+			code, output := runTessariq(t, env, tt.binaryName, tt.extraFlags)
+			require.Equal(t, 0, code, "run failed: %s", output)
+
+			runID := extractField(output, "run_id")
+			evidencePath := extractField(output, "evidence_path")
+			require.NotEmpty(t, runID)
+			require.NotEmpty(t, evidencePath)
+
+			ctx := context.Background()
+			statusCode, statusData, err := env.Exec(ctx, []string{"cat", filepath.Join(evidencePath, "status.json")})
+			require.NoError(t, err)
+			require.Equal(t, 0, statusCode, "status.json must exist")
+
+			var status map[string]any
+			require.NoError(t, json.Unmarshal([]byte(statusData), &status))
+			require.Equal(t, "success", status["state"])
+
+			indexEntry := readLastIndexEntry(t, env, repoPath)
+			require.Equal(t, runID, indexEntry["run_id"])
+			require.Equal(t, "success", indexEntry["state"])
+			require.Equal(t, tt.agent, indexEntry["agent"])
+		})
+	}
 }
 
 func TestE2E_TmuxSessionShowsDetachedRunOutput(t *testing.T) {

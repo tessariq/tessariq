@@ -85,10 +85,7 @@ func (p *Process) Start(ctx context.Context) error {
 }
 
 // Wait blocks until the container exits and returns its exit code.
-// The container is removed after wait completes.
 func (p *Process) Wait() (int, error) {
-	defer func() { _ = p.remove(context.Background()) }()
-
 	cmd := exec.Command(p.docker, "wait", p.cfg.Name)
 	out, err := cmd.Output()
 	if err != nil {
@@ -100,6 +97,11 @@ func (p *Process) Wait() (int, error) {
 	}
 	p.waitForLogs()
 	return code, nil
+}
+
+// Cleanup removes the container after terminal evidence has been persisted.
+func (p *Process) Cleanup(ctx context.Context) error {
+	return p.remove(ctx)
 }
 
 // Signal maps OS signals to Docker commands:

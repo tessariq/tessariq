@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -33,6 +34,15 @@ type outputWriterConfigurer interface {
 
 type logStreamStopper interface {
 	StopLogStream() error
+}
+
+type processCleaner interface {
+	Cleanup(ctx context.Context) error
+}
+
+type waitResult struct {
+	exitCode int
+	err      error
 }
 
 // Runner orchestrates the full run lifecycle.
@@ -181,11 +191,6 @@ func (r *Runner) runDetachedProcess(ctx context.Context, startedAt time.Time, lo
 	}
 	defer stopLogCapMonitor()
 
-	// Wait for process in a goroutine.
-	type waitResult struct {
-		exitCode int
-		err      error
-	}
 	waitCh := make(chan waitResult, 1)
 	go func() {
 		code, err := r.Process.Wait()
@@ -201,6 +206,10 @@ func (r *Runner) runDetachedProcess(ctx context.Context, startedAt time.Time, lo
 		return 0, false, StateSuccess
 
 	case <-timeoutCtx.Done():
+		if errors.Is(timeoutCtx.Err(), context.Canceled) && ctx.Err() != nil {
+			return r.handleContextCancellation(ctx, logs, waitCh)
+		}
+
 		// Timeout expired -- escalate with SIGTERM then SIGKILL.
 		fmt.Fprintf(logs.RunnerLog, "[%s] timeout reached, writing timeout flag\n", r.clock().UTC().Format(time.RFC3339))
 		_ = WriteTimeoutFlag(r.EvidenceDir)
@@ -223,6 +232,26 @@ func (r *Runner) runDetachedProcess(ctx context.Context, startedAt time.Time, lo
 			case <-time.After(5 * time.Second):
 				return -1, true, StateTimeout
 			}
+		}
+	}
+}
+
+func (r *Runner) handleContextCancellation(ctx context.Context, logs *LogFiles, waitCh <-chan waitResult) (exitCode int, timedOut bool, state State) {
+	state = SignalStateFromCause(context.Cause(ctx))
+	fmt.Fprintf(logs.RunnerLog, "[%s] context cancelled, sending SIGTERM\n", r.clock().UTC().Format(time.RFC3339))
+	_ = r.Process.Signal(syscall.SIGTERM)
+
+	select {
+	case result := <-waitCh:
+		return result.exitCode, false, state
+	case <-time.After(r.Config.Grace):
+		fmt.Fprintf(logs.RunnerLog, "[%s] grace period expired, sending SIGKILL\n", r.clock().UTC().Format(time.RFC3339))
+		_ = r.Process.Signal(os.Kill)
+		select {
+		case result := <-waitCh:
+			return result.exitCode, false, state
+		case <-time.After(5 * time.Second):
+			return -1, false, state
 		}
 	}
 }
@@ -311,10 +340,6 @@ func (r *Runner) runInteractiveProcess(ctx context.Context, startedAt time.Time,
 
 	// Wait for process in a goroutine — started before session creation
 	// so we can drain it if session creation fails.
-	type waitResult struct {
-		exitCode int
-		err      error
-	}
 	waitCh := make(chan waitResult, 1)
 	go func() {
 		code, err := r.Process.Wait()
@@ -371,22 +396,7 @@ func (r *Runner) runInteractiveProcess(ctx context.Context, startedAt time.Time,
 		}
 
 	case <-ctx.Done():
-		// Parent context cancelled — still use graceful escalation.
-		fmt.Fprintf(logs.RunnerLog, "[%s] context cancelled, sending SIGTERM\n", r.clock().UTC().Format(time.RFC3339))
-		_ = r.Process.Signal(syscall.SIGTERM)
-		select {
-		case result := <-waitCh:
-			return result.exitCode, false, StateKilled
-		case <-time.After(r.Config.Grace):
-			fmt.Fprintf(logs.RunnerLog, "[%s] grace period expired, sending SIGKILL\n", r.clock().UTC().Format(time.RFC3339))
-			_ = r.Process.Signal(os.Kill)
-			select {
-			case result := <-waitCh:
-				return result.exitCode, false, StateKilled
-			case <-time.After(5 * time.Second):
-				return -1, false, StateKilled
-			}
-		}
+		return r.handleContextCancellation(ctx, logs, waitCh)
 	}
 }
 
@@ -401,6 +411,11 @@ func (r *Runner) writeTerminalStatus(state State, startedAt, finishedAt time.Tim
 	s := NewTerminalStatus(state, startedAt, finishedAt, exitCode, timedOut)
 	if err := WriteStatus(r.EvidenceDir, s); err != nil {
 		return fmt.Errorf("write terminal status: %w", err)
+	}
+	if cleaner, ok := r.Process.(processCleaner); ok {
+		if err := cleaner.Cleanup(context.Background()); err != nil {
+			return fmt.Errorf("cleanup process: %w", err)
+		}
 	}
 	if state != StateSuccess {
 		return &TerminalStateError{State: state, ExitCode: exitCode}

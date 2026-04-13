@@ -84,10 +84,11 @@ func TestContainerLifecycle_CleanupAfterWait(t *testing.T) {
 
 	_, err = p.Wait()
 	require.NoError(t, err)
+	require.NoError(t, p.Cleanup(context.Background()))
 
-	// Container should be removed after Wait.
+	// Container should be removed after explicit cleanup.
 	out, inspectErr := exec.Command("docker", "inspect", name).CombinedOutput()
-	require.Error(t, inspectErr, "container should not exist after Wait: %s", string(out))
+	require.Error(t, inspectErr, "container should not exist after Cleanup: %s", string(out))
 }
 
 func TestContainerLifecycle_MountVisibility(t *testing.T) {
