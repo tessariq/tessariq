@@ -126,24 +126,26 @@ func (s *signalRecordingProcess) Signals() []os.Signal {
 }
 
 type directOutputProcess struct {
-	mu           sync.Mutex
-	stdout       *os.File
-	stderr       *os.File
-	stopCh       chan struct{}
-	stoppedCh    chan struct{}
-	startedWrite chan struct{}
-	stopLogsCh   chan struct{}
-	onWrite      func()
-	exitCode     int
+	mu             sync.Mutex
+	stdout         *os.File
+	stderr         *os.File
+	stopCh         chan struct{}
+	stoppedCh      chan struct{}
+	startedWrite   chan struct{}
+	stopLogsCh     chan struct{}
+	stoppedWriting chan struct{}
+	onWrite        func()
+	exitCode       int
 }
 
 func newDirectOutputProcess(exitCode int) *directOutputProcess {
 	return &directOutputProcess{
-		stopCh:       make(chan struct{}),
-		stoppedCh:    make(chan struct{}),
-		startedWrite: make(chan struct{}),
-		stopLogsCh:   make(chan struct{}),
-		exitCode:     exitCode,
+		stopCh:         make(chan struct{}),
+		stoppedCh:      make(chan struct{}),
+		startedWrite:   make(chan struct{}),
+		stopLogsCh:     make(chan struct{}),
+		stoppedWriting: make(chan struct{}),
+		exitCode:       exitCode,
 	}
 }
 
@@ -157,6 +159,11 @@ func (p *directOutputProcess) Start(_ context.Context) error {
 			case <-p.stopCh:
 				return
 			case <-p.stopLogsCh:
+				// StopLogStream was called by the cap monitor. Signal
+				// test observers that this goroutine has stopped
+				// writing new chunks, then block until Signal closes
+				// stopCh so Wait can observe a terminal state.
+				close(p.stoppedWriting)
 				<-p.stopCh
 				return
 			default:
@@ -949,7 +956,9 @@ func TestRunner_DetachedDirectOutputCapsLogBeforeProcessExit(t *testing.T) {
 	dir := t.TempDir()
 	proc := newDirectOutputProcess(0)
 	r := newTestRunner(dir, proc)
-	r.Config.Timeout = 200 * time.Millisecond
+	// Generous timeout — the test completes its assertions well before
+	// this. The timeout only matters for the final StateTimeout check.
+	r.Config.Timeout = 2 * time.Second
 	r.Config.Grace = 20 * time.Millisecond
 	r.LogCapBytes = 512
 	r.Clock = nil
@@ -959,27 +968,53 @@ func TestRunner_DetachedDirectOutputCapsLogBeforeProcessExit(t *testing.T) {
 		runDone <- r.Run(context.Background())
 	}()
 
-	<-proc.startedWrite
-
-	deadline := time.Now().Add(2 * time.Second)
-	for {
-		data, err := os.ReadFile(filepath.Join(dir, "run.log"))
-		if err == nil && strings.HasSuffix(string(data), TruncationMarker) {
-			select {
-			case err := <-runDone:
-				t.Fatalf("runner exited before timeout after early cap: %v", err)
-			default:
-			}
-
-			require.LessOrEqual(t, len(data), int(r.LogCapBytes)+len(TruncationMarker))
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("run.log was not capped before process exit")
-		}
-		time.Sleep(10 * time.Millisecond)
+	// Synchronize with the start of the writer goroutine.
+	select {
+	case <-proc.startedWrite:
+	case <-time.After(2 * time.Second):
+		t.Fatal("writer never started")
 	}
 
+	// Wait until the cap monitor has (a) truncated run.log at least once
+	// and (b) called StopLogStream on the fake process, which causes the
+	// writer goroutine to stop issuing new chunks. This explicit sync
+	// point eliminates a sparse-hole race where the writer's stale fd
+	// offset extended the file between monitor ticks and the previous
+	// polling loop occasionally snapshotted the file with the marker at
+	// the end but a size well beyond the cap.
+	select {
+	case <-proc.stoppedWriting:
+	case <-time.After(3 * time.Second):
+		t.Fatal("writer never stopped; cap monitor did not kick in before process exit")
+	}
+
+	// The runner must still be alive — this test verifies that the cap
+	// happens BEFORE process exit, not after.
+	select {
+	case err := <-runDone:
+		t.Fatalf("runner exited before cap took effect: %v", err)
+	default:
+	}
+
+	// With the writer quiescent, run.log stabilizes to the capped state
+	// within at most one monitor tick (25 ms). Poll briefly for the final
+	// deterministic state — by this point no further writes can extend
+	// the file, so the length invariant holds.
+	logPath := filepath.Join(dir, "run.log")
+	require.Eventuallyf(t, func() bool {
+		data, err := os.ReadFile(logPath)
+		if err != nil {
+			return false
+		}
+		if !strings.HasSuffix(string(data), TruncationMarker) {
+			return false
+		}
+		return int64(len(data)) <= r.LogCapBytes+int64(len(TruncationMarker))
+	}, 2*time.Second, 10*time.Millisecond,
+		"run.log must stabilize to <= %d bytes ending in the truncation marker after the writer stops",
+		r.LogCapBytes+int64(len(TruncationMarker)))
+
+	// Process must ultimately reach StateTimeout.
 	var termErr *TerminalStateError
 	require.ErrorAs(t, <-runDone, &termErr)
 	require.Equal(t, StateTimeout, termErr.State)
