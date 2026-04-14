@@ -38,8 +38,17 @@ func NewAgent(cfg run.Config, taskContent string, envVars map[string]string) (Ag
 // worktree/evidence paths, and discovered auth/config mounts.
 // When proxyEnv is non-nil, the container is attached to the proxy network
 // and HTTP_PROXY/HTTPS_PROXY environment variables are injected.
+//
+// authMounts is the already-transformed mount list from PrepareRuntimeState:
+// seed-into-runtime specs have been substituted with disposable per-run
+// scratch files so the host auth files are never bound writable. authMountMode
+// records the host-side policy for runtime.json evidence; it must be derived
+// by the caller from the original (pre-transform) specs, typically as
+// authmount.AuthMountModeReadOnly after authmount.ValidateContract passes.
+// authMountCount is the number of host auth mounts originally discovered.
 func NewProcess(cfg run.Config, taskContent string, runID, worktreePath, evidencePath string,
 	authMounts []authmount.MountSpec, configMounts []authmount.MountSpec,
+	authMountMode string, authMountCount int,
 	agentConfigMount, agentConfigMountStatus string, envVars map[string]string,
 	proxyEnv *proxy.ProxyEnv, resolvedEgress string, updateResult UpdateResult) (*AgentProcess, error) {
 
@@ -104,7 +113,7 @@ func NewProcess(cfg run.Config, taskContent string, runID, worktreePath, evidenc
 
 	proc := container.New(containerCfg)
 
-	runtimeInfo := NewRuntimeInfo(a.Image(), imageSource, len(authMounts), agentConfigMount, agentConfigMountStatus)
+	runtimeInfo := NewRuntimeInfo(a.Image(), imageSource, authMountMode, authMountCount, agentConfigMount, agentConfigMountStatus)
 	if updateResult.Attempted {
 		runtimeInfo.AgentUpdate = &AgentUpdate{
 			Attempted:     true,

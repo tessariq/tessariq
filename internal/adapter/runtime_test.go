@@ -12,7 +12,7 @@ import (
 func TestNewRuntimeInfo_RequiredFields(t *testing.T) {
 	t.Parallel()
 
-	info := NewRuntimeInfo("ghcr.io/tessariq/reference-runtime:v0.1.0", "reference", 0, "disabled", "disabled")
+	info := NewRuntimeInfo("ghcr.io/tessariq/reference-runtime:v0.1.0", "reference", "read-only", 0, "disabled", "disabled")
 
 	require.Equal(t, 1, info.SchemaVersion)
 	require.Equal(t, "ghcr.io/tessariq/reference-runtime:v0.1.0", info.Image)
@@ -25,7 +25,7 @@ func TestNewRuntimeInfo_RequiredFields(t *testing.T) {
 func TestNewRuntimeInfo_ReferenceImage(t *testing.T) {
 	t.Parallel()
 
-	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", 0, "disabled", "disabled")
+	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", "read-only", 0, "disabled", "disabled")
 
 	require.Equal(t, "reference", info.ImageSource)
 }
@@ -33,7 +33,7 @@ func TestNewRuntimeInfo_ReferenceImage(t *testing.T) {
 func TestNewRuntimeInfo_CustomImage(t *testing.T) {
 	t.Parallel()
 
-	info := NewRuntimeInfo("my-registry/custom:v1", "custom", 0, "disabled", "disabled")
+	info := NewRuntimeInfo("my-registry/custom:v1", "custom", "read-only", 0, "disabled", "disabled")
 
 	require.Equal(t, "custom", info.ImageSource)
 }
@@ -41,7 +41,7 @@ func TestNewRuntimeInfo_CustomImage(t *testing.T) {
 func TestNewRuntimeInfo_ConfigMountMounted(t *testing.T) {
 	t.Parallel()
 
-	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", 0, "enabled", "mounted")
+	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", "read-only", 0, "enabled", "mounted")
 
 	require.Equal(t, "enabled", info.AgentConfigMount)
 	require.Equal(t, "mounted", info.AgentConfigMountStatus)
@@ -50,7 +50,7 @@ func TestNewRuntimeInfo_ConfigMountMounted(t *testing.T) {
 func TestNewRuntimeInfo_ConfigMountMissingOptional(t *testing.T) {
 	t.Parallel()
 
-	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", 0, "enabled", "missing_optional")
+	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", "read-only", 0, "enabled", "missing_optional")
 
 	require.Equal(t, "enabled", info.AgentConfigMount)
 	require.Equal(t, "missing_optional", info.AgentConfigMountStatus)
@@ -59,7 +59,7 @@ func TestNewRuntimeInfo_ConfigMountMissingOptional(t *testing.T) {
 func TestNewRuntimeInfo_ConfigMountUnreadableOptional(t *testing.T) {
 	t.Parallel()
 
-	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", 0, "enabled", "unreadable_optional")
+	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", "read-only", 0, "enabled", "unreadable_optional")
 
 	require.Equal(t, "enabled", info.AgentConfigMount)
 	require.Equal(t, "unreadable_optional", info.AgentConfigMountStatus)
@@ -68,7 +68,7 @@ func TestNewRuntimeInfo_ConfigMountUnreadableOptional(t *testing.T) {
 func TestNewRuntimeInfo_ExactlySevenTopLevelKeys(t *testing.T) {
 	t.Parallel()
 
-	info := NewRuntimeInfo("ghcr.io/tessariq/reference-runtime:v0.1.0", "reference", 0, "disabled", "disabled")
+	info := NewRuntimeInfo("ghcr.io/tessariq/reference-runtime:v0.1.0", "reference", "read-only", 0, "disabled", "disabled")
 
 	data, err := json.Marshal(info)
 	require.NoError(t, err)
@@ -96,7 +96,7 @@ func TestWriteRuntimeInfo_DirectoryPermissions(t *testing.T) {
 	t.Parallel()
 
 	dir := filepath.Join(t.TempDir(), "evidence")
-	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", 0, "disabled", "disabled")
+	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", "read-only", 0, "disabled", "disabled")
 
 	require.NoError(t, WriteRuntimeInfo(dir, info))
 
@@ -110,7 +110,7 @@ func TestWriteRuntimeInfo_FilePermissions(t *testing.T) {
 	t.Parallel()
 
 	dir := filepath.Join(t.TempDir(), "evidence")
-	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", 0, "disabled", "disabled")
+	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", "read-only", 0, "disabled", "disabled")
 
 	require.NoError(t, WriteRuntimeInfo(dir, info))
 
@@ -124,7 +124,7 @@ func TestWriteRuntimeInfo_CreatesDirectoryAndFile(t *testing.T) {
 	t.Parallel()
 
 	dir := filepath.Join(t.TempDir(), "evidence")
-	info := NewRuntimeInfo("ghcr.io/tessariq/reference-runtime:v0.1.0", "reference", 0, "disabled", "disabled")
+	info := NewRuntimeInfo("ghcr.io/tessariq/reference-runtime:v0.1.0", "reference", "read-only", 0, "disabled", "disabled")
 
 	require.NoError(t, WriteRuntimeInfo(dir, info))
 
@@ -139,7 +139,7 @@ func TestWriteRuntimeInfo_WritesValidJSON(t *testing.T) {
 	t.Parallel()
 
 	dir := filepath.Join(t.TempDir(), "evidence")
-	info := NewRuntimeInfo("ghcr.io/tessariq/reference-runtime:v0.1.0", "reference", 0, "disabled", "disabled")
+	info := NewRuntimeInfo("ghcr.io/tessariq/reference-runtime:v0.1.0", "reference", "read-only", 0, "disabled", "disabled")
 
 	require.NoError(t, WriteRuntimeInfo(dir, info))
 
@@ -230,7 +230,7 @@ func TestAgentUpdate_SkippedJSON(t *testing.T) {
 func TestRuntimeInfo_OmitsAgentUpdateWhenNil(t *testing.T) {
 	t.Parallel()
 
-	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", 0, "disabled", "disabled")
+	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", "read-only", 0, "disabled", "disabled")
 
 	data, err := json.Marshal(info)
 	require.NoError(t, err)
@@ -244,7 +244,7 @@ func TestRuntimeInfo_OmitsAgentUpdateWhenNil(t *testing.T) {
 func TestRuntimeInfo_IncludesAgentUpdateWhenSet(t *testing.T) {
 	t.Parallel()
 
-	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", 0, "disabled", "disabled")
+	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", "read-only", 0, "disabled", "disabled")
 	info.AgentUpdate = &AgentUpdate{
 		Attempted:     true,
 		Success:       true,
@@ -267,7 +267,7 @@ func TestWriteRuntimeInfo_WithAgentUpdate(t *testing.T) {
 	t.Parallel()
 
 	dir := filepath.Join(t.TempDir(), "evidence")
-	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", 0, "disabled", "disabled")
+	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", "read-only", 0, "disabled", "disabled")
 	info.AgentUpdate = &AgentUpdate{
 		Attempted:     true,
 		Success:       true,
@@ -295,7 +295,7 @@ func TestWriteRuntimeInfo_JSONMatchesSpecShape(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	info := NewRuntimeInfo("ghcr.io/tessariq/reference-runtime:v0.1.0", "reference", 0, "disabled", "disabled")
+	info := NewRuntimeInfo("ghcr.io/tessariq/reference-runtime:v0.1.0", "reference", "read-only", 0, "disabled", "disabled")
 
 	require.NoError(t, WriteRuntimeInfo(dir, info))
 

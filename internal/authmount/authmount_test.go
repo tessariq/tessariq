@@ -149,15 +149,18 @@ func TestDiscover_ClaudeCode_MountDetails(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, result.Mounts, 2)
 
-	// Credentials mount.
+	// Credentials mount is RO and not seeded.
 	require.Equal(t, credPath, result.Mounts[0].HostPath)
 	require.Equal(t, filepath.Join(ContainerHome, ".claude", ".credentials.json"), result.Mounts[0].ContainerPath)
 	require.True(t, result.Mounts[0].ReadOnly)
+	require.False(t, result.Mounts[0].SeedIntoRuntime)
 
-	// Config mount.
+	// Config mount is RO from the host and marked as needing a disposable
+	// per-run runtime-state copy — the host file MUST NOT be bound writable.
 	require.Equal(t, configPath, result.Mounts[1].HostPath)
 	require.Equal(t, filepath.Join(ContainerHome, ".claude.json"), result.Mounts[1].ContainerPath)
-	require.False(t, result.Mounts[1].ReadOnly, ".claude.json is a state file that the agent must update")
+	require.True(t, result.Mounts[1].ReadOnly, ".claude.json host bind must be read-only")
+	require.True(t, result.Mounts[1].SeedIntoRuntime, ".claude.json needs a disposable runtime-state copy")
 }
 
 func TestDiscover_ClaudeCode_NoHostHomeExposure(t *testing.T) {
@@ -288,11 +291,7 @@ func TestDiscover_AllMountsAreReadOnly(t *testing.T) {
 			require.NoError(t, err)
 
 			for _, m := range result.Mounts {
-				if filepath.Base(m.ContainerPath) == ".claude.json" {
-					require.False(t, m.ReadOnly, "mount %s is a state file and must be read-write", m.ContainerPath)
-					continue
-				}
-				require.True(t, m.ReadOnly, "mount %s must be read-only", m.ContainerPath)
+				require.True(t, m.ReadOnly, "mount %s must be read-only; writability is expressed via SeedIntoRuntime", m.ContainerPath)
 			}
 		})
 	}
@@ -640,4 +639,104 @@ func TestDiscoverConfigDirs_NoHostHomeExposure(t *testing.T) {
 		require.NotEqual(t, home, m.ContainerPath,
 			"container path must not be the host HOME directory")
 	}
+}
+
+// TestDiscover_SupportedAgentsReadOnlyInvariant iterates every Discover*
+// entry point for every supported agent and asserts that no returned
+// MountSpec is writable from the host. Writability is expressed exclusively
+// via SeedIntoRuntime, which causes the caller to substitute a disposable
+// per-run scratch file.
+func TestDiscover_SupportedAgentsReadOnlyInvariant(t *testing.T) {
+	t.Parallel()
+
+	home := "/home/user"
+
+	type agentFixture struct {
+		agent      string
+		authFiles  map[string]bool
+		stateFiles map[string]bool
+		configDirs map[string]bool
+	}
+
+	fixtures := []agentFixture{
+		{
+			agent: "claude-code",
+			authFiles: map[string]bool{
+				filepath.Join(home, ".claude", ".credentials.json"): true,
+				filepath.Join(home, ".claude.json"):                 true,
+			},
+			stateFiles: map[string]bool{},
+			configDirs: map[string]bool{filepath.Join(home, ".claude"): true},
+		},
+		{
+			agent: "opencode",
+			authFiles: map[string]bool{
+				filepath.Join(home, ".local", "share", "opencode", "auth.json"): true,
+			},
+			stateFiles: map[string]bool{
+				filepath.Join(home, ".local", "state", "opencode", "model.json"): true,
+			},
+			configDirs: map[string]bool{filepath.Join(home, ".config", "opencode"): true},
+		},
+	}
+
+	for _, fx := range fixtures {
+		t.Run(fx.agent, func(t *testing.T) {
+			t.Parallel()
+
+			auth, err := Discover(fx.agent, home, "linux", mockFileExists(fx.authFiles))
+			require.NoError(t, err)
+			for _, m := range auth.Mounts {
+				require.True(t, m.ReadOnly,
+					"Discover(%s) returned writable spec for %s", fx.agent, m.ContainerPath)
+			}
+
+			state, err := DiscoverState(fx.agent, home, mockFileExists(fx.stateFiles))
+			require.NoError(t, err)
+			for _, m := range state.Mounts {
+				require.True(t, m.ReadOnly,
+					"DiscoverState(%s) returned writable spec for %s", fx.agent, m.ContainerPath)
+			}
+
+			cfg, err := DiscoverConfigDirs(fx.agent, home,
+				mockDirCheck(fx.configDirs), mockDirCheck(fx.configDirs))
+			require.NoError(t, err)
+			for _, m := range cfg.Mounts {
+				require.True(t, m.ReadOnly,
+					"DiscoverConfigDirs(%s) returned writable spec for %s", fx.agent, m.ContainerPath)
+				require.False(t, m.SeedIntoRuntime,
+					"config dirs must never be seeded into runtime")
+			}
+		})
+	}
+}
+
+func TestValidateContract_AcceptsReadOnlySpecs(t *testing.T) {
+	t.Parallel()
+
+	specs := []MountSpec{
+		{HostPath: "/h/a", ContainerPath: "/c/a", ReadOnly: true},
+		{HostPath: "/h/b", ContainerPath: "/c/b", ReadOnly: true, SeedIntoRuntime: true},
+	}
+	require.NoError(t, ValidateContract(specs))
+}
+
+func TestValidateContract_RejectsWritableSpec(t *testing.T) {
+	t.Parallel()
+
+	specs := []MountSpec{
+		{HostPath: "/h/a", ContainerPath: "/c/a", ReadOnly: true},
+		{HostPath: "/h/b", ContainerPath: "/c/b", ReadOnly: false},
+	}
+	err := ValidateContract(specs)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "/h/b")
+	require.Contains(t, err.Error(), "writable")
+}
+
+func TestValidateContract_EmptyIsValid(t *testing.T) {
+	t.Parallel()
+
+	require.NoError(t, ValidateContract(nil))
+	require.NoError(t, ValidateContract([]MountSpec{}))
 }

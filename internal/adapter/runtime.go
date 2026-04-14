@@ -18,6 +18,12 @@ type AgentUpdate struct {
 }
 
 // RuntimeInfo represents the runtime.json evidence artifact.
+//
+// AuthMountMode records the host-side mount policy for all auth, config,
+// and state paths. Disposable per-run runtime-state copies (used when an
+// agent like Claude Code needs writable access to a state file) are an
+// implementation detail of satisfying writes without weakening the host
+// mount policy — they do not change AuthMountMode.
 type RuntimeInfo struct {
 	SchemaVersion          int          `json:"schema_version"`
 	Image                  string       `json:"image"`
@@ -30,13 +36,16 @@ type RuntimeInfo struct {
 }
 
 // NewRuntimeInfo creates a runtime.json artifact with the given fields.
-// AuthMountMode is always "read-only" in v0.1.0.
-func NewRuntimeInfo(image, imageSource string, authMountCount int, agentConfigMount, agentConfigMountStatus string) RuntimeInfo {
+// authMountMode is the host-side mount policy string derived from the
+// actual discovered mount specs; callers are expected to pass
+// authmount.AuthMountModeReadOnly after having validated the contract
+// via authmount.ValidateContract.
+func NewRuntimeInfo(image, imageSource, authMountMode string, authMountCount int, agentConfigMount, agentConfigMountStatus string) RuntimeInfo {
 	return RuntimeInfo{
 		SchemaVersion:          1,
 		Image:                  image,
 		ImageSource:            imageSource,
-		AuthMountMode:          "read-only",
+		AuthMountMode:          authMountMode,
 		AuthMountCount:         authMountCount,
 		AgentConfigMount:       agentConfigMount,
 		AgentConfigMountStatus: agentConfigMountStatus,

@@ -10,11 +10,38 @@ import (
 // runtime image (see runtime/reference/Dockerfile).
 const ContainerHome = "/home/tessariq"
 
-// MountSpec describes one read-only bind mount for auth state.
+// AuthMountModeReadOnly is the only valid host-side mount mode for auth and
+// config paths under the v0.1.0 contract. Writable agent state is satisfied
+// through a disposable per-run runtime-state layer, not through writable host
+// binds; see MountSpec.SeedIntoRuntime.
+const AuthMountModeReadOnly = "read-only"
+
+// MountSpec describes one host bind mount for auth, config, or state.
+//
+// Host-side policy is always read-only. When an agent needs writable access
+// to a state file (for example Claude Code's startup counter in
+// ~/.claude.json), SeedIntoRuntime is set to true; the caller then substitutes
+// a disposable per-run scratch file for the host path, so writes never reach
+// the live host file.
 type MountSpec struct {
-	HostPath      string // absolute host path
-	ContainerPath string // deterministic in-container path
-	ReadOnly      bool   // always true in v0.1.0
+	HostPath        string // absolute host path; always bound read-only
+	ContainerPath   string // deterministic in-container path the agent expects
+	ReadOnly        bool   // host-side policy; always true under the v0.1.0 contract
+	SeedIntoRuntime bool   // true = caller must stage a disposable per-run scratch file at ContainerPath and not bind HostPath directly
+}
+
+// ValidateContract enforces the v0.1.0 read-only host mount contract: every
+// MountSpec MUST have ReadOnly=true. Writability is expressed exclusively
+// through SeedIntoRuntime, not through a writable host bind. An adapter that
+// returns a writable spec fails fast here rather than silently leaking an
+// attack surface for container-to-host persistence via the bound file.
+func ValidateContract(specs []MountSpec) error {
+	for _, s := range specs {
+		if !s.ReadOnly {
+			return fmt.Errorf("auth mount contract violated: %s is writable from the container; express writability via SeedIntoRuntime instead", s.HostPath)
+		}
+	}
+	return nil
 }
 
 // Result holds the outcome of auth discovery for one agent.
@@ -64,9 +91,15 @@ func discoverClaudeCode(homeDir, goos string, fileExists func(string) bool) (*Re
 				ReadOnly:      true,
 			},
 			{
-				HostPath:      configPath,
-				ContainerPath: filepath.Join(ContainerHome, ".claude.json"),
-				ReadOnly:      false, // state file — agent must update numStartups, feature flags, etc.
+				// Claude Code mutates .claude.json at startup (numStartups,
+				// MCP state, feature flags). The host bind is read-only; a
+				// disposable per-run scratch file is seeded with the host
+				// contents and bound at ContainerPath so the agent can write
+				// freely without any write reaching the live host file.
+				HostPath:        configPath,
+				ContainerPath:   filepath.Join(ContainerHome, ".claude.json"),
+				ReadOnly:        true,
+				SeedIntoRuntime: true,
 			},
 		},
 	}, nil
