@@ -1,7 +1,7 @@
 ---
 id: TASK-089-resolve-symlinks-in-evidence-path-validation
 title: Resolve symlinks in evidence path validation
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-047-promote-repo-local-evidence-path-validation
@@ -14,7 +14,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#tessariq-attach-run-ref
     - specs/tessariq-v0.1.0.md#tessariq-promote-run-ref
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-04-13T20:17:33Z"
+updated_at: "2026-04-14T16:27:24Z"
 areas:
     - runref
     - attach
@@ -81,3 +81,4 @@ Close the remaining evidence-path escape by validating real filesystem targets, 
 
 - Mirror the stricter approach already used for task-path symlink validation instead of inventing a second containment model.
 - Keep this task focused on evidence-path containment; do not mix it with unrelated proxy or index-shape work.
+- 2026-04-14T16:27:24Z: hardened ValidateEvidencePath with filepath.EvalSymlinks mirroring ValidateTaskPath; added unit + integration coverage for leaf and intermediate symlink escapes; attach + promote unit tests reject forged symlink evidence before status read or tmux session; gremlins efficacy 100% on evidencepath.go mutations; manual test MT-001..MT-004 all pass with forged symlinks rejected and legitimate repo-local runs still accepted
