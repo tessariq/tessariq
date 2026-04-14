@@ -1,7 +1,7 @@
 ---
 id: TASK-088-require-proxy-evidence-completeness-before-promote
 title: Require proxy evidence completeness before promote
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-012-proxy-topology-and-egress-artifacts
@@ -14,7 +14,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#evidence-contract
     - specs/tessariq-v0.1.0.md#tessariq-promote-run-ref
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-04-13T20:17:33Z"
+updated_at: "2026-04-14T14:41:09Z"
 areas:
     - promote
     - proxy
@@ -79,3 +79,4 @@ Make proxy-mode evidence completeness a real promote gate so runs recorded as `r
 
 - Keep `squid.log` optional, matching the spec; this task is only about the two required proxy-mode artifacts.
 - Reuse or extend existing completeness helpers instead of scattering another bespoke artifact check in parallel code paths.
+- 2026-04-14T14:41:09Z: proxy completeness gate enforced at runner.CheckEvidenceCompleteness; unit+integration+e2e+mutation+manual tests green
