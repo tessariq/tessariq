@@ -3,6 +3,7 @@ package attach
 import (
 	"context"
 	"errors"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -11,17 +12,31 @@ import (
 	"github.com/tessariq/tessariq/internal/runner"
 )
 
+// setupAttachRepo creates a real repository root with an evidence directory
+// for the given run ID so filepath.EvalSymlinks containment checks can resolve.
+// It returns the repository root and the absolute path to the evidence directory.
+func setupAttachRepo(t *testing.T, runID string) (string, string) {
+	t.Helper()
+	rootDir := t.TempDir()
+	root, err := filepath.EvalSymlinks(rootDir)
+	require.NoError(t, err)
+	evidenceDir := filepath.Join(root, ".tessariq", "runs", runID)
+	require.NoError(t, os.MkdirAll(evidenceDir, 0o755))
+	return root, evidenceDir
+}
+
 func TestResolveLiveRun_ReturnsLiveSession(t *testing.T) {
 	t.Parallel()
 
-	result, err := resolveLiveRun(context.Background(), "/repo", "last", dependencies{
+	root, evidenceDir := setupAttachRepo(t, "RUN123")
+	result, err := resolveLiveRun(context.Background(), root, "last", dependencies{
 		resolveRunRef: func(runsDir, ref string) (run.IndexEntry, error) {
-			require.Equal(t, filepath.Join("/repo", ".tessariq", "runs"), runsDir)
+			require.Equal(t, filepath.Join(root, ".tessariq", "runs"), runsDir)
 			require.Equal(t, "last", ref)
 			return run.IndexEntry{RunID: "RUN123", EvidencePath: filepath.Join(".tessariq", "runs", "RUN123")}, nil
 		},
-		readStatus: func(evidenceDir string) (runner.Status, error) {
-			require.Equal(t, filepath.Join("/repo", ".tessariq", "runs", "RUN123"), evidenceDir)
+		readStatus: func(got string) (runner.Status, error) {
+			require.Equal(t, evidenceDir, got)
 			return runner.Status{State: runner.StateRunning}, nil
 		},
 		hasSession: func(ctx context.Context, sessionName string) (bool, error) {
@@ -33,18 +48,19 @@ func TestResolveLiveRun_ReturnsLiveSession(t *testing.T) {
 	require.Equal(t, Result{
 		RunID:        "RUN123",
 		SessionName:  run.SessionName("RUN123"),
-		EvidencePath: filepath.Join("/repo", ".tessariq", "runs", "RUN123"),
+		EvidencePath: evidenceDir,
 	}, result)
 }
 
 func TestResolveLiveRun_FinishedRunReturnsNotLiveError(t *testing.T) {
 	t.Parallel()
 
-	_, err := resolveLiveRun(context.Background(), "/repo", "last", dependencies{
+	root, evidenceDir := setupAttachRepo(t, "RUN123")
+	_, err := resolveLiveRun(context.Background(), root, "last", dependencies{
 		resolveRunRef: func(runsDir, ref string) (run.IndexEntry, error) {
 			return run.IndexEntry{RunID: "RUN123", EvidencePath: filepath.Join(".tessariq", "runs", "RUN123")}, nil
 		},
-		readStatus: func(evidenceDir string) (runner.Status, error) {
+		readStatus: func(string) (runner.Status, error) {
 			return runner.Status{State: runner.StateSuccess}, nil
 		},
 		hasSession: func(ctx context.Context, sessionName string) (bool, error) {
@@ -53,7 +69,7 @@ func TestResolveLiveRun_FinishedRunReturnsNotLiveError(t *testing.T) {
 	})
 	require.ErrorIs(t, err, ErrRunNotLive)
 	require.ErrorContains(t, err, "run RUN123 is not live")
-	require.ErrorContains(t, err, "evidence path: /repo/.tessariq/runs/RUN123")
+	require.ErrorContains(t, err, "evidence path: "+evidenceDir)
 	require.ErrorContains(t, err, "state success")
 }
 
@@ -73,11 +89,12 @@ func TestResolveLiveRun_UnknownRunReturnsNotLiveError(t *testing.T) {
 func TestResolveLiveRun_MissingSessionReturnsNotLiveError(t *testing.T) {
 	t.Parallel()
 
-	_, err := resolveLiveRun(context.Background(), "/repo", "RUN123", dependencies{
+	root, evidenceDir := setupAttachRepo(t, "RUN123")
+	_, err := resolveLiveRun(context.Background(), root, "RUN123", dependencies{
 		resolveRunRef: func(runsDir, ref string) (run.IndexEntry, error) {
 			return run.IndexEntry{RunID: "RUN123", EvidencePath: filepath.Join(".tessariq", "runs", "RUN123")}, nil
 		},
-		readStatus: func(evidenceDir string) (runner.Status, error) {
+		readStatus: func(string) (runner.Status, error) {
 			return runner.Status{State: runner.StateRunning}, nil
 		},
 		hasSession: func(ctx context.Context, sessionName string) (bool, error) {
@@ -86,14 +103,15 @@ func TestResolveLiveRun_MissingSessionReturnsNotLiveError(t *testing.T) {
 	})
 	require.ErrorIs(t, err, ErrRunNotLive)
 	require.ErrorContains(t, err, "run RUN123 is not live")
-	require.ErrorContains(t, err, "evidence path: /repo/.tessariq/runs/RUN123")
+	require.ErrorContains(t, err, "evidence path: "+evidenceDir)
 	require.ErrorContains(t, err, "no live tmux session")
 }
 
 func TestResolveLiveRun_RejectsAbsoluteEvidencePathBeforeStatusRead(t *testing.T) {
 	t.Parallel()
 
-	_, err := resolveLiveRun(context.Background(), "/repo", "RUN123", dependencies{
+	root, _ := setupAttachRepo(t, "RUN123")
+	_, err := resolveLiveRun(context.Background(), root, "RUN123", dependencies{
 		resolveRunRef: func(runsDir, ref string) (run.IndexEntry, error) {
 			return run.IndexEntry{RunID: "RUN123", EvidencePath: "/tmp/evil-evidence"}, nil
 		},
@@ -115,7 +133,8 @@ func TestResolveLiveRun_RejectsAbsoluteEvidencePathBeforeStatusRead(t *testing.T
 func TestResolveLiveRun_RejectsTraversalEvidencePathBeforeStatusRead(t *testing.T) {
 	t.Parallel()
 
-	_, err := resolveLiveRun(context.Background(), "/repo", "RUN123", dependencies{
+	root, _ := setupAttachRepo(t, "RUN123")
+	_, err := resolveLiveRun(context.Background(), root, "RUN123", dependencies{
 		resolveRunRef: func(runsDir, ref string) (run.IndexEntry, error) {
 			return run.IndexEntry{RunID: "RUN123", EvidencePath: filepath.Join(".tessariq", "runs", "..", "..", "outside")}, nil
 		},
@@ -134,10 +153,51 @@ func TestResolveLiveRun_RejectsTraversalEvidencePathBeforeStatusRead(t *testing.
 	require.ErrorContains(t, err, "outside the repository")
 }
 
+// TestResolveLiveRun_RejectsSymlinkedEvidenceOutsideRepo verifies that attach
+// refuses a forged evidence directory that is a symlink whose real target
+// escapes the repository, before any evidence file is read or any tmux
+// session is touched.
+func TestResolveLiveRun_RejectsSymlinkedEvidenceOutsideRepo(t *testing.T) {
+	t.Parallel()
+
+	rootDir := t.TempDir()
+	root, err := filepath.EvalSymlinks(rootDir)
+	require.NoError(t, err)
+
+	externalDir := t.TempDir()
+	external, err := filepath.EvalSymlinks(externalDir)
+	require.NoError(t, err)
+
+	runID := "RUN_FORGED"
+	forged := filepath.Join(external, runID)
+	require.NoError(t, os.MkdirAll(forged, 0o755))
+
+	runsDir := filepath.Join(root, ".tessariq", "runs")
+	require.NoError(t, os.MkdirAll(runsDir, 0o755))
+	require.NoError(t, os.Symlink(forged, filepath.Join(runsDir, runID)))
+
+	_, err = resolveLiveRun(context.Background(), root, runID, dependencies{
+		resolveRunRef: func(_, _ string) (run.IndexEntry, error) {
+			return run.IndexEntry{RunID: runID, EvidencePath: filepath.Join(".tessariq", "runs", runID)}, nil
+		},
+		readStatus: func(string) (runner.Status, error) {
+			t.Fatalf("readStatus must not be called for forged symlink evidence")
+			return runner.Status{}, nil
+		},
+		hasSession: func(context.Context, string) (bool, error) {
+			t.Fatalf("hasSession must not be called for forged symlink evidence")
+			return false, nil
+		},
+	})
+	require.ErrorIs(t, err, ErrRunNotLive)
+	require.ErrorContains(t, err, "outside the repository")
+}
+
 func TestResolveLiveRun_RejectsMismatchedEvidenceRunIDBeforeStatusRead(t *testing.T) {
 	t.Parallel()
 
-	_, err := resolveLiveRun(context.Background(), "/repo", "RUN_A", dependencies{
+	root, _ := setupAttachRepo(t, "RUN_B")
+	_, err := resolveLiveRun(context.Background(), root, "RUN_A", dependencies{
 		resolveRunRef: func(runsDir, ref string) (run.IndexEntry, error) {
 			return run.IndexEntry{RunID: "RUN_A", EvidencePath: filepath.Join(".tessariq", "runs", "RUN_B")}, nil
 		},
@@ -158,7 +218,8 @@ func TestResolveLiveRun_RejectsMismatchedEvidenceRunIDBeforeStatusRead(t *testin
 func TestResolveLiveRun_SessionCheckErrorReturned(t *testing.T) {
 	t.Parallel()
 
-	_, err := resolveLiveRun(context.Background(), "/repo", "RUN123", dependencies{
+	root, _ := setupAttachRepo(t, "RUN123")
+	_, err := resolveLiveRun(context.Background(), root, "RUN123", dependencies{
 		resolveRunRef: func(runsDir, ref string) (run.IndexEntry, error) {
 			return run.IndexEntry{RunID: "RUN123", EvidencePath: filepath.Join(".tessariq", "runs", "RUN123")}, nil
 		},
