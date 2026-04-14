@@ -13,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/tessariq/tessariq/internal/adapter"
+	"github.com/tessariq/tessariq/internal/proxy"
 	"github.com/tessariq/tessariq/internal/run"
 	"github.com/tessariq/tessariq/internal/runner"
 	"github.com/tessariq/tessariq/internal/testutil/containers"
@@ -272,6 +273,87 @@ func TestRun_EmptyDiffstatRejectsPromote(t *testing.T) {
 	require.Empty(t, gitOutputAllowFailure(t, repo.Dir(), "branch", "--list", defaultBranchName(testRunID)))
 }
 
+func TestRun_ProxyRunWithBothEgressArtifactsPromotes(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo, err := containers.StartGitRepo(ctx, t)
+	require.NoError(t, err)
+
+	writeFile(t, filepath.Join(repo.Dir(), "tracked.txt"), "before\n")
+	gitRunTest(t, repo.Dir(), "add", "tracked.txt")
+	gitRunTest(t, repo.Dir(), "commit", "-m", "base")
+
+	baseSHA := gitOutputTest(t, repo.Dir(), "rev-parse", "HEAD")
+	patch, diffstat := buildDiffArtifacts(t, repo.Dir(), baseSHA, func(worktree string) {
+		writeFile(t, filepath.Join(worktree, "tracked.txt"), "after\n")
+	})
+	createEvidenceFixture(t, repo.Dir(), testRunID, baseSHA, patch, diffstat)
+	markProxyEgressMode(t, repo.Dir(), testRunID)
+	writeProxyEgressArtifacts(t, repo.Dir(), testRunID)
+
+	result, err := Run(ctx, repo.Dir(), Options{RunRef: testRunID})
+	require.NoError(t, err)
+	require.Equal(t, testRunID, result.RunID)
+}
+
+func TestRun_ProxyRunMissingCompiledYAMLRejectsPromote(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo, err := containers.StartGitRepo(ctx, t)
+	require.NoError(t, err)
+
+	writeFile(t, filepath.Join(repo.Dir(), "tracked.txt"), "before\n")
+	gitRunTest(t, repo.Dir(), "add", "tracked.txt")
+	gitRunTest(t, repo.Dir(), "commit", "-m", "base")
+
+	baseSHA := gitOutputTest(t, repo.Dir(), "rev-parse", "HEAD")
+	patch, diffstat := buildDiffArtifacts(t, repo.Dir(), baseSHA, func(worktree string) {
+		writeFile(t, filepath.Join(worktree, "tracked.txt"), "after\n")
+	})
+	createEvidenceFixture(t, repo.Dir(), testRunID, baseSHA, patch, diffstat)
+	markProxyEgressMode(t, repo.Dir(), testRunID)
+	writeProxyEgressArtifacts(t, repo.Dir(), testRunID)
+	require.NoError(t, os.Remove(filepath.Join(repo.Dir(), ".tessariq", "runs", testRunID, "egress.compiled.yaml")))
+
+	_, err = Run(ctx, repo.Dir(), Options{RunRef: testRunID})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "egress.compiled.yaml")
+	require.Contains(t, err.Error(), "evidence is intact")
+	require.Empty(t, gitOutputAllowFailure(t, repo.Dir(), "branch", "--list", defaultBranchName(testRunID)))
+}
+
+func TestRun_ProxyRunMissingEventsJSONLRejectsPromote(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo, err := containers.StartGitRepo(ctx, t)
+	require.NoError(t, err)
+
+	writeFile(t, filepath.Join(repo.Dir(), "tracked.txt"), "before\n")
+	gitRunTest(t, repo.Dir(), "add", "tracked.txt")
+	gitRunTest(t, repo.Dir(), "commit", "-m", "base")
+
+	baseSHA := gitOutputTest(t, repo.Dir(), "rev-parse", "HEAD")
+	patch, diffstat := buildDiffArtifacts(t, repo.Dir(), baseSHA, func(worktree string) {
+		writeFile(t, filepath.Join(worktree, "tracked.txt"), "after\n")
+	})
+	createEvidenceFixture(t, repo.Dir(), testRunID, baseSHA, patch, diffstat)
+	markProxyEgressMode(t, repo.Dir(), testRunID)
+	writeProxyEgressArtifacts(t, repo.Dir(), testRunID)
+	require.NoError(t, os.WriteFile(
+		filepath.Join(repo.Dir(), ".tessariq", "runs", testRunID, "egress.events.jsonl"),
+		[]byte{}, 0o600,
+	))
+
+	_, err = Run(ctx, repo.Dir(), Options{RunRef: testRunID})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "egress.events.jsonl")
+	require.Contains(t, err.Error(), "evidence is intact")
+	require.Empty(t, gitOutputAllowFailure(t, repo.Dir(), "branch", "--list", defaultBranchName(testRunID)))
+}
+
 func TestRun_IncompleteIndexFailsCleanly(t *testing.T) {
 	t.Parallel()
 
@@ -496,6 +578,34 @@ func createEvidenceFixture(t *testing.T, repoDir, runID, baseSHA, patch, diffsta
 		EvidencePath:  filepath.Join(".tessariq", "runs", runID),
 	}
 	require.NoError(t, run.AppendIndex(filepath.Join(repoDir, ".tessariq", "runs"), entry))
+}
+
+func markProxyEgressMode(t *testing.T, repoDir, runID string) {
+	t.Helper()
+	evidenceDir := filepath.Join(repoDir, ".tessariq", "runs", runID)
+	m, err := run.ReadManifest(evidenceDir)
+	require.NoError(t, err)
+	m.ResolvedEgressMode = "proxy"
+	m.RequestedEgressMode = "proxy"
+	require.NoError(t, run.WriteManifest(evidenceDir, m))
+}
+
+func writeProxyEgressArtifacts(t *testing.T, repoDir, runID string) {
+	t.Helper()
+	evidenceDir := filepath.Join(repoDir, ".tessariq", "runs", runID)
+	compiled, err := proxy.NewCompiledAllowlist("custom", []string{"api.example.com:443"})
+	require.NoError(t, err)
+	require.NoError(t, proxy.WriteCompiledYAML(evidenceDir, compiled))
+	require.NoError(t, proxy.WriteEventsJSONL(evidenceDir, []proxy.Event{
+		{
+			Timestamp:   time.Now().UTC().Format(time.RFC3339),
+			Host:        "blocked.example.com",
+			Port:        443,
+			Action:      "blocked",
+			Reason:      "not_in_allowlist",
+			SquidResult: "TCP_DENIED/403",
+		},
+	}))
 }
 
 func writeFile(t *testing.T, path, content string) {
