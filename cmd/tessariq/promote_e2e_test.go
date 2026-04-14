@@ -218,6 +218,54 @@ func TestE2E_PromoteTamperedManifestRejectedBeforeGitSideEffects(t *testing.T) {
 	require.NotEqual(t, 0, code, "branch must not be created for tampered manifest")
 }
 
+func TestE2E_PromoteProxyRequiresEgressEvidence(t *testing.T) {
+	t.Parallel()
+
+	bin := buildBinary(t)
+	env := setupRunEnvWithScript(t, bin, "claude", "echo promoted > /work/promoted.txt; exit 0")
+
+	runCode, runOutput := runTessariq(t, env, "claude", "--egress open")
+	require.Equal(t, 0, runCode, "run failed: %s", runOutput)
+
+	runID := extractField(runOutput, "run_id")
+	require.NotEmpty(t, runID)
+
+	ctx := context.Background()
+	hostDir := env.Dir()
+	repoPath := filepath.Join(hostDir, "repo")
+	evidenceDir := filepath.Join(repoPath, ".tessariq", "runs", runID)
+	manifestPath := filepath.Join(evidenceDir, "manifest.json")
+
+	// Flip resolved_egress_mode to "proxy" in the recorded manifest so promote
+	// exercises the proxy completeness gate without needing a real Squid topology.
+	tamperCmd := fmt.Sprintf(`sed -i 's/"resolved_egress_mode": "[^"]*"/"resolved_egress_mode": "proxy"/' %s`, manifestPath)
+	execCmd(t, env, ctx, tamperCmd, "mark manifest as proxy mode")
+
+	compiledPath := filepath.Join(evidenceDir, "egress.compiled.yaml")
+	eventsPath := filepath.Join(evidenceDir, "egress.events.jsonl")
+
+	// Write egress.compiled.yaml but leave egress.events.jsonl missing → promote
+	// must refuse with the canonical "evidence is intact" guidance.
+	execCmd(t, env, ctx, fmt.Sprintf("printf 'schema_version: 1\\n' > %s", compiledPath), "write compiled.yaml")
+
+	promoteCode, promoteOutput := runPromote(t, env, runID, "")
+	require.NotEqual(t, 0, promoteCode, "promote should fail when egress.events.jsonl is missing: %s", promoteOutput)
+	require.Contains(t, promoteOutput, "egress.events.jsonl")
+	require.Contains(t, promoteOutput, "evidence is intact")
+
+	// Assert no branch was created on the failure path.
+	code, _, err := env.Exec(ctx, []string{"sh", "-c", fmt.Sprintf("git -C %s show-ref --verify --quiet refs/heads/tessariq/%s", repoPath, runID)})
+	require.NoError(t, err)
+	require.NotEqual(t, 0, code, "branch must not be created when proxy evidence is incomplete")
+
+	// Add the second required artifact and retry — promote should now succeed.
+	execCmd(t, env, ctx, fmt.Sprintf(`printf '{"timestamp":"2026-01-01T00:00:00Z","host":"blocked.example.com","port":443,"action":"blocked","reason":"not_in_allowlist","squid_result":"TCP_DENIED/403"}\n' > %s`, eventsPath), "write events.jsonl")
+
+	promoteCode, promoteOutput = runPromote(t, env, runID, "")
+	require.Equal(t, 0, promoteCode, "promote should succeed when both proxy artifacts exist: %s", promoteOutput)
+	require.Contains(t, promoteOutput, "branch: tessariq/"+runID)
+}
+
 func runPromote(t *testing.T, env *containers.RunEnv, runID, envPrefix string) (int, string) {
 	t.Helper()
 
