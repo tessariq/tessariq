@@ -324,6 +324,9 @@ func newRunCmd() *cobra.Command {
 				Session:       &tmux.Starter{},
 				SessionName:   sessionName,
 				ContainerName: containerName,
+				DiffArtifactWriter: func(ctx context.Context, evDir string) error {
+					return runner.WriteDiffArtifacts(ctx, evDir, wsPath, baseSHA)
+				},
 			}
 
 			var runErr error
@@ -332,9 +335,6 @@ func newRunCmd() *cobra.Command {
 			} else {
 				runErr = r.Run(cmd.Context())
 			}
-
-			// Generate diff artifacts when changes exist in the worktree.
-			warnDiffArtifacts(cmd.ErrOrStderr(), runner.WriteDiffArtifacts(cmd.Context(), evidenceDir, wsPath, baseSHA))
 
 			// Append index entry after run completes (even on failure).
 			appendIndexEntry(cmd.ErrOrStderr(), root, evidenceDir)
@@ -491,15 +491,6 @@ func resolveRunAllowlist(cfg run.Config, homeDir, resolvedEgress string) (*run.A
 		},
 		readFile: os.ReadFile,
 	})
-}
-
-// warnDiffArtifacts emits a warning when diff artifact generation fails.
-// Diff failures are non-fatal to avoid blocking runs over transient git or I/O
-// errors.
-func warnDiffArtifacts(w io.Writer, err error) {
-	if err != nil {
-		fmt.Fprintf(w, "warning: diff artifacts skipped: %s\n", err)
-	}
 }
 
 // appendRunningIndexEntry appends the initial running entry so attach can

@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -101,5 +102,67 @@ func TestWriteDiffArtifacts_FilePermissions(t *testing.T) {
 		info, err := os.Stat(filepath.Join(evidenceDir, name))
 		require.NoError(t, err)
 		require.Equal(t, os.FileMode(0o600), info.Mode().Perm(), "%s permissions", name)
+	}
+}
+
+// TestWriteDiffArtifacts_SecondWriteFailure_NoOrphanDiffPatch asserts that a
+// failure while committing the second diff artifact leaves no orphan diff.patch
+// behind. It simulates the failure by pre-creating diffstat.txt as a directory
+// so the writer cannot place a regular file at that path.
+func TestWriteDiffArtifacts_SecondWriteFailure_NoOrphanDiffPatch(t *testing.T) {
+	t.Parallel()
+
+	worktree := initTestGitRepo(t)
+	evidenceDir := t.TempDir()
+
+	cmd := exec.Command("git", "-C", worktree, "rev-parse", "HEAD")
+	shaOut, err := cmd.Output()
+	require.NoError(t, err)
+	baseSHA := strings.TrimSpace(string(shaOut))
+
+	require.NoError(t, os.WriteFile(filepath.Join(worktree, "file.txt"), []byte("data\n"), 0o644))
+
+	// Block the diffstat.txt path so the second commit step fails.
+	require.NoError(t, os.Mkdir(filepath.Join(evidenceDir, "diffstat.txt"), 0o700))
+
+	err = WriteDiffArtifacts(context.Background(), evidenceDir, worktree, baseSHA)
+	require.Error(t, err, "writer must return an error when the second artifact cannot be written")
+
+	// diff.patch must not be left behind as an orphan.
+	_, statErr := os.Stat(filepath.Join(evidenceDir, "diff.patch"))
+	require.True(t, os.IsNotExist(statErr),
+		"diff.patch should not exist after second-write failure, got err=%v", statErr)
+
+	// No leftover .tmp files.
+	entries, err := os.ReadDir(evidenceDir)
+	require.NoError(t, err)
+	for _, e := range entries {
+		require.False(t, strings.HasSuffix(e.Name(), ".tmp"),
+			"unexpected leftover .tmp file: %s", e.Name())
+	}
+}
+
+// TestWriteDiffArtifacts_SuccessLeavesNoTempFiles asserts that the successful
+// path does not leave any .tmp artifacts in the evidence directory.
+func TestWriteDiffArtifacts_SuccessLeavesNoTempFiles(t *testing.T) {
+	t.Parallel()
+
+	worktree := initTestGitRepo(t)
+	evidenceDir := t.TempDir()
+
+	cmd := exec.Command("git", "-C", worktree, "rev-parse", "HEAD")
+	shaOut, err := cmd.Output()
+	require.NoError(t, err)
+	baseSHA := strings.TrimSpace(string(shaOut))
+
+	require.NoError(t, os.WriteFile(filepath.Join(worktree, "tmpcheck.txt"), []byte("x\n"), 0o644))
+
+	require.NoError(t, WriteDiffArtifacts(context.Background(), evidenceDir, worktree, baseSHA))
+
+	entries, err := os.ReadDir(evidenceDir)
+	require.NoError(t, err)
+	for _, e := range entries {
+		require.False(t, strings.HasSuffix(e.Name(), ".tmp"),
+			"unexpected leftover .tmp file: %s", e.Name())
 	}
 }

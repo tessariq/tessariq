@@ -94,6 +94,92 @@ func newIntegrationRunner(dir string, proc ProcessRunner) *Runner {
 	}
 }
 
+// initGitWorktree seeds a git repo with one commit and returns its path and base SHA.
+func initGitWorktree(t *testing.T) (string, string) {
+	t.Helper()
+	dir := t.TempDir()
+	commands := [][]string{
+		{"git", "init", "-b", "main", dir},
+		{"git", "-C", dir, "config", "user.email", "test@test.com"},
+		{"git", "-C", dir, "config", "user.name", "Test"},
+		{"git", "-C", dir, "config", "commit.gpgsign", "false"},
+		{"git", "-C", dir, "commit", "--allow-empty", "-m", "initial"},
+	}
+	for _, args := range commands {
+		cmd := exec.Command(args[0], args[1:]...)
+		out, cErr := cmd.CombinedOutput()
+		require.NoError(t, cErr, "git command %v failed: %s", args, out)
+	}
+	shaOut, err := exec.Command("git", "-C", dir, "rev-parse", "HEAD").Output()
+	require.NoError(t, err)
+	return dir, strings.TrimSpace(string(shaOut))
+}
+
+func TestRunnerIntegration_DiffArtifacts_AllOrNothing_OnPartialWriteFailure(t *testing.T) {
+	t.Parallel()
+
+	worktree, baseSHA := initGitWorktree(t)
+	require.NoError(t, os.WriteFile(filepath.Join(worktree, "changed.txt"), []byte("data\n"), 0o644))
+
+	evidenceDir := t.TempDir()
+	// Block diffstat.txt with a directory so the committing rename fails.
+	require.NoError(t, os.Mkdir(filepath.Join(evidenceDir, "diffstat.txt"), 0o700))
+
+	r := newIntegrationRunner(evidenceDir, newShellProcess("exit 0"))
+	r.DiffArtifactWriter = func(ctx context.Context, evDir string) error {
+		return WriteDiffArtifacts(ctx, evDir, worktree, baseSHA)
+	}
+
+	var termErr *TerminalStateError
+	require.ErrorAs(t, r.Run(context.Background()), &termErr,
+		"partial diff write must escalate the run to a non-success terminal state")
+	require.Equal(t, StateFailed, termErr.State)
+
+	s, err := ReadStatus(evidenceDir)
+	require.NoError(t, err)
+	require.Equal(t, StateFailed, s.State,
+		"status.json must reflect failed state when diff artifacts cannot be committed")
+
+	// No orphan diff.patch must remain.
+	_, statErr := os.Stat(filepath.Join(evidenceDir, "diff.patch"))
+	require.True(t, os.IsNotExist(statErr),
+		"diff.patch must be rolled back when the diffstat.txt commit fails")
+
+	// No leftover .tmp files.
+	entries, err := os.ReadDir(evidenceDir)
+	require.NoError(t, err)
+	for _, e := range entries {
+		require.False(t, strings.HasSuffix(e.Name(), ".tmp"),
+			"unexpected leftover .tmp file: %s", e.Name())
+	}
+}
+
+func TestRunnerIntegration_DiffArtifacts_HappyPathCommittedWithSuccess(t *testing.T) {
+	t.Parallel()
+
+	worktree, baseSHA := initGitWorktree(t)
+	require.NoError(t, os.WriteFile(filepath.Join(worktree, "happy.txt"), []byte("hello\n"), 0o644))
+
+	evidenceDir := t.TempDir()
+
+	r := newIntegrationRunner(evidenceDir, newShellProcess("exit 0"))
+	r.DiffArtifactWriter = func(ctx context.Context, evDir string) error {
+		return WriteDiffArtifacts(ctx, evDir, worktree, baseSHA)
+	}
+
+	require.NoError(t, r.Run(context.Background()))
+
+	s, err := ReadStatus(evidenceDir)
+	require.NoError(t, err)
+	require.Equal(t, StateSuccess, s.State)
+
+	for _, name := range []string{"diff.patch", "diffstat.txt"} {
+		info, statErr := os.Stat(filepath.Join(evidenceDir, name))
+		require.NoError(t, statErr, "%s must exist", name)
+		require.Greater(t, info.Size(), int64(0), "%s must be non-empty", name)
+	}
+}
+
 func TestRunnerIntegration_SuccessProcess(t *testing.T) {
 	t.Parallel()
 

@@ -58,6 +58,11 @@ type Runner struct {
 	SessionReady  chan<- struct{} // closed when ready for attach; nil = ignored
 	Clock         func() time.Time
 	LogCapBytes   int64 // 0 uses DefaultLogCapBytes
+	// DiffArtifactWriter, when set, is invoked after verify hooks succeed and
+	// before the terminal status is written. A non-nil error escalates the
+	// run to a non-success terminal state so partial diff evidence never
+	// coexists with a promotable success.
+	DiffArtifactWriter func(ctx context.Context, evidenceDir string) error
 }
 
 func (r *Runner) clock() time.Time {
@@ -141,6 +146,17 @@ func (r *Runner) Run(ctx context.Context) error {
 		if verifyErr != nil {
 			finishedAt := r.clock()
 			fmt.Fprintf(logs.RunnerLog, "[%s] verify-hook failed: %s\n", finishedAt.UTC().Format(time.RFC3339), verifyErr)
+			return r.writeTerminalStatus(StateFailed, startedAt, finishedAt, 1, false)
+		}
+	}
+
+	// Commit diff artifacts as part of the terminal phase. A failure here
+	// must escalate the run to a non-success state so the run never appears
+	// promotable with missing or partial diff evidence.
+	if processState == StateSuccess && r.DiffArtifactWriter != nil {
+		if err := r.DiffArtifactWriter(ctx, r.EvidenceDir); err != nil {
+			finishedAt := r.clock()
+			fmt.Fprintf(logs.RunnerLog, "[%s] diff-artifact write failed: %s\n", finishedAt.UTC().Format(time.RFC3339), err)
 			return r.writeTerminalStatus(StateFailed, startedAt, finishedAt, 1, false)
 		}
 	}

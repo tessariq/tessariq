@@ -1078,6 +1078,65 @@ func TestRunner_NonInteractiveSessionStillCreatedEarly(t *testing.T) {
 		"non-interactive mode must create tmux session before starting process")
 }
 
+func TestRunner_DiffArtifactWriterFailure_EscalatesToFailed(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	r := newTestRunner(dir, newFakeProcess(0))
+	r.DiffArtifactWriter = func(_ context.Context, _ string) error {
+		return errors.New("boom")
+	}
+
+	var termErr *TerminalStateError
+	require.ErrorAs(t, r.Run(context.Background()), &termErr,
+		"diff-artifact writer failure after a success process must escalate to TerminalStateError")
+	require.Equal(t, StateFailed, termErr.State)
+
+	s, err := ReadStatus(dir)
+	require.NoError(t, err)
+	require.Equal(t, StateFailed, s.State,
+		"status.json must reflect non-success when diff artifacts cannot be committed")
+}
+
+func TestRunner_DiffArtifactWriterSuccess_StaysSuccessful(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	r := newTestRunner(dir, newFakeProcess(0))
+	called := false
+	r.DiffArtifactWriter = func(_ context.Context, evidenceDir string) error {
+		called = true
+		require.Equal(t, dir, evidenceDir)
+		return nil
+	}
+
+	require.NoError(t, r.Run(context.Background()))
+	require.True(t, called, "diff-artifact writer should be invoked during the runner lifecycle")
+
+	s, err := ReadStatus(dir)
+	require.NoError(t, err)
+	require.Equal(t, StateSuccess, s.State)
+}
+
+func TestRunner_DiffArtifactWriter_SkippedOnProcessFailure(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	r := newTestRunner(dir, newFakeProcess(7))
+	called := false
+	r.DiffArtifactWriter = func(_ context.Context, _ string) error {
+		called = true
+		return nil
+	}
+
+	var termErr *TerminalStateError
+	require.ErrorAs(t, r.Run(context.Background()), &termErr)
+	require.Equal(t, StateFailed, termErr.State)
+	require.Equal(t, 7, termErr.ExitCode)
+	require.False(t, called,
+		"diff-artifact writer must not run when the process already failed")
+}
+
 func TestRunner_VerifyHookRunsFromRepoRoot(t *testing.T) {
 	t.Parallel()
 
