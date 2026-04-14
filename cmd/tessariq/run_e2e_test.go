@@ -849,6 +849,56 @@ func TestE2E_ContainerSecurityHardening(t *testing.T) {
 	}
 }
 
+// TestE2E_ClaudeJsonHostFileImmutableAfterRun is the BUG-050 regression guard
+// at the e2e level. The fake claude agent mutates ~/.claude.json inside the
+// container before exiting. The test asserts that the host-side .claude.json
+// file (under the e2e home dir) is byte-identical to its pre-run content,
+// proving that the disposable per-run runtime-state layer prevents
+// container-to-host persistence.
+func TestE2E_ClaudeJsonHostFileImmutableAfterRun(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+	// Fake agent: overwrites its own ~/.claude.json with a mutation marker.
+	// If the host bind were writable (BUG-050), the host file under
+	// <hostDir>/home/.claude.json would pick up this mutation.
+	env := setupRunEnvCustom(t, bin, e2eSetupOpts{
+		binaryName: "claude",
+		scriptBody: `echo '{"mutated_from_container":true,"numStartups":9999}' > "$HOME/.claude.json"`,
+	})
+
+	hostDir := env.Dir()
+	homeDir := filepath.Join(hostDir, "home")
+	hostClaudeJSON := filepath.Join(homeDir, ".claude.json")
+
+	ctx := context.Background()
+
+	// Capture original host content.
+	origCode, origContent, err := env.Exec(ctx, []string{"cat", hostClaudeJSON})
+	require.NoError(t, err)
+	require.Equal(t, 0, origCode, "host .claude.json must exist before run")
+
+	code, output := runTessariq(t, env, "claude", "")
+	require.Equal(t, 0, code, "run failed: %s", output)
+
+	// Host file must be byte-identical to its pre-run content.
+	postCode, postContent, err := env.Exec(ctx, []string{"cat", hostClaudeJSON})
+	require.NoError(t, err)
+	require.Equal(t, 0, postCode, "host .claude.json must still exist after run")
+	require.Equal(t, origContent, postContent,
+		"host .claude.json must not be mutated by in-container writes (BUG-050 regression)")
+	require.NotContains(t, postContent, "mutated_from_container",
+		"in-container mutation must not leak to host auth file")
+
+	// The scratch file for this run must be removed after run cleanup.
+	runID := extractField(output, "run_id")
+	require.NotEmpty(t, runID)
+	scratchDir := filepath.Join(homeDir, ".tessariq", "runtime-state", runID)
+	checkCode, _, err := env.Exec(ctx, []string{"test", "-e", scratchDir})
+	require.NoError(t, err)
+	require.NotEqual(t, 0, checkCode,
+		"runtime-state scratch directory %s must be removed after the run completes", scratchDir)
+}
+
 func TestE2E_InteractiveClaudeCodeAgentMetadata(t *testing.T) {
 	t.Parallel()
 	bin := buildBinary(t)

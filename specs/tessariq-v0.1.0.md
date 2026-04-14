@@ -669,7 +669,7 @@ Current supported auth and config reuse paths are:
   - optional config via `--mount-agent-config`:
     - `~/.config/opencode/`
 
-Auth and config paths are always mounted read-only from the host. When a supported agent requires writable access to a state file at runtime (for example, Claude Code's `~/.claude.json` startup counter and feature-flag mutations), Tessariq copies the host input into a disposable tmpfs-backed runtime path before the agent starts. The agent writes into the disposable copy; the host file is never modified. This pattern applies uniformly across all supported agents.
+Auth and config paths are always mounted read-only from the host. When a supported agent requires writable access to a state file at runtime (for example, Claude Code's `~/.claude.json` startup counter and feature-flag mutations), Tessariq copies the host input into a disposable per-run runtime-state file under `~/.tessariq/runtime-state/<run_id>/` before the agent starts, and bind-mounts that per-run copy at the agent's expected container path. The host source is never bound into the container. The agent writes into the disposable copy; the host file is never modified. After the run completes the scratch directory is removed. This pattern applies uniformly across all supported agents.
 
 ### Future macOS Claude helper sketch
 
@@ -718,6 +718,19 @@ Bootstrap is expected to:
 - write the final `status.json`
 
 ## Specification changelog
+
+### 2026-04-14: Runtime-state implementation note — per-run scratch file
+
+**Changed:**
+
+1. **Implementation notes — disposable runtime-state mechanism clarified**
+   - The "Supported auth and config paths" informative note now describes the mechanism as a disposable per-run runtime-state file under `~/.tessariq/runtime-state/<run_id>/`, not a tmpfs-backed runtime path.
+   - Rationale: TASK-087 implementation of the disposable layer uses a host-side per-run scratch file (seeded from the read-only host source and bind-mounted read-write at the agent's expected container path) rather than a tmpfs-plus-wrapper-entrypoint mechanism. Both satisfy the normative rule that host auth/state/config paths MUST NOT be writable from inside the container; the scratch-file approach reuses the existing read-write bind infrastructure and makes the disposable property obvious at the filesystem level.
+   - The normative rule in "Agent and Runtime Contract" is unchanged: host paths MUST NOT be writable from inside the container, and writes that the agent needs MUST go through a disposable per-run runtime-state layer.
+
+**Tasks affected:**
+
+- TASK-087 implementation landed; the informative note now reflects the as-built mechanism.
 
 ### 2026-04-13: Disposable writable runtime-state layer for agent auth and config
 

@@ -1,7 +1,7 @@
 ---
 id: TASK-087-restore-read-only-claude-auth-mount-contract
 title: Enforce a secure host auth and config mount contract across all supported agents
-status: todo
+status: done
 priority: p0
 depends_on:
     - TASK-023-supported-agent-auth-mounts
@@ -16,7 +16,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#agent-and-runtime-contract
     - specs/tessariq-v0.1.0.md#acceptance-scenarios
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-04-13T21:30:00Z"
+updated_at: "2026-04-14T16:19:33Z"
 areas:
     - auth
     - security
@@ -168,3 +168,4 @@ When implementing, verify that these spec amendments are still present and consi
 - BUG-050 is the reproduced trigger for this task, but the implementation must leave behind a shared invariant for all supported adapters rather than a one-off Claude special case.
 - The existing `WritableDirs` tmpfs mechanism in `internal/container/process.go` already handles the tmpfs side. This task extends it with a seed-copy step, not a replacement.
 - Do not add any mechanism for syncing disposable copies back to the host. The disposable layer is strictly one-directional: host -> tmpfs -> discard.
+- 2026-04-14T16:19:33Z: Implemented disposable per-run runtime-state layer. authmount.MountSpec gained SeedIntoRuntime + ValidateContract + AuthMountModeReadOnly const. Claude Code .claude.json is now RO host bind + SeedIntoRuntime=true; adapter.PrepareRuntimeState seeds a scratch file under ~/.tessariq/runtime-state/<run_id>/ and cmd/tessariq/run.go defers cleanup. runtime.json auth_mount_mode threaded from caller. Verified: unit, integration, e2e (including new BUG-050 regression e2e), mutation 85.2% module-wide with 0 lived mutants in touched files, manual test container-mode report at planning/artifacts/manual-test/TASK-087.../2026-04-14T18-10-00/report.md (pass-with-fixes, harness-only fix).

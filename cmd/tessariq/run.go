@@ -211,6 +211,35 @@ func newRunCmd() *cobra.Command {
 				}
 			}
 
+			// Enforce the v0.1.0 read-only host mount contract for every
+			// discovered spec before building any container config. An
+			// adapter that returns a writable spec fails fast here rather
+			// than silently leaking a container-to-host persistence path.
+			if err := authmount.ValidateContract(allAuthMounts); err != nil {
+				return err
+			}
+			if err := authmount.ValidateContract(configMounts); err != nil {
+				return err
+			}
+
+			// Materialize the disposable per-run runtime-state layer. Any
+			// spec with SeedIntoRuntime=true (e.g. Claude Code's
+			// .claude.json) is substituted with a scratch file under
+			// ~/.tessariq/runtime-state/<run_id>/ so writes from inside the
+			// container never reach live host auth/state/config paths.
+			runtimeStateRoot := filepath.Join(homeDir, ".tessariq", "runtime-state", runID)
+			authMountCount := len(allAuthMounts)
+			runtimeState, err := adapter.PrepareRuntimeState(runtimeStateRoot, allAuthMounts)
+			if err != nil {
+				return fmt.Errorf("prepare runtime state: %w", err)
+			}
+			defer func() {
+				if cleanupErr := runtimeState.Cleanup(); cleanupErr != nil {
+					fmt.Fprintf(cmd.ErrOrStderr(), "warning: runtime-state cleanup: %s\n", cleanupErr)
+				}
+			}()
+			effectiveAuthMounts := runtimeState.EffectiveMounts
+
 			// Create agent config early for image probe and auto-update.
 			agent, err := adapter.NewAgent(cfg, string(content), containerEnvVars)
 			if err != nil {
@@ -265,7 +294,9 @@ func newRunCmd() *cobra.Command {
 			}
 
 			agentProc, err := adapter.NewProcess(cfg, string(content), runID, wsPath, evidenceDir,
-				allAuthMounts, configMounts, agentConfigMount, agentConfigMountStatus, containerEnvVars, proxyEnv, resolvedEgress, updateResult)
+				effectiveAuthMounts, configMounts,
+				authmount.AuthMountModeReadOnly, authMountCount,
+				agentConfigMount, agentConfigMountStatus, containerEnvVars, proxyEnv, resolvedEgress, updateResult)
 			if err != nil {
 				return fmt.Errorf("create agent process: %w", err)
 			}
