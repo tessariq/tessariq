@@ -74,6 +74,13 @@ func (cw *CappedWriter) Capped() bool {
 
 // CapLogFile truncates a log file in-place if it exceeds maxBytes,
 // appending a truncation marker. Returns whether the file was truncated.
+//
+// Note: a concurrent writer holding an independent fd keeps its own file
+// offset, which is NOT updated by this truncate. Its next write will land
+// at its stale offset and may create a sparse hole past maxBytes,
+// re-growing the file. Callers MUST stop concurrent writers promptly
+// after CapLogFile returns truncated == true (see
+// startDetachedLogCapMonitor, which calls StopLogStream for this reason).
 func CapLogFile(path string, maxBytes int64) (bool, error) {
 	info, err := os.Stat(path)
 	if err != nil {
