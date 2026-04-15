@@ -19,6 +19,12 @@ var (
 	ErrRunNotFinished           = errors.New("run is not finished")
 	ErrBranchExists             = errors.New("branch already exists")
 	ErrManifestIdentityMismatch = errors.New("manifest identity does not match resolved run")
+	// ErrCleanupFailed is returned when a run's container cleanup
+	// failed after the primary work finished. The runner downgrades
+	// such runs to StateFailed and stamps status.cleanup_error; promote
+	// honors that marker so it never promotes a run the CLI reported as
+	// failed due to cleanup error (TASK-094).
+	ErrCleanupFailed = errors.New("run cleanup failed; the run cannot be promoted")
 )
 
 type Options struct {
@@ -73,6 +79,9 @@ func Run(ctx context.Context, repoRoot string, opts Options) (Result, error) {
 		if !status.State.IsTerminal() {
 			return Result{}, fmt.Errorf("%w: run %s is in state %s", ErrRunNotFinished, manifest.RunID, status.State)
 		}
+	}
+	if status.CleanupError != "" {
+		return Result{}, fmt.Errorf("%w: run %s: %s", ErrCleanupFailed, manifest.RunID, status.CleanupError)
 	}
 
 	patchPath := filepath.Join(evidenceDir, "diff.patch")

@@ -1,7 +1,7 @@
 ---
 id: TASK-094-reconcile-terminal-status-with-container-cleanup-outcome
 title: Reconcile terminal status with container cleanup outcome
-status: todo
+status: done
 priority: p2
 depends_on:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
@@ -14,7 +14,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#lifecycle-rules
     - specs/tessariq-v0.1.0.md#evidence-contract
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: ""
+updated_at: "2026-04-15T16:33:57Z"
 areas:
     - runner
     - container
@@ -88,3 +88,4 @@ Make the runner's terminal state and the CLI's exit code agree even when `Proces
 - Do not introduce a new terminal state name — reuse `StateFailed` or the existing `StateSuccess` with a warning, depending on strategy.
 - Keep the change scoped to `writeTerminalStatus` and its direct CLI consumer. Do not refactor the broader lifecycle ownership contract in the same commit.
 - Coordinate with TASK-085's finalization discipline so the fix does not re-open the reconciliation path for stale `running` entries.
+- 2026-04-15T16:33:57Z: Reordered container cleanup to run before the terminal status write so docker rm -f failures downgrade success→failed, stamp status.cleanup_error, and flow through TerminalStateError. Added promote.ErrCleanupFailed guard, CLI cleanup_error surface, unit + integration tests, and manual-test MT-001..MT-004. Mutation efficacy 86.26% > 70%.

@@ -107,7 +107,7 @@ func (r *Runner) Run(ctx context.Context) error {
 		if err := r.Session.StartSession(ctx, r.SessionName, r.sessionCommand(logs.RunLogPath())); err != nil {
 			finishedAt := r.clock()
 			fmt.Fprintf(logs.RunnerLog, "[%s] tmux session creation failed: %s\n", finishedAt.UTC().Format(time.RFC3339), err)
-			return r.writeTerminalStatus(StateFailed, startedAt, finishedAt, 1, false)
+			return r.writeTerminalStatus(StateFailed, startedAt, finishedAt, 1, false, nil)
 		}
 		if r.SessionReady != nil {
 			close(r.SessionReady)
@@ -133,10 +133,10 @@ func (r *Runner) Run(ctx context.Context) error {
 				fmt.Fprintf(logs.RunnerLog, "[%s] pre-hook timed out (phase=pre-hook index=%d cmd=%q)\n",
 					finishedAt.UTC().Format(time.RFC3339), hte.Index, hte.Command)
 				_ = WriteTimeoutFlag(r.EvidenceDir)
-				return r.writeTerminalStatus(StateTimeout, startedAt, finishedAt, -1, true)
+				return r.writeTerminalStatus(StateTimeout, startedAt, finishedAt, -1, true, nil)
 			}
 			fmt.Fprintf(logs.RunnerLog, "[%s] pre-hook failed: %s\n", finishedAt.UTC().Format(time.RFC3339), preErr)
-			return r.writeTerminalStatus(StateFailed, startedAt, finishedAt, 1, false)
+			return r.writeTerminalStatus(StateFailed, startedAt, finishedAt, 1, false, nil)
 		}
 	}
 
@@ -194,9 +194,31 @@ func (r *Runner) Run(ctx context.Context) error {
 		}
 	}
 
+	// Run container cleanup (docker rm -f) before writing the final
+	// terminal status so the recorded state, CLI exit code, and promote
+	// eligibility stay consistent when cleanup fails. Mirrors the
+	// diff-artifact downgrade pattern above: a cleanup failure escalates
+	// an otherwise-successful run to StateFailed, and the cleanup error
+	// is recorded on status.json for both diagnostics and the promote
+	// guard. A cleanup failure on an already non-success run never
+	// overrides the original state or exit code.
+	var cleanupCause error
+	if cleaner, ok := r.Process.(processCleaner); ok {
+		if err := cleaner.Cleanup(context.Background()); err != nil {
+			fmt.Fprintf(logs.RunnerLog, "[%s] container cleanup failed: %s\n",
+				r.clock().UTC().Format(time.RFC3339), err)
+			cleanupCause = err
+			if processState == StateSuccess {
+				processState = StateFailed
+				exitCode = 1
+				timedOut = false
+			}
+		}
+	}
+
 	finishedAt := r.clock()
 	fmt.Fprintf(logs.RunnerLog, "[%s] runner finished with state %s\n", finishedAt.UTC().Format(time.RFC3339), processState)
-	return r.writeTerminalStatus(processState, startedAt, finishedAt, exitCode, timedOut)
+	return r.writeTerminalStatus(processState, startedAt, finishedAt, exitCode, timedOut, cleanupCause)
 }
 
 func (r *Runner) runProcess(ctx context.Context, startedAt time.Time, runDeadline time.Time, logs *LogFiles) (exitCode int, timedOut bool, state State) {
@@ -466,18 +488,22 @@ func (r *Runner) sessionCommand(runLogPath string) []string {
 	return []string{"tail", "-n", "+1", "-f", runLogPath}
 }
 
-func (r *Runner) writeTerminalStatus(state State, startedAt, finishedAt time.Time, exitCode int, timedOut bool) error {
+// writeTerminalStatus finalizes the run by writing status.json with the
+// fully reconciled state. Container cleanup must already have run in
+// Run() so the caller can pass its outcome via cleanupCause; when
+// cleanupCause is non-nil the cleanup error is stamped on status.json
+// for promote to honor and wrapped into the returned TerminalStateError
+// so the CLI surfaces the reason to the operator.
+func (r *Runner) writeTerminalStatus(state State, startedAt, finishedAt time.Time, exitCode int, timedOut bool, cleanupCause error) error {
 	s := NewTerminalStatus(state, startedAt, finishedAt, exitCode, timedOut)
+	if cleanupCause != nil {
+		s.CleanupError = cleanupCause.Error()
+	}
 	if err := WriteStatus(r.EvidenceDir, s); err != nil {
 		return fmt.Errorf("write terminal status: %w", err)
 	}
-	if cleaner, ok := r.Process.(processCleaner); ok {
-		if err := cleaner.Cleanup(context.Background()); err != nil {
-			return fmt.Errorf("cleanup process: %w", err)
-		}
-	}
 	if state != StateSuccess {
-		return &TerminalStateError{State: state, ExitCode: exitCode}
+		return &TerminalStateError{State: state, ExitCode: exitCode, Cause: cleanupCause}
 	}
 	return nil
 }

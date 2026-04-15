@@ -580,6 +580,48 @@ func createEvidenceFixture(t *testing.T, repoDir, runID, baseSHA, patch, diffsta
 	require.NoError(t, run.AppendIndex(filepath.Join(repoDir, ".tessariq", "runs"), entry))
 }
 
+// TestRun_RejectsRunWithCleanupError pins the TASK-094 acceptance criterion:
+// a run whose status.json carries a non-empty cleanup_error must not be
+// promotable, even when every other evidence check (terminal state, diff,
+// diffstat, manifest identity) passes. This keeps promote aligned with
+// what the operator saw on the CLI — a run reported as failed due to
+// cleanup error cannot silently round-trip into a branch.
+func TestRun_RejectsRunWithCleanupError(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo, err := containers.StartGitRepo(ctx, t)
+	require.NoError(t, err)
+
+	writeFile(t, filepath.Join(repo.Dir(), "tracked.txt"), "before\n")
+	gitRunTest(t, repo.Dir(), "add", "tracked.txt")
+	gitRunTest(t, repo.Dir(), "commit", "-m", "base")
+
+	baseSHA := gitOutputTest(t, repo.Dir(), "rev-parse", "HEAD")
+	patch, diffstat := buildDiffArtifacts(t, repo.Dir(), baseSHA, func(worktree string) {
+		writeFile(t, filepath.Join(worktree, "tracked.txt"), "after\n")
+	})
+	createEvidenceFixture(t, repo.Dir(), testRunID, baseSHA, patch, diffstat)
+
+	// Overwrite the status artifact with a downgraded state + cleanup_error
+	// marker, as the runner would after a docker rm -f failure on an
+	// otherwise-successful run.
+	evidenceDir := filepath.Join(repo.Dir(), ".tessariq", "runs", testRunID)
+	downgraded := runner.NewTerminalStatus(runner.StateFailed, time.Now().Add(-time.Minute), time.Now(), 1, false)
+	downgraded.CleanupError = "docker rm -f tessariq-run: Error response from daemon: container is dead"
+	require.NoError(t, runner.WriteStatus(evidenceDir, downgraded))
+
+	_, err = Run(ctx, repo.Dir(), Options{RunRef: testRunID})
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrCleanupFailed)
+	require.Contains(t, err.Error(), testRunID)
+	require.Contains(t, err.Error(), "docker rm -f")
+
+	// No branch must have been created — promote refuses before any git
+	// side effects.
+	require.Empty(t, gitOutputAllowFailure(t, repo.Dir(), "branch", "--list", defaultBranchName(testRunID)))
+}
+
 func markProxyEgressMode(t *testing.T, repoDir, runID string) {
 	t.Helper()
 	evidenceDir := filepath.Join(repoDir, ".tessariq", "runs", runID)

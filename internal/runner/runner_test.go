@@ -18,10 +18,12 @@ import (
 
 // fakeProcess simulates a process for unit testing.
 type fakeProcess struct {
-	exitCode     int
-	waitCh       chan struct{} // closed when Wait should return
-	stdoutWriter io.Writer
-	stderrWriter io.Writer
+	exitCode      int
+	waitCh        chan struct{} // closed when Wait should return
+	stdoutWriter  io.Writer
+	stderrWriter  io.Writer
+	cleanupErr    error
+	cleanupCalled int
 }
 
 func newFakeProcess(exitCode int) *fakeProcess {
@@ -53,6 +55,14 @@ func (f *fakeProcess) Signal(_ os.Signal) error {
 func (f *fakeProcess) SetOutputWriter(stdout, stderr io.Writer) {
 	f.stdoutWriter = stdout
 	f.stderrWriter = stderr
+}
+
+// Cleanup implements the runner's processCleaner interface so tests can
+// simulate docker rm -f outcomes. Default zero-value returns nil, matching
+// the idempotent happy path of container.Process.Cleanup.
+func (f *fakeProcess) Cleanup(_ context.Context) error {
+	f.cleanupCalled++
+	return f.cleanupErr
 }
 
 // signalRecordingProcess records signals and controls exit behavior per signal type.
@@ -1176,4 +1186,118 @@ func TestRunner_VerifyHookRunsFromRepoRoot(t *testing.T) {
 	s, err := ReadStatus(evidenceDir)
 	require.NoError(t, err)
 	require.Equal(t, StateSuccess, s.State, "verify-hook should find Makefile in repo root")
+}
+
+// TestRunner_CleanupFailureOnSuccess_DowngradesToFailed pins the TASK-094
+// acceptance criterion: when the primary run is successful but container
+// cleanup (docker rm -f) fails, the recorded terminal state, exit code,
+// and returned error must all agree that the run failed. The CLI already
+// maps TerminalStateError → non-zero exit + printNonSuccessOutput, so as
+// long as Runner.Run downgrades and returns TerminalStateError, the CLI
+// exit path, status.json, and promote eligibility reconcile.
+func TestRunner_CleanupFailureOnSuccess_DowngradesToFailed(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	proc := newFakeProcess(0)
+	proc.cleanupErr = errors.New("docker rm -f tessariq-run: Error response from daemon: container is dead")
+	r := newTestRunner(dir, proc)
+
+	runErr := r.Run(context.Background())
+
+	var termErr *TerminalStateError
+	require.ErrorAs(t, runErr, &termErr, "cleanup failure on success must surface as TerminalStateError so CLI exits non-zero")
+	require.Equal(t, StateFailed, termErr.State)
+	require.Equal(t, 1, termErr.ExitCode)
+	require.NotNil(t, termErr.Cause, "cleanup cause must be surfaced on the terminal error")
+	require.Contains(t, termErr.Cause.Error(), "docker rm -f")
+	require.Equal(t, 1, proc.cleanupCalled, "Process.Cleanup must be invoked exactly once before status finalization")
+
+	s, err := ReadStatus(dir)
+	require.NoError(t, err)
+	require.Equal(t, StateFailed, s.State, "status.json must reflect the downgrade so promote refuses the run")
+	require.Equal(t, 1, s.ExitCode)
+	require.False(t, s.TimedOut)
+	require.NotEmpty(t, s.CleanupError, "status.json must carry the cleanup_error marker for promote guard")
+	require.Contains(t, s.CleanupError, "docker rm -f")
+}
+
+// TestRunner_CleanupFailureOnFailedRun_DoesNotDoubleDowngrade verifies that
+// a cleanup failure on an already-failed run never escalates the exit code
+// or overrides the original StateFailed. The cleanup_error marker is still
+// populated so operators can diagnose leaked containers post-run.
+func TestRunner_CleanupFailureOnFailedRun_DoesNotDoubleDowngrade(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	proc := newFakeProcess(7) // primary failure
+	proc.cleanupErr = errors.New("docker rm -f tessariq-run: container busy")
+	r := newTestRunner(dir, proc)
+
+	runErr := r.Run(context.Background())
+
+	var termErr *TerminalStateError
+	require.ErrorAs(t, runErr, &termErr)
+	require.Equal(t, StateFailed, termErr.State)
+	require.Equal(t, 7, termErr.ExitCode, "primary exit code must be preserved, not overwritten by cleanup path")
+
+	s, err := ReadStatus(dir)
+	require.NoError(t, err)
+	require.Equal(t, StateFailed, s.State)
+	require.Equal(t, 7, s.ExitCode)
+	require.NotEmpty(t, s.CleanupError, "cleanup_error must still be recorded for post-mortem even on failed runs")
+}
+
+// TestRunner_CleanupSuccess_LeavesSuccessState pins the happy path after
+// the reordering: a successful run with no cleanup error still produces
+// StateSuccess, nil error, and an empty cleanup_error field (omitempty
+// keeps it out of the serialized JSON).
+func TestRunner_CleanupSuccess_LeavesSuccessState(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	proc := newFakeProcess(0)
+	r := newTestRunner(dir, proc)
+
+	require.NoError(t, r.Run(context.Background()))
+	require.Equal(t, 1, proc.cleanupCalled, "cleanup must run on success so no container is leaked")
+
+	s, err := ReadStatus(dir)
+	require.NoError(t, err)
+	require.Equal(t, StateSuccess, s.State)
+	require.Empty(t, s.CleanupError)
+
+	raw, err := os.ReadFile(filepath.Join(dir, "status.json"))
+	require.NoError(t, err)
+	require.NotContains(t, string(raw), "cleanup_error", "omitempty must keep cleanup_error out of successful status.json")
+}
+
+// TestRunner_CleanupCalledBeforeStatusWrite enforces the ordering invariant:
+// container cleanup must run before the final status.json write so the
+// recorded state reflects the cleanup outcome. Regressions that restore
+// the old write-then-cleanup ordering would fail this test.
+func TestRunner_CleanupCalledBeforeStatusWrite(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	proc := newFakeProcess(0)
+	// On cleanup, verify status.json either does not yet exist in
+	// terminal form or still carries the initial 'running' state.
+	proc.cleanupErr = errors.New("observed boundary")
+	r := newTestRunner(dir, proc)
+
+	// Seed: we cannot observe ordering via a channel without racing the
+	// runner, so instead we rely on the behavioral contract: after a
+	// cleanup error the final status.json must be StateFailed. If
+	// cleanup ran after the terminal write, the status would be
+	// StateSuccess (the write happens first with success state) and
+	// the cleanup error would surface as a wrapped non-terminal error.
+	runErr := r.Run(context.Background())
+	var termErr *TerminalStateError
+	require.ErrorAs(t, runErr, &termErr)
+	require.Equal(t, StateFailed, termErr.State)
+
+	s, err := ReadStatus(dir)
+	require.NoError(t, err)
+	require.Equal(t, StateFailed, s.State, "final status.json must be written after cleanup so it reflects the downgrade")
 }

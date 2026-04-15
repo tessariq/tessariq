@@ -1,6 +1,6 @@
 ---
 schema_version: 1
-updated_at: "2026-04-15T16:17:48Z"
+updated_at: "2026-04-15T16:51:46Z"
 mode: user_request
 run_id: wf-20260415T120121Z
 agent_id: claude-code
@@ -11,7 +11,6 @@ attempt: 0
 last_completed: TASK-092-reject-control-characters-in-task-path
 next_tasks:
     - TASK-093-restrict-worktree-permissions-to-host-and-container-user
-    - TASK-094-reconcile-terminal-status-with-container-cleanup-outcome
 repo_state: idle
 last_transition: finish
 last_transition_at: "2026-04-15T12:08:51Z"
@@ -35,12 +34,11 @@ max_retries: 2
 - Active spec: v0.1.0 (specs/tessariq-v0.1.0.md)
 - Next tasks:
   - TASK-093-restrict-worktree-permissions-to-host-and-container-user
-  - TASK-094-reconcile-terminal-status-with-container-cleanup-outcome
 
 ## Task Counts
 
-- todo: 3
+- todo: 2
 - in_progress: 0
-- done: 91
+- done: 92
 - blocked: 1
 - cancelled: 0
