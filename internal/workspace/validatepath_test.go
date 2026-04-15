@@ -28,12 +28,9 @@ func TestValidateWorkspacePath_HappyPath(t *testing.T) {
 	homeDir := t.TempDir()
 	canonical := mkCanonical(t, homeDir, testRepoFixture, testRunID)
 
-	real, err := ValidateWorkspacePath(homeDir, testRepoFixture, testRunID, canonical)
+	got, err := ValidateWorkspacePath(homeDir, testRepoFixture, testRunID, canonical)
 	require.NoError(t, err)
-
-	wantReal, err := filepath.EvalSymlinks(canonical)
-	require.NoError(t, err)
-	require.Equal(t, wantReal, real)
+	require.Equal(t, filepath.Clean(canonical), got)
 }
 
 func TestValidateWorkspacePath_EmptyIsNoop(t *testing.T) {
