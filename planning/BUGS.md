@@ -85,6 +85,7 @@ BUG-043 through BUG-046 were reviewed against the current code and marked not re
 | BUG-057 | LOW | `internal/run/taskpath.go:10-43`, `internal/promote/promote.go:193-204` | `ValidateTaskPath` does not reject newline or other control characters in the task-file path; the value is stored verbatim in `manifest.task_path` and later interpolated into the `Tessariq-Task:` commit trailer, allowing trailer/body injection on promote | **Open** |
 | BUG-058 | MEDIUM | `internal/container/process.go:141-152`, `internal/workspace/provision.go:31` | `prepareWritableMounts` runs `chmod -R a+rwX` on every writable bind-mount source (the worktree), and the worktree parent dirs are created 0o755; during the run, all local users on the host can read and modify the worktree files | **Open** |
 | BUG-059 | MEDIUM | `internal/runner/runner.go:161-170,443-457`, `internal/container/process.go:102-105` | `Runner.writeTerminalStatus` calls `Process.Cleanup` AFTER the terminal `status.json` is written; if `docker rm -f` fails, the run returns a Go error while `status.json` already records `success`, and the caller CLI path maps the error to a generic failure — leaving the recorded terminal state and the CLI exit disagreeing about outcome | **Open** |
+| BUG-061 | MEDIUM | `internal/workspace/validatepath.go:51-65`, `internal/lifecycle/reconcile.go:166-169` | TASK-090 regression: `ValidateWorkspacePath` calls `filepath.EvalSymlinks` on the stored `workspace_path` and returns `ErrWorkspacePathOutsideTree` when the canonical worktree has already been removed (prior reconcile, manual cleanup, or idempotent re-entry); `tessariq attach` / `tessariq promote` then fail even though there is nothing to clean and the stored path matches the trusted-input canonical lexically. `workspace.Cleanup` itself is idempotent for missing paths, but `cleanupTerminalRun` errors out before it is reached. | **Open** |
 
 ---
 
@@ -2517,3 +2518,68 @@ Actual (pre-fix): first hook exhausts the budget, second hook starts anyway, `/t
 - A compromised or buggy hook earlier in the chain becomes a budget-bypass primitive for a later hook that the operator thought was fenced by `--timeout`.
 
 **Fix direction:** Before `cmd.Start()`, check `hookCtx.Err()`; if non-nil, return a synthetic `HookResult{ExitCode: -1, TimedOut: errors.Is(err, context.DeadlineExceeded)}` so the caller halts the chain and maps to `StateTimeout`. Additionally, when the `waitCh` branch of the select wins, re-check `hookCtx.Err()` and propagate `timedOut` accordingly to close the race window. The canceled-context path must remain non-timeout so Ctrl+C still maps to `StateCanceled`, not `StateTimeout`.
+
+---
+
+## Iteration 42
+
+Scope: PR #96 Codex code review follow-up on TASK-090 (BUG-055 fix). Inspected the new `workspace.ValidateWorkspacePath` helper for behavioral regressions around idempotent reconcile.
+
+### BUG-061: `ValidateWorkspacePath` rejects a missing canonical worktree, regressing idempotent reconcile cleanup
+
+**Severity:** MEDIUM
+**Files:** `internal/workspace/validatepath.go:51-65`, `internal/lifecycle/reconcile.go:166-169`
+
+**What was verified:**
+
+Codex's PR #96 review (`https://github.com/tessariq/tessariq/pull/96#discussion_r3087680616`, P2) pointed out that TASK-090's new validator breaks `workspace.Cleanup`'s long-standing idempotent contract for already-removed worktrees.
+
+Before TASK-090, `workspace.Cleanup` opened with:
+
+```go
+if _, err := os.Stat(workspacePath); os.IsNotExist(err) {
+    return nil
+}
+```
+
+so any re-entry (prior reconcile, manual `rm -rf`, pruned daemon state) was a safe no-op. TASK-090 inserts `workspace.ValidateWorkspacePath` in front of `Cleanup` inside `lifecycle.cleanupTerminalRun`:
+
+```go
+canonical, err := workspace.ValidateWorkspacePath(deps.homeDir, repoRoot, manifest.RunID, stored)
+if err != nil {
+    return fmt.Errorf("validate workspace path for run %s: %w", manifest.RunID, err)
+}
+```
+
+`ValidateWorkspacePath` then calls `filepath.EvalSymlinks(untrustedPath)`:
+
+```go
+realPath, err := filepath.EvalSymlinks(untrustedPath)
+if err != nil {
+    return "", fmt.Errorf("%w: %s", ErrWorkspacePathOutsideTree, untrustedPath)
+}
+```
+
+When the canonical directory has already been removed, `EvalSymlinks` returns `os.ErrNotExist`, the validator wraps it as `ErrWorkspacePathOutsideTree`, and `cleanupTerminalRun` bubbles the error all the way back out of `ReconcileRun`. `tessariq attach` and `tessariq promote` on a previously-reconciled run now fail with
+
+```
+validate workspace path for run <id>: workspace path is outside the canonical worktrees tree: <canonical>
+```
+
+even though the stored path matches the canonical derived from trusted inputs (`homeDir + repoRoot + manifest.RunID`) lexically and there is nothing left to chown, chmod, or delete. The test `internal/workspace/validatepath_test.go:133` (`TestValidateWorkspacePath_NonexistentCanonicalRejected`) currently pins the regression instead of flagging it.
+
+**Reproduction (concept):**
+
+1. Let a run reach a terminal non-success state so `workspace.json` is on disk with the canonical `workspace_path`.
+2. `rm -rf <workspace_path>` (manual post-mortem cleanup, or a prior reconcile that already removed the worktree).
+3. `tessariq attach <run-id>` or `tessariq promote <run-id>`.
+4. Observe the command exit with the wrapped `ErrWorkspacePathOutsideTree` error — no decoy, no tampering, no symlink, just a missing directory.
+
+**Impact:**
+
+- Idempotent reconcile is broken: commands that used to tolerate a cleaned worktree now fail.
+- The CLI error reads like a security rejection, which is misleading — BUG-055's containment envelope is not actually being crossed.
+- Worst case, the user cannot `attach` or `promote` a legitimately-finished run after a routine cleanup.
+- No security impact: the lexical canonical equality check at `validatepath.go:41` still enforces `filepath.Clean(untrustedPath) == filepath.Clean(canonical)` before EvalSymlinks ever runs, so a missing path can never point anywhere except the trusted-input-derived canonical.
+
+**Fix direction:** In `ValidateWorkspacePath`, handle `errors.Is(err, os.ErrNotExist)` from both `EvalSymlinks(untrustedPath)` and `EvalSymlinks(canonical)` by returning `(canonical, nil)`. `Cleanup`'s own `os.Stat + IsNotExist → nil` fast path is then the next stop and the no-op idempotent branch is restored. The lexical canonical equality check above the ENOENT branch preserves the BUG-055 guarantee that the stored path cannot be redirected anywhere but the canonical derived from trusted inputs. Replace `TestValidateWorkspacePath_NonexistentCanonicalRejected` with an idempotent-no-op test, add a guard test that a *missing* lexically-outside path is still rejected, and add a reconcile-level test that drives the no-op case through the `cleanupWorkspace` dependency hook.

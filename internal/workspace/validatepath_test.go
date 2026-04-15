@@ -1,7 +1,6 @@
 package workspace
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -130,14 +129,37 @@ func TestValidateWorkspacePath_SymlinkAncestorEscape(t *testing.T) {
 	require.ErrorIs(t, err, ErrWorkspacePathOutsideTree)
 }
 
-func TestValidateWorkspacePath_NonexistentCanonicalRejected(t *testing.T) {
+// TestValidateWorkspacePath_NonexistentCanonicalIsIdempotent pins the
+// BUG-060 fix: when workspace.json points at the canonical worktree path
+// but the directory has already been removed (prior reconcile, manual
+// cleanup, idempotent re-entry), the validator must return the canonical
+// path with a nil error so workspace.Cleanup's own os.Stat ENOENT fast
+// path can no-op. The lexical canonical equality check remains the
+// security envelope — a missing path cannot be redirected anywhere.
+func TestValidateWorkspacePath_NonexistentCanonicalIsIdempotent(t *testing.T) {
 	t.Parallel()
 
 	homeDir := t.TempDir()
 	canonical := WorkspacePath(homeDir, testRepoFixture, testRunID)
 	// Do not create the canonical path.
 
-	_, err := ValidateWorkspacePath(homeDir, testRepoFixture, testRunID, canonical)
-	require.Error(t, err)
-	require.True(t, errors.Is(err, ErrWorkspacePathOutsideTree) || errors.Is(err, os.ErrNotExist))
+	got, err := ValidateWorkspacePath(homeDir, testRepoFixture, testRunID, canonical)
+	require.NoError(t, err)
+	require.Equal(t, filepath.Clean(canonical), got)
+}
+
+// TestValidateWorkspacePath_NonexistentOutsideTreePathStillRejected
+// guards the BUG-055 envelope against a regression where the ENOENT
+// short-circuit might bypass the lexical canonical equality check. A
+// missing path that does not equal the trusted-input canonical must
+// still be rejected — the short-circuit only applies to paths that
+// already passed the canonical equality check.
+func TestValidateWorkspacePath_NonexistentOutsideTreePathStillRejected(t *testing.T) {
+	t.Parallel()
+
+	homeDir := t.TempDir()
+	bad := filepath.Join(t.TempDir(), "definitely-not-a-worktree", testRunID)
+
+	_, err := ValidateWorkspacePath(homeDir, testRepoFixture, testRunID, bad)
+	require.ErrorIs(t, err, ErrWorkspacePathOutsideTree)
 }
