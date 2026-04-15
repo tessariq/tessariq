@@ -247,6 +247,70 @@ func TestReconcileRun_MissingContainerWithTimeoutFlag(t *testing.T) {
 	require.Equal(t, "timeout", result.Entry.State)
 }
 
+// TestReconcileRun_CreatedContainerTreatedAsLive verifies that a container in
+// the "created" state (docker create completed, docker start not yet) is
+// reported as Live rather than inferred as a successful terminal run. A
+// just-created container reports Running=false, ExitCode=0, and a zero-valued
+// FinishedAt, which is indistinguishable from "exited cleanly" by shape alone
+// — reconcile must use the zero FinishedAt to tell them apart.
+func TestReconcileRun_CreatedContainerTreatedAsLive(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	runID := "01ARZ3NDEKTSV4RRFFQ69G5FAZ"
+	evidenceDir := filepath.Join(repoRoot, ".tessariq", "runs", runID)
+	wsPath := filepath.Join(repoRoot, "worktree")
+
+	require.NoError(t, os.MkdirAll(evidenceDir, 0o700))
+	require.NoError(t, os.MkdirAll(wsPath, 0o755))
+
+	manifest := run.Manifest{
+		SchemaVersion:       1,
+		RunID:               runID,
+		TaskPath:            "tasks/sample.md",
+		TaskTitle:           "Sample",
+		Agent:               "claude-code",
+		WorkspaceMode:       "worktree",
+		ContainerName:       run.ContainerName(runID),
+		CreatedAt:           "2026-01-01T00:00:00Z",
+		RequestedEgressMode: "open",
+		ResolvedEgressMode:  "open",
+		AllowlistSource:     "cli",
+	}
+	require.NoError(t, run.WriteManifest(evidenceDir, manifest))
+	require.NoError(t, runner.WriteStatus(evidenceDir, runner.NewInitialStatus(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))))
+	require.NoError(t, workspace.WriteMetadata(evidenceDir, workspace.BuildMetadata("abc123", wsPath)))
+
+	entry := run.IndexEntryFromManifest(manifest, string(runner.StateRunning))
+
+	result, err := reconcileRun(context.Background(), repoRoot, entry, dependencies{
+		inspectContainer: func(ctx context.Context, name string) (container.StateInfo, error) {
+			require.Equal(t, run.ContainerName(runID), name)
+			return container.StateInfo{
+				Exists:     true,
+				Running:    false,
+				ExitCode:   0,
+				FinishedAt: time.Time{},
+			}, nil
+		},
+		removeContainer: func(ctx context.Context, name string) error {
+			t.Fatalf("a created container must not be removed by reconcile — the runner is mid-start")
+			return nil
+		},
+		cleanupWorkspace: func(ctx context.Context, repoRoot, workspacePath string) error {
+			t.Fatalf("a created container must not trigger workspace cleanup")
+			return nil
+		},
+	})
+	require.NoError(t, err)
+	require.True(t, result.Live, "created-but-not-yet-started container must be reported as live")
+	require.Equal(t, runner.StateRunning, result.Status.State, "status must not be rewritten while container is still in created state")
+
+	status, err := runner.ReadStatus(evidenceDir)
+	require.NoError(t, err)
+	require.Equal(t, runner.StateRunning, status.State, "status.json must not be overwritten with a bogus terminal state")
+}
+
 func TestInferReconciledState_InterruptedExitCode(t *testing.T) {
 	t.Parallel()
 

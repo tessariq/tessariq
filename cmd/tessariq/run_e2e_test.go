@@ -266,9 +266,29 @@ func setupRunEnvWithScript(t *testing.T, bin string, binaryName string, scriptBo
 	})
 }
 
-// runTessariq executes tessariq inside the e2e container with HOME set correctly
-// and the test agent image specified via --image.
+// runTessariq executes tessariq inside the e2e container with HOME set
+// correctly and the test agent image specified via --image. The agent-update
+// init container is skipped by default (--no-update-agent) so every e2e test
+// does not pay for three extra docker runs (version probe, npm update exec,
+// ownership fixup) that duplicate the coverage of the dedicated
+// TestE2E_AgentUpdate_* tests. Tests that need to exercise the update path
+// should call runTessariqWithUpdate instead.
 func runTessariq(t *testing.T, env *containers.RunEnv, binaryName, extraFlags string) (int, string) {
+	t.Helper()
+	return runTessariqRaw(t, env, binaryName, joinFlags("--no-update-agent", extraFlags))
+}
+
+// runTessariqWithUpdate executes tessariq with the agent-update init container
+// enabled. Only the dedicated TestE2E_AgentUpdate_* tests should use this —
+// every other e2e test should prefer runTessariq.
+func runTessariqWithUpdate(t *testing.T, env *containers.RunEnv, binaryName, extraFlags string) (int, string) {
+	t.Helper()
+	return runTessariqRaw(t, env, binaryName, extraFlags)
+}
+
+// runTessariqRaw is the underlying helper that neither adds nor removes
+// --no-update-agent. Prefer runTessariq or runTessariqWithUpdate.
+func runTessariqRaw(t *testing.T, env *containers.RunEnv, binaryName, flags string) (int, string) {
 	t.Helper()
 	ctx := context.Background()
 	hostDir := env.Dir()
@@ -276,10 +296,23 @@ func runTessariq(t *testing.T, env *containers.RunEnv, binaryName, extraFlags st
 	homeDir := filepath.Join(hostDir, "home")
 	binPath := filepath.Join(hostDir, "tessariq")
 	imgFlag := fmt.Sprintf("--image tessariq-test-agent-%s-%s", binaryName, testImageTag(t))
-	cmd := fmt.Sprintf("cd %s && HOME=%s %s run %s %s tasks/sample.md", repoPath, homeDir, binPath, imgFlag, extraFlags)
+	cmd := fmt.Sprintf("cd %s && HOME=%s %s run %s %s tasks/sample.md", repoPath, homeDir, binPath, imgFlag, flags)
 	code, output, err := env.Exec(ctx, []string{"sh", "-c", cmd})
 	require.NoError(t, err)
 	return code, output
+}
+
+// joinFlags concatenates flag fragments with a single space, skipping empty
+// fragments so a caller that passes extraFlags="" does not produce a double
+// space in the final command line.
+func joinFlags(parts ...string) string {
+	var nonEmpty []string
+	for _, p := range parts {
+		if p != "" {
+			nonEmpty = append(nonEmpty, p)
+		}
+	}
+	return strings.Join(nonEmpty, " ")
 }
 
 // extractField parses "key: value" lines from tessariq run output.
@@ -1530,12 +1563,15 @@ func TestE2E_TimedOutRunExitsNonZero(t *testing.T) {
 	require.Equal(t, true, status["timed_out"])
 }
 
-func TestE2E_NoUpdateAgent_SkipsInitPhase(t *testing.T) {
+func TestE2E_AgentUpdate_SkipFlagBypassesInitPhase(t *testing.T) {
 	t.Parallel()
 	bin := buildBinary(t)
 	env := setupRunEnv(t, bin, 0)
 
-	code, output := runTessariq(t, env, "claude", "--no-update-agent")
+	// runTessariq already injects --no-update-agent as the suite-wide
+	// default; this test still exercises the explicit flag form to guard
+	// against a regression where the flag itself stops being honored.
+	code, output := runTessariqRaw(t, env, "claude", joinFlags("--no-update-agent"))
 	require.Equal(t, 0, code, "run failed: %s", output)
 
 	evidencePath := extractField(output, "evidence_path")
@@ -1555,14 +1591,17 @@ func TestE2E_NoUpdateAgent_SkipsInitPhase(t *testing.T) {
 		"agent_update must be nil when --no-update-agent is used")
 }
 
-func TestE2E_AgentUpdateFallback_RecordsEvidence(t *testing.T) {
+func TestE2E_AgentUpdate_FallbackRecordsEvidence(t *testing.T) {
 	t.Parallel()
 	bin := buildBinary(t)
 	env := setupRunEnv(t, bin, 0)
 
-	// Default run (no --no-update-agent): the init container will fail because
-	// npm is not in the test alpine image, triggering the fallback path.
-	code, output := runTessariq(t, env, "claude", "")
+	// This test deliberately exercises the agent-update init container
+	// (via runTessariqWithUpdate). The rest of the e2e suite goes through
+	// runTessariq which skips the update phase. The init container will
+	// fail because npm is not in the test alpine image, triggering the
+	// fallback-to-baked path this test verifies.
+	code, output := runTessariqWithUpdate(t, env, "claude", "")
 	require.Equal(t, 0, code, "run must succeed even when agent update fails: %s", output)
 
 	evidencePath := extractField(output, "evidence_path")
