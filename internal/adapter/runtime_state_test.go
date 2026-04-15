@@ -1,6 +1,7 @@
 package adapter
 
 import (
+	"context"
 	"errors"
 	"io/fs"
 	"os"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/tessariq/tessariq/internal/authmount"
+	"github.com/tessariq/tessariq/internal/container"
 )
 
 func TestPrepareRuntimeState_NoSeedSpecsPassThrough(t *testing.T) {
@@ -222,4 +224,58 @@ func TestPrepareRuntimeState_ScratchBasenameMatchesContainerPath(t *testing.T) {
 	// agent-side debugging (e.g. looking at a mount source path) is less
 	// surprising.
 	require.Equal(t, ".claude.json", filepath.Base(rs.EffectiveMounts[0].HostPath))
+}
+
+func TestPrepareAndHardenRuntimeState_HardenFailureCleansScratch(t *testing.T) {
+	hostFile := filepath.Join(t.TempDir(), ".claude.json")
+	require.NoError(t, os.WriteFile(hostFile, []byte(`{"original":true}`), 0o600))
+	scratchRoot := filepath.Join(t.TempDir(), "runtime-state")
+
+	old := hardenRuntimeStatePath
+	hardenRuntimeStatePath = func(_ context.Context, _ string, _ container.RuntimeIdentity) error {
+		return errors.New("boom")
+	}
+	t.Cleanup(func() { hardenRuntimeStatePath = old })
+
+	_, err := PrepareAndHardenRuntimeState(t.Context(), scratchRoot, []authmount.MountSpec{{
+		HostPath:        hostFile,
+		ContainerPath:   "/home/tessariq/.claude.json",
+		ReadOnly:        true,
+		SeedIntoRuntime: true,
+	}}, container.RuntimeIdentity{UID: 1234, GID: 1234})
+	require.Error(t, err)
+
+	_, statErr := os.Stat(scratchRoot)
+	require.True(t, errors.Is(statErr, fs.ErrNotExist), "scratch root must be cleaned on harden failure")
+}
+
+func TestPrepareAndHardenRuntimeState_NoSeedSpecsSkipsHardening(t *testing.T) {
+	hostFile := filepath.Join(t.TempDir(), "auth.json")
+	require.NoError(t, os.WriteFile(hostFile, []byte(`{"token":"x"}`), 0o600))
+
+	called := false
+	old := hardenRuntimeStatePath
+	hardenRuntimeStatePath = func(_ context.Context, _ string, _ container.RuntimeIdentity) error {
+		called = true
+		return nil
+	}
+	t.Cleanup(func() { hardenRuntimeStatePath = old })
+
+	rs, err := PrepareAndHardenRuntimeState(t.Context(), filepath.Join(t.TempDir(), "runtime-state"), []authmount.MountSpec{{
+		HostPath:      hostFile,
+		ContainerPath: "/home/tessariq/.local/share/opencode/auth.json",
+		ReadOnly:      true,
+	}}, container.RuntimeIdentity{UID: 1234, GID: 1234})
+	require.NoError(t, err)
+	require.False(t, called, "hardening must be skipped when no scratch root was created")
+	require.Equal(t, hostFile, rs.EffectiveMounts[0].HostPath)
+}
+
+func indexOf(args []string, needle string) int {
+	for i, a := range args {
+		if a == needle {
+			return i
+		}
+	}
+	return -1
 }

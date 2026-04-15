@@ -140,19 +140,6 @@ func newRunCmd() *cobra.Command {
 				return err
 			}
 
-			wsPath, err := workspace.Provision(cmd.Context(), homeDir, root, runID, evidenceDir, baseSHA)
-			if err != nil {
-				return err
-			}
-			cleanupWorktree := true
-			defer func() {
-				if cleanupWorktree {
-					if cErr := workspace.Cleanup(context.Background(), homeDir, root, wsPath); cErr != nil {
-						fmt.Fprintf(cmd.ErrOrStderr(), "warning: worktree cleanup: %s\n", cErr)
-					}
-				}
-			}()
-
 			// Set up proxy topology in proxy mode.
 			var proxyEnv *proxy.ProxyEnv
 			if resolvedEgress == "proxy" {
@@ -225,24 +212,6 @@ func newRunCmd() *cobra.Command {
 				return err
 			}
 
-			// Materialize the disposable per-run runtime-state layer. Any
-			// spec with SeedIntoRuntime=true (e.g. Claude Code's
-			// .claude.json) is substituted with a scratch file under
-			// ~/.tessariq/runtime-state/<run_id>/ so writes from inside the
-			// container never reach live host auth/state/config paths.
-			runtimeStateRoot := filepath.Join(homeDir, ".tessariq", "runtime-state", runID)
-			authMountCount := len(allAuthMounts)
-			runtimeState, err := adapter.PrepareRuntimeState(runtimeStateRoot, allAuthMounts)
-			if err != nil {
-				return fmt.Errorf("prepare runtime state: %w", err)
-			}
-			defer func() {
-				if cleanupErr := runtimeState.Cleanup(); cleanupErr != nil {
-					fmt.Fprintf(cmd.ErrOrStderr(), "warning: runtime-state cleanup: %s\n", cleanupErr)
-				}
-			}()
-			effectiveAuthMounts := runtimeState.EffectiveMounts
-
 			// Create agent config early for image probe and auto-update.
 			agent, err := adapter.NewAgent(cfg, string(content), containerEnvVars)
 			if err != nil {
@@ -253,6 +222,42 @@ func newRunCmd() *cobra.Command {
 				requiredImageBinaries(cfg, agent.BinaryName())...); err != nil {
 				return fmt.Errorf("agent %s: %w", agent.Name(), err)
 			}
+
+			runtimeIdentity, err := container.ProbeRuntimeIdentity(cmd.Context(), agent.Image(), container.TessariqUser)
+			if err != nil {
+				return fmt.Errorf("agent %s: %w", agent.Name(), err)
+			}
+
+			wsPath, err := workspace.Provision(cmd.Context(), homeDir, root, runID, evidenceDir, baseSHA, runtimeIdentity)
+			if err != nil {
+				return err
+			}
+			cleanupWorktree := true
+			defer func() {
+				if cleanupWorktree {
+					if cErr := workspace.Cleanup(context.Background(), homeDir, root, wsPath); cErr != nil {
+						fmt.Fprintf(cmd.ErrOrStderr(), "warning: worktree cleanup: %s\n", cErr)
+					}
+				}
+			}()
+
+			// Materialize the disposable per-run runtime-state layer. Any
+			// spec with SeedIntoRuntime=true (e.g. Claude Code's
+			// .claude.json) is substituted with a scratch file under
+			// ~/.tessariq/runtime-state/<run_id>/ so writes from inside the
+			// container never reach live host auth/state/config paths.
+			runtimeStateRoot := filepath.Join(homeDir, ".tessariq", "runtime-state", runID)
+			authMountCount := len(allAuthMounts)
+			runtimeState, err := adapter.PrepareAndHardenRuntimeState(cmd.Context(), runtimeStateRoot, allAuthMounts, runtimeIdentity)
+			if err != nil {
+				return fmt.Errorf("prepare runtime state: %w", err)
+			}
+			defer func() {
+				if cleanupErr := runtimeState.Cleanup(); cleanupErr != nil {
+					fmt.Fprintf(cmd.ErrOrStderr(), "warning: runtime-state cleanup: %s\n", cleanupErr)
+				}
+			}()
+			effectiveAuthMounts := runtimeState.EffectiveMounts
 
 			// Agent auto-update via init container.
 			var updateResult adapter.UpdateResult

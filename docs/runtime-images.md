@@ -68,7 +68,7 @@ This means you install the agent once in your image, and Tessariq handles creden
 Since the reference runtime does not include agent binaries, you need to derive a new image that adds the agent you want to use. A compatible runtime image must:
 
 - Use a glibc-based Linux base image
-- Have a non-root default user
+- Define a non-root user named `tessariq`
 - Have the agent binary available in `PATH`
 - For detached/non-interactive runs, have `stdbuf` available in `PATH`
 

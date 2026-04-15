@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/tessariq/tessariq/internal/container"
 )
 
 func TestBuildRepairArgs_ImagePinnedByDigest(t *testing.T) {
@@ -19,6 +21,7 @@ func TestBuildRepairArgs_ImagePinnedByDigest(t *testing.T) {
 	image := args[shIdx-1]
 	require.True(t, strings.Contains(image, "@sha256:"),
 		"repair image must be pinned by digest, got %q", image)
+	require.Equal(t, container.RepairImage, image)
 }
 
 func TestBuildRepairArgs_SingleVolumeMount(t *testing.T) {
@@ -67,7 +70,24 @@ func TestBuildRepairArgs_CommandStructure(t *testing.T) {
 	shIdx := indexOf(args, "sh")
 	require.GreaterOrEqual(t, shIdx, 1)
 	require.Equal(t, "-c", args[shIdx+1])
-	require.Equal(t, repairImage, args[shIdx-1], "image must precede sh")
+	require.Equal(t, container.RepairImage, args[shIdx-1], "image must precede sh")
+}
+
+func TestProvision_ParentDirMode_IsOwnerOnly(t *testing.T) {
+	t.Parallel()
+	// Provision will fail when calling git.AddWorktree because repoRoot is not
+	// a real git repo, but the parent-dir mkdir runs first. That is what we
+	// verify here.
+	homeDir := t.TempDir()
+	repoRoot := t.TempDir()
+
+	_, _ = Provision(t.Context(), homeDir, repoRoot, "run-abc", t.TempDir(), "deadbeef", container.RuntimeIdentity{UID: os.Getuid(), GID: os.Getgid()})
+
+	parent := fmt.Sprintf("%s/.tessariq/worktrees", homeDir)
+	info, err := os.Stat(parent)
+	require.NoError(t, err, ".tessariq/worktrees must exist after Provision attempt")
+	require.Equal(t, os.FileMode(0o700), info.Mode().Perm(),
+		"worktrees parent dir must be owner-only (0700)")
 }
 
 // indexOf returns the first index of needle in args, or -1.

@@ -67,12 +67,12 @@ func (p *Process) StopLogStream() error {
 }
 
 // Start creates the container and starts it, then streams logs in the background.
-// Before creating the container, it makes writable bind-mount sources accessible
-// to the container user regardless of host UID.
+//
+// Writable bind-mount sources (worktrees) are hardened for host-user +
+// container-user access by workspace.Provision before Start is called, so
+// there is no chmod/chown step here. Opening the mount to the world at this
+// point would defeat that hardening.
 func (p *Process) Start(ctx context.Context) error {
-	if err := p.prepareWritableMounts(); err != nil {
-		return fmt.Errorf("prepare writable mounts: %w", err)
-	}
 	if err := p.create(ctx); err != nil {
 		return fmt.Errorf("docker create: %w", err)
 	}
@@ -132,23 +132,6 @@ func (p *Process) signalCommand(sig os.Signal) []string {
 	default:
 		return []string{p.docker, "kill", "--signal=" + sig.String(), p.cfg.Name}
 	}
-}
-
-// prepareWritableMounts makes writable bind-mount sources accessible to the
-// container user regardless of host UID. It runs chmod -R a+rwX on each mount
-// where ReadOnly is false. This is safe because these are disposable directories
-// (worktrees) created for a single run.
-func (p *Process) prepareWritableMounts() error {
-	for _, m := range p.cfg.Mounts {
-		if m.ReadOnly {
-			continue
-		}
-		cmd := exec.Command("chmod", "-R", "a+rwX", m.Source)
-		if out, err := cmd.CombinedOutput(); err != nil {
-			return fmt.Errorf("chmod %s: %s: %w", m.Source, strings.TrimSpace(string(out)), err)
-		}
-	}
-	return nil
 }
 
 func (p *Process) create(ctx context.Context) error {

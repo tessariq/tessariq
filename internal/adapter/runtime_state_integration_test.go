@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tessariq/tessariq/internal/adapter"
 	"github.com/tessariq/tessariq/internal/authmount"
+	"github.com/tessariq/tessariq/internal/container"
 
 	testcontainers "github.com/testcontainers/testcontainers-go"
 	tcexec "github.com/testcontainers/testcontainers-go/exec"
@@ -74,7 +75,7 @@ func TestIntegration_ClaudeJsonSeedDoesNotPersistToHost(t *testing.T) {
 	require.True(t, seedFound, "claude-code must include a seed-into-runtime spec for .claude.json")
 
 	scratchRoot := filepath.Join(t.TempDir(), "runtime-state", "run-abc")
-	rs, err := adapter.PrepareRuntimeState(scratchRoot, result.Mounts)
+	rs, err := adapter.PrepareAndHardenRuntimeState(ctx, scratchRoot, result.Mounts, container.RuntimeIdentity{UID: 1000, GID: 1000})
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = rs.Cleanup() })
 
@@ -85,17 +86,6 @@ func TestIntegration_ClaudeJsonSeedDoesNotPersistToHost(t *testing.T) {
 		require.False(t, m.SeedIntoRuntime, "effective mounts must not have SeedIntoRuntime set")
 		require.NotEqual(t, hostClaudeJSON, m.HostPath,
 			"host .claude.json must not be bound directly")
-	}
-
-	// chmod the scratch tree so the (non-tessariq) alpine container user can
-	// write to the scratch file. In production, internal/container/process.go
-	// prepareWritableMounts does this automatically.
-	require.NoError(t, os.Chmod(scratchRoot, 0o755))
-	for _, m := range rs.EffectiveMounts {
-		if m.ReadOnly {
-			continue
-		}
-		require.NoError(t, os.Chmod(m.HostPath, 0o666))
 	}
 
 	var mounts testcontainers.ContainerMounts
@@ -110,6 +100,7 @@ func TestIntegration_ClaudeJsonSeedDoesNotPersistToHost(t *testing.T) {
 	req := testcontainers.ContainerRequest{
 		Image:      "alpine:latest",
 		Entrypoint: []string{"tail", "-f", "/dev/null"},
+		User:       "1000:1000",
 		Mounts:     mounts,
 		WaitingFor: wait.ForExec([]string{"sh", "-c", "true"}).
 			WithStartupTimeout(30 * time.Second),
