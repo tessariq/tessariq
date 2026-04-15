@@ -32,7 +32,7 @@ func InspectState(ctx context.Context, name string) (StateInfo, error) {
 	if err != nil {
 		trimmed := strings.TrimSpace(string(out))
 		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) && strings.Contains(trimmed, "No such object") {
+		if errors.As(err, &exitErr) && isNotFoundError(trimmed) {
 			return StateInfo{}, nil
 		}
 		return StateInfo{}, fmt.Errorf("inspect container %s: %s: %w", name, trimmed, err)
@@ -67,10 +67,21 @@ func Remove(ctx context.Context, name string) error {
 	if err != nil {
 		trimmed := strings.TrimSpace(string(out))
 		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) && strings.Contains(trimmed, "No such container") {
+		if errors.As(err, &exitErr) && isNotFoundError(trimmed) {
 			return nil
 		}
 		return fmt.Errorf("remove container %s: %s: %w", name, trimmed, err)
 	}
 	return nil
+}
+
+// isNotFoundError detects docker's "container/object not found" error across
+// docker-cli variants. Docker Desktop on macOS/Linux emits
+// "Error: No such object: <name>" / "Error response from daemon: No such
+// container: <name>", while Alpine's docker-cli package emits lowercase
+// "error: no such object: <name>". Match case-insensitively so both are
+// treated as "container does not exist" rather than a hard error.
+func isNotFoundError(trimmed string) bool {
+	lower := strings.ToLower(trimmed)
+	return strings.Contains(lower, "no such object") || strings.Contains(lower, "no such container")
 }

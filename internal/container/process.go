@@ -178,7 +178,7 @@ func (p *Process) remove(ctx context.Context) error {
 	if err != nil {
 		trimmed := strings.TrimSpace(string(out))
 		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) && strings.Contains(trimmed, "No such container") {
+		if errors.As(err, &exitErr) && isNotFoundError(trimmed) {
 			p.created = false
 			return nil
 		}

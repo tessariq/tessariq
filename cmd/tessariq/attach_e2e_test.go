@@ -19,7 +19,12 @@ func TestE2E_AttachLastJoinsLiveRun(t *testing.T) {
 	t.Parallel()
 
 	bin := buildBinary(t)
-	env := setupRunEnvWithScript(t, bin, "claude", `echo e2e-live-output; sleep 10; exit 0`)
+	// Sleep 30s so the agent stays live long enough for attach to race in
+	// even on slow CI runners. The background run is launched with
+	// --no-update-agent (see startBackgroundRun) to skip the init-container
+	// version probe, which would otherwise run this same fake script for an
+	// extra ~10s before the main run even starts.
+	env := setupRunEnvWithScript(t, bin, "claude", `echo e2e-live-output; sleep 30; exit 0`)
 	hostDir := env.Dir()
 	repoPath := filepath.Join(hostDir, "repo")
 	homeDir := filepath.Join(hostDir, "home")
@@ -28,6 +33,12 @@ func TestE2E_AttachLastJoinsLiveRun(t *testing.T) {
 	installScript(t, env)
 	startBackgroundRun(t, env, repoPath, homeDir, binPath, "claude")
 	runID := waitForRunningEvidence(t, env, repoPath)
+	// Once we know the runID, register an explicit agent-container cleanup
+	// so the sibling container does not linger on the host daemon for the
+	// remainder of the 60s sleep after the test returns.
+	t.Cleanup(func() {
+		_, _, _ = env.Exec(context.Background(), []string{"sh", "-c", fmt.Sprintf("docker rm -f tessariq-%s 2>/dev/null || true", runID)})
+	})
 	startAttachProcess(t, env, repoPath, homeDir, binPath, "last")
 
 	if !waitForAttachedClient(env, "tessariq-"+runID, 10*time.Second) {
@@ -187,7 +198,12 @@ func startBackgroundRun(t *testing.T, env *containers.RunEnv, repoPath, homeDir,
 
 	ctx := context.Background()
 	imgFlag := fmt.Sprintf("--image tessariq-test-agent-%s-%s", binaryName, testImageTag(t))
-	cmd := fmt.Sprintf("tmux new-session -d -s attach-run-launch 'cd %s && HOME=%s %s run %s --egress open tasks/sample.md >/work/run-output.txt 2>&1'", repoPath, homeDir, binPath, imgFlag)
+	// --no-update-agent skips the agent-update init container. Without this
+	// flag, the fake claude script is invoked once by the version probe
+	// (which ignores --version and runs the full `sleep N; exit 0` body),
+	// burning ~N seconds before the real run even begins. It also avoids a
+	// noisy "exec: npm not found" warning from the npm-based update command.
+	cmd := fmt.Sprintf("tmux new-session -d -s attach-run-launch 'cd %s && HOME=%s %s run %s --no-update-agent --egress open tasks/sample.md >/work/run-output.txt 2>&1'", repoPath, homeDir, binPath, imgFlag)
 	code, output, err := env.Exec(ctx, []string{"sh", "-c", cmd})
 	require.NoError(t, err)
 	require.Equal(t, 0, code, "start background run failed: %s", output)
