@@ -1272,6 +1272,68 @@ func TestRunner_CleanupSuccess_LeavesSuccessState(t *testing.T) {
 	require.NotContains(t, string(raw), "cleanup_error", "omitempty must keep cleanup_error out of successful status.json")
 }
 
+// TestRunner_CleanupRespectsCallerTimeoutOnHang pins that a hung
+// container cleanup (simulated here by a Cleanup that blocks until its
+// context is cancelled) cannot pin Runner.Run in StateRunning. The
+// runner must bound its cleanup call with a deadline, record the
+// resulting error as cleanup_error, downgrade the successful run to
+// StateFailed, and finalize status.json. Without a bound, status.json
+// would never be written and the run would appear live indefinitely.
+func TestRunner_CleanupRespectsCallerTimeoutOnHang(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	proc := &hangingCleanupProcess{
+		fakeProcess: fakeProcess{exitCode: 0, waitCh: closedChan()},
+	}
+	r := newTestRunner(dir, proc)
+	// Shrink the bound so the test exercises the deadline path in
+	// milliseconds instead of the 30-second production default. A
+	// regression that restores context.Background would make Run hang
+	// past the outer 5-second select and fail the test.
+	r.CleanupTimeout = 50 * time.Millisecond
+
+	done := make(chan error, 1)
+	go func() {
+		done <- r.Run(context.Background())
+	}()
+
+	select {
+	case runErr := <-done:
+		var termErr *TerminalStateError
+		require.ErrorAs(t, runErr, &termErr, "hung cleanup must surface as TerminalStateError")
+		require.Equal(t, StateFailed, termErr.State)
+		require.NotNil(t, termErr.Cause)
+	case <-time.After(5 * time.Second):
+		t.Fatal("Runner.Run did not return within 5s — cleanup is not bounded")
+	}
+
+	s, err := ReadStatus(dir)
+	require.NoError(t, err)
+	require.Equal(t, StateFailed, s.State, "status.json must be finalized even when cleanup hangs")
+	require.NotEmpty(t, s.CleanupError)
+	require.GreaterOrEqual(t, proc.cancelled, 1, "Cleanup must observe context cancellation")
+}
+
+// hangingCleanupProcess blocks in Cleanup until its context is cancelled,
+// simulating a docker rm -f that never returns (daemon/socket stall).
+type hangingCleanupProcess struct {
+	fakeProcess
+	cancelled int
+}
+
+func (h *hangingCleanupProcess) Cleanup(ctx context.Context) error {
+	<-ctx.Done()
+	h.cancelled++
+	return ctx.Err()
+}
+
+func closedChan() chan struct{} {
+	ch := make(chan struct{})
+	close(ch)
+	return ch
+}
+
 // TestRunner_CleanupCalledBeforeStatusWrite enforces the ordering invariant:
 // container cleanup must run before the final status.json write so the
 // recorded state reflects the cleanup outcome. Regressions that restore

@@ -40,6 +40,16 @@ type processCleaner interface {
 	Cleanup(ctx context.Context) error
 }
 
+// cleanupTimeout bounds the container-cleanup (docker rm -f) step that
+// runs before the final status.json write. Without a bound, a hung
+// docker daemon or socket stall would block Runner.Run from finalizing
+// status.json and leave the run stuck in StateRunning even though the
+// primary work already ended. On deadline expiry the bounded context
+// cancels the cleanup command; the returned error is recorded as a
+// cleanup_error and the run is downgraded the same way any other
+// cleanup failure would be.
+const cleanupTimeout = 30 * time.Second
+
 type waitResult struct {
 	exitCode int
 	err      error
@@ -65,6 +75,18 @@ type Runner struct {
 	// A write failure escalates an otherwise-successful run to StateFailed
 	// but never masks a pre-existing non-success state or its exit code.
 	DiffArtifactWriter func(ctx context.Context, evidenceDir string) error
+	// CleanupTimeout overrides the default bound on container cleanup
+	// (docker rm -f). Zero means use the package default cleanupTimeout.
+	// Primarily exposed for tests that need a short deadline to exercise
+	// the hang-recovery path without sleeping for 30 seconds.
+	CleanupTimeout time.Duration
+}
+
+func (r *Runner) effectiveCleanupTimeout() time.Duration {
+	if r.CleanupTimeout > 0 {
+		return r.CleanupTimeout
+	}
+	return cleanupTimeout
 }
 
 func (r *Runner) clock() time.Time {
@@ -204,7 +226,15 @@ func (r *Runner) Run(ctx context.Context) error {
 	// overrides the original state or exit code.
 	var cleanupCause error
 	if cleaner, ok := r.Process.(processCleaner); ok {
-		if err := cleaner.Cleanup(context.Background()); err != nil {
+		// Derive the cleanup context from Background so a cancelled
+		// caller context (Ctrl+C, parent timeout) still allows cleanup
+		// to run briefly and finalize status.json. Bound it with
+		// cleanupTimeout so a hung docker daemon cannot pin the runner
+		// in StateRunning forever.
+		cleanupCtx, cancelCleanup := context.WithTimeout(context.Background(), r.effectiveCleanupTimeout())
+		err := cleaner.Cleanup(cleanupCtx)
+		cancelCleanup()
+		if err != nil {
 			fmt.Fprintf(logs.RunnerLog, "[%s] container cleanup failed: %s\n",
 				r.clock().UTC().Format(time.RFC3339), err)
 			cleanupCause = err
