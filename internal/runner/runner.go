@@ -186,9 +186,6 @@ func (r *Runner) runDetachedProcess(ctx context.Context, startedAt time.Time, lo
 	timeoutCtx, cancel := context.WithTimeout(ctx, r.Config.Timeout)
 	defer cancel()
 
-	fmt.Fprintf(logs.RunnerLog, "[%s] starting process (timeout=%s, grace=%s)\n",
-		r.clock().UTC().Format(time.RFC3339), r.Config.Timeout, r.Config.Grace)
-
 	directOutput := false
 	// Prefer direct fd pass-through so docker logs writes to run.log
 	// without a Go pipe intermediary — tail -f sees writes immediately.
@@ -208,6 +205,13 @@ func (r *Runner) runDetachedProcess(ctx context.Context, startedAt time.Time, lo
 		fmt.Fprintf(logs.RunnerLog, "[%s] process start failed: %s\n", r.clock().UTC().Format(time.RFC3339), err)
 		return 1, false, StateFailed
 	}
+
+	// Log "starting process" only after Start returns successfully so
+	// lifecycle.processStartObserved distinguishes "container is about to
+	// be created" (no log line yet, Live=true) from "container existed and
+	// was pruned" (log line present, fail closed).
+	fmt.Fprintf(logs.RunnerLog, "[%s] starting process (timeout=%s, grace=%s)\n",
+		r.clock().UTC().Format(time.RFC3339), r.Config.Timeout, r.Config.Grace)
 
 	stopLogCapMonitor := func() {}
 	if directOutput {
@@ -338,9 +342,6 @@ func (r *Runner) startDetachedLogCapMonitor(logs *LogFiles, process ProcessRunne
 func (r *Runner) runInteractiveProcess(ctx context.Context, startedAt time.Time, logs *LogFiles) (exitCode int, timedOut bool, state State) {
 	timer := NewActivityTimer(r.Config.Timeout)
 
-	fmt.Fprintf(logs.RunnerLog, "[%s] starting interactive process (activity-timeout=%s, grace=%s)\n",
-		r.clock().UTC().Format(time.RFC3339), r.Config.Timeout, r.Config.Grace)
-
 	// Set up output with activity tracking via the capped writer.
 	aw := NewActivityWriter(logs.RunLog, timer)
 	if proc, ok := r.Process.(outputWriterConfigurer); ok {
@@ -361,6 +362,14 @@ func (r *Runner) runInteractiveProcess(ctx context.Context, startedAt time.Time,
 		fmt.Fprintf(logs.RunnerLog, "[%s] process start failed: %s\n", r.clock().UTC().Format(time.RFC3339), err)
 		return 1, false, StateFailed
 	}
+
+	// Log "starting interactive process" only after Start returns
+	// successfully so lifecycle.processStartObserved distinguishes
+	// "container is about to be created" (no log line yet, Live=true)
+	// from "container existed and was pruned" (log line present, fail
+	// closed).
+	fmt.Fprintf(logs.RunnerLog, "[%s] starting interactive process (activity-timeout=%s, grace=%s)\n",
+		r.clock().UTC().Format(time.RFC3339), r.Config.Timeout, r.Config.Grace)
 
 	// Wait for process in a goroutine — started before session creation
 	// so we can drain it if session creation fails.

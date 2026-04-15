@@ -170,12 +170,15 @@ func StopSquid(ctx context.Context, name string) error {
 	cmd := exec.CommandContext(ctx, "docker", "rm", "-f", name)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		outStr := string(out)
-		if strings.Contains(outStr, "No such container") ||
-			strings.Contains(outStr, "not found") {
+		// Match docker-cli "not found" variants case-insensitively so
+		// Alpine's lowercase "no such container" reads the same as Docker
+		// Desktop's capitalized "No such container".
+		outLower := strings.ToLower(string(out))
+		if strings.Contains(outLower, "no such container") ||
+			strings.Contains(outLower, "not found") {
 			return nil
 		}
-		return fmt.Errorf("docker rm -f squid: %s: %w", strings.TrimSpace(outStr), err)
+		return fmt.Errorf("docker rm -f squid: %s: %w", strings.TrimSpace(string(out)), err)
 	}
 	return nil
 }
