@@ -24,7 +24,11 @@ var ErrWorkspacePathOutsideTree = errors.New("workspace path is outside the cano
 // An empty untrustedPath returns ("", nil) so callers can keep their
 // "no workspace.json => no cleanup" semantics.
 //
-// It returns the real (symlink-resolved) absolute path on success.
+// On success it returns the lexical canonical path (stable across
+// platforms; macOS in particular would otherwise produce a
+// /private/var/... form from EvalSymlinks that differs from the
+// /var/... lexical canonical). The containment check is still performed
+// against the symlink-resolved form internally.
 func ValidateWorkspacePath(homeDir, repoRoot, runID, untrustedPath string) (string, error) {
 	if untrustedPath == "" {
 		return "", nil
@@ -33,8 +37,8 @@ func ValidateWorkspacePath(homeDir, repoRoot, runID, untrustedPath string) (stri
 		return "", fmt.Errorf("%w: %s", ErrWorkspacePathOutsideTree, untrustedPath)
 	}
 
-	canonical := WorkspacePath(homeDir, repoRoot, runID)
-	if filepath.Clean(untrustedPath) != filepath.Clean(canonical) {
+	canonical := filepath.Clean(WorkspacePath(homeDir, repoRoot, runID))
+	if filepath.Clean(untrustedPath) != canonical {
 		return "", fmt.Errorf("%w: %s", ErrWorkspacePathOutsideTree, untrustedPath)
 	}
 
@@ -60,7 +64,7 @@ func ValidateWorkspacePath(homeDir, repoRoot, runID, untrustedPath string) (stri
 		return "", fmt.Errorf("%w: %s", ErrWorkspacePathOutsideTree, untrustedPath)
 	}
 
-	return realPath, nil
+	return canonical, nil
 }
 
 // assertInsideWorktrees is the defensive safety net used by Cleanup. It
