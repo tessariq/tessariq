@@ -102,7 +102,7 @@ func NewProcess(cfg run.Config, taskContent string, runID, worktreePath, evidenc
 		Image:        a.Image(),
 		Command:      append([]string{a.BinaryName()}, a.Args()...),
 		WorkDir:      "/work",
-		User:         "tessariq",
+		User:         container.TessariqUser,
 		Env:          agentEnvVars,
 		Mounts:       mounts,
 		Interactive:  cfg.Interactive,

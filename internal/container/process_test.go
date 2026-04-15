@@ -414,53 +414,6 @@ func TestBuildCreateArgs_NoNewPrivileges(t *testing.T) {
 	require.Less(t, secIdx, imgIdx, "--security-opt must precede image")
 }
 
-func TestPrepareWritableMounts_ChmodsRWMounts(t *testing.T) {
-	t.Parallel()
-	dir := t.TempDir()
-	// Create a file with restrictive permissions.
-	testFile := dir + "/test.txt"
-	require.NoError(t, os.WriteFile(testFile, []byte("hello"), 0o600))
-
-	p := New(Config{
-		Name: "test",
-		Mounts: []Mount{
-			{Source: dir, Target: "/work", ReadOnly: false},
-		},
-	})
-
-	require.NoError(t, p.prepareWritableMounts())
-
-	// Verify the file is now world-readable+writable.
-	info, err := os.Stat(testFile)
-	require.NoError(t, err)
-	perm := info.Mode().Perm()
-	require.True(t, perm&0o006 == 0o006,
-		"file should be world-readable+writable after prepare, got %o", perm)
-}
-
-func TestPrepareWritableMounts_SkipsReadOnly(t *testing.T) {
-	t.Parallel()
-	dir := t.TempDir()
-	testFile := dir + "/test.txt"
-	require.NoError(t, os.WriteFile(testFile, []byte("hello"), 0o600))
-
-	p := New(Config{
-		Name: "test",
-		Mounts: []Mount{
-			{Source: dir, Target: "/evidence", ReadOnly: true},
-		},
-	})
-
-	require.NoError(t, p.prepareWritableMounts())
-
-	// Permissions should be unchanged for read-only mounts.
-	info, err := os.Stat(testFile)
-	require.NoError(t, err)
-	perm := info.Mode().Perm()
-	require.Equal(t, os.FileMode(0o600), perm,
-		"read-only mount source should not be chmod'd")
-}
-
 func TestWaitForLogs_ReturnsImmediatelyWhenNil(t *testing.T) {
 	t.Parallel()
 	p := &Process{}

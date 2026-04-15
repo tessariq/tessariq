@@ -16,8 +16,6 @@ import (
 )
 
 func TestE2E_AttachLastJoinsLiveRun(t *testing.T) {
-	t.Parallel()
-
 	bin := buildBinary(t)
 	// Sleep 30s so the agent stays live long enough for attach to race in
 	// even on slow CI runners. The background run is launched with
@@ -30,7 +28,6 @@ func TestE2E_AttachLastJoinsLiveRun(t *testing.T) {
 	homeDir := filepath.Join(hostDir, "home")
 	binPath := filepath.Join(hostDir, "tessariq")
 
-	installScript(t, env)
 	startBackgroundRun(t, env, repoPath, homeDir, binPath, "claude")
 	runID := waitForRunningEvidence(t, env, repoPath)
 	// Once we know the runID, register an explicit agent-container cleanup
@@ -47,6 +44,15 @@ func TestE2E_AttachLastJoinsLiveRun(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return strings.Contains(readRunLog(t, env, filepath.Join(repoPath, ".tessariq", "runs", runID, "run.log")), "e2e-live-output")
 	}, 5*time.Second, 200*time.Millisecond)
+
+	// Tear the live run down explicitly and wait for host-side cleanup before
+	// t.TempDir() cleanup runs. Under TASK-093 hardening the worktree is no
+	// longer world-accessible, so relying on permissive leftovers here flakes.
+	_, _, _ = env.Exec(context.Background(), []string{"sh", "-c", fmt.Sprintf("docker rm -f tessariq-%s 2>/dev/null || true", runID)})
+	require.Eventually(t, func() bool {
+		code, output, err := env.Exec(context.Background(), []string{"sh", "-c", fmt.Sprintf("find %s/.tessariq/worktrees -mindepth 2 -maxdepth 2 -type d -name %s 2>/dev/null || true", homeDir, runID)})
+		return err == nil && code == 0 && strings.TrimSpace(output) == ""
+	}, 20*time.Second, 250*time.Millisecond, "background run must clean up worktree before test exit")
 }
 
 func TestE2E_AttachMissingTmuxShowsActionableGuidance(t *testing.T) {
@@ -147,8 +153,6 @@ func TestE2E_AttachForgedCrossRunEvidenceRejectsBeforeAttaching(t *testing.T) {
 }
 
 func TestE2E_AttachReconcilesExitedOrphanedRun(t *testing.T) {
-	t.Parallel()
-
 	bin := buildBinary(t)
 	env := setupRunEnvWithScript(t, bin, "claude", "sleep 2; echo orphan-recovered; exit 0")
 	hostDir := env.Dir()
@@ -158,22 +162,24 @@ func TestE2E_AttachReconcilesExitedOrphanedRun(t *testing.T) {
 	ctx := context.Background()
 
 	imgFlag := fmt.Sprintf("--image tessariq-test-agent-%s-%s", "claude", testImageTag(t))
-	launchCmd := fmt.Sprintf("cd %s && HOME=%s %s run %s tasks/sample.md >/work/orphan-run.log 2>&1 & echo $! >/work/orphan-run.pid", repoPath, homeDir, binPath, imgFlag)
+	launchCmd := fmt.Sprintf("cd %s && HOME=%s %s run %s --no-update-agent --egress open tasks/sample.md >/work/orphan-run.log 2>&1 & echo $! >/work/orphan-run.pid", repoPath, homeDir, binPath, imgFlag)
 	execCmd(t, env, ctx, launchCmd, "launch orphanable run")
 
 	runID := waitForRunningEvidence(t, env, repoPath)
 	containerName := "tessariq-" + runID
 	execCmd(t, env, ctx, "kill -9 $(cat /work/orphan-run.pid)", "kill host tessariq process")
 
+	var (
+		attachCode   int
+		attachOutput string
+	)
 	require.Eventually(t, func() bool {
-		code, output, err := env.Exec(context.Background(), []string{"sh", "-c", fmt.Sprintf("docker inspect -f '{{.State.Running}} {{.State.ExitCode}}' %s 2>/dev/null || true", containerName)})
-		return err == nil && code == 0 && strings.Contains(output, "false 0")
-	}, 10*time.Second, 250*time.Millisecond, "orphaned agent container must exit successfully")
-
-	code, output := runAttachInEnv(t, env, repoPath, homeDir, binPath, "last", "")
-	require.NotEqual(t, 0, code, "attach should refuse a reconciled terminal run")
-	require.Contains(t, output, "run "+runID+" is not live")
-	require.Contains(t, output, "state success")
+		var err error
+		attachCode, attachOutput, err = env.Exec(context.Background(), []string{"sh", "-c", fmt.Sprintf("cd %s && HOME=%s %s attach last", repoPath, homeDir, binPath)})
+		return err == nil && attachCode != 0 &&
+			strings.Contains(attachOutput, "run "+runID+" is not live") &&
+			strings.Contains(attachOutput, "state success")
+	}, 45*time.Second, 500*time.Millisecond, "attach should eventually reconcile the orphaned run; last output: %s", attachOutput)
 
 	evidencePath := filepath.Join(repoPath, ".tessariq", "runs", runID)
 	statusCode, statusData, err := env.Exec(ctx, []string{"cat", filepath.Join(evidencePath, "status.json")})
@@ -232,15 +238,6 @@ func waitForRunningEvidence(t *testing.T, env *containers.RunEnv, repoPath strin
 
 	t.Fatalf("run never reached running state\nrun output:\n%s", readRunOutput(t, env))
 	return ""
-}
-
-func installScript(t *testing.T, env *containers.RunEnv) {
-	t.Helper()
-
-	ctx := context.Background()
-	code, output, err := env.Exec(ctx, []string{"sh", "-c", "apk add --no-cache util-linux"})
-	require.NoError(t, err)
-	require.Equal(t, 0, code, "install script failed: %s", output)
 }
 
 func runAttachInEnv(t *testing.T, env *containers.RunEnv, repoPath, homeDir, binPath, runRef, envPrefix string) (int, string) {

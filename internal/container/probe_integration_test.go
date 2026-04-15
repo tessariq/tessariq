@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/tessariq/tessariq/internal/container"
+	"github.com/tessariq/tessariq/internal/testutil"
 )
 
 func TestProbeImageBinary_BinaryExists(t *testing.T) {
@@ -77,5 +78,32 @@ func TestProbeImageBinaries_ReportsFirstMissingBinary(t *testing.T) {
 	var target *container.BinaryNotFoundError
 	require.True(t, errors.As(err, &target))
 	require.Equal(t, "stdbuf", target.Binary)
+	require.Equal(t, "alpine:latest", target.Image)
+}
+
+func TestProbeRuntimeIdentity_ReturnsNumericIdentity(t *testing.T) {
+	t.Parallel()
+	testutil.RequireDocker(t)
+
+	imgName := testutil.BuildTestImage(t, "runtime-identity", `FROM alpine:latest
+RUN addgroup -g 1234 tessariq && adduser -D -u 1234 -G tessariq -h /home/tessariq tessariq
+USER tessariq
+`)
+
+	identity, err := container.ProbeRuntimeIdentity(context.Background(), imgName, container.TessariqUser)
+	require.NoError(t, err)
+	require.Equal(t, container.RuntimeIdentity{UID: 1234, GID: 1234}, identity)
+}
+
+func TestProbeRuntimeIdentity_MissingUserReturnsTypedError(t *testing.T) {
+	t.Parallel()
+
+	identity, err := container.ProbeRuntimeIdentity(context.Background(), "alpine:latest", container.TessariqUser)
+	require.Error(t, err)
+	require.Equal(t, container.RuntimeIdentity{}, identity)
+
+	var target *container.RuntimeUserNotFoundError
+	require.True(t, errors.As(err, &target))
+	require.Equal(t, container.TessariqUser, target.User)
 	require.Equal(t, "alpine:latest", target.Image)
 }

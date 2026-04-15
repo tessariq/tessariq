@@ -1,6 +1,7 @@
 package adapter
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -8,7 +9,10 @@ import (
 	"sync"
 
 	"github.com/tessariq/tessariq/internal/authmount"
+	"github.com/tessariq/tessariq/internal/container"
 )
+
+var hardenRuntimeStatePath = container.HardenWritablePath
 
 // RuntimeState is the result of materializing the disposable per-run
 // runtime-state layer for one run. EffectiveMounts is the transformed
@@ -84,6 +88,24 @@ func PrepareRuntimeState(scratchRoot string, specs []authmount.MountSpec) (*Runt
 	}
 
 	rs.EffectiveMounts = out
+	return rs, nil
+}
+
+// PrepareAndHardenRuntimeState materializes the per-run scratch layer and then
+// hardens it for the resolved runtime identity. If hardening fails, the scratch
+// tree is removed before the error is returned.
+func PrepareAndHardenRuntimeState(ctx context.Context, scratchRoot string, specs []authmount.MountSpec, runtimeIdentity container.RuntimeIdentity) (*RuntimeState, error) {
+	rs, err := PrepareRuntimeState(scratchRoot, specs)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := os.Stat(scratchRoot); os.IsNotExist(err) {
+		return rs, nil
+	}
+	if err := hardenRuntimeStatePath(ctx, scratchRoot, runtimeIdentity); err != nil {
+		_ = rs.Cleanup()
+		return nil, fmt.Errorf("harden runtime state %s: %w", scratchRoot, err)
+	}
 	return rs, nil
 }
 

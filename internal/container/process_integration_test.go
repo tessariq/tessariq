@@ -149,6 +149,11 @@ func TestContainerLifecycle_MountWriteFromContainer(t *testing.T) {
 	cleanupContainer(t, name)
 
 	hostDir := t.TempDir()
+	// container.Process no longer world-writes bind-mount sources — workspace
+	// provisioning does that for worktrees. For this isolated container test,
+	// open the scratch dir explicitly so the cap-dropped container user can
+	// write without needing a real worktree.
+	require.NoError(t, os.Chmod(hostDir, 0o777))
 
 	p := container.New(container.Config{
 		Name:    name,
@@ -231,6 +236,7 @@ func TestContainerLifecycle_EnvVarsVisible(t *testing.T) {
 	cleanupContainer(t, name)
 
 	hostDir := t.TempDir()
+	require.NoError(t, os.Chmod(hostDir, 0o777))
 
 	p := container.New(container.Config{
 		Name:    name,
@@ -253,51 +259,6 @@ func TestContainerLifecycle_EnvVarsVisible(t *testing.T) {
 	content, err := os.ReadFile(filepath.Join(hostDir, "env.txt"))
 	require.NoError(t, err)
 	require.Equal(t, "hello-from-env\n", string(content))
-}
-
-// TestContainerLifecycle_NonRootUserCanWriteAfterPrepare verifies that a
-// non-root container user (tessariq) can write to a bind-mounted directory
-// after prepareWritableMounts makes it world-writable.
-func TestContainerLifecycle_NonRootUserCanWriteAfterPrepare(t *testing.T) {
-	t.Parallel()
-	testutil.RequireDocker(t)
-
-	// Build a minimal image with a tessariq user.
-	imgName := testutil.BuildTestImage(t, "nonroot", `FROM alpine:latest
-RUN addgroup -S tessariq && adduser -S tessariq -G tessariq -h /home/tessariq
-USER tessariq
-`)
-
-	name := testutil.UniqueName(t)
-	cleanupContainer(t, name)
-
-	hostDir := t.TempDir()
-	// Create a file owned by the current (host) user with restrictive permissions.
-	require.NoError(t, os.WriteFile(filepath.Join(hostDir, "existing.txt"), []byte("original"), 0o644))
-
-	p := container.New(container.Config{
-		Name:    name,
-		Image:   imgName,
-		Command: []string{"sh", "-c", "echo written-by-tessariq > /work/output.txt && cat /work/existing.txt"},
-		WorkDir: "/work",
-		User:    "tessariq",
-		Mounts: []container.Mount{
-			{Source: hostDir, Target: "/work", ReadOnly: false},
-		},
-	})
-
-	// Start calls prepareWritableMounts internally.
-	err := p.Start(t.Context())
-	require.NoError(t, err)
-
-	code, err := p.Wait()
-	require.NoError(t, err)
-	require.Equal(t, 0, code, "non-root user should be able to write after prepare")
-
-	// Verify the file was written by the container's tessariq user.
-	content, err := os.ReadFile(filepath.Join(hostDir, "output.txt"))
-	require.NoError(t, err)
-	require.Equal(t, "written-by-tessariq\n", string(content))
 }
 
 func TestContainerLifecycle_SignalStop(t *testing.T) {
@@ -404,6 +365,7 @@ func TestContainerLifecycle_DroppedCapabilities(t *testing.T) {
 	cleanupContainer(t, name)
 
 	hostDir := t.TempDir()
+	require.NoError(t, os.Chmod(hostDir, 0o777))
 
 	p := container.New(container.Config{
 		Name:    name,
@@ -435,6 +397,7 @@ func TestContainerLifecycle_NoNewPrivileges(t *testing.T) {
 	cleanupContainer(t, name)
 
 	hostDir := t.TempDir()
+	require.NoError(t, os.Chmod(hostDir, 0o777))
 
 	p := container.New(container.Config{
 		Name:    name,
@@ -466,6 +429,7 @@ func TestContainerLifecycle_WorkDir(t *testing.T) {
 	cleanupContainer(t, name)
 
 	hostDir := t.TempDir()
+	require.NoError(t, os.Chmod(hostDir, 0o777))
 
 	p := container.New(container.Config{
 		Name:    name,

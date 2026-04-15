@@ -98,6 +98,8 @@ func testImageTag(t *testing.T) string {
 type e2eSetupOpts struct {
 	binaryName string                        // agent binary name; defaults to "claude"
 	scriptBody string                        // fake agent script body; defaults to "exit 0"
+	runtimeUID int                           // runtime image tessariq uid; defaults to 1000
+	runtimeGID int                           // runtime image tessariq gid; defaults to runtimeUID
 	skipAuth   bool                          // skip creating auth files (for auth-failure tests)
 	skipImage  bool                          // skip building test Docker image (for pre-container-failure tests)
 	bareImage  bool                          // build image WITHOUT agent binary (for missing-binary tests)
@@ -119,6 +121,12 @@ func setupRunEnvCustom(t *testing.T, bin string, opts e2eSetupOpts) *containers.
 	}
 	if opts.scriptBody == "" {
 		opts.scriptBody = "exit 0"
+	}
+	if opts.runtimeUID == 0 {
+		opts.runtimeUID = 1000
+	}
+	if opts.runtimeGID == 0 {
+		opts.runtimeGID = opts.runtimeUID
 	}
 
 	ctx := context.Background()
@@ -145,12 +153,14 @@ func setupRunEnvCustom(t *testing.T, bin string, opts e2eSetupOpts) *containers.
 			// Bare image WITHOUT the agent binary (for missing-binary tests).
 			imgName := fmt.Sprintf("tessariq-test-no-%s-%s", opts.binaryName, testImageTag(t))
 			buildCmds := []string{
-				`cat > /work/Dockerfile.bare <<'DEOF'
+				fmt.Sprintf(`cat > /work/Dockerfile.bare <<'DEOF'
 FROM alpine:latest
-RUN apk add --no-cache coreutils && addgroup -S tessariq && adduser -S tessariq -G tessariq -h /home/tessariq
+RUN apk add --no-cache coreutils \
+    && addgroup -g %d tessariq \
+    && adduser -D -u %d -G tessariq -h /home/tessariq tessariq
 USER tessariq
 WORKDIR /work
-DEOF`,
+DEOF`, opts.runtimeGID, opts.runtimeUID),
 				fmt.Sprintf("DOCKER_BUILDKIT=1 docker build -t %s -f /work/Dockerfile.bare /work", imgName),
 			}
 			for _, cmd := range buildCmds {
@@ -165,12 +175,14 @@ DEOF`,
 			buildCmds := []string{
 				fmt.Sprintf(`cat > /work/Dockerfile.test <<'DEOF'
 FROM alpine:latest
-RUN apk add --no-cache coreutils && addgroup -S tessariq && adduser -S tessariq -G tessariq -h /home/tessariq
+RUN apk add --no-cache coreutils \
+    && addgroup -g %d tessariq \
+    && adduser -D -u %d -G tessariq -h /home/tessariq tessariq
 COPY fake-agent.sh /usr/local/bin/%s
 RUN chmod +x /usr/local/bin/%s
 USER tessariq
 WORKDIR /work
-DEOF`, opts.binaryName, opts.binaryName),
+DEOF`, opts.runtimeGID, opts.runtimeUID, opts.binaryName, opts.binaryName),
 				fmt.Sprintf(`printf '#!/bin/sh\n%s\n' > /work/fake-agent.sh && chmod +x /work/fake-agent.sh`,
 					strings.ReplaceAll(opts.scriptBody, "'", "'\\''")),
 				fmt.Sprintf("DOCKER_BUILDKIT=1 docker build -t %s -f /work/Dockerfile.test /work", imgName),
@@ -593,16 +605,8 @@ func TestE2E_ExplicitEgressOpenIgnoresMalformedUserConfig(t *testing.T) {
 		},
 	})
 
-	hostDir := env.Dir()
-	repoPath := filepath.Join(hostDir, "repo")
-	homeDir := filepath.Join(hostDir, "home")
-	binPath := filepath.Join(hostDir, "tessariq")
-
-	ctx := context.Background()
-	_, output, err := env.Exec(ctx, []string{"sh", "-c",
-		fmt.Sprintf("cd %s && HOME=%s %s run --egress open tasks/sample.md",
-			repoPath, homeDir, binPath)})
-	require.NoError(t, err)
+	code, output := runTessariq(t, env, "claude", "--egress open")
+	require.Equal(t, 0, code, "run failed: %s", output)
 
 	require.NotContains(t, output, "malformed config file",
 		"--egress open should skip user config; got: %s", output)
@@ -621,16 +625,8 @@ func TestE2E_ExplicitEgressAllowIgnoresMalformedUserConfig(t *testing.T) {
 		},
 	})
 
-	hostDir := env.Dir()
-	repoPath := filepath.Join(hostDir, "repo")
-	homeDir := filepath.Join(hostDir, "home")
-	binPath := filepath.Join(hostDir, "tessariq")
-
-	ctx := context.Background()
-	_, output, err := env.Exec(ctx, []string{"sh", "-c",
-		fmt.Sprintf("cd %s && HOME=%s %s run --egress-allow api.example.com:443 tasks/sample.md",
-			repoPath, homeDir, binPath)})
-	require.NoError(t, err)
+	code, output := runTessariq(t, env, "claude", "--egress-allow api.example.com:443")
+	require.Equal(t, 0, code, "run failed: %s", output)
 
 	require.NotContains(t, output, "malformed config file",
 		"--egress-allow should skip user config; got: %s", output)
@@ -944,6 +940,61 @@ func TestE2E_ContainerSecurityHardening(t *testing.T) {
 		require.Equal(t, "600", strings.TrimSpace(fOut),
 			"%s must be 0600", f)
 	}
+
+	// Verify worktree perms — TASK-093 hardening. The worktree parent chain
+	// and the worktree root itself must be owner-only at the mode-bit layer,
+	// with the runtime uid granted exact access via ACL instead of host gid
+	// membership.
+	wsPath := extractField(output, "workspace_path")
+	require.NotEmpty(t, wsPath, "workspace_path must be printed on success")
+
+	aclCode, aclOut, aclErr := env.Exec(ctx, []string{"sh", "-c",
+		fmt.Sprintf("getfacl -cp %s", wsPath)})
+	require.NoError(t, aclErr)
+	require.Equal(t, 0, aclCode)
+	require.Contains(t, aclOut, "other::---",
+		"worktree ACL must deny all other users")
+	require.Contains(t, aclOut, "user:1000:rwx",
+		"runtime uid must be granted explicit ACL access")
+
+	// Parent chain must be owner-only so non-owner users cannot list run IDs.
+	worktreesParent := filepath.Dir(filepath.Dir(wsPath))
+	for _, parent := range []string{filepath.Dir(wsPath), worktreesParent} {
+		pCode, pOut, pErr := env.Exec(ctx, []string{"sh", "-c",
+			fmt.Sprintf("stat -c '%%a' %s", parent)})
+		require.NoError(t, pErr)
+		require.Equal(t, 0, pCode, "%s must exist", parent)
+		require.Equal(t, "700", strings.TrimSpace(pOut),
+			"%s must be 0700", parent)
+	}
+}
+
+func TestE2E_CustomRuntimeUIDCanUseHardenedWorktree(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+	env := setupRunEnvCustom(t, bin, e2eSetupOpts{
+		runtimeUID: 1234,
+		runtimeGID: 1234,
+	})
+
+	code, output := runTessariq(t, env, "claude", "")
+	require.Equal(t, 0, code, "run failed: %s", output)
+
+	ctx := context.Background()
+	wsPath := extractField(output, "workspace_path")
+	require.NotEmpty(t, wsPath)
+
+	aclCode, aclOut, aclErr := env.Exec(ctx, []string{"sh", "-c",
+		fmt.Sprintf("getfacl -cp %s", wsPath)})
+	require.NoError(t, aclErr)
+	require.Equal(t, 0, aclCode)
+	require.Contains(t, aclOut, "user:1234:rwx")
+
+	thirdPartyCode, thirdPartyOut, thirdPartyErr := env.Exec(ctx, []string{"sh", "-c",
+		fmt.Sprintf("docker run --rm --user 4242:4242 -v %s:/work alpine:latest sh -c 'cat /work/.git'", wsPath)})
+	require.NoError(t, thirdPartyErr)
+	require.NotEqual(t, 0, thirdPartyCode)
+	require.Contains(t, strings.ToLower(thirdPartyOut), "permission denied")
 }
 
 // TestE2E_ClaudeJsonHostFileImmutableAfterRun is the BUG-050 regression guard

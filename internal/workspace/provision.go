@@ -8,13 +8,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/tessariq/tessariq/internal/container"
 	"github.com/tessariq/tessariq/internal/git"
 )
 
-// repairImage is the container image used to fix workspace file ownership.
-// Pinned by digest to prevent supply-chain attacks — update the digest when
-// upgrading Alpine.
-const repairImage = "alpine@sha256:25109184c71bdad752c8312a8623239686a9a2071e8825f20acb8f2198c3f659"
+var hardenWorktreePath = container.HardenWritablePath
 
 // WorkspacePath computes the deterministic path for a worktree workspace:
 // <homeDir>/.tessariq/worktrees/<repo_id>/<run_id>
@@ -25,15 +23,26 @@ func WorkspacePath(homeDir, repoRoot, runID string) string {
 // Provision creates a detached worktree at the computed workspace path and
 // writes workspace.json into the evidence directory. The caller must supply the
 // base SHA so that all evidence artifacts use a single, consistent value.
-func Provision(ctx context.Context, homeDir, repoRoot, runID, evidenceDir, baseSHA string) (string, error) {
+func Provision(ctx context.Context, homeDir, repoRoot, runID, evidenceDir, baseSHA string, runtimeIdentity container.RuntimeIdentity) (string, error) {
 	wsPath := WorkspacePath(homeDir, repoRoot, runID)
 
-	if err := os.MkdirAll(filepath.Dir(wsPath), 0o755); err != nil {
+	// Parent chain uses 0o700 so non-owner users cannot enumerate live run IDs.
+	if err := os.MkdirAll(filepath.Dir(wsPath), 0o700); err != nil {
 		return "", fmt.Errorf("create worktree parent: %w", err)
 	}
 
 	if err := git.AddWorktree(ctx, repoRoot, wsPath, baseSHA); err != nil {
 		return "", fmt.Errorf("provision worktree: %w", err)
+	}
+	cleanupOnError := true
+	defer func() {
+		if cleanupOnError {
+			_ = Cleanup(context.Background(), homeDir, repoRoot, wsPath)
+		}
+	}()
+
+	if err := hardenWorktreePath(ctx, wsPath, runtimeIdentity); err != nil {
+		return "", fmt.Errorf("harden worktree permissions: %w", err)
 	}
 
 	m := BuildMetadata(baseSHA, wsPath)
@@ -41,6 +50,7 @@ func Provision(ctx context.Context, homeDir, repoRoot, runID, evidenceDir, baseS
 		return "", fmt.Errorf("write workspace metadata: %w", err)
 	}
 
+	cleanupOnError = false
 	return wsPath, nil
 }
 
@@ -104,7 +114,7 @@ func buildRepairArgs(workspacePath string) []string {
 	return []string{
 		"run", "--rm", "--user", "root",
 		"-v", workspacePath + ":/work",
-		repairImage, "sh", "-c", fixCmd,
+		container.RepairImage, "sh", "-c", fixCmd,
 	}
 }
 

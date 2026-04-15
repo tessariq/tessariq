@@ -5,6 +5,9 @@ package workspace
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,8 +15,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/tessariq/tessariq/internal/container"
 	"github.com/tessariq/tessariq/internal/testutil/containers"
 )
+
+var testRuntimeIdentity = container.RuntimeIdentity{UID: 1000, GID: 1000}
 
 func TestWorkspacePath_Layout(t *testing.T) {
 	t.Parallel()
@@ -48,7 +54,7 @@ func TestProvision_Integration_CreatesWorktree(t *testing.T) {
 	evidenceDir := filepath.Join(t.TempDir(), "evidence")
 	runID := "01ARZ3NDEKTSV4RRFFQ69G5FAV"
 
-	wsPath, err := Provision(ctx, homeDir, repo.Dir(), runID, evidenceDir, headSHA)
+	wsPath, err := Provision(ctx, homeDir, repo.Dir(), runID, evidenceDir, headSHA, testRuntimeIdentity)
 	require.NoError(t, err)
 
 	// Worktree directory exists
@@ -69,7 +75,7 @@ func TestProvision_Integration_WritesWorkspaceJSON(t *testing.T) {
 	evidenceDir := filepath.Join(t.TempDir(), "evidence")
 	runID := "01ARZ3NDEKTSV4RRFFQ69G5FAV"
 
-	wsPath, err := Provision(ctx, homeDir, repo.Dir(), runID, evidenceDir, headSHA)
+	wsPath, err := Provision(ctx, homeDir, repo.Dir(), runID, evidenceDir, headSHA, testRuntimeIdentity)
 	require.NoError(t, err)
 
 	data, err := os.ReadFile(filepath.Join(evidenceDir, "workspace.json"))
@@ -98,7 +104,7 @@ func TestProvision_Integration_WorktreeCheckedOutAtProvidedSHA(t *testing.T) {
 	homeDir := t.TempDir()
 	evidenceDir := filepath.Join(t.TempDir(), "evidence")
 
-	wsPath, err := Provision(ctx, homeDir, repo.Dir(), "01ARZ3NDEKTSV4RRFFQ69G5FAV", evidenceDir, headSHA)
+	wsPath, err := Provision(ctx, homeDir, repo.Dir(), "01ARZ3NDEKTSV4RRFFQ69G5FAV", evidenceDir, headSHA, testRuntimeIdentity)
 	require.NoError(t, err)
 
 	// Verify the worktree is checked out at the provided SHA.
@@ -127,7 +133,7 @@ func TestProvision_Integration_UsesCallerProvidedSHA(t *testing.T) {
 	evidenceDir := filepath.Join(t.TempDir(), "evidence")
 
 	// Pass the OLD SHA — Provision must use it, not current HEAD.
-	wsPath, err := Provision(ctx, homeDir, repo.Dir(), "01ARZ3NDEKTSV4RRFFQ69G5FAV", evidenceDir, firstSHA)
+	wsPath, err := Provision(ctx, homeDir, repo.Dir(), "01ARZ3NDEKTSV4RRFFQ69G5FAV", evidenceDir, firstSHA, testRuntimeIdentity)
 	require.NoError(t, err)
 
 	// workspace.json must record the caller-provided SHA.
@@ -155,7 +161,7 @@ func TestCleanup_Integration_RemovesWorktree(t *testing.T) {
 	homeDir := t.TempDir()
 	evidenceDir := filepath.Join(t.TempDir(), "evidence")
 
-	wsPath, err := Provision(ctx, homeDir, repo.Dir(), "01ARZ3NDEKTSV4RRFFQ69G5FAV", evidenceDir, headSHA)
+	wsPath, err := Provision(ctx, homeDir, repo.Dir(), "01ARZ3NDEKTSV4RRFFQ69G5FAV", evidenceDir, headSHA, testRuntimeIdentity)
 	require.NoError(t, err)
 
 	require.NoError(t, Cleanup(ctx, homeDir, repo.Dir(), wsPath))
@@ -175,7 +181,7 @@ func TestCleanup_Integration_Idempotent(t *testing.T) {
 	homeDir := t.TempDir()
 	evidenceDir := filepath.Join(t.TempDir(), "evidence")
 
-	wsPath, err := Provision(ctx, homeDir, repo.Dir(), "01ARZ3NDEKTSV4RRFFQ69G5FAV", evidenceDir, headSHA)
+	wsPath, err := Provision(ctx, homeDir, repo.Dir(), "01ARZ3NDEKTSV4RRFFQ69G5FAV", evidenceDir, headSHA, testRuntimeIdentity)
 	require.NoError(t, err)
 
 	require.NoError(t, Cleanup(ctx, homeDir, repo.Dir(), wsPath))
@@ -193,7 +199,7 @@ func TestCleanup_Integration_GitWorktreeListClean(t *testing.T) {
 	homeDir := t.TempDir()
 	evidenceDir := filepath.Join(t.TempDir(), "evidence")
 
-	wsPath, err := Provision(ctx, homeDir, repo.Dir(), "01ARZ3NDEKTSV4RRFFQ69G5FAX", evidenceDir, headSHA)
+	wsPath, err := Provision(ctx, homeDir, repo.Dir(), "01ARZ3NDEKTSV4RRFFQ69G5FAX", evidenceDir, headSHA, testRuntimeIdentity)
 	require.NoError(t, err)
 
 	require.NoError(t, Cleanup(ctx, homeDir, repo.Dir(), wsPath))
@@ -222,7 +228,7 @@ func TestCleanup_Integration_RemovesWorktreeRef_WhenRepairFails(t *testing.T) {
 	homeDir := t.TempDir()
 	evidenceDir := filepath.Join(t.TempDir(), "evidence")
 
-	wsPath, err := Provision(ctx, homeDir, repo.Dir(), "01ARZ3NDEKTSV4RRFFQ69G5FAR", evidenceDir, headSHA)
+	wsPath, err := Provision(ctx, homeDir, repo.Dir(), "01ARZ3NDEKTSV4RRFFQ69G5FAR", evidenceDir, headSHA, testRuntimeIdentity)
 	require.NoError(t, err)
 
 	// Simulate Docker unavailability by prepending a directory with a fake
@@ -253,6 +259,158 @@ func TestCleanup_Integration_RemovesWorktreeRef_WhenRepairFails(t *testing.T) {
 	require.Equal(t, 1, worktreeCount, "only main worktree should remain, got: %s", out)
 }
 
+func TestProvision_Integration_WorktreeMode_NoOtherAccess(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo, err := containers.StartGitRepo(ctx, t)
+	require.NoError(t, err)
+
+	headSHA := resolveHead(t, ctx, repo)
+	homeDir := t.TempDir()
+	evidenceDir := filepath.Join(t.TempDir(), "evidence")
+
+	wsPath, err := Provision(ctx, homeDir, repo.Dir(), "01ARZ3NDEKTSV4RRFFQ69G5F01", evidenceDir, headSHA, testRuntimeIdentity)
+	require.NoError(t, err)
+
+	// Every file and directory inside the worktree must strip world bits.
+	err = filepath.WalkDir(wsPath, func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		info, statErr := d.Info()
+		if statErr != nil {
+			return statErr
+		}
+		perm := info.Mode().Perm()
+		require.Equal(t, os.FileMode(0), perm&0o007,
+			"%s: world bits must be clear, got %o", path, perm)
+		return nil
+	})
+	require.NoError(t, err)
+
+	// Parent chain must be owner-only (0o700) so second users cannot enumerate
+	// run IDs.
+	for _, p := range []string{
+		filepath.Join(homeDir, ".tessariq"),
+		filepath.Join(homeDir, ".tessariq", "worktrees"),
+		filepath.Dir(wsPath),
+	} {
+		info, statErr := os.Stat(p)
+		require.NoError(t, statErr, p)
+		require.Equal(t, os.FileMode(0o700), info.Mode().Perm(),
+			"%s: parent chain must be 0700", p)
+	}
+}
+
+func TestProvision_Integration_ContainerUserCanWrite(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo, err := containers.StartGitRepo(ctx, t)
+	require.NoError(t, err)
+
+	headSHA := resolveHead(t, ctx, repo)
+	homeDir := t.TempDir()
+	// Parent chain is 0o700 owned by host user; ensure the sibling
+	// container process can traverse by mounting the worktree directly.
+	evidenceDir := filepath.Join(t.TempDir(), "evidence")
+
+	wsPath, err := Provision(ctx, homeDir, repo.Dir(), "01ARZ3NDEKTSV4RRFFQ69G5F02", evidenceDir, headSHA, testRuntimeIdentity)
+	require.NoError(t, err)
+
+	// Write as the container's resolved runtime uid/gid. Exact-principal ACLs
+	// must grant this user write access without reopening the path to a host gid.
+	userFlag := fmt.Sprintf("%d:%d", testRuntimeIdentity.UID, testRuntimeIdentity.GID)
+	cmd := exec.CommandContext(ctx, "docker", "run", "--rm",
+		"--user", userFlag,
+		"-v", wsPath+":/work",
+		"alpine:latest",
+		"sh", "-c", "touch /work/probe && echo hi > /work/probe && cat /work/probe",
+	)
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, "container user must retain write access: %s", out)
+	require.Contains(t, string(out), "hi")
+}
+
+func TestProvision_Integration_ThirdPartyUserCannotRead(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo, err := containers.StartGitRepo(ctx, t)
+	require.NoError(t, err)
+
+	headSHA := resolveHead(t, ctx, repo)
+	homeDir := t.TempDir()
+	evidenceDir := filepath.Join(t.TempDir(), "evidence")
+
+	wsPath, err := Provision(ctx, homeDir, repo.Dir(), "01ARZ3NDEKTSV4RRFFQ69G5F03", evidenceDir, headSHA, testRuntimeIdentity)
+	require.NoError(t, err)
+
+	// A third UID (not the host UID and not the runtime uid) must be
+	// denied read access to worktree contents. `.git` in a worktree is a
+	// file (gitdir link), which we use as the probe target.
+	cmd := exec.CommandContext(ctx, "docker", "run", "--rm",
+		"--user", "4242:4242",
+		"-v", wsPath+":/work",
+		"alpine:latest",
+		"sh", "-c", "cat /work/.git",
+	)
+	out, err := cmd.CombinedOutput()
+	require.Error(t, err, "third-party user must be denied: %s", out)
+	require.Contains(t, strings.ToLower(string(out)), "permission denied",
+		"expected permission-denied error, got: %s", out)
+}
+
+func TestProvision_Integration_CustomRuntimeUIDCanWrite(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo, err := containers.StartGitRepo(ctx, t)
+	require.NoError(t, err)
+
+	headSHA := resolveHead(t, ctx, repo)
+	homeDir := t.TempDir()
+	evidenceDir := filepath.Join(t.TempDir(), "evidence")
+	identity := container.RuntimeIdentity{UID: 1234, GID: 1234}
+
+	wsPath, err := Provision(ctx, homeDir, repo.Dir(), "01ARZ3NDEKTSV4RRFFQ69G5F04", evidenceDir, headSHA, identity)
+	require.NoError(t, err)
+
+	cmd := exec.CommandContext(ctx, "docker", "run", "--rm",
+		"--user", "1234:1234",
+		"-v", wsPath+":/work",
+		"alpine:latest",
+		"sh", "-c", "touch /work/probe && echo hi > /work/probe && cat /work/probe",
+	)
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, "custom runtime uid must retain write access: %s", out)
+	require.Contains(t, string(out), "hi")
+}
+
+func TestProvision_Integration_HardeningFailureCleansWorktree(t *testing.T) {
+	ctx := context.Background()
+	repo, err := containers.StartGitRepo(ctx, t)
+	require.NoError(t, err)
+
+	headSHA := resolveHead(t, ctx, repo)
+	homeDir := t.TempDir()
+	evidenceDir := filepath.Join(t.TempDir(), "evidence")
+	wsPath := WorkspacePath(homeDir, repo.Dir(), "01ARZ3NDEKTSV4RRFFQ69G5F05")
+
+	old := hardenWorktreePath
+	hardenWorktreePath = func(_ context.Context, _ string, _ container.RuntimeIdentity) error {
+		return errors.New("boom")
+	}
+	t.Cleanup(func() { hardenWorktreePath = old })
+
+	_, err = Provision(ctx, homeDir, repo.Dir(), "01ARZ3NDEKTSV4RRFFQ69G5F05", evidenceDir, headSHA, testRuntimeIdentity)
+	require.Error(t, err)
+
+	_, statErr := os.Stat(wsPath)
+	require.True(t, os.IsNotExist(statErr), "worktree must be cleaned on hardening failure")
+}
+
 func TestCleanup_Integration_RemovesRestrictiveContainerOwnedFiles(t *testing.T) {
 	t.Parallel()
 
@@ -264,7 +422,7 @@ func TestCleanup_Integration_RemovesRestrictiveContainerOwnedFiles(t *testing.T)
 	homeDir := t.TempDir()
 	evidenceDir := filepath.Join(t.TempDir(), "evidence")
 
-	wsPath, err := Provision(ctx, homeDir, repo.Dir(), "01ARZ3NDEKTSV4RRFFQ69G5FAW", evidenceDir, headSHA)
+	wsPath, err := Provision(ctx, homeDir, repo.Dir(), "01ARZ3NDEKTSV4RRFFQ69G5FAW", evidenceDir, headSHA, testRuntimeIdentity)
 	require.NoError(t, err)
 
 	cmd := exec.CommandContext(ctx, "docker", "run", "--rm", "-v", wsPath+":/work", "alpine:latest",
