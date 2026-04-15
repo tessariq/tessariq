@@ -76,6 +76,14 @@ func reconcileRun(ctx context.Context, repoRoot string, entry run.IndexEntry, de
 	if stateInfo.Exists && stateInfo.Running {
 		return Result{Entry: entry, Status: status, Live: true}, nil
 	}
+	if stateInfo.Exists && !stateInfo.Running && stateInfo.FinishedAt.IsZero() {
+		// Container exists in "created" state (between docker create and
+		// docker start) — FinishedAt is only set once the container has
+		// actually run and exited. Treat as live so attach waits for the
+		// supervisor to finish starting, rather than inferring a bogus
+		// "exit 0 success" from the zero-valued ExitCode.
+		return Result{Entry: entry, Status: status, Live: true}, nil
+	}
 	if !stateInfo.Exists && !processStartObserved(evidenceDir) {
 		return Result{Entry: entry, Status: status, Live: true}, nil
 	}

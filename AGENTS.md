@@ -184,6 +184,8 @@ Rules:
 - Run CLI commands inside the container via `env.Exec(ctx, []string{"sh", "-c", "cd /repo && /work/binary ..."})`.
 - Read evidence artifacts from inside the container via `env.Exec(ctx, []string{"cat", path})`.
 - No `skipIfNoTmux` or similar host-tool guards (containers provide all runtime dependencies).
+- Use `runTessariq` (the default helper), which skips the agent-update init container via `--no-update-agent`. The update mechanism is covered by dedicated `TestE2E_AgentUpdate_*` tests that opt in via `runTessariqWithUpdate`. Default-skipping avoids paying for three extra docker runs (version probe, npm update exec, ownership fixup) and the race windows they introduce in every unrelated test.
+- When adding a new agent-update test, name it `TestE2E_AgentUpdate_*` and call `runTessariqWithUpdate` so the intent is obvious at the call site.
 
 ### E2e tests with sibling containers
 When tessariq itself creates Docker containers (via `docker create` / `docker start`), e2e tests use the Docker socket mount pattern instead of Docker-in-Docker:
