@@ -1,6 +1,6 @@
 ---
 schema_version: 1
-updated_at: "2026-04-14T16:19:37Z"
+updated_at: "2026-04-15T11:51:46Z"
 mode: user_request
 run_id: wf-20260414T155527Z
 agent_id: claude-code
@@ -10,18 +10,19 @@ active_task_started_at: ""
 attempt: 0
 last_completed: TASK-087-restore-read-only-claude-auth-mount-contract
 next_tasks:
-    - TASK-085-harden-run-finalization-and-orphaned-run-recovery
-    - TASK-086-make-diff-artifact-writes-all-or-nothing
-    - TASK-088-require-proxy-evidence-completeness-before-promote
-    - TASK-089-resolve-symlinks-in-evidence-path-validation
+    - TASK-090-validate-workspace-path-before-reconcile-cleanup
+    - TASK-091-enforce-timeout-on-pre-and-verify-hooks
+    - TASK-093-restrict-worktree-permissions-to-host-and-container-user
+    - TASK-092-reject-control-characters-in-task-path
+    - TASK-094-reconcile-terminal-status-with-container-cleanup-outcome
 repo_state: idle
 last_transition: finish
 last_transition_at: "2026-04-14T16:19:33Z"
 selection_reason: next eligible todo by priority
-validation_last_run: "2026-04-14T16:19:10Z"
+validation_last_run: "2026-04-15T11:51:42Z"
 validation_status: passed
-validation_scope: task:v0.1.0
-validation_checked_at: "2026-04-14T16:19:10Z"
+validation_scope: spec:v0.1.0
+validation_checked_at: "2026-04-15T11:51:42Z"
 milestone_focus: v0.1.0
 active_spec_version: v0.1.0
 active_spec_path: specs/tessariq-v0.1.0.md
@@ -36,15 +37,16 @@ max_retries: 2
 - Validation status: passed
 - Active spec: v0.1.0 (specs/tessariq-v0.1.0.md)
 - Next tasks:
-  - TASK-085-harden-run-finalization-and-orphaned-run-recovery
-  - TASK-086-make-diff-artifact-writes-all-or-nothing
-  - TASK-088-require-proxy-evidence-completeness-before-promote
-  - TASK-089-resolve-symlinks-in-evidence-path-validation
+  - TASK-090-validate-workspace-path-before-reconcile-cleanup
+  - TASK-091-enforce-timeout-on-pre-and-verify-hooks
+  - TASK-093-restrict-worktree-permissions-to-host-and-container-user
+  - TASK-092-reject-control-characters-in-task-path
+  - TASK-094-reconcile-terminal-status-with-container-cleanup-outcome
 
 ## Task Counts
 
-- todo: 5
+- todo: 6
 - in_progress: 0
-- done: 83
+- done: 87
 - blocked: 1
 - cancelled: 0

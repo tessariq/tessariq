@@ -74,6 +74,11 @@ depends_on:
     - TASK-087-restore-read-only-claude-auth-mount-contract
     - TASK-088-require-proxy-evidence-completeness-before-promote
     - TASK-089-resolve-symlinks-in-evidence-path-validation
+    - TASK-090-validate-workspace-path-before-reconcile-cleanup
+    - TASK-091-enforce-timeout-on-pre-and-verify-hooks
+    - TASK-092-reject-control-characters-in-task-path
+    - TASK-093-restrict-worktree-permissions-to-host-and-container-user
+    - TASK-094-reconcile-terminal-status-with-container-cleanup-outcome
 milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:

@@ -5,9 +5,9 @@ Automated adversarial testing against done tasks.
 | Key | Value |
 |-----|-------|
 | Started | 2026-03-31 |
-| Iteration | 35 |
-| Last bug found | iteration 35 |
-| Clean iterations | 6 / 34 |
+| Iteration | 40 |
+| Last bug found | iteration 40 |
+| Clean iterations | 6 / 39 |
 | Status | In progress |
 
 ---
@@ -80,6 +80,11 @@ BUG-043 through BUG-046 were reviewed against the current code and marked not re
 | BUG-052 | MEDIUM | `internal/proxy/topology.go:105-109` | `Topology.Teardown` silently discards `CopyAccessLog` errors and unconditionally writes an empty `egress.events.jsonl` + `squid.log`, producing misleading "zero blocked destinations" evidence when telemetry extraction actually failed | **Open** |
 | BUG-053 | LOW | `internal/workspace/metadata.go:46`, `internal/adapter/agent.go:42`, `internal/adapter/runtime.go:58` | `workspace.json`, `agent.json`, and `runtime.json` are written with plain `os.WriteFile` (no tmp+rename); crashes mid-write leave partial/empty evidence — the BUG-035 atomic-write fix was applied only to `manifest.json` and `status.json` | **Open** |
 | BUG-054 | LOW | `internal/run/evidencepath.go:21-34` | `ValidateEvidencePath` does not resolve symlinks; a symlink planted at `.tessariq/runs/<run-id>` whose target points outside the repo passes the prefix check, letting `promote`/`attach` read forged evidence and bypass the BUG-013 containment fix | **Open** |
+| BUG-055 | CRITICAL | `internal/lifecycle/reconcile.go:145-156,187-200`, `internal/workspace/provision.go:55-82` | `lifecycle.cleanupTerminalRun` reads `workspace_path` from an untrusted `workspace.json` and passes it to `workspace.Cleanup`, which runs `docker run -v <path>:/work chown -R`, host-side `chmod -R u+rwX <path>`, and `os.RemoveAll(<path>)`; a tampered evidence artifact can trigger arbitrary directory deletion and ownership rewrite during `promote`/`attach` reconcile | **Open** |
+| BUG-056 | MEDIUM | `internal/runner/runner.go:118-126,145-153`, `internal/runner/hooks.go:45-61` | `RunPreHooks` / `RunVerifyHooks` execute on the top-level CLI context with no independent deadline; a hung pre/verify command ignores `--timeout` entirely and blocks the run indefinitely | **Open** |
+| BUG-057 | LOW | `internal/run/taskpath.go:10-43`, `internal/promote/promote.go:193-204` | `ValidateTaskPath` does not reject newline or other control characters in the task-file path; the value is stored verbatim in `manifest.task_path` and later interpolated into the `Tessariq-Task:` commit trailer, allowing trailer/body injection on promote | **Open** |
+| BUG-058 | MEDIUM | `internal/container/process.go:141-152`, `internal/workspace/provision.go:31` | `prepareWritableMounts` runs `chmod -R a+rwX` on every writable bind-mount source (the worktree), and the worktree parent dirs are created 0o755; during the run, all local users on the host can read and modify the worktree files | **Open** |
+| BUG-059 | MEDIUM | `internal/runner/runner.go:161-170,443-457`, `internal/container/process.go:102-105` | `Runner.writeTerminalStatus` calls `Process.Cleanup` AFTER the terminal `status.json` is written; if `docker rm -f` fails, the run returns a Go error while `status.json` already records `success`, and the caller CLI path maps the error to a generic failure — leaving the recorded terminal state and the CLI exit disagreeing about outcome | **Open** |
 
 ---
 
@@ -2100,3 +2105,358 @@ Contrast with `ValidateTaskPath` (`internal/run/taskpath.go:28-37`), which expli
 | Empty-string rejection | Explicit empty-string guard in the opening `if` block | CLEAN |
 | Task-path symlink guard | `ValidateTaskPath` still calls `filepath.EvalSymlinks` (BUG-022 / TASK-057 fix holds) | CLEAN |
 | Run-ID/evidence-dir cross-check | `ValidateEvidenceRunID` rejects mismatched directory names (BUG-017 fix holds) | CLEAN |
+
+---
+
+## Iteration 36
+
+Scope: lifecycle reconcile trust of evidence metadata. Probed whether `promote`/`attach` reconcile paths can be weaponised through a tampered `workspace.json`.
+
+### BUG-055: `lifecycle.cleanupTerminalRun` passes untrusted `workspace_path` straight to `workspace.Cleanup`, enabling arbitrary directory deletion and ownership rewrite
+
+**Severity:** CRITICAL
+**Files:** `internal/lifecycle/reconcile.go:139-156,187-200`, `internal/workspace/provision.go:55-110`
+
+**What was verified:**
+
+`lifecycle.reconcileRun` is invoked by `promote.Run` and `attach.ResolveLiveRun` whenever a run is eligible for a state transition. When the inferred state is non-success, it calls `cleanupTerminalRun`:
+
+```go
+func cleanupTerminalRun(ctx context.Context, repoRoot, evidenceDir string, manifest run.Manifest, state runner.State, deps dependencies) error {
+    if deps.removeContainer != nil && manifest.ContainerName != "" {
+        if err := deps.removeContainer(ctx, manifest.ContainerName); err != nil { return err }
+    }
+    if state == runner.StateSuccess || deps.cleanupWorkspace == nil { return nil }
+    workspacePath, err := readWorkspacePath(evidenceDir)
+    if err != nil { return err }
+    if workspacePath == "" { return nil }
+    return deps.cleanupWorkspace(ctx, repoRoot, workspacePath)
+}
+```
+
+`readWorkspacePath` (line 187) unmarshals `workspace.json` and returns `metadata.WorkspacePath` **without** any validation. There is no check that the path lives under `~/.tessariq/worktrees/<repo_id>/<run_id>/`, no path-cleaning, no `filepath.EvalSymlinks`, and no comparison against the deterministic path `workspace.WorkspacePath(homeDir, repoRoot, runID)`.
+
+`workspace.Cleanup` then executes the following on the attacker-chosen path:
+
+1. `repairWorkspaceOwnership` → `docker run --rm --user root -v <path>:/work alpine sh -c "chown -R <uid>:<gid> /work && chmod -R u+rwX /work"` — rewrites ownership of every file under the target.
+2. Host-side fallback `exec.Command("chmod", "-R", "u+rwX", <path>)`.
+3. `git worktree remove --force <path>` (tolerated failure).
+4. `os.RemoveAll(<path>)` — recursive delete.
+
+A run whose reconcile path evaluates to any non-success state (failed, timeout, killed, interrupted) walks this code path.
+
+**Reproduction (concept):**
+
+1. Attacker has local write access (same-user multi-session, compromised tool, or a multi-user host) sufficient to touch `.tessariq/runs/<run_id>/workspace.json` after the run's initial write.
+2. Overwrite the file with `{"schema_version":1,"base_sha":"...","workspace_path":"/home/victim/secret"}`.
+3. Ensure the run's container is gone and the run is in a non-success-inferable state (trivially satisfied for a failed/killed run).
+4. Any subsequent `tessariq promote last-0`, `tessariq attach <run_id>`, or background reconcile triggers `ReconcileRun` → `cleanupTerminalRun` → `workspace.Cleanup("/home/victim/secret")`.
+5. `/home/victim/secret` is chown'd to the tessariq user's UID/GID via Docker (as root inside the container), then `chmod -R u+rwX`'d, then `os.RemoveAll` wipes it.
+
+Combined with BUG-054 (symlink evidence-path bypass), the prerequisite write surface broadens further: a symlink planted inside `.tessariq/runs/` can redirect evidence reads to an attacker-controlled directory whose `workspace.json` carries the poisoned path.
+
+**Impact:**
+
+- Arbitrary recursive deletion of directories outside the repository and outside `~/.tessariq/`, as the user running tessariq (which is usually the desktop user with broad filesystem access).
+- Arbitrary ownership rewrite of any directory visible to the Docker daemon, via the `repairWorkspaceOwnership` helper running as container-root with a bind mount at the attacker-chosen host path.
+- Silent, side-effect-rich execution during routine commands (`attach`, `promote`) that a user does not expect to touch anything outside the evidence directory.
+- The BUG-013 / BUG-016 / BUG-017 / BUG-054 sweep focused on evidence reads, but reconcile's write path was not audited for the same containment contract.
+
+**Fix direction:** Reconcile should recompute the canonical workspace path with `workspace.WorkspacePath(homeDir, repoRoot, manifest.RunID)` and pass that to `Cleanup` instead of trusting `workspace.json`. Alternatively, introduce a `ValidateWorkspacePath` helper that enforces the `<homeDir>/.tessariq/worktrees/<repo_id>/<run_id>` prefix (with `EvalSymlinks`) and refuses to proceed on mismatch. Until then, `readWorkspacePath` should at the very least reject any absolute path that does not start with `~/.tessariq/worktrees/`.
+
+### Areas tested (clean)
+
+| Area | Probe | Result |
+|------|-------|--------|
+| `workspace.Provision` path computation | Deterministic via `WorkspacePath(homeDir, repoRoot, runID)` | CLEAN |
+| Evidence-read containment | `ValidateEvidencePath` still enforces `.tessariq/runs/` prefix (BUG-013 holds) | CLEAN |
+| Manifest identity cross-check | `validateManifestIdentity` still rejects mismatched `run_id` (BUG-015 holds) | CLEAN |
+
+---
+
+## Iteration 37
+
+Scope: hook lifecycle vs. `--timeout` contract. Probed whether a buggy or hostile pre/verify hook can out-live the run's declared timeout.
+
+### BUG-056: Pre/verify hooks ignore `--timeout` and `--grace`; a hung hook blocks the run indefinitely
+
+**Severity:** MEDIUM
+**Files:** `internal/runner/runner.go:85-175`, `internal/runner/hooks.go:17-61`
+
+**What was verified:**
+
+`Runner.Run` stages hook execution outside the `timeoutCtx` used to bound the agent process:
+
+```go
+// Line 118-126: pre-hooks
+if len(r.Config.Pre) > 0 {
+    _, preErr := RunPreHooks(ctx, r.Config.Pre, r.RepoRoot, logs.RunnerLog)
+    ...
+}
+
+// Line 184-188: per-process timeout context is created only inside runDetachedProcess
+timeoutCtx, cancel := context.WithTimeout(ctx, r.Config.Timeout)
+defer cancel()
+
+// Line 145-153: verify-hooks
+if processState == StateSuccess && len(r.Config.Verify) > 0 {
+    if _, verifyErr := RunVerifyHooks(ctx, r.Config.Verify, r.RepoRoot, logs.RunnerLog); verifyErr != nil { ... }
+}
+```
+
+Both `RunPreHooks` and `RunVerifyHooks` receive `ctx` — the top-level CLI context — not `timeoutCtx`. `runHook` then wires that context to `exec.CommandContext("sh", "-c", command)` with no additional deadline. The only things that can cancel a hook are:
+
+1. Ctrl+C at the terminal (which cancels `ctx` via `newSignalContext`).
+2. The CLI process dying.
+
+`--timeout` and `--grace` flags have **no** effect on hooks. A hook that does `sleep infinity`, hits a stalled HTTP call, or simply deadlocks pins the run for as long as the terminal stays open. The runner writes no `timeout.flag`, escalates no SIGTERM, and the container is never even created if the stall happens in the pre-hook phase.
+
+**Reproduction (concept):**
+
+```
+echo '# noop' > task.md
+tessariq run task.md --timeout 30s --grace 5s --pre 'sleep 3600'
+```
+
+Expected (per spec/CLI docs): run completes within ~35 seconds with a terminal state.
+Actual: the CLI sits for an hour inside `RunPreHooks` before the pre-hook's `sleep` exits.
+
+**Impact:**
+
+- Users relying on `--timeout` as an SLA for unattended automation (CI jobs, scheduled agent runs) get unbounded stalls when their own hooks misbehave.
+- Evidence artifacts (`status.json`, `timeout.flag`, `diff.patch`) are never produced, because the terminal-status write-path never executes.
+- A compromised hook definition planted via CI config or a shared shell alias becomes a DoS primitive against any tessariq run on that host.
+- The BUG-030/TASK-030 SIGTERM-escalation policy only applies to the agent process; there is no symmetric escalation for hooks.
+
+**Fix direction:** Wrap each hook invocation in its own `context.WithTimeout(ctx, remainingBudget)`, where `remainingBudget` is derived from `cfg.Timeout` minus the time already consumed since `startedAt`. On timeout, `exec.CommandContext` will terminate the hook; the runner should then write `StateTimeout` with a `runner.log` note identifying the offending hook. Optionally introduce a dedicated `--hook-timeout` flag for operators that want a different budget for hooks.
+
+### Areas tested (clean)
+
+| Area | Probe | Result |
+|------|-------|--------|
+| Pre-hook CWD | `r.RepoRoot` passed to `RunPreHooks` (BUG-038 fix holds) | CLEAN |
+| Verify-hook CWD | Same `r.RepoRoot` path (BUG-038 fix holds) | CLEAN |
+| Hook stdout/stderr capture | Written to `runner.log` via capped writer | CLEAN |
+| Pre-hook failure propagation | First non-zero exit aborts run and writes `StateFailed` | CLEAN |
+
+---
+
+## Iteration 38
+
+Scope: task-path → manifest → commit-trailer pipeline. Probed whether user-controlled path characters can forge audit metadata in promoted commits.
+
+### BUG-057: `ValidateTaskPath` accepts newline / control characters; `promote` writes the raw path into the `Tessariq-Task:` commit trailer without escaping
+
+**Severity:** LOW
+**Files:** `internal/run/taskpath.go:10-62`, `internal/run/manifest.go:26-44`, `internal/promote/promote.go:193-204`
+
+**What was verified:**
+
+`ValidateTaskPath` enforces only three properties:
+
+1. Path must be relative (`!filepath.IsAbs`).
+2. Path must end in `.md` (case-insensitive).
+3. Real path resolves inside the repository via `filepath.EvalSymlinks`.
+
+There is no screening for newline (`\n`, `\r`), tab, or other ASCII control characters. Linux filenames can legally contain any byte except `/` and `\0`, so a task file named `Fix: bug\nSigned-off-by: attacker@evil.example.md` passes validation unchanged.
+
+The value is then stored verbatim in `Manifest.TaskPath` (`internal/run/manifest.go:33`) and eventually reaches `promote.buildCommitMessage`:
+
+```go
+return fmt.Sprintf("%s\n\nTessariq-Run: %s\nTessariq-Base: %s\nTessariq-Task: %s\n",
+    message,
+    manifest.RunID,
+    manifest.BaseSHA,
+    manifest.TaskPath,
+)
+```
+
+A newline embedded in `manifest.TaskPath` produces a commit body such as:
+
+```
+<subject>
+
+Tessariq-Run: 01JX...
+Tessariq-Base: a1b2c3...
+Tessariq-Task: Fix: bug
+Signed-off-by: attacker@evil.example
+```
+
+Git interprets the injected lines as additional trailers. Downstream tooling that relies on trailers for provenance (`Signed-off-by`, `Co-Authored-By`, `Reviewed-by`, or even a fake `Tessariq-Run:`) sees forged metadata attributed to the tessariq promote.
+
+The filename-fallback branch of `ExtractTaskTitle` (`internal/run/tasktitle.go:31-36`) propagates the same newline into `manifest.TaskTitle`, which `resolveCommitMessage` then uses as the default commit subject — producing a multi-line subject that git will split across subject and body. Combined, an attacker who controls the task file name can forge both the commit subject and commit trailers without any additional manifest tampering.
+
+**Reproduction (concept):**
+
+```
+printf 'echo ok' > 'Fix: bug
+Signed-off-by: attacker@evil.example.md'
+tessariq run 'Fix: bug'$'\n''Signed-off-by: attacker@evil.example.md' --agent claude-code
+tessariq promote last-0
+git log -1 --format=%B <branch>
+```
+
+The resulting commit carries an injected `Signed-off-by` trailer that the promote operator never entered.
+
+**Impact:**
+
+- Forged provenance metadata on promoted commits — any tooling that filters or audits by commit trailers is deceivable.
+- BUG-015 / TASK-048 hardened manifest tampering, but the fix did not reject control characters in fields that are later interpolated into commit messages.
+- Practical exploitability is limited: the attacker must control the task file's filename. Realistic scenarios include CI jobs that read task filenames from a repository (one branch plants the file, another runs tessariq) or multi-user shared repositories.
+
+**Fix direction:** Reject task-path strings containing any byte in `0x00..0x1F` or `0x7F` in `ValidateTaskPathLogic`. For defence in depth, also strip / reject newlines in `ExtractTaskTitle`'s filename fallback and in `buildCommitMessage` before interpolation — encode the trailer value or refuse to promote if it contains a newline.
+
+### Areas tested (clean)
+
+| Area | Probe | Result |
+|------|-------|--------|
+| Task-path absolute rejection | `filepath.IsAbs` check still fires | CLEAN |
+| Task-path `.md` suffix | Case-insensitive suffix check still fires | CLEAN |
+| Task-path symlink containment | `EvalSymlinks` + prefix check (BUG-022/TASK-057) | CLEAN |
+| Manifest run-id identity | `validateManifestIdentity` rejects mismatches | CLEAN |
+
+---
+
+## Iteration 39
+
+Scope: worktree permissions during a live run. Probed whether other local users on a shared host can read or tamper with the mounted worktree.
+
+### BUG-058: `prepareWritableMounts` opens the worktree to every local user via `chmod -R a+rwX`
+
+**Severity:** MEDIUM
+**Files:** `internal/container/process.go:141-152`, `internal/workspace/provision.go:19-45`
+
+**What was verified:**
+
+Before container start, every writable bind mount is chmod'd world-readable and world-writable:
+
+```go
+func (p *Process) prepareWritableMounts() error {
+    for _, m := range p.cfg.Mounts {
+        if m.ReadOnly { continue }
+        cmd := exec.Command("chmod", "-R", "a+rwX", m.Source)
+        if out, err := cmd.CombinedOutput(); err != nil { ... }
+    }
+    return nil
+}
+```
+
+The only writable mount under v0.1.0 is the worktree at `/work` (`AssembleMounts` hard-codes evidence and auth mounts as read-only). `m.Source` is the host path `~/.tessariq/worktrees/<repo_id>/<run_id>`. After `a+rwX`, every file and directory under the worktree is readable and writable by **every** local user on the host.
+
+The parent directory chain compounds the exposure: `workspace.Provision` creates `filepath.Dir(wsPath)` with `0o755` (line 31 of `provision.go`), so `~/.tessariq/worktrees/<repo_id>/` is world-listable. A local attacker can trivially enumerate live run IDs via `ls ~<victim>/.tessariq/worktrees/<repo_id>/`, then walk into the worktree and read the source code the agent is mutating, stage malicious modifications that the agent inherits, or tamper with state mid-run.
+
+Tessariq's threat model (per AGENTS.md "Container user and bind-mount permissions") acknowledges the chmod is needed to work around UID mismatches between the container's `tessariq` user and the host user, but the comment frames it as "safe because these are disposable directories for a single run". That reasoning only addresses *future* cleanup, not *concurrent* exposure while the run is live.
+
+**Reproduction (concept):**
+
+1. Victim runs `tessariq run sensitive-task.md` on a multi-user host.
+2. Attacker on the same host:
+   ```
+   ls -la ~victim/.tessariq/worktrees/
+   find ~victim/.tessariq/worktrees/<repo>/<run-id> -type f
+   cat ~victim/.tessariq/worktrees/<repo>/<run-id>/some/secret-file
+   echo 'evil' >> ~victim/.tessariq/worktrees/<repo>/<run-id>/src/file.ts
+   ```
+3. All reads succeed. Writes land inside the worktree and get captured by `git diff` / `WriteDiffArtifacts`, then promoted by the victim if they accept the run.
+
+**Impact:**
+
+- Information disclosure of repository contents to any local user on shared developer / CI hosts for the duration of every tessariq run.
+- Mid-run tampering of agent output: attacker-injected edits flow into `diff.patch` and land in the final promote commit.
+- The worktree is disposable per-run, but so is the attack window — and the window matches the run's duration, which for interactive sessions can be hours.
+- Contradicts the "host-side isolation" posture that the rest of the design (read-only mounts, cap-drop, SELinux, dedicated non-root container user) is aiming for.
+
+**Fix direction:** Prefer `chown -R <container-uid>:<container-gid>` (resolved from the image, or from a well-known static UID/GID in the reference runtime image) over a world-rwx chmod. If chown-as-host-user is infeasible, use group-based access (`chmod -R g+rwX` plus a dedicated group that only the container user is a member of) or POSIX ACLs so the host user and the container user have access but other local users do not. At a minimum, tighten the worktree parent dirs to `0o700`.
+
+### Areas tested (clean)
+
+| Area | Probe | Result |
+|------|-------|--------|
+| Evidence-dir permissions | `0o700` on `.tessariq/runs/<run_id>/` still enforced (BUG-003 fix holds) | CLEAN |
+| Auth-mount read-only contract | `authmount.ValidateContract` still rejects writable specs (BUG-050/TASK-087) | CLEAN |
+| Runtime-state scratch permissions | `os.MkdirAll(scratchRoot, 0o700)` still enforced | CLEAN |
+
+---
+
+## Iteration 40
+
+Scope: terminal state vs. container cleanup ordering. Probed whether `Runner.writeTerminalStatus` can produce a `status.json` that disagrees with the CLI's observed outcome.
+
+### BUG-059: `writeTerminalStatus` persists `success` before `Process.Cleanup`, so a `docker rm -f` failure yields a CLI error while `status.json` still claims success
+
+**Severity:** LOW
+**Files:** `internal/runner/runner.go:161-170,443-457`, `internal/container/process.go:102-189`, `cmd/tessariq/run.go:347-367`
+
+**What was verified:**
+
+`writeTerminalStatus` commits evidence before tearing down the container:
+
+```go
+func (r *Runner) writeTerminalStatus(state State, startedAt, finishedAt time.Time, exitCode int, timedOut bool) error {
+    s := NewTerminalStatus(state, startedAt, finishedAt, exitCode, timedOut)
+    if err := WriteStatus(r.EvidenceDir, s); err != nil {
+        return fmt.Errorf("write terminal status: %w", err)
+    }
+    if cleaner, ok := r.Process.(processCleaner); ok {
+        if err := cleaner.Cleanup(context.Background()); err != nil {
+            return fmt.Errorf("cleanup process: %w", err)
+        }
+    }
+    if state != StateSuccess {
+        return &TerminalStateError{State: state, ExitCode: exitCode}
+    }
+    return nil
+}
+```
+
+Ordering is:
+
+1. `WriteStatus(StateSuccess)` — the file `status.json` is atomically renamed into place and from this moment advertises the run as successful.
+2. `processCleaner.Cleanup` → `docker rm -f tessariq-<run_id>`.
+3. If `docker rm -f` fails with anything other than a `no such container` error, the function returns `cleanup process: %w` — **not** a `TerminalStateError`.
+
+Back in `cmd/tessariq/run.go`:
+
+```go
+var termErr *runner.TerminalStateError
+if errors.As(runErr, &termErr) {
+    printNonSuccessOutput(...); return runErr
+}
+if runErr != nil { return runErr }
+cleanupWorktree = false
+```
+
+The cleanup error is *not* a `TerminalStateError`, so it falls through to `return runErr`. The CLI exits non-zero with `"cleanup process: docker rm -f: ..."`. At the same time, `cleanupWorktree` stays `true`, so the deferred `workspace.Cleanup` fires and the worktree is destroyed.
+
+The net result of a transient `docker rm -f` failure on an otherwise successful run:
+
+- `status.json` records `success` with the real exit code and timestamps.
+- `diff.patch` / `diffstat.txt` evidence is in place.
+- The worktree is gone.
+- The CLI reports a generic cleanup error and exits non-zero.
+- A subsequent `tessariq promote last-0` inspects `status.json`, sees `success`, sees the completed evidence contract, and happily produces a promote branch **for a run that the CLI just reported as failed**.
+
+This is the inverse of BUG-046's historical concern: there, non-success was misclassified as success; here, a genuinely-successful run is silently re-classifiable as success at promote time despite the CLI having told the user the run failed.
+
+**Reproduction (concept):**
+
+1. Start a run and let the agent exit with code 0 normally.
+2. Race `docker rm -f tessariq-<run_id>` from a second terminal so the runner's own `Cleanup` loses the race and returns "no such container" — or, more reliably, introduce a transient daemon error.
+3. Observe the CLI exit non-zero with `cleanup process: ...`.
+4. Run `tessariq promote last-0` — promote succeeds because `status.json` says success and the diff artifacts exist.
+
+**Impact:**
+
+- Divergence between CLI outcome (failure) and on-disk evidence (success) confuses operators and scripts that key off the CLI's exit code.
+- An otherwise legitimate successful run cannot be cleanly aborted by the operator after the divergence, because promote will accept it anyway.
+- Worktree is cleaned up even though the "run as seen by the CLI" failed, breaking the rule of thumb that a failed run keeps its workspace for post-mortem inspection.
+
+**Fix direction:** Either (a) invert the ordering — call `Process.Cleanup` *before* `WriteStatus`, and downgrade the state to `StateFailed` if cleanup fails — or (b) keep the order but treat a post-write cleanup error as non-fatal: log it into `runner.log`, surface a warning on stderr, and return the original `TerminalStateError` (or `nil` for success) so the CLI exit matches `status.json`. Option (a) is preferable because it preserves the invariant "`status.json == success` implies the container was cleanly removed."
+
+### Areas tested (clean)
+
+| Area | Probe | Result |
+|------|-------|--------|
+| `Process.Cleanup` idempotency | `not found` errors are swallowed (649eee, recent fix holds) | CLEAN |
+| Terminal status atomicity | `WriteStatus` still uses tmp+rename (BUG-035 fix holds) | CLEAN |
+| `TerminalStateError` mapping | Non-success states still produce the sentinel error for CLI non-success output | CLEAN |
