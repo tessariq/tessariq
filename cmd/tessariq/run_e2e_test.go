@@ -1612,6 +1612,51 @@ func TestE2E_TimedOutRunExitsNonZero(t *testing.T) {
 	require.Equal(t, true, status["timed_out"])
 }
 
+// TASK-091: a hung pre-hook must not outlive the run --timeout. The CLI
+// must exit non-zero, status.json must record StateTimeout, timeout.flag
+// must be present, and the wall-clock duration must stay within the
+// budget plus the grace period.
+func TestE2E_PreHookTimeoutWritesEvidence(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+	env := setupRunEnv(t, bin, 0)
+
+	start := time.Now()
+	code, output := runTessariq(t, env, "claude",
+		"--timeout 3s --grace 1s --pre 'sleep 120'")
+	elapsed := time.Since(start)
+
+	require.NotEqual(t, 0, code, "pre-hook timeout must exit non-zero")
+	require.Contains(t, output, "state: timeout")
+	require.Contains(t, output, "evidence_path:")
+	require.NotContains(t, output, "promote:")
+	require.Less(t, elapsed, 30*time.Second,
+		"pre-hook must be killed inside the budget; elapsed %s", elapsed)
+
+	evidencePath := extractField(output, "evidence_path")
+	require.NotEmpty(t, evidencePath)
+
+	ctx := context.Background()
+	catCode, statusData, err := env.Exec(ctx, []string{"cat", filepath.Join(evidencePath, "status.json")})
+	require.NoError(t, err)
+	require.Equal(t, 0, catCode, "status.json must exist after pre-hook timeout")
+
+	var status map[string]any
+	require.NoError(t, json.Unmarshal([]byte(statusData), &status))
+	require.Equal(t, "timeout", status["state"])
+	require.Equal(t, true, status["timed_out"])
+
+	flagCode, _, err := env.Exec(ctx, []string{"test", "-f", filepath.Join(evidencePath, "timeout.flag")})
+	require.NoError(t, err)
+	require.Equal(t, 0, flagCode, "timeout.flag must be written on pre-hook timeout")
+
+	logCode, runnerLog, err := env.Exec(ctx, []string{"cat", filepath.Join(evidencePath, "runner.log")})
+	require.NoError(t, err)
+	require.Equal(t, 0, logCode, "runner.log must exist")
+	require.Contains(t, runnerLog, "phase=pre-hook",
+		"runner.log must tag the timed-out phase")
+}
+
 func TestE2E_AgentUpdate_SkipFlagBypassesInitPhase(t *testing.T) {
 	t.Parallel()
 	bin := buildBinary(t)

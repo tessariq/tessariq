@@ -114,12 +114,27 @@ func (r *Runner) Run(ctx context.Context) error {
 		}
 	}
 
+	// Compute the shared --timeout deadline against the real wall clock.
+	// All three phases (pre-hooks, agent process, verify-hooks) draw down
+	// from the same budget so a hung pre-hook cannot pin a run past
+	// --timeout. The injectable r.clock() drives evidence timestamps only;
+	// process and hook deadlines must use real time so context.WithDeadline
+	// behaves correctly in tests with a frozen clock.
+	runDeadline := time.Now().Add(r.Config.Timeout)
+
 	// Run pre-hooks.
 	if len(r.Config.Pre) > 0 {
 		fmt.Fprintf(logs.RunnerLog, "[%s] running %d pre-hook(s)\n", r.clock().UTC().Format(time.RFC3339), len(r.Config.Pre))
-		_, preErr := RunPreHooks(ctx, r.Config.Pre, r.RepoRoot, logs.RunnerLog)
+		_, preErr := RunPreHooks(ctx, runDeadline, r.Config.Grace, r.Config.Pre, r.RepoRoot, logs.RunnerLog)
 		if preErr != nil {
 			finishedAt := r.clock()
+			var hte *HookTimeoutError
+			if errors.As(preErr, &hte) {
+				fmt.Fprintf(logs.RunnerLog, "[%s] pre-hook timed out (phase=pre-hook index=%d cmd=%q)\n",
+					finishedAt.UTC().Format(time.RFC3339), hte.Index, hte.Command)
+				_ = WriteTimeoutFlag(r.EvidenceDir)
+				return r.writeTerminalStatus(StateTimeout, startedAt, finishedAt, -1, true)
+			}
 			fmt.Fprintf(logs.RunnerLog, "[%s] pre-hook failed: %s\n", finishedAt.UTC().Format(time.RFC3339), preErr)
 			return r.writeTerminalStatus(StateFailed, startedAt, finishedAt, 1, false)
 		}
@@ -131,7 +146,7 @@ func (r *Runner) Run(ctx context.Context) error {
 	processState := StateSuccess
 
 	if r.Process != nil {
-		exitCode, timedOut, processState = r.runProcess(ctx, startedAt, logs)
+		exitCode, timedOut, processState = r.runProcess(ctx, startedAt, runDeadline, logs)
 
 		// Cap run.log post-hoc — the detached path bypasses CappedWriter
 		// for direct fd streaming, so enforce the size limit here.
@@ -144,11 +159,21 @@ func (r *Runner) Run(ctx context.Context) error {
 	// Run verify hooks (only if process succeeded and not timed out).
 	if processState == StateSuccess && len(r.Config.Verify) > 0 {
 		fmt.Fprintf(logs.RunnerLog, "[%s] running %d verify-hook(s)\n", r.clock().UTC().Format(time.RFC3339), len(r.Config.Verify))
-		if _, verifyErr := RunVerifyHooks(ctx, r.Config.Verify, r.RepoRoot, logs.RunnerLog); verifyErr != nil {
-			fmt.Fprintf(logs.RunnerLog, "[%s] verify-hook failed: %s\n", r.clock().UTC().Format(time.RFC3339), verifyErr)
-			processState = StateFailed
-			exitCode = 1
-			timedOut = false
+		if _, verifyErr := RunVerifyHooks(ctx, runDeadline, r.Config.Grace, r.Config.Verify, r.RepoRoot, logs.RunnerLog); verifyErr != nil {
+			var hte *HookTimeoutError
+			if errors.As(verifyErr, &hte) {
+				fmt.Fprintf(logs.RunnerLog, "[%s] verify-hook timed out (phase=verify-hook index=%d cmd=%q)\n",
+					r.clock().UTC().Format(time.RFC3339), hte.Index, hte.Command)
+				_ = WriteTimeoutFlag(r.EvidenceDir)
+				processState = StateTimeout
+				timedOut = true
+				exitCode = -1
+			} else {
+				fmt.Fprintf(logs.RunnerLog, "[%s] verify-hook failed: %s\n", r.clock().UTC().Format(time.RFC3339), verifyErr)
+				processState = StateFailed
+				exitCode = 1
+				timedOut = false
+			}
 		}
 	}
 
@@ -174,16 +199,17 @@ func (r *Runner) Run(ctx context.Context) error {
 	return r.writeTerminalStatus(processState, startedAt, finishedAt, exitCode, timedOut)
 }
 
-func (r *Runner) runProcess(ctx context.Context, startedAt time.Time, logs *LogFiles) (exitCode int, timedOut bool, state State) {
+func (r *Runner) runProcess(ctx context.Context, startedAt time.Time, runDeadline time.Time, logs *LogFiles) (exitCode int, timedOut bool, state State) {
 	if r.Config.Interactive {
 		return r.runInteractiveProcess(ctx, startedAt, logs)
 	}
-	return r.runDetachedProcess(ctx, startedAt, logs)
+	return r.runDetachedProcess(ctx, startedAt, runDeadline, logs)
 }
 
-func (r *Runner) runDetachedProcess(ctx context.Context, startedAt time.Time, logs *LogFiles) (exitCode int, timedOut bool, state State) {
-	// Create timeout context.
-	timeoutCtx, cancel := context.WithTimeout(ctx, r.Config.Timeout)
+func (r *Runner) runDetachedProcess(ctx context.Context, startedAt time.Time, runDeadline time.Time, logs *LogFiles) (exitCode int, timedOut bool, state State) {
+	// Bound the agent process by the shared run-wide deadline so any time
+	// already spent in pre-hooks is debited against the agent budget.
+	timeoutCtx, cancel := context.WithDeadline(ctx, runDeadline)
 	defer cancel()
 
 	directOutput := false
