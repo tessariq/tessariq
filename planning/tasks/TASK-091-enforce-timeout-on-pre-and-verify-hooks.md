@@ -1,7 +1,7 @@
 ---
 id: TASK-091-enforce-timeout-on-pre-and-verify-hooks
 title: Enforce run timeout and grace on pre and verify hooks
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
@@ -15,7 +15,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#lifecycle-rules
     - specs/tessariq-v0.1.0.md#evidence-contract
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: ""
+updated_at: "2026-04-15T12:20:18Z"
 areas:
     - runner
     - hooks
@@ -87,3 +87,4 @@ Make `--timeout` and `--grace` bound the entire run, not just the agent process.
 - Keep `--grace` semantics consistent with the agent-process path: send SIGTERM first, then SIGKILL after the grace duration.
 - Do not add a new user-facing flag for hook timeouts in v0.1.0. The single `--timeout` budget is sufficient and matches the spec's SLA story.
 - The existing signal escalation module (`internal/runner/signal.go`) is the correct location for shared escalation helpers.
+- 2026-04-15T12:20:18Z: hook budget enforced across pre/verify; SIGTERM->grace->SIGKILL; shared run deadline; unit+integration+e2e+manual coverage; verify clean
