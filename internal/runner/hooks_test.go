@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -189,6 +192,74 @@ func TestRunPreHooks_UnderBudgetUnaffected(t *testing.T) {
 	require.Equal(t, 0, results[1].ExitCode)
 	require.False(t, results[0].TimedOut)
 	require.False(t, results[1].TimedOut)
+}
+
+// BUG-060: deadline already expired before the shell is spawned. runHook
+// must refuse to start the command and tag the result as TimedOut so the
+// caller maps it to StateTimeout + timeout.flag. Previously cmd.Start() ran
+// unconditionally and a fast command could execute and be recorded as a
+// regular success, breaking the --timeout guarantee.
+func TestRunPreHooks_AlreadyExpiredDeadline_SkipsExecution(t *testing.T) {
+	t.Parallel()
+
+	workDir := t.TempDir()
+	sentinel := filepath.Join(workDir, "sentinel")
+
+	deadline := time.Now().Add(-time.Hour)
+	// touch-then-sleep: without the pre-Start guard the shell gets a chance
+	// to create the sentinel before SIGTERM arrives for the sleep. With the
+	// guard, runHook must refuse to Start at all and the file stays absent.
+	cmd := fmt.Sprintf("touch %q; sleep 10", sentinel)
+
+	results, err := RunPreHooks(context.Background(), deadline, 50*time.Millisecond,
+		[]string{cmd}, workDir, &bytes.Buffer{})
+
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrHookTimeout)
+	require.Len(t, results, 1)
+	require.True(t, results[0].TimedOut, "expired deadline must tag result TimedOut")
+
+	_, statErr := os.Stat(sentinel)
+	require.True(t, os.IsNotExist(statErr),
+		"hook body must not execute when deadline already elapsed (sentinel=%q, err=%v)", sentinel, statErr)
+}
+
+func TestRunVerifyHooks_AlreadyExpiredDeadline_SkipsExecution(t *testing.T) {
+	t.Parallel()
+
+	workDir := t.TempDir()
+	sentinel := filepath.Join(workDir, "sentinel-verify")
+
+	deadline := time.Now().Add(-time.Hour)
+	cmd := fmt.Sprintf("touch %q; sleep 10", sentinel)
+
+	results, err := RunVerifyHooks(context.Background(), deadline, 50*time.Millisecond,
+		[]string{cmd}, workDir, &bytes.Buffer{})
+
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrHookTimeout)
+	require.Len(t, results, 1)
+	require.True(t, results[0].TimedOut)
+
+	_, statErr := os.Stat(sentinel)
+	require.True(t, os.IsNotExist(statErr))
+}
+
+// Canceled context (not a deadline) must not be reported as TimedOut — it is
+// a caller-initiated abort and maps to a different terminal state.
+func TestRunPreHooks_AlreadyCanceledContext_NotTimedOut(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	results, err := RunPreHooks(ctx, noBudget, 50*time.Millisecond,
+		[]string{"true"}, t.TempDir(), &bytes.Buffer{})
+
+	require.Error(t, err)
+	require.NotErrorIs(t, err, ErrHookTimeout)
+	require.Len(t, results, 1)
+	require.False(t, results[0].TimedOut, "canceled ctx is not a deadline overrun")
 }
 
 // Guard against unwrap drift for ErrHookTimeout.
