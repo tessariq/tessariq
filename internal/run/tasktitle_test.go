@@ -117,3 +117,41 @@ func TestExtractTaskTitle_H1WithTabAfterHash_FallsBack(t *testing.T) {
 	title := ExtractTaskTitle(content, "tab-task.md")
 	require.Equal(t, "tab-task", title)
 }
+
+func TestExtractTaskTitle_FilenameFallbackStripsControlCharacters(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name     string
+		filename string
+		want     string
+	}{
+		{"newline", "Fix: bug\nSigned-off-by: attacker.md", "Fix: bugSigned-off-by: attacker"},
+		{"nul", "bad\x00name.md", "badname"},
+		{"unit_separator", "bad\x1fname.md", "badname"},
+		{"del", "bad\x7fname.md", "badname"},
+		{"carriage_return", "bad\rname.md", "badname"},
+		{"tab_removed_in_fallback", "a\tb.md", "ab"},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := ExtractTaskTitle([]byte("no heading"), tc.filename)
+			require.Equal(t, tc.want, got)
+			for i := 0; i < len(got); i++ {
+				b := got[i]
+				require.Falsef(t, b <= 0x1f || b == 0x7f, "title leaked control byte %#x", b)
+			}
+		})
+	}
+}
+
+func TestExtractTaskTitle_FilenameFallbackKeepsSpaceAndPunctuation(t *testing.T) {
+	t.Parallel()
+
+	title := ExtractTaskTitle([]byte("no heading"), "Fix: a bug? (v2).md")
+	require.Equal(t, "Fix: a bug? (v2)", title)
+}

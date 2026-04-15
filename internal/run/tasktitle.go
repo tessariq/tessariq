@@ -33,5 +33,14 @@ func ExtractTaskTitle(content []byte, filename string) string {
 	if ext != "" {
 		base = base[:len(base)-len(ext)]
 	}
-	return base
+	return stripControlChars(base)
+}
+
+func stripControlChars(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r <= 0x1f || r == 0x7f {
+			return -1
+		}
+		return r
+	}, s)
 }

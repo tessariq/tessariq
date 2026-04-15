@@ -102,7 +102,10 @@ func Run(ctx context.Context, repoRoot string, opts Options) (Result, error) {
 	}
 
 	commitMessage := resolveCommitMessage(manifest, opts.Message)
-	messageBody := buildCommitMessage(commitMessage, manifest, !opts.NoTrailers)
+	messageBody, err := buildCommitMessage(commitMessage, manifest, !opts.NoTrailers)
+	if err != nil {
+		return Result{}, err
+	}
 
 	tmpDir, err := os.MkdirTemp("", "tessariq-promote-*")
 	if err != nil {
@@ -190,9 +193,16 @@ func resolveCommitMessage(manifest run.Manifest, message string) string {
 	return defaultCommitMessage(manifest.TaskTitle, manifest.RunID)
 }
 
-func buildCommitMessage(message string, manifest run.Manifest, includeTrailers bool) string {
+func buildCommitMessage(message string, manifest run.Manifest, includeTrailers bool) (string, error) {
+	if run.ContainsControlChar(manifest.TaskPath) {
+		return "", fmt.Errorf("manifest task_path must not contain control characters: refusing to build commit trailer")
+	}
+	if run.ContainsControlChar(manifest.TaskTitle) {
+		return "", fmt.Errorf("manifest task_title must not contain control characters: refusing to build commit trailer")
+	}
+
 	if !includeTrailers {
-		return message + "\n"
+		return message + "\n", nil
 	}
 
 	return fmt.Sprintf("%s\n\nTessariq-Run: %s\nTessariq-Base: %s\nTessariq-Task: %s\n",
@@ -200,7 +210,7 @@ func buildCommitMessage(message string, manifest run.Manifest, includeTrailers b
 		manifest.RunID,
 		manifest.BaseSHA,
 		manifest.TaskPath,
-	)
+	), nil
 }
 
 // hasNonEmptyFile reports whether the file at path exists and has non-zero size.

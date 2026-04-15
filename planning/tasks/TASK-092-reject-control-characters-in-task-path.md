@@ -1,7 +1,7 @@
 ---
 id: TASK-092-reject-control-characters-in-task-path
 title: Reject control characters in task path to prevent commit trailer injection
-status: todo
+status: done
 priority: p2
 depends_on:
     - TASK-002-run-cli-flags-and-manifest-bootstrap
@@ -15,7 +15,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#tessariq-promote-run-ref
     - specs/tessariq-v0.1.0.md#evidence-contract
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: ""
+updated_at: "2026-04-15T12:08:51Z"
 areas:
     - run
     - promote
@@ -87,3 +87,4 @@ Close a trailer-injection path on `tessariq promote` by rejecting newline and ot
 - Prefer rejection over escaping at validation time — the task path is a filesystem path and should never legitimately contain control characters.
 - Keep the defensive promote-time check minimal; it is a safety net against tampered manifests, not the primary gate.
 - Align error text with the existing task-path error family so the failure UX is consistent.
+- 2026-04-15T12:08:51Z: Rejected ASCII control chars (0x00-0x1F, 0x7F) in task paths at run validation and promote commit-message composition. Added run.ContainsControlChar, wired into ValidateTaskPathLogic, ExtractTaskTitle filename fallback (strip), and buildCommitMessage (refuse). Unit + e2e + manual tests cover the trailer-injection vector. CHANGELOG updated under Security.
