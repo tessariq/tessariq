@@ -80,7 +80,21 @@ func reconcileRun(ctx context.Context, repoRoot string, entry run.IndexEntry, de
 		return Result{Entry: entry, Status: status, Live: true}, nil
 	}
 
-	finalState, exitCode := inferReconciledState(timeoutFlagExists(evidenceDir), stateInfo.ExitCode)
+	timedOut := timeoutFlagExists(evidenceDir)
+	var (
+		finalState runner.State
+		exitCode   int
+	)
+	if stateInfo.Exists {
+		finalState, exitCode = inferReconciledState(timedOut, stateInfo.ExitCode)
+	} else {
+		// Container vanished (daemon prune, manual rm, etc.). We cannot
+		// prove the exit code, so refuse to infer success — fail closed.
+		finalState, exitCode = runner.StateFailed, -1
+		if timedOut {
+			finalState = runner.StateTimeout
+		}
+	}
 	finishedAt := stateInfo.FinishedAt
 	if finishedAt.IsZero() {
 		finishedAt = time.Now().UTC()
