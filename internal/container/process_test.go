@@ -1,7 +1,9 @@
 package container
 
 import (
+	"context"
 	"os"
+	"path/filepath"
 	"sort"
 	"syscall"
 	"testing"
@@ -215,6 +217,75 @@ func TestRemove_SkipsWhenNotCreated(t *testing.T) {
 	require.False(t, p.created)
 	err := p.remove(nil)
 	require.NoError(t, err)
+}
+
+func TestRemove_SwallowsNoSuchContainer(t *testing.T) {
+	// No t.Parallel: exec'ing a freshly written script can race with
+	// concurrent forks in the same process and hit ETXTBSY.
+	fake := writeFakeDocker(t, `#!/bin/sh
+echo "Error response from daemon: No such container: $4" 1>&2
+exit 1
+`)
+
+	p := New(Config{Name: "gone"})
+	p.docker = fake
+	p.created = true
+
+	require.NoError(t, p.remove(context.Background()),
+		"remove must treat missing containers as already gone")
+	require.False(t, p.created, "remove must flip created=false after handling not-found")
+}
+
+func TestRemove_SurfacesOtherDockerErrors(t *testing.T) {
+	fake := writeFakeDocker(t, `#!/bin/sh
+echo "Cannot connect to the Docker daemon at unix:///var/run/docker.sock." 1>&2
+exit 1
+`)
+
+	p := New(Config{Name: "dead-daemon"})
+	p.docker = fake
+	p.created = true
+
+	err := p.remove(context.Background())
+	require.Error(t, err, "remove must surface non-idempotent docker failures")
+	require.True(t, p.created, "created flag must stay true when remove fails for real reasons")
+}
+
+func TestRemove_IdempotentOnSecondCall(t *testing.T) {
+	dir := t.TempDir()
+	callLog := filepath.Join(dir, "calls")
+	fake := writeFakeDocker(t, `#!/bin/sh
+echo "$*" >> `+callLog+`
+exit 0
+`)
+
+	p := New(Config{Name: "ok"})
+	p.docker = fake
+	p.created = true
+
+	require.NoError(t, p.remove(context.Background()))
+	require.NoError(t, p.remove(context.Background()),
+		"second remove call must be a no-op")
+
+	data, err := os.ReadFile(callLog)
+	require.NoError(t, err)
+	lines := 0
+	for _, b := range data {
+		if b == '\n' {
+			lines++
+		}
+	}
+	require.Equal(t, 1, lines,
+		"second remove call must not exec docker at all")
+}
+
+// writeFakeDocker writes an executable shell script that simulates docker.
+func writeFakeDocker(t *testing.T, body string) string {
+	t.Helper()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "docker")
+	require.NoError(t, os.WriteFile(path, []byte(body), 0o755))
+	return path
 }
 
 func TestBuildCreateArgs_NetworkName(t *testing.T) {

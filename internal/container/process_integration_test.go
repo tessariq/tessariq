@@ -91,6 +91,27 @@ func TestContainerLifecycle_CleanupAfterWait(t *testing.T) {
 	require.Error(t, inspectErr, "container should not exist after Cleanup: %s", string(out))
 }
 
+func TestContainerLifecycle_CleanupIsIdempotent(t *testing.T) {
+	t.Parallel()
+	testutil.RequireDocker(t)
+
+	name := testutil.UniqueName(t)
+
+	p := container.New(container.Config{
+		Name:    name,
+		Image:   "alpine:latest",
+		Command: []string{"true"},
+	})
+
+	require.NoError(t, p.Start(t.Context()))
+
+	_, err := p.Wait()
+	require.NoError(t, err)
+
+	require.NoError(t, p.Cleanup(context.Background()), "first Cleanup must succeed")
+	require.NoError(t, p.Cleanup(context.Background()), "second Cleanup must be a no-op, not an error")
+}
+
 func TestContainerLifecycle_MountVisibility(t *testing.T) {
 	t.Parallel()
 	testutil.RequireDocker(t)
