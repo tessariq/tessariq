@@ -94,6 +94,19 @@ func runHook(ctx context.Context, deadline time.Time, grace time.Duration, comma
 		defer cancel()
 	}
 
+	// Pre-Start guard: if the shared budget is already exhausted (an earlier
+	// hook consumed it) or the caller canceled, refuse to launch the shell.
+	// Otherwise a fast command could run side effects after the declared
+	// --timeout window, and a select race on a past-deadline context could
+	// still record the result as non-timeout. See BUG-060.
+	if err := hookCtx.Err(); err != nil {
+		return HookResult{
+			Command:  command,
+			ExitCode: -1,
+			TimedOut: errors.Is(err, context.DeadlineExceeded),
+		}
+	}
+
 	cmd := exec.Command("sh", "-c", command)
 	cmd.Dir = workDir
 	cmd.Stdout = logWriter
@@ -112,7 +125,11 @@ func runHook(ctx context.Context, deadline time.Time, grace time.Duration, comma
 
 	select {
 	case err := <-waitCh:
-		return resultFromWait(command, err, false)
+		// Re-check the deadline: if it fired while the command was running
+		// and the waitCh branch happened to win the select race, still tag
+		// the result as TimedOut so the caller maps to StateTimeout.
+		timedOut := errors.Is(hookCtx.Err(), context.DeadlineExceeded)
+		return resultFromWait(command, err, timedOut)
 
 	case <-hookCtx.Done():
 		isDeadline := errors.Is(hookCtx.Err(), context.DeadlineExceeded)

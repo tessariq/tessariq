@@ -5,9 +5,9 @@ Automated adversarial testing against done tasks.
 | Key | Value |
 |-----|-------|
 | Started | 2026-03-31 |
-| Iteration | 40 |
-| Last bug found | iteration 40 |
-| Clean iterations | 6 / 39 |
+| Iteration | 41 |
+| Last bug found | iteration 41 |
+| Clean iterations | 6 / 40 |
 | Status | In progress |
 
 ---
@@ -2460,3 +2460,60 @@ This is the inverse of BUG-046's historical concern: there, non-success was misc
 | `Process.Cleanup` idempotency | `not found` errors are swallowed (649eee, recent fix holds) | CLEAN |
 | Terminal status atomicity | `WriteStatus` still uses tmp+rename (BUG-035 fix holds) | CLEAN |
 | `TerminalStateError` mapping | Non-success states still produce the sentinel error for CLI non-success output | CLEAN |
+
+---
+
+## Iteration 41
+
+Scope: follow-up review of TASK-091 (`internal/runner/hooks.go`). Probed whether the new per-hook deadline path fully closes the budget boundary it claims to enforce.
+
+### BUG-060: `runHook` starts the shell process even when the shared deadline is already exhausted; a select race can still record the result as non-timeout
+
+**Severity:** MEDIUM
+**Files:** `internal/runner/hooks.go:89-134`
+
+**What was verified:**
+
+TASK-091's `runHook` derives `hookCtx` from the shared deadline but unconditionally calls `cmd.Start()` without first checking `hookCtx.Err()`:
+
+```go
+if !deadline.IsZero() {
+    hookCtx, cancel = context.WithDeadline(ctx, deadline)
+    defer cancel()
+}
+
+cmd := exec.Command("sh", "-c", command)        // <- no pre-Start guard
+...
+if err := cmd.Start(); err != nil { ... }       // <- fires even when hookCtx is already Done
+...
+select {
+case err := <-waitCh:
+    return resultFromWait(command, err, false)  // <- hard-codes timedOut=false
+case <-hookCtx.Done():
+    ...
+}
+```
+
+Two concrete failure modes flow from this:
+
+1. **Side effects past the budget.** When an earlier pre/verify hook consumed nearly all of the shared `--timeout` budget, the next invocation finds `hookCtx` already `DeadlineExceeded`. `cmd.Start()` still forks `sh -c <command>`; a fast command (`touch`, `curl`, `rm`, etc.) can run to completion before SIGTERM is even attempted. The declared `--timeout` no longer bounds observable effects.
+2. **Silent race → wrong terminal state.** If the deadline fires during a fast command, the main goroutine's `select` sees both `waitCh` (closed by `cmd.Wait`) and `hookCtx.Done()` ready. Go's select picks randomly among ready cases; on the `waitCh` branch, `resultFromWait(..., false)` hard-codes `TimedOut=false`, and the caller sees a normal success/failure rather than `HookTimeoutError`. The run is then committed as `StateSuccess`/`StateFailed` even though the shared budget was overrun, and `timeout.flag` is never written.
+
+**Reproduction (concept):**
+
+```
+tessariq run task.md --timeout 50ms --grace 200ms \
+  --pre 'sleep 0.1' \
+  --pre 'touch /tmp/should-not-exist'
+```
+
+Expected: terminal `StateTimeout`, `/tmp/should-not-exist` absent, `timeout.flag` written.
+Actual (pre-fix): first hook exhausts the budget, second hook starts anyway, `/tmp/should-not-exist` is created, and depending on scheduling the run can be recorded as non-timeout.
+
+**Impact:**
+
+- BUG-056's DoS mitigation is incomplete: operators still cannot trust `--timeout` as a hard ceiling on hook side effects when multiple hooks are chained.
+- Evidence can diverge from reality — `status.json` may record `success` or `failed` for a run whose `--timeout` was overrun, and `timeout.flag` is missing even though the run breached the deadline.
+- A compromised or buggy hook earlier in the chain becomes a budget-bypass primitive for a later hook that the operator thought was fenced by `--timeout`.
+
+**Fix direction:** Before `cmd.Start()`, check `hookCtx.Err()`; if non-nil, return a synthetic `HookResult{ExitCode: -1, TimedOut: errors.Is(err, context.DeadlineExceeded)}` so the caller halts the chain and maps to `StateTimeout`. Additionally, when the `waitCh` branch of the select wins, re-check `hookCtx.Err()` and propagate `timedOut` accordingly to close the race window. The canceled-context path must remain non-timeout so Ctrl+C still maps to `StateCanceled`, not `StateTimeout`.
