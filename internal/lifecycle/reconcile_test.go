@@ -19,10 +19,11 @@ func TestReconcileRun_ExitedContainerWritesTerminalStatusAndIndex(t *testing.T) 
 	t.Parallel()
 
 	repoRoot := t.TempDir()
+	homeDir := t.TempDir()
 	runID := "01ARZ3NDEKTSV4RRFFQ69G5FAV"
 	evidenceDir := filepath.Join(repoRoot, ".tessariq", "runs", runID)
 	runsDir := filepath.Join(repoRoot, ".tessariq", "runs")
-	wsPath := filepath.Join(repoRoot, "worktree")
+	wsPath := workspace.WorkspacePath(homeDir, repoRoot, runID)
 
 	require.NoError(t, os.MkdirAll(evidenceDir, 0o700))
 	require.NoError(t, os.MkdirAll(wsPath, 0o755))
@@ -48,6 +49,7 @@ func TestReconcileRun_ExitedContainerWritesTerminalStatusAndIndex(t *testing.T) 
 	require.NoError(t, run.AppendIndex(runsDir, entry))
 
 	result, err := reconcileRun(context.Background(), repoRoot, entry, dependencies{
+		homeDir: homeDir,
 		inspectContainer: func(ctx context.Context, name string) (container.StateInfo, error) {
 			require.Equal(t, run.ContainerName(runID), name)
 			return container.StateInfo{
@@ -61,7 +63,7 @@ func TestReconcileRun_ExitedContainerWritesTerminalStatusAndIndex(t *testing.T) 
 			require.Equal(t, run.ContainerName(runID), name)
 			return nil
 		},
-		cleanupWorkspace: func(ctx context.Context, repoRoot, workspacePath string) error {
+		cleanupWorkspace: func(ctx context.Context, homeDir, repoRoot, workspacePath string) error {
 			t.Fatalf("successful reconciled runs must not clean the worktree")
 			return nil
 		},
@@ -88,11 +90,13 @@ func TestReconcileRun_TerminalNonSuccessCleansWorkspace(t *testing.T) {
 	t.Parallel()
 
 	repoRoot := t.TempDir()
+	homeDir := t.TempDir()
 	runID := "01ARZ3NDEKTSV4RRFFQ69G5FAW"
 	evidenceDir := filepath.Join(repoRoot, ".tessariq", "runs", runID)
-	wsPath := filepath.Join(repoRoot, "worktree")
+	wsPath := workspace.WorkspacePath(homeDir, repoRoot, runID)
 
 	require.NoError(t, os.MkdirAll(evidenceDir, 0o700))
+	require.NoError(t, os.MkdirAll(wsPath, 0o755))
 
 	manifest := run.Manifest{
 		SchemaVersion:       1,
@@ -121,11 +125,13 @@ func TestReconcileRun_TerminalNonSuccessCleansWorkspace(t *testing.T) {
 
 	cleaned := false
 	result, err := reconcileRun(context.Background(), repoRoot, entry, dependencies{
+		homeDir: homeDir,
 		inspectContainer: func(ctx context.Context, name string) (container.StateInfo, error) {
 			return container.StateInfo{}, nil
 		},
-		cleanupWorkspace: func(ctx context.Context, repoRoot, workspacePath string) error {
+		cleanupWorkspace: func(ctx context.Context, gotHomeDir, gotRepoRoot, workspacePath string) error {
 			cleaned = true
+			require.Equal(t, homeDir, gotHomeDir)
 			require.Equal(t, wsPath, workspacePath)
 			return nil
 		},
@@ -139,10 +145,11 @@ func TestReconcileRun_MissingContainerAfterStartTreatsAsFailed(t *testing.T) {
 	t.Parallel()
 
 	repoRoot := t.TempDir()
+	homeDir := t.TempDir()
 	runID := "01ARZ3NDEKTSV4RRFFQ69G5FAX"
 	evidenceDir := filepath.Join(repoRoot, ".tessariq", "runs", runID)
 	runsDir := filepath.Join(repoRoot, ".tessariq", "runs")
-	wsPath := filepath.Join(repoRoot, "worktree")
+	wsPath := workspace.WorkspacePath(homeDir, repoRoot, runID)
 
 	require.NoError(t, os.MkdirAll(evidenceDir, 0o700))
 	require.NoError(t, os.MkdirAll(wsPath, 0o755))
@@ -170,6 +177,7 @@ func TestReconcileRun_MissingContainerAfterStartTreatsAsFailed(t *testing.T) {
 
 	cleaned := false
 	result, err := reconcileRun(context.Background(), repoRoot, entry, dependencies{
+		homeDir: homeDir,
 		inspectContainer: func(ctx context.Context, name string) (container.StateInfo, error) {
 			require.Equal(t, run.ContainerName(runID), name)
 			return container.StateInfo{Exists: false}, nil
@@ -177,8 +185,9 @@ func TestReconcileRun_MissingContainerAfterStartTreatsAsFailed(t *testing.T) {
 		removeContainer: func(ctx context.Context, name string) error {
 			return nil
 		},
-		cleanupWorkspace: func(ctx context.Context, repoRoot, workspacePath string) error {
+		cleanupWorkspace: func(ctx context.Context, gotHomeDir, gotRepoRoot, workspacePath string) error {
 			cleaned = true
+			require.Equal(t, homeDir, gotHomeDir)
 			require.Equal(t, wsPath, workspacePath)
 			return nil
 		},
@@ -206,9 +215,10 @@ func TestReconcileRun_MissingContainerWithTimeoutFlag(t *testing.T) {
 	t.Parallel()
 
 	repoRoot := t.TempDir()
+	homeDir := t.TempDir()
 	runID := "01ARZ3NDEKTSV4RRFFQ69G5FAY"
 	evidenceDir := filepath.Join(repoRoot, ".tessariq", "runs", runID)
-	wsPath := filepath.Join(repoRoot, "worktree")
+	wsPath := workspace.WorkspacePath(homeDir, repoRoot, runID)
 
 	require.NoError(t, os.MkdirAll(evidenceDir, 0o700))
 	require.NoError(t, os.MkdirAll(wsPath, 0o755))
@@ -235,11 +245,12 @@ func TestReconcileRun_MissingContainerWithTimeoutFlag(t *testing.T) {
 	entry := run.IndexEntryFromManifest(manifest, string(runner.StateRunning))
 
 	result, err := reconcileRun(context.Background(), repoRoot, entry, dependencies{
+		homeDir: homeDir,
 		inspectContainer: func(ctx context.Context, name string) (container.StateInfo, error) {
 			return container.StateInfo{Exists: false}, nil
 		},
 		removeContainer:  func(ctx context.Context, name string) error { return nil },
-		cleanupWorkspace: func(ctx context.Context, repoRoot, workspacePath string) error { return nil },
+		cleanupWorkspace: func(ctx context.Context, homeDir, repoRoot, workspacePath string) error { return nil },
 	})
 	require.NoError(t, err)
 	require.Equal(t, runner.StateTimeout, result.Status.State)
@@ -257,9 +268,10 @@ func TestReconcileRun_CreatedContainerTreatedAsLive(t *testing.T) {
 	t.Parallel()
 
 	repoRoot := t.TempDir()
+	homeDir := t.TempDir()
 	runID := "01ARZ3NDEKTSV4RRFFQ69G5FAZ"
 	evidenceDir := filepath.Join(repoRoot, ".tessariq", "runs", runID)
-	wsPath := filepath.Join(repoRoot, "worktree")
+	wsPath := workspace.WorkspacePath(homeDir, repoRoot, runID)
 
 	require.NoError(t, os.MkdirAll(evidenceDir, 0o700))
 	require.NoError(t, os.MkdirAll(wsPath, 0o755))
@@ -284,6 +296,7 @@ func TestReconcileRun_CreatedContainerTreatedAsLive(t *testing.T) {
 	entry := run.IndexEntryFromManifest(manifest, string(runner.StateRunning))
 
 	result, err := reconcileRun(context.Background(), repoRoot, entry, dependencies{
+		homeDir: homeDir,
 		inspectContainer: func(ctx context.Context, name string) (container.StateInfo, error) {
 			require.Equal(t, run.ContainerName(runID), name)
 			return container.StateInfo{
@@ -297,7 +310,7 @@ func TestReconcileRun_CreatedContainerTreatedAsLive(t *testing.T) {
 			t.Fatalf("a created container must not be removed by reconcile — the runner is mid-start")
 			return nil
 		},
-		cleanupWorkspace: func(ctx context.Context, repoRoot, workspacePath string) error {
+		cleanupWorkspace: func(ctx context.Context, homeDir, repoRoot, workspacePath string) error {
 			t.Fatalf("a created container must not trigger workspace cleanup")
 			return nil
 		},
@@ -317,6 +330,75 @@ func TestInferReconciledState_InterruptedExitCode(t *testing.T) {
 	state, exitCode := inferReconciledState(false, 130)
 	require.Equal(t, runner.StateInterrupted, state)
 	require.Equal(t, 130, exitCode)
+}
+
+// TestReconcileRun_RejectsTamperedWorkspacePath guards against the BUG-055
+// arbitrary-path chown/chmod/delete primitive. A non-success run whose
+// workspace.json points at a decoy outside <homeDir>/.tessariq/worktrees/
+// must fail reconcile without invoking the cleanup pipeline and without
+// touching the decoy.
+func TestReconcileRun_RejectsTamperedWorkspacePath(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	homeDir := t.TempDir()
+	runID := "01ARZ3NDEKTSV4RRFFQ69G5FB0"
+	evidenceDir := filepath.Join(repoRoot, ".tessariq", "runs", runID)
+	require.NoError(t, os.MkdirAll(evidenceDir, 0o700))
+
+	manifest := run.Manifest{
+		SchemaVersion:       1,
+		RunID:               runID,
+		TaskPath:            "tasks/sample.md",
+		TaskTitle:           "Sample",
+		Agent:               "claude-code",
+		WorkspaceMode:       "worktree",
+		ContainerName:       run.ContainerName(runID),
+		CreatedAt:           "2026-01-01T00:00:00Z",
+		RequestedEgressMode: "open",
+		ResolvedEgressMode:  "open",
+		AllowlistSource:     "cli",
+	}
+	require.NoError(t, run.WriteManifest(evidenceDir, manifest))
+	require.NoError(t, runner.WriteStatus(evidenceDir, runner.NewTerminalStatus(
+		runner.StateFailed,
+		time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		time.Date(2026, 1, 1, 0, 1, 0, 0, time.UTC),
+		1,
+		false,
+	)))
+
+	// Plant a tampered workspace.json whose workspace_path points at a
+	// decoy outside ~/.tessariq/worktrees/ entirely.
+	decoyDir := filepath.Join(t.TempDir(), "decoy")
+	decoySentinel := filepath.Join(decoyDir, "sentinel.txt")
+	require.NoError(t, os.MkdirAll(decoyDir, 0o755))
+	require.NoError(t, os.WriteFile(decoySentinel, []byte("do-not-touch"), 0o600))
+	require.NoError(t, workspace.WriteMetadata(evidenceDir, workspace.BuildMetadata("abc123", decoyDir)))
+
+	entry := run.IndexEntryFromManifest(manifest, string(runner.StateRunning))
+
+	_, err := reconcileRun(context.Background(), repoRoot, entry, dependencies{
+		homeDir: homeDir,
+		inspectContainer: func(ctx context.Context, name string) (container.StateInfo, error) {
+			return container.StateInfo{}, nil
+		},
+		removeContainer: func(ctx context.Context, name string) error { return nil },
+		cleanupWorkspace: func(ctx context.Context, homeDir, repoRoot, workspacePath string) error {
+			t.Fatalf("cleanup must not be invoked when workspace_path is tampered; got %s", workspacePath)
+			return nil
+		},
+	})
+	require.Error(t, err)
+	require.ErrorIs(t, err, workspace.ErrWorkspacePathOutsideTree)
+
+	// Decoy must be untouched.
+	info, statErr := os.Stat(decoyDir)
+	require.NoError(t, statErr)
+	require.True(t, info.IsDir())
+	data, readErr := os.ReadFile(decoySentinel)
+	require.NoError(t, readErr)
+	require.Equal(t, "do-not-touch", string(data))
 }
 
 func TestReadWorkspacePath(t *testing.T) {

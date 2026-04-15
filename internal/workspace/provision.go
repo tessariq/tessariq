@@ -52,7 +52,15 @@ func Provision(ctx context.Context, homeDir, repoRoot, runID, evidenceDir, baseS
 // non-root user (different UID than the host user). If Docker-based repair
 // fails, a host-side chmod fallback is attempted. Neither failure prevents
 // the subsequent git worktree removal and filesystem deletion.
-func Cleanup(ctx context.Context, repoRoot, workspacePath string) error {
+//
+// workspacePath is treated as untrusted defensive input and must resolve
+// inside <homeDir>/.tessariq/worktrees/ after symlink resolution. Paths
+// outside the canonical tree are rejected with ErrWorkspacePathOutsideTree
+// before any chown, chmod, or removal step runs.
+func Cleanup(ctx context.Context, homeDir, repoRoot, workspacePath string) error {
+	if err := assertInsideWorktrees(homeDir, workspacePath); err != nil {
+		return err
+	}
 	if _, err := os.Stat(workspacePath); os.IsNotExist(err) {
 		return nil
 	}

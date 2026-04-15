@@ -1,7 +1,7 @@
 ---
 id: TASK-090-validate-workspace-path-before-reconcile-cleanup
 title: Validate workspace path before reconcile triggers cleanup
-status: todo
+status: done
 priority: p0
 depends_on:
     - TASK-004-worktree-provisioning-and-workspace-metadata
@@ -16,7 +16,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#tessariq-attach-run-ref
     - specs/tessariq-v0.1.0.md#tessariq-promote-run-ref
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: ""
+updated_at: "2026-04-15T12:34:19Z"
 areas:
     - lifecycle
     - workspace
@@ -90,3 +90,4 @@ Stop `lifecycle.cleanupTerminalRun` from trusting the `workspace_path` field rea
 - Keep the defensive check inside `workspace.Cleanup` minimal — it is a safety net, not a replacement for validating in the caller.
 - The canonical path format is already fixed by `workspace.WorkspacePath(homeDir, repoRoot, runID)`; reuse it instead of inventing a second shape.
 - Coordinate with TASK-089's symlink-resolution approach so the new workspace-path check uses the same `filepath.EvalSymlinks` discipline.
+- 2026-04-15T12:34:19Z: hardened reconcile workspace cleanup with canonical path validation; defensive containment in workspace.Cleanup; 100% workspace + 86% lifecycle mutation efficacy; manual test verified tampered workspace.json rejected without decoy side effects

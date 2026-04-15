@@ -16,9 +16,10 @@ import (
 )
 
 type dependencies struct {
+	homeDir          string
 	inspectContainer func(ctx context.Context, name string) (container.StateInfo, error)
 	removeContainer  func(ctx context.Context, name string) error
-	cleanupWorkspace func(ctx context.Context, repoRoot, workspacePath string) error
+	cleanupWorkspace func(ctx context.Context, homeDir, repoRoot, workspacePath string) error
 }
 
 type Result struct {
@@ -30,7 +31,12 @@ type Result struct {
 // ReconcileRun normalizes stale running evidence into a terminal state so
 // callers do not continue treating an orphaned run as live forever.
 func ReconcileRun(ctx context.Context, repoRoot string, entry run.IndexEntry) (Result, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return Result{}, fmt.Errorf("resolve home directory: %w", err)
+	}
 	return reconcileRun(ctx, repoRoot, entry, dependencies{
+		homeDir:          homeDir,
 		inspectContainer: container.InspectState,
 		removeContainer:  container.Remove,
 		cleanupWorkspace: workspace.Cleanup,
@@ -153,14 +159,18 @@ func cleanupTerminalRun(ctx context.Context, repoRoot, evidenceDir string, manif
 	if state == runner.StateSuccess || deps.cleanupWorkspace == nil {
 		return nil
 	}
-	workspacePath, err := readWorkspacePath(evidenceDir)
+	stored, err := readWorkspacePath(evidenceDir)
 	if err != nil {
 		return err
 	}
-	if workspacePath == "" {
+	canonical, err := workspace.ValidateWorkspacePath(deps.homeDir, repoRoot, manifest.RunID, stored)
+	if err != nil {
+		return fmt.Errorf("validate workspace path for run %s: %w", manifest.RunID, err)
+	}
+	if canonical == "" {
 		return nil
 	}
-	return deps.cleanupWorkspace(ctx, repoRoot, workspacePath)
+	return deps.cleanupWorkspace(ctx, deps.homeDir, repoRoot, canonical)
 }
 
 func inferReconciledState(timedOut bool, exitCode int) (runner.State, int) {

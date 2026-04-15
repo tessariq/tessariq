@@ -144,7 +144,7 @@ func newRunCmd() *cobra.Command {
 			cleanupWorktree := true
 			defer func() {
 				if cleanupWorktree {
-					if cErr := workspace.Cleanup(context.Background(), root, wsPath); cErr != nil {
+					if cErr := workspace.Cleanup(context.Background(), homeDir, root, wsPath); cErr != nil {
 						fmt.Fprintf(cmd.ErrOrStderr(), "warning: worktree cleanup: %s\n", cErr)
 					}
 				}

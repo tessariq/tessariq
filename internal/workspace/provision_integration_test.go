@@ -158,7 +158,7 @@ func TestCleanup_Integration_RemovesWorktree(t *testing.T) {
 	wsPath, err := Provision(ctx, homeDir, repo.Dir(), "01ARZ3NDEKTSV4RRFFQ69G5FAV", evidenceDir, headSHA)
 	require.NoError(t, err)
 
-	require.NoError(t, Cleanup(ctx, repo.Dir(), wsPath))
+	require.NoError(t, Cleanup(ctx, homeDir, repo.Dir(), wsPath))
 
 	_, err = os.Stat(wsPath)
 	require.True(t, os.IsNotExist(err))
@@ -178,8 +178,8 @@ func TestCleanup_Integration_Idempotent(t *testing.T) {
 	wsPath, err := Provision(ctx, homeDir, repo.Dir(), "01ARZ3NDEKTSV4RRFFQ69G5FAV", evidenceDir, headSHA)
 	require.NoError(t, err)
 
-	require.NoError(t, Cleanup(ctx, repo.Dir(), wsPath))
-	require.NoError(t, Cleanup(ctx, repo.Dir(), wsPath))
+	require.NoError(t, Cleanup(ctx, homeDir, repo.Dir(), wsPath))
+	require.NoError(t, Cleanup(ctx, homeDir, repo.Dir(), wsPath))
 }
 
 func TestCleanup_Integration_GitWorktreeListClean(t *testing.T) {
@@ -196,7 +196,7 @@ func TestCleanup_Integration_GitWorktreeListClean(t *testing.T) {
 	wsPath, err := Provision(ctx, homeDir, repo.Dir(), "01ARZ3NDEKTSV4RRFFQ69G5FAX", evidenceDir, headSHA)
 	require.NoError(t, err)
 
-	require.NoError(t, Cleanup(ctx, repo.Dir(), wsPath))
+	require.NoError(t, Cleanup(ctx, homeDir, repo.Dir(), wsPath))
 
 	// git worktree list must show only the main worktree after cleanup.
 	out, err := exec.CommandContext(ctx, "git", "-C", repo.Dir(), "worktree", "list", "--porcelain").CombinedOutput()
@@ -233,7 +233,7 @@ func TestCleanup_Integration_RemovesWorktreeRef_WhenRepairFails(t *testing.T) {
 	require.NoError(t, os.WriteFile(fakePath, []byte("#!/bin/sh\nexit 1\n"), 0o755))
 	t.Setenv("PATH", fakeDockerDir+":"+os.Getenv("PATH"))
 
-	err = Cleanup(ctx, repo.Dir(), wsPath)
+	err = Cleanup(ctx, homeDir, repo.Dir(), wsPath)
 	require.NoError(t, err, "cleanup must succeed even when Docker repair fails")
 
 	// Verify the workspace directory is gone.
@@ -272,7 +272,7 @@ func TestCleanup_Integration_RemovesRestrictiveContainerOwnedFiles(t *testing.T)
 	out, err := cmd.CombinedOutput()
 	require.NoError(t, err, "create restrictive files: %s", out)
 
-	require.NoError(t, Cleanup(ctx, repo.Dir(), wsPath))
+	require.NoError(t, Cleanup(ctx, homeDir, repo.Dir(), wsPath))
 
 	_, err = os.Stat(wsPath)
 	require.True(t, os.IsNotExist(err))
