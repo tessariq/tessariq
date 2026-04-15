@@ -45,6 +45,55 @@ func TestValidateTaskPathLogic_SubdirectoryMarkdown(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestValidateTaskPathLogic_RejectsControlCharacters(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name string
+		path string
+	}{
+		{"newline", "planning/tasks/bad\nname.md"},
+		{"nul", "planning/tasks/bad\x00name.md"},
+		{"unit_separator", "planning/tasks/bad\x1fname.md"},
+		{"del", "planning/tasks/bad\x7fname.md"},
+		{"carriage_return", "planning/tasks/bad\rname.md"},
+		{"tab", "planning/tasks/bad\tname.md"},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := ValidateTaskPathLogic("/repo", tc.path)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "task path must not contain control characters")
+		})
+	}
+}
+
+func TestValidateTaskPathLogic_AllowsBenignPunctuation(t *testing.T) {
+	t.Parallel()
+
+	cases := []string{
+		"planning/tasks/Fix: bug.md",
+		"planning/tasks/what?.md",
+		"planning/tasks/Wow!.md",
+		"planning/tasks/(draft) task.md",
+		"planning/tasks/Naïve résumé.md",
+		"planning/tasks/My Task.md",
+	}
+
+	for _, p := range cases {
+		p := p
+		t.Run(p, func(t *testing.T) {
+			t.Parallel()
+
+			require.NoError(t, ValidateTaskPathLogic("/repo", p))
+		})
+	}
+}
+
 func TestValidateTaskPath_MissingFile(t *testing.T) {
 	t.Parallel()
 

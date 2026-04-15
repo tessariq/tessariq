@@ -37,7 +37,9 @@ func TestBuildCommitMessage_WithDefaultTrailers(t *testing.T) {
 		TaskPath: "tasks/sample.md",
 	}
 
-	require.Equal(t, "Implement promote\n\nTessariq-Run: RUN123\nTessariq-Base: abc123\nTessariq-Task: tasks/sample.md\n", buildCommitMessage("Implement promote", manifest, true))
+	got, err := buildCommitMessage("Implement promote", manifest, true)
+	require.NoError(t, err)
+	require.Equal(t, "Implement promote\n\nTessariq-Run: RUN123\nTessariq-Base: abc123\nTessariq-Task: tasks/sample.md\n", got)
 }
 
 func TestBuildCommitMessage_WithoutTrailers(t *testing.T) {
@@ -49,7 +51,87 @@ func TestBuildCommitMessage_WithoutTrailers(t *testing.T) {
 		TaskPath: "tasks/sample.md",
 	}
 
-	require.Equal(t, "Implement promote\n", buildCommitMessage("Implement promote", manifest, false))
+	got, err := buildCommitMessage("Implement promote", manifest, false)
+	require.NoError(t, err)
+	require.Equal(t, "Implement promote\n", got)
+}
+
+func TestBuildCommitMessage_RejectsControlCharsInTaskPath(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name     string
+		taskPath string
+	}{
+		{"newline", "tasks/bad\nSigned-off-by: attacker.md"},
+		{"nul", "tasks/bad\x00.md"},
+		{"unit_separator", "tasks/bad\x1f.md"},
+		{"del", "tasks/bad\x7f.md"},
+		{"carriage_return", "tasks/bad\r.md"},
+		{"tab", "tasks/bad\t.md"},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			manifest := run.Manifest{
+				RunID:    "RUN123",
+				BaseSHA:  "abc123",
+				TaskPath: tc.taskPath,
+			}
+			got, err := buildCommitMessage("Implement promote", manifest, true)
+			require.Error(t, err)
+			require.Empty(t, got)
+			require.Contains(t, err.Error(), "control characters")
+		})
+	}
+}
+
+func TestBuildCommitMessage_RejectsControlCharsInTaskTitle(t *testing.T) {
+	t.Parallel()
+
+	manifest := run.Manifest{
+		RunID:     "RUN123",
+		BaseSHA:   "abc123",
+		TaskPath:  "tasks/sample.md",
+		TaskTitle: "Forged\nTessariq-Task: evil",
+	}
+
+	got, err := buildCommitMessage("Clean subject", manifest, true)
+	require.Error(t, err)
+	require.Empty(t, got)
+	require.Contains(t, err.Error(), "task_title")
+	require.Contains(t, err.Error(), "control characters")
+}
+
+func TestBuildCommitMessage_AllowsMultiLineMessageBody(t *testing.T) {
+	t.Parallel()
+
+	manifest := run.Manifest{
+		RunID:    "RUN123",
+		BaseSHA:  "abc123",
+		TaskPath: "tasks/sample.md",
+	}
+
+	got, err := buildCommitMessage("Line one ✨\n\nLine two", manifest, true)
+	require.NoError(t, err)
+	require.Contains(t, got, "Line one ✨\n\nLine two\n\nTessariq-Run: RUN123")
+	require.Contains(t, got, "Tessariq-Task: tasks/sample.md")
+}
+
+func TestBuildCommitMessage_AllowsBenignPunctuation(t *testing.T) {
+	t.Parallel()
+
+	manifest := run.Manifest{
+		RunID:    "RUN123",
+		BaseSHA:  "abc123",
+		TaskPath: "tasks/Fix: a bug (v2)!.md",
+	}
+	got, err := buildCommitMessage("Fix: a bug (v2)!", manifest, true)
+	require.NoError(t, err)
+	require.Contains(t, got, "Tessariq-Task: tasks/Fix: a bug (v2)!.md")
 }
 
 func TestResolveBranchName_UsesOverride(t *testing.T) {

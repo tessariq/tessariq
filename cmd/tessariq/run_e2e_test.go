@@ -1430,6 +1430,55 @@ func TestE2E_SymlinkToExternalTaskRejected(t *testing.T) {
 		"must fail before evidence bootstrap: %s", output)
 }
 
+func TestE2E_ControlCharTaskPathRejected(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+
+	env := setupRunEnvCustom(t, bin, e2eSetupOpts{
+		skipImage: true,
+	})
+
+	ctx := context.Background()
+	hostDir := env.Dir()
+	repoPath := filepath.Join(hostDir, "repo")
+	homeDir := filepath.Join(hostDir, "home")
+	binPath := filepath.Join(hostDir, "tessariq")
+
+	// Create a task file whose name contains a newline byte — a classic
+	// commit-trailer injection vector.
+	setupCmds := []string{
+		// printf resolves \n; use a dollar-quoted string inside sh -c so the
+		// literal newline byte lands in the filename.
+		fmt.Sprintf("printf '# Forged Task\\n' > %s/tasks/$'bad\\nname'.md", repoPath),
+		fmt.Sprintf("git -C %s add -A", repoPath),
+		fmt.Sprintf("git -C %s commit -m 'add tampered task'", repoPath),
+	}
+	for _, cmd := range setupCmds {
+		execCmd(t, env, ctx, cmd, "control-char setup")
+	}
+
+	// Capture runs directory listing before the attempt.
+	_, runsBefore, err := env.Exec(ctx, []string{"sh", "-c",
+		fmt.Sprintf("ls -1 %s/.tessariq/runs 2>/dev/null | grep -v '^index.jsonl$' || true", repoPath)})
+	require.NoError(t, err)
+
+	// Run tessariq with the tampered task path — must fail before container start.
+	code, output, err := env.Exec(ctx, []string{"sh", "-c",
+		fmt.Sprintf("cd %s && HOME=%s %s run --egress none $'tasks/bad\\nname.md'",
+			repoPath, homeDir, binPath)})
+	require.NoError(t, err)
+	require.NotEqual(t, 0, code, "run should reject control-char task path: %s", output)
+	require.Contains(t, output, "control characters")
+	require.NotContains(t, output, "run_id:",
+		"must fail before evidence bootstrap: %s", output)
+
+	// Verify no new run directory was created.
+	_, runsAfter, err := env.Exec(ctx, []string{"sh", "-c",
+		fmt.Sprintf("ls -1 %s/.tessariq/runs 2>/dev/null | grep -v '^index.jsonl$' || true", repoPath)})
+	require.NoError(t, err)
+	require.Equal(t, runsBefore, runsAfter, "no evidence directory should be created")
+}
+
 func TestE2E_EgressNone_NoNetworkAccess(t *testing.T) {
 	t.Parallel()
 	bin := buildBinary(t)

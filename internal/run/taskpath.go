@@ -43,6 +43,10 @@ func ValidateTaskPath(repoRoot, taskPath string) error {
 }
 
 func ValidateTaskPathLogic(repoRoot, taskPath string) error {
+	if ContainsControlChar(taskPath) {
+		return fmt.Errorf("task path must not contain control characters: %q", taskPath)
+	}
+
 	if filepath.IsAbs(taskPath) {
 		return fmt.Errorf("task path must be relative to the repository: %s", taskPath)
 	}
