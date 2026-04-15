@@ -174,9 +174,17 @@ func (p *Process) remove(ctx context.Context) error {
 		return nil
 	}
 	cmd := exec.CommandContext(ctx, p.docker, "rm", "-f", p.cfg.Name)
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("docker rm -f: %w", err)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		trimmed := strings.TrimSpace(string(out))
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && strings.Contains(trimmed, "No such container") {
+			p.created = false
+			return nil
+		}
+		return fmt.Errorf("docker rm -f: %s: %w", trimmed, err)
 	}
+	p.created = false
 	return nil
 }
 
