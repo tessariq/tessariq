@@ -42,10 +42,13 @@ func printRunOutput(w io.Writer, out runOutput, attached bool) {
 	fmt.Fprintf(w, "promote: tessariq promote %s\n", out.RunID)
 }
 
-func printNonSuccessOutput(w io.Writer, state runner.State, out runOutput) {
+func printNonSuccessOutput(w io.Writer, state runner.State, out runOutput, cause error) {
 	fmt.Fprintf(w, "run_id: %s\n", out.RunID)
 	fmt.Fprintf(w, "state: %s\n", state)
 	fmt.Fprintf(w, "evidence_path: %s\n", out.EvidencePath)
+	if cause != nil {
+		fmt.Fprintf(w, "cleanup_error: %s\n", cause)
+	}
 }
 
 // printFailureOutput prints the minimum evidence locator fields for a
@@ -349,7 +352,7 @@ func newRunCmd() *cobra.Command {
 				printNonSuccessOutput(cmd.OutOrStdout(), termErr.State, runOutput{
 					RunID:        runID,
 					EvidencePath: evidenceDir,
-				})
+				}, termErr.Cause)
 				return runErr
 			}
 

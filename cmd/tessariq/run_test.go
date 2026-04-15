@@ -351,7 +351,7 @@ func TestPrintNonSuccessOutput_ContainsStateAndEvidence(t *testing.T) {
 			printNonSuccessOutput(&buf, tt.state, runOutput{
 				RunID:        "TEST01",
 				EvidencePath: "/repo/.tessariq/runs/TEST01",
-			})
+			}, nil)
 
 			output := buf.String()
 			require.Contains(t, output, "run_id: TEST01")
@@ -361,8 +361,27 @@ func TestPrintNonSuccessOutput_ContainsStateAndEvidence(t *testing.T) {
 			require.NotContains(t, output, "promote")
 			require.NotContains(t, output, "workspace_path")
 			require.NotContains(t, output, "container_name")
+			require.NotContains(t, output, "cleanup_error")
 		})
 	}
+}
+
+// TestPrintNonSuccessOutput_IncludesCleanupCauseWhenPresent verifies the
+// TASK-094 CLI surface: a TerminalStateError carrying a cleanup cause
+// renders a cleanup_error line so operators see why an otherwise-clean
+// run was downgraded.
+func TestPrintNonSuccessOutput_IncludesCleanupCauseWhenPresent(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	printNonSuccessOutput(&buf, runner.StateFailed, runOutput{
+		RunID:        "TEST01",
+		EvidencePath: "/repo/.tessariq/runs/TEST01",
+	}, errors.New("docker rm -f tessariq-run: Error response from daemon: container is dead"))
+
+	output := buf.String()
+	require.Contains(t, output, "state: failed")
+	require.Contains(t, output, "cleanup_error: docker rm -f tessariq-run")
 }
 
 // fakeReadFile returns a readFile func that serves canned content keyed by

@@ -38,6 +38,14 @@ type Status struct {
 	FinishedAt    string `json:"finished_at"`
 	ExitCode      int    `json:"exit_code"`
 	TimedOut      bool   `json:"timed_out"`
+	// CleanupError, when non-empty, records that container cleanup
+	// (docker rm -f) failed after the run's primary work finished. An
+	// otherwise-successful run is downgraded to StateFailed so the CLI
+	// exit code, status.json, and promote eligibility agree; the field
+	// carries the original cleanup error for operator diagnostics and is
+	// also set on non-success runs so a post-mortem sees the cleanup
+	// fault without masking the primary terminal state.
+	CleanupError string `json:"cleanup_error,omitempty"`
 }
 
 // NewInitialStatus creates a non-terminal status recording the start time.
@@ -84,14 +92,25 @@ func WriteStatus(evidenceDir string, s Status) error {
 
 // TerminalStateError is returned by Runner.Run when the run completes with
 // a non-success terminal state. It is not an infrastructure error — status.json
-// has been written successfully.
+// has been written successfully. Cause, when non-nil, carries the original
+// underlying error (for example a container cleanup failure that forced an
+// otherwise-successful run to be downgraded to StateFailed).
 type TerminalStateError struct {
 	State    State
 	ExitCode int
+	Cause    error
 }
 
 func (e *TerminalStateError) Error() string {
+	if e.Cause != nil {
+		return fmt.Sprintf("run finished with state %s (exit code %d): %s", e.State, e.ExitCode, e.Cause)
+	}
 	return fmt.Sprintf("run finished with state %s (exit code %d)", e.State, e.ExitCode)
+}
+
+// Unwrap exposes the underlying cause so callers can use errors.Is/errors.As.
+func (e *TerminalStateError) Unwrap() error {
+	return e.Cause
 }
 
 // ReadStatus reads and parses status.json from the evidence directory.
