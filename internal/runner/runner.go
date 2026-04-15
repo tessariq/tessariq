@@ -58,10 +58,12 @@ type Runner struct {
 	SessionReady  chan<- struct{} // closed when ready for attach; nil = ignored
 	Clock         func() time.Time
 	LogCapBytes   int64 // 0 uses DefaultLogCapBytes
-	// DiffArtifactWriter, when set, is invoked after verify hooks succeed and
-	// before the terminal status is written. A non-nil error escalates the
-	// run to a non-success terminal state so partial diff evidence never
-	// coexists with a promotable success.
+	// DiffArtifactWriter, when set, is invoked on every terminal state
+	// before the terminal status is written. Failed, timed-out, and killed
+	// runs must still emit diff evidence when changes exist because
+	// promote.Run accepts any terminal state and requires diff artifacts.
+	// A write failure escalates an otherwise-successful run to StateFailed
+	// but never masks a pre-existing non-success state or its exit code.
 	DiffArtifactWriter func(ctx context.Context, evidenceDir string) error
 }
 
@@ -142,22 +144,28 @@ func (r *Runner) Run(ctx context.Context) error {
 	// Run verify hooks (only if process succeeded and not timed out).
 	if processState == StateSuccess && len(r.Config.Verify) > 0 {
 		fmt.Fprintf(logs.RunnerLog, "[%s] running %d verify-hook(s)\n", r.clock().UTC().Format(time.RFC3339), len(r.Config.Verify))
-		_, verifyErr := RunVerifyHooks(ctx, r.Config.Verify, r.RepoRoot, logs.RunnerLog)
-		if verifyErr != nil {
-			finishedAt := r.clock()
-			fmt.Fprintf(logs.RunnerLog, "[%s] verify-hook failed: %s\n", finishedAt.UTC().Format(time.RFC3339), verifyErr)
-			return r.writeTerminalStatus(StateFailed, startedAt, finishedAt, 1, false)
+		if _, verifyErr := RunVerifyHooks(ctx, r.Config.Verify, r.RepoRoot, logs.RunnerLog); verifyErr != nil {
+			fmt.Fprintf(logs.RunnerLog, "[%s] verify-hook failed: %s\n", r.clock().UTC().Format(time.RFC3339), verifyErr)
+			processState = StateFailed
+			exitCode = 1
+			timedOut = false
 		}
 	}
 
-	// Commit diff artifacts as part of the terminal phase. A failure here
-	// must escalate the run to a non-success state so the run never appears
-	// promotable with missing or partial diff evidence.
-	if processState == StateSuccess && r.DiffArtifactWriter != nil {
+	// Commit diff artifacts on every terminal state. promote.Run accepts
+	// any terminal state and requires diff evidence when changes exist, so
+	// a failed/timeout/killed run with file changes must still emit
+	// artifacts. A diff-write failure only escalates state when the run
+	// would otherwise be success — it must never mask a pre-existing
+	// non-success state or its exit code.
+	if r.DiffArtifactWriter != nil {
 		if err := r.DiffArtifactWriter(ctx, r.EvidenceDir); err != nil {
-			finishedAt := r.clock()
-			fmt.Fprintf(logs.RunnerLog, "[%s] diff-artifact write failed: %s\n", finishedAt.UTC().Format(time.RFC3339), err)
-			return r.writeTerminalStatus(StateFailed, startedAt, finishedAt, 1, false)
+			fmt.Fprintf(logs.RunnerLog, "[%s] diff-artifact write failed: %s\n", r.clock().UTC().Format(time.RFC3339), err)
+			if processState == StateSuccess {
+				processState = StateFailed
+				exitCode = 1
+				timedOut = false
+			}
 		}
 	}
 

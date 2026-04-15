@@ -180,6 +180,134 @@ func TestRunnerIntegration_DiffArtifacts_HappyPathCommittedWithSuccess(t *testin
 	}
 }
 
+func TestRunnerIntegration_DiffArtifacts_WrittenForFailedProcessWithChanges(t *testing.T) {
+	t.Parallel()
+
+	worktree, baseSHA := initGitWorktree(t)
+	require.NoError(t, os.WriteFile(filepath.Join(worktree, "failed.txt"), []byte("data\n"), 0o644))
+
+	evidenceDir := t.TempDir()
+
+	r := newIntegrationRunner(evidenceDir, newShellProcess("exit 3"))
+	r.DiffArtifactWriter = func(ctx context.Context, evDir string) error {
+		return WriteDiffArtifacts(ctx, evDir, worktree, baseSHA)
+	}
+
+	var termErr *TerminalStateError
+	require.ErrorAs(t, r.Run(context.Background()), &termErr)
+	require.Equal(t, StateFailed, termErr.State)
+	require.Equal(t, 3, termErr.ExitCode)
+
+	s, err := ReadStatus(evidenceDir)
+	require.NoError(t, err)
+	require.Equal(t, StateFailed, s.State)
+	require.Equal(t, 3, s.ExitCode)
+
+	for _, name := range []string{"diff.patch", "diffstat.txt"} {
+		info, statErr := os.Stat(filepath.Join(evidenceDir, name))
+		require.NoError(t, statErr, "%s must exist for failed run with changes", name)
+		require.Greater(t, info.Size(), int64(0), "%s must be non-empty", name)
+	}
+}
+
+func TestRunnerIntegration_DiffArtifacts_WrittenForVerifyFailureWithChanges(t *testing.T) {
+	t.Parallel()
+
+	worktree, baseSHA := initGitWorktree(t)
+	require.NoError(t, os.WriteFile(filepath.Join(worktree, "verify.txt"), []byte("data\n"), 0o644))
+
+	evidenceDir := t.TempDir()
+
+	r := newIntegrationRunner(evidenceDir, newShellProcess("exit 0"))
+	r.Config.Verify = []string{"exit 1"}
+	r.DiffArtifactWriter = func(ctx context.Context, evDir string) error {
+		return WriteDiffArtifacts(ctx, evDir, worktree, baseSHA)
+	}
+
+	var termErr *TerminalStateError
+	require.ErrorAs(t, r.Run(context.Background()), &termErr)
+	require.Equal(t, StateFailed, termErr.State)
+
+	s, err := ReadStatus(evidenceDir)
+	require.NoError(t, err)
+	require.Equal(t, StateFailed, s.State)
+
+	for _, name := range []string{"diff.patch", "diffstat.txt"} {
+		info, statErr := os.Stat(filepath.Join(evidenceDir, name))
+		require.NoError(t, statErr,
+			"%s must exist even when verify-hook failure drives the terminal state", name)
+		require.Greater(t, info.Size(), int64(0), "%s must be non-empty", name)
+	}
+}
+
+func TestRunnerIntegration_DiffArtifacts_FailedProcess_DiffWriteErrorDoesNotMaskState(t *testing.T) {
+	t.Parallel()
+
+	worktree, baseSHA := initGitWorktree(t)
+	require.NoError(t, os.WriteFile(filepath.Join(worktree, "mask.txt"), []byte("data\n"), 0o644))
+
+	evidenceDir := t.TempDir()
+	// Block diffstat.txt so the atomic writer rolls back diff.patch and returns an error.
+	require.NoError(t, os.Mkdir(filepath.Join(evidenceDir, "diffstat.txt"), 0o700))
+
+	r := newIntegrationRunner(evidenceDir, newShellProcess("exit 3"))
+	r.DiffArtifactWriter = func(ctx context.Context, evDir string) error {
+		return WriteDiffArtifacts(ctx, evDir, worktree, baseSHA)
+	}
+
+	var termErr *TerminalStateError
+	require.ErrorAs(t, r.Run(context.Background()), &termErr)
+	require.Equal(t, StateFailed, termErr.State,
+		"pre-existing failed state must be preserved when diff write also fails")
+	require.Equal(t, 3, termErr.ExitCode,
+		"original process exit code must not be clobbered by diff-write failure")
+
+	s, err := ReadStatus(evidenceDir)
+	require.NoError(t, err)
+	require.Equal(t, StateFailed, s.State)
+	require.Equal(t, 3, s.ExitCode)
+
+	_, statErr := os.Stat(filepath.Join(evidenceDir, "diff.patch"))
+	require.True(t, os.IsNotExist(statErr),
+		"diff.patch must be rolled back when the diffstat.txt commit fails")
+
+	entries, err := os.ReadDir(evidenceDir)
+	require.NoError(t, err)
+	for _, e := range entries {
+		require.False(t, strings.HasSuffix(e.Name(), ".tmp"),
+			"unexpected leftover .tmp file: %s", e.Name())
+	}
+
+	logData, err := os.ReadFile(filepath.Join(evidenceDir, "runner.log"))
+	require.NoError(t, err)
+	require.Contains(t, string(logData), "diff-artifact write failed",
+		"diff-write error must surface in runner.log even when state is preserved")
+}
+
+func TestRunnerIntegration_DiffArtifacts_NoChangesNoArtifacts(t *testing.T) {
+	t.Parallel()
+
+	worktree, baseSHA := initGitWorktree(t)
+	evidenceDir := t.TempDir()
+
+	r := newIntegrationRunner(evidenceDir, newShellProcess("exit 0"))
+	r.DiffArtifactWriter = func(ctx context.Context, evDir string) error {
+		return WriteDiffArtifacts(ctx, evDir, worktree, baseSHA)
+	}
+
+	require.NoError(t, r.Run(context.Background()))
+
+	s, err := ReadStatus(evidenceDir)
+	require.NoError(t, err)
+	require.Equal(t, StateSuccess, s.State)
+
+	for _, name := range []string{"diff.patch", "diffstat.txt"} {
+		_, statErr := os.Stat(filepath.Join(evidenceDir, name))
+		require.True(t, os.IsNotExist(statErr),
+			"%s must not exist when there are no changes", name)
+	}
+}
+
 func TestRunnerIntegration_SuccessProcess(t *testing.T) {
 	t.Parallel()
 
