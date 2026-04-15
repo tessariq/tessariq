@@ -24,6 +24,14 @@ var ErrWorkspacePathOutsideTree = errors.New("workspace path is outside the cano
 // An empty untrustedPath returns ("", nil) so callers can keep their
 // "no workspace.json => no cleanup" semantics.
 //
+// A missing canonical path — either the stored untrustedPath or its
+// recomputed canonical form — returns (canonical, nil) so reconcile
+// cleanup stays idempotent for runs whose worktree has already been
+// removed. Cleanup's own os.Stat ENOENT fast path is the next stop.
+// This is safe because the lexical canonical equality check above the
+// ENOENT branch proves the stored value matches the canonical derived
+// from trusted inputs, so a missing path cannot be redirected anywhere.
+//
 // On success it returns the lexical canonical path (stable across
 // platforms; macOS in particular would otherwise produce a
 // /private/var/... form from EvalSymlinks that differs from the
@@ -50,6 +58,15 @@ func ValidateWorkspacePath(homeDir, repoRoot, runID, untrustedPath string) (stri
 
 	realPath, err := filepath.EvalSymlinks(untrustedPath)
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			// Canonical path matched lexically but has already been
+			// removed (prior reconcile, manual cleanup, idempotent
+			// re-entry). Cleanup's own os.Stat ENOENT fast path will
+			// no-op. Safe because the lexical canonical equality check
+			// above already proved the stored value matches the
+			// canonical derived from trusted inputs.
+			return canonical, nil
+		}
 		return "", fmt.Errorf("%w: %s", ErrWorkspacePathOutsideTree, untrustedPath)
 	}
 	if !strings.HasPrefix(realPath+string(filepath.Separator), realWorktreesPrefix) {
@@ -58,6 +75,9 @@ func ValidateWorkspacePath(homeDir, repoRoot, runID, untrustedPath string) (stri
 
 	realCanonical, err := filepath.EvalSymlinks(canonical)
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return canonical, nil
+		}
 		return "", fmt.Errorf("%w: %s", ErrWorkspacePathOutsideTree, untrustedPath)
 	}
 	if realPath != realCanonical {

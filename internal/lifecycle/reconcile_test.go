@@ -141,6 +141,71 @@ func TestReconcileRun_TerminalNonSuccessCleansWorkspace(t *testing.T) {
 	require.True(t, cleaned)
 }
 
+// TestReconcileRun_IdempotentWhenWorkspaceAlreadyRemoved pins the BUG-060
+// fix: a terminal non-success run whose canonical worktree has already
+// been removed (prior reconcile, manual cleanup, idempotent re-entry)
+// must still be reconcilable. ValidateWorkspacePath short-circuits the
+// ENOENT case, and the cleanupWorkspace hook is invoked with the
+// canonical path so Cleanup's own os.Stat ENOENT fast path can no-op.
+func TestReconcileRun_IdempotentWhenWorkspaceAlreadyRemoved(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	homeDir := t.TempDir()
+	runID := "01ARZ3NDEKTSV4RRFFQ69G5FB1"
+	evidenceDir := filepath.Join(repoRoot, ".tessariq", "runs", runID)
+	wsPath := workspace.WorkspacePath(homeDir, repoRoot, runID)
+
+	require.NoError(t, os.MkdirAll(evidenceDir, 0o700))
+	// Intentionally do NOT create wsPath — the worktree has already been
+	// removed by a prior reconcile or manual cleanup.
+
+	manifest := run.Manifest{
+		SchemaVersion:       1,
+		RunID:               runID,
+		TaskPath:            "tasks/sample.md",
+		TaskTitle:           "Sample",
+		Agent:               "claude-code",
+		WorkspaceMode:       "worktree",
+		ContainerName:       run.ContainerName(runID),
+		CreatedAt:           "2026-01-01T00:00:00Z",
+		RequestedEgressMode: "open",
+		ResolvedEgressMode:  "open",
+		AllowlistSource:     "cli",
+	}
+	require.NoError(t, run.WriteManifest(evidenceDir, manifest))
+	require.NoError(t, runner.WriteStatus(evidenceDir, runner.NewTerminalStatus(
+		runner.StateFailed,
+		time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		time.Date(2026, 1, 1, 0, 1, 0, 0, time.UTC),
+		1,
+		false,
+	)))
+	require.NoError(t, workspace.WriteMetadata(evidenceDir, workspace.BuildMetadata("abc123", wsPath)))
+
+	entry := run.IndexEntryFromManifest(manifest, string(runner.StateRunning))
+
+	cleanedCalls := 0
+	result, err := reconcileRun(context.Background(), repoRoot, entry, dependencies{
+		homeDir: homeDir,
+		inspectContainer: func(ctx context.Context, name string) (container.StateInfo, error) {
+			return container.StateInfo{}, nil
+		},
+		removeContainer: func(ctx context.Context, name string) error { return nil },
+		cleanupWorkspace: func(ctx context.Context, gotHomeDir, gotRepoRoot, workspacePath string) error {
+			cleanedCalls++
+			require.Equal(t, homeDir, gotHomeDir)
+			require.Equal(t, repoRoot, gotRepoRoot)
+			require.Equal(t, wsPath, workspacePath)
+			return nil
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, runner.StateFailed, result.Status.State)
+	require.False(t, result.Live)
+	require.Equal(t, 1, cleanedCalls, "cleanupWorkspace must still be invoked exactly once so Cleanup's own ENOENT fast path can run")
+}
+
 func TestReconcileRun_MissingContainerAfterStartTreatsAsFailed(t *testing.T) {
 	t.Parallel()
 
