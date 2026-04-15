@@ -1118,14 +1118,15 @@ func TestRunner_DiffArtifactWriterSuccess_StaysSuccessful(t *testing.T) {
 	require.Equal(t, StateSuccess, s.State)
 }
 
-func TestRunner_DiffArtifactWriter_SkippedOnProcessFailure(t *testing.T) {
+func TestRunner_DiffArtifactWriter_InvokedOnProcessFailure(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
 	r := newTestRunner(dir, newFakeProcess(7))
 	called := false
-	r.DiffArtifactWriter = func(_ context.Context, _ string) error {
+	r.DiffArtifactWriter = func(_ context.Context, evidenceDir string) error {
 		called = true
+		require.Equal(t, dir, evidenceDir)
 		return nil
 	}
 
@@ -1133,8 +1134,29 @@ func TestRunner_DiffArtifactWriter_SkippedOnProcessFailure(t *testing.T) {
 	require.ErrorAs(t, r.Run(context.Background()), &termErr)
 	require.Equal(t, StateFailed, termErr.State)
 	require.Equal(t, 7, termErr.ExitCode)
-	require.False(t, called,
-		"diff-artifact writer must not run when the process already failed")
+	require.True(t, called,
+		"diff-artifact writer must run on non-success terminal states so promote gets diff evidence")
+}
+
+func TestRunner_DiffArtifactWriter_FailureOnFailedProcessPreservesExitCode(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	r := newTestRunner(dir, newFakeProcess(7))
+	r.DiffArtifactWriter = func(_ context.Context, _ string) error {
+		return errors.New("diff write boom")
+	}
+
+	var termErr *TerminalStateError
+	require.ErrorAs(t, r.Run(context.Background()), &termErr)
+	require.Equal(t, StateFailed, termErr.State)
+	require.Equal(t, 7, termErr.ExitCode,
+		"diff-write failure must not clobber the original process exit code")
+
+	s, err := ReadStatus(dir)
+	require.NoError(t, err)
+	require.Equal(t, StateFailed, s.State)
+	require.Equal(t, 7, s.ExitCode)
 }
 
 func TestRunner_VerifyHookRunsFromRepoRoot(t *testing.T) {
