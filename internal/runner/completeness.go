@@ -2,6 +2,7 @@ package runner
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,6 +12,10 @@ import (
 	"github.com/tessariq/tessariq/internal/run"
 	"github.com/tessariq/tessariq/internal/workspace"
 )
+
+// ErrEgressModeMismatch is returned when manifest.json and runtime.json
+// record different resolved egress modes, indicating evidence tampering.
+var ErrEgressModeMismatch = errors.New("egress mode mismatch between manifest and runtime")
 
 // requiredEvidenceFiles lists the files that must be present and non-empty
 // for every completed run.
@@ -34,9 +39,17 @@ var proxyEvidenceFiles = []string{
 }
 
 // CheckEvidenceCompleteness verifies that all required evidence files exist
-// and are non-empty in the evidence directory. For runs whose manifest
-// records resolved_egress_mode=proxy, the proxy-specific egress artifacts
-// are also required.
+// and are non-empty in the evidence directory. Proxy-specific egress
+// artifacts are required when the trusted resolved egress mode is "proxy".
+//
+// The trusted resolved egress mode is taken from runtime.json, which the
+// host-side runner writes from the actual run assembly. The mode is required:
+// a runtime.json that omits resolved_egress_mode fails closed rather than
+// falling back to the mutable manifest. This prevents the suppression attack
+// where a proxy run is relabeled to "direct" in manifest.json and the runtime
+// field is dropped, which would otherwise skip the required proxy evidence.
+// If runtime.json and manifest.json record different modes, the function
+// returns ErrEgressModeMismatch — the evidence may have been tampered.
 func CheckEvidenceCompleteness(evidenceDir string) error {
 	if missing := collectMissing(evidenceDir, requiredEvidenceFiles); len(missing) > 0 {
 		return incompleteErr(missing)
@@ -77,7 +90,20 @@ func CheckEvidenceCompleteness(evidenceDir string) error {
 		return malformedErr("workspace.json", err)
 	}
 
-	if manifest.ResolvedEgressMode == "proxy" {
+	runtimeMode, err := readRuntimeEgressMode(evidenceDir)
+	if err != nil {
+		return fmt.Errorf("incomplete evidence: %w", err)
+	}
+	if runtimeMode == "" {
+		return fmt.Errorf("incomplete evidence: runtime.json missing resolved_egress_mode; cannot determine trusted egress mode")
+	}
+
+	if manifest.ResolvedEgressMode != runtimeMode {
+		return fmt.Errorf("%w: manifest says %q but runtime says %q; evidence may be inconsistent or tampered",
+			ErrEgressModeMismatch, manifest.ResolvedEgressMode, runtimeMode)
+	}
+
+	if runtimeMode == "proxy" {
 		if missing := collectMissing(evidenceDir, proxyEvidenceFiles); len(missing) > 0 {
 			return incompleteErr(missing)
 		}
@@ -96,6 +122,22 @@ func CheckEvidenceCompleteness(evidenceDir string) error {
 	}
 
 	return nil
+}
+
+type runtimeEgressSnippet struct {
+	ResolvedEgressMode string `json:"resolved_egress_mode"`
+}
+
+func readRuntimeEgressMode(evidenceDir string) (string, error) {
+	data, err := os.ReadFile(filepath.Join(evidenceDir, "runtime.json"))
+	if err != nil {
+		return "", fmt.Errorf("read runtime: %w", err)
+	}
+	var s runtimeEgressSnippet
+	if err := json.Unmarshal(data, &s); err != nil {
+		return "", fmt.Errorf("parse runtime: %w", err)
+	}
+	return s.ResolvedEgressMode, nil
 }
 
 func collectMissing(evidenceDir string, names []string) []string {
