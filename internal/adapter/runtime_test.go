@@ -12,7 +12,7 @@ import (
 func TestNewRuntimeInfo_RequiredFields(t *testing.T) {
 	t.Parallel()
 
-	info := NewRuntimeInfo("ghcr.io/tessariq/reference-runtime:v0.1.0", "reference", "read-only", 0, "disabled", "disabled")
+	info := NewRuntimeInfo("ghcr.io/tessariq/reference-runtime:v0.1.0", "reference", "read-only", 0, "disabled", "disabled", "open")
 
 	require.Equal(t, 1, info.SchemaVersion)
 	require.Equal(t, "ghcr.io/tessariq/reference-runtime:v0.1.0", info.Image)
@@ -20,12 +20,13 @@ func TestNewRuntimeInfo_RequiredFields(t *testing.T) {
 	require.Equal(t, "read-only", info.AuthMountMode)
 	require.Equal(t, "disabled", info.AgentConfigMount)
 	require.Equal(t, "disabled", info.AgentConfigMountStatus)
+	require.Equal(t, "open", info.ResolvedEgressMode)
 }
 
 func TestNewRuntimeInfo_ReferenceImage(t *testing.T) {
 	t.Parallel()
 
-	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", "read-only", 0, "disabled", "disabled")
+	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", "read-only", 0, "disabled", "disabled", "open")
 
 	require.Equal(t, "reference", info.ImageSource)
 }
@@ -33,7 +34,7 @@ func TestNewRuntimeInfo_ReferenceImage(t *testing.T) {
 func TestNewRuntimeInfo_CustomImage(t *testing.T) {
 	t.Parallel()
 
-	info := NewRuntimeInfo("my-registry/custom:v1", "custom", "read-only", 0, "disabled", "disabled")
+	info := NewRuntimeInfo("my-registry/custom:v1", "custom", "read-only", 0, "disabled", "disabled", "open")
 
 	require.Equal(t, "custom", info.ImageSource)
 }
@@ -41,7 +42,7 @@ func TestNewRuntimeInfo_CustomImage(t *testing.T) {
 func TestNewRuntimeInfo_ConfigMountMounted(t *testing.T) {
 	t.Parallel()
 
-	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", "read-only", 0, "enabled", "mounted")
+	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", "read-only", 0, "enabled", "mounted", "proxy")
 
 	require.Equal(t, "enabled", info.AgentConfigMount)
 	require.Equal(t, "mounted", info.AgentConfigMountStatus)
@@ -50,7 +51,7 @@ func TestNewRuntimeInfo_ConfigMountMounted(t *testing.T) {
 func TestNewRuntimeInfo_ConfigMountMissingOptional(t *testing.T) {
 	t.Parallel()
 
-	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", "read-only", 0, "enabled", "missing_optional")
+	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", "read-only", 0, "enabled", "missing_optional", "open")
 
 	require.Equal(t, "enabled", info.AgentConfigMount)
 	require.Equal(t, "missing_optional", info.AgentConfigMountStatus)
@@ -59,16 +60,16 @@ func TestNewRuntimeInfo_ConfigMountMissingOptional(t *testing.T) {
 func TestNewRuntimeInfo_ConfigMountUnreadableOptional(t *testing.T) {
 	t.Parallel()
 
-	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", "read-only", 0, "enabled", "unreadable_optional")
+	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", "read-only", 0, "enabled", "unreadable_optional", "open")
 
 	require.Equal(t, "enabled", info.AgentConfigMount)
 	require.Equal(t, "unreadable_optional", info.AgentConfigMountStatus)
 }
 
-func TestNewRuntimeInfo_ExactlySevenTopLevelKeys(t *testing.T) {
+func TestNewRuntimeInfo_ExactlyEightTopLevelKeys(t *testing.T) {
 	t.Parallel()
 
-	info := NewRuntimeInfo("ghcr.io/tessariq/reference-runtime:v0.1.0", "reference", "read-only", 0, "disabled", "disabled")
+	info := NewRuntimeInfo("ghcr.io/tessariq/reference-runtime:v0.1.0", "reference", "read-only", 0, "disabled", "disabled", "open")
 
 	data, err := json.Marshal(info)
 	require.NoError(t, err)
@@ -84,6 +85,7 @@ func TestNewRuntimeInfo_ExactlySevenTopLevelKeys(t *testing.T) {
 		"auth_mount_count":          true,
 		"agent_config_mount":        true,
 		"agent_config_mount_status": true,
+		"resolved_egress_mode":      true,
 	}
 
 	for k := range raw {
@@ -96,7 +98,7 @@ func TestWriteRuntimeInfo_DirectoryPermissions(t *testing.T) {
 	t.Parallel()
 
 	dir := filepath.Join(t.TempDir(), "evidence")
-	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", "read-only", 0, "disabled", "disabled")
+	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", "read-only", 0, "disabled", "disabled", "open")
 
 	require.NoError(t, WriteRuntimeInfo(dir, info))
 
@@ -110,7 +112,7 @@ func TestWriteRuntimeInfo_FilePermissions(t *testing.T) {
 	t.Parallel()
 
 	dir := filepath.Join(t.TempDir(), "evidence")
-	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", "read-only", 0, "disabled", "disabled")
+	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", "read-only", 0, "disabled", "disabled", "open")
 
 	require.NoError(t, WriteRuntimeInfo(dir, info))
 
@@ -124,7 +126,7 @@ func TestWriteRuntimeInfo_CreatesDirectoryAndFile(t *testing.T) {
 	t.Parallel()
 
 	dir := filepath.Join(t.TempDir(), "evidence")
-	info := NewRuntimeInfo("ghcr.io/tessariq/reference-runtime:v0.1.0", "reference", "read-only", 0, "disabled", "disabled")
+	info := NewRuntimeInfo("ghcr.io/tessariq/reference-runtime:v0.1.0", "reference", "read-only", 0, "disabled", "disabled", "open")
 
 	require.NoError(t, WriteRuntimeInfo(dir, info))
 
@@ -139,7 +141,7 @@ func TestWriteRuntimeInfo_WritesValidJSON(t *testing.T) {
 	t.Parallel()
 
 	dir := filepath.Join(t.TempDir(), "evidence")
-	info := NewRuntimeInfo("ghcr.io/tessariq/reference-runtime:v0.1.0", "reference", "read-only", 0, "disabled", "disabled")
+	info := NewRuntimeInfo("ghcr.io/tessariq/reference-runtime:v0.1.0", "reference", "read-only", 0, "disabled", "disabled", "open")
 
 	require.NoError(t, WriteRuntimeInfo(dir, info))
 
@@ -230,7 +232,7 @@ func TestAgentUpdate_SkippedJSON(t *testing.T) {
 func TestRuntimeInfo_OmitsAgentUpdateWhenNil(t *testing.T) {
 	t.Parallel()
 
-	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", "read-only", 0, "disabled", "disabled")
+	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", "read-only", 0, "disabled", "disabled", "open")
 
 	data, err := json.Marshal(info)
 	require.NoError(t, err)
@@ -244,7 +246,7 @@ func TestRuntimeInfo_OmitsAgentUpdateWhenNil(t *testing.T) {
 func TestRuntimeInfo_IncludesAgentUpdateWhenSet(t *testing.T) {
 	t.Parallel()
 
-	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", "read-only", 0, "disabled", "disabled")
+	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", "read-only", 0, "disabled", "disabled", "open")
 	info.AgentUpdate = &AgentUpdate{
 		Attempted:     true,
 		Success:       true,
@@ -258,7 +260,7 @@ func TestRuntimeInfo_IncludesAgentUpdateWhenSet(t *testing.T) {
 
 	var raw map[string]json.RawMessage
 	require.NoError(t, json.Unmarshal(data, &raw))
-	require.Len(t, raw, 8, "runtime.json must have 8 top-level keys when agent_update is set")
+	require.Len(t, raw, 9, "runtime.json must have 9 top-level keys when agent_update is set")
 	_, hasUpdate := raw["agent_update"]
 	require.True(t, hasUpdate, "agent_update must be present")
 }
@@ -267,7 +269,7 @@ func TestWriteRuntimeInfo_WithAgentUpdate(t *testing.T) {
 	t.Parallel()
 
 	dir := filepath.Join(t.TempDir(), "evidence")
-	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", "read-only", 0, "disabled", "disabled")
+	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", "read-only", 0, "disabled", "disabled", "open")
 	info.AgentUpdate = &AgentUpdate{
 		Attempted:     true,
 		Success:       true,
@@ -295,7 +297,7 @@ func TestWriteRuntimeInfo_JSONMatchesSpecShape(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	info := NewRuntimeInfo("ghcr.io/tessariq/reference-runtime:v0.1.0", "reference", "read-only", 0, "disabled", "disabled")
+	info := NewRuntimeInfo("ghcr.io/tessariq/reference-runtime:v0.1.0", "reference", "read-only", 0, "disabled", "disabled", "open")
 
 	require.NoError(t, WriteRuntimeInfo(dir, info))
 
@@ -328,4 +330,8 @@ func TestWriteRuntimeInfo_JSONMatchesSpecShape(t *testing.T) {
 	var agentConfigMountStatus string
 	require.NoError(t, json.Unmarshal(raw["agent_config_mount_status"], &agentConfigMountStatus))
 	require.Equal(t, "disabled", agentConfigMountStatus)
+
+	var resolvedEgressMode string
+	require.NoError(t, json.Unmarshal(raw["resolved_egress_mode"], &resolvedEgressMode))
+	require.Equal(t, "open", resolvedEgressMode)
 }

@@ -32,6 +32,7 @@ type RuntimeInfo struct {
 	AuthMountCount         int          `json:"auth_mount_count"`
 	AgentConfigMount       string       `json:"agent_config_mount"`
 	AgentConfigMountStatus string       `json:"agent_config_mount_status"`
+	ResolvedEgressMode     string       `json:"resolved_egress_mode"`
 	AgentUpdate            *AgentUpdate `json:"agent_update,omitempty"`
 }
 
@@ -40,7 +41,7 @@ type RuntimeInfo struct {
 // actual discovered mount specs; callers are expected to pass
 // authmount.AuthMountModeReadOnly after having validated the contract
 // via authmount.ValidateContract.
-func NewRuntimeInfo(image, imageSource, authMountMode string, authMountCount int, agentConfigMount, agentConfigMountStatus string) RuntimeInfo {
+func NewRuntimeInfo(image, imageSource, authMountMode string, authMountCount int, agentConfigMount, agentConfigMountStatus, resolvedEgressMode string) RuntimeInfo {
 	return RuntimeInfo{
 		SchemaVersion:          1,
 		Image:                  image,
@@ -49,6 +50,7 @@ func NewRuntimeInfo(image, imageSource, authMountMode string, authMountCount int
 		AuthMountCount:         authMountCount,
 		AgentConfigMount:       agentConfigMount,
 		AgentConfigMountStatus: agentConfigMountStatus,
+		ResolvedEgressMode:     resolvedEgressMode,
 	}
 }
 

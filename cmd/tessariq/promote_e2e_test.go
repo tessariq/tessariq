@@ -235,11 +235,14 @@ func TestE2E_PromoteProxyRequiresEgressEvidence(t *testing.T) {
 	repoPath := filepath.Join(hostDir, "repo")
 	evidenceDir := filepath.Join(repoPath, ".tessariq", "runs", runID)
 	manifestPath := filepath.Join(evidenceDir, "manifest.json")
+	runtimePath := filepath.Join(evidenceDir, "runtime.json")
 
-	// Flip resolved_egress_mode to "proxy" in the recorded manifest so promote
-	// exercises the proxy completeness gate without needing a real Squid topology.
-	tamperCmd := fmt.Sprintf(`sed -i 's/"resolved_egress_mode": "[^"]*"/"resolved_egress_mode": "proxy"/' %s`, manifestPath)
-	execCmd(t, env, ctx, tamperCmd, "mark manifest as proxy mode")
+	// Flip resolved_egress_mode to "proxy" in both manifest and runtime so
+	// promote exercises the proxy completeness gate without a mismatch error.
+	tamperManifest := fmt.Sprintf(`sed -i 's/"resolved_egress_mode": "[^"]*"/"resolved_egress_mode": "proxy"/' %s`, manifestPath)
+	tamperRuntime := fmt.Sprintf(`sed -i 's/"resolved_egress_mode": "[^"]*"/"resolved_egress_mode": "proxy"/' %s`, runtimePath)
+	execCmd(t, env, ctx, tamperManifest, "mark manifest as proxy mode")
+	execCmd(t, env, ctx, tamperRuntime, "mark runtime as proxy mode")
 
 	compiledPath := filepath.Join(evidenceDir, "egress.compiled.yaml")
 	eventsPath := filepath.Join(evidenceDir, "egress.events.jsonl")
@@ -264,6 +267,39 @@ func TestE2E_PromoteProxyRequiresEgressEvidence(t *testing.T) {
 	promoteCode, promoteOutput = runPromote(t, env, runID, "")
 	require.Equal(t, 0, promoteCode, "promote should succeed when both proxy artifacts exist: %s", promoteOutput)
 	require.Contains(t, promoteOutput, "branch: tessariq/"+runID)
+}
+
+func TestE2E_PromoteEgressModeTamperRejectedBeforeGitSideEffects(t *testing.T) {
+	t.Parallel()
+
+	bin := buildBinary(t)
+	env := setupRunEnvWithScript(t, bin, "claude", "echo promoted > /work/promoted.txt; exit 0")
+
+	runCode, runOutput := runTessariq(t, env, "claude", "--egress open")
+	require.Equal(t, 0, runCode, "run failed: %s", runOutput)
+
+	runID := extractField(runOutput, "run_id")
+	require.NotEmpty(t, runID)
+
+	ctx := context.Background()
+	hostDir := env.Dir()
+	repoPath := filepath.Join(hostDir, "repo")
+	evidenceDir := filepath.Join(repoPath, ".tessariq", "runs", runID)
+	manifestPath := filepath.Join(evidenceDir, "manifest.json")
+
+	// Tamper manifest only: flip resolved_egress_mode from "open" to "proxy".
+	// runtime.json still says "open" — the cross-check must catch the mismatch.
+	tamperCmd := fmt.Sprintf(`sed -i 's/"resolved_egress_mode": "[^"]*"/"resolved_egress_mode": "proxy"/' %s`, manifestPath)
+	execCmd(t, env, ctx, tamperCmd, "tamper manifest egress mode")
+
+	promoteCode, promoteOutput := runPromote(t, env, runID, "")
+	require.NotEqual(t, 0, promoteCode, "promote should fail with egress mode mismatch: %s", promoteOutput)
+	require.Contains(t, promoteOutput, "tampered")
+
+	// Assert no branch was created.
+	code, _, err := env.Exec(ctx, []string{"sh", "-c", fmt.Sprintf("git -C %s show-ref --verify --quiet refs/heads/tessariq/%s", repoPath, runID)})
+	require.NoError(t, err)
+	require.NotEqual(t, 0, code, "branch must not be created when egress mode is tampered")
 }
 
 func runPromote(t *testing.T, env *containers.RunEnv, runID, envPrefix string) (int, string) {

@@ -1,7 +1,7 @@
 ---
 id: TASK-098-reject-manifest-egress-mode-tampering-at-promote
 title: Reject manifest egress-mode tampering that suppresses proxy evidence requirements
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-011-egress-mode-resolution-and-manifest-recording
@@ -15,7 +15,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#evidence-contract
     - specs/tessariq-v0.1.0.md#tessariq-promote-run-ref
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-04-24T08:04:00Z"
+updated_at: "2026-04-24T08:44:30Z"
 areas:
     - promote
     - proxy
@@ -84,3 +84,4 @@ verification:
 - Prefer a minimal trustable source over duplicating mode logic in multiple places.
 - Keep the error style aligned with existing tampered-evidence failures from TASK-048 and TASK-089.
 - Add this task to `TASK-017-v0-1-0-spec-conformity-closeout` dependencies so closeout cannot pass while proxy-evidence requirements are bypassable by manifest tampering.
+- 2026-04-24T08:44:30Z: Hardened promote to cross-check resolved_egress_mode between manifest.json and runtime.json. Added ErrEgressModeMismatch sentinel, runtime.json now records resolved_egress_mode, CheckEvidenceCompleteness cross-validates both sources and fails closed on mismatch. Unit (18 tests), integration (30 tests), e2e (11 tests), mutation (86.65% efficacy), and manual (6/6 pass) all green.

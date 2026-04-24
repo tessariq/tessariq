@@ -373,18 +373,20 @@ func TestRun_IncompleteIndexFailsCleanly(t *testing.T) {
 	evidenceDir := filepath.Join(repo.Dir(), ".tessariq", "runs", testRunID)
 	require.NoError(t, os.MkdirAll(evidenceDir, 0o700))
 	require.NoError(t, run.WriteManifest(evidenceDir, run.Manifest{
-		SchemaVersion: 1,
-		RunID:         testRunID,
-		TaskPath:      "tasks/sample.md",
-		TaskTitle:     "Sample Task",
-		Agent:         "claude-code",
-		BaseSHA:       baseSHA,
-		WorkspaceMode: "worktree",
-		CreatedAt:     time.Now().UTC().Format(time.RFC3339),
+		SchemaVersion:       1,
+		RunID:               testRunID,
+		TaskPath:            "tasks/sample.md",
+		TaskTitle:           "Sample Task",
+		Agent:               "claude-code",
+		BaseSHA:             baseSHA,
+		WorkspaceMode:       "worktree",
+		RequestedEgressMode: "open",
+		ResolvedEgressMode:  "open",
+		CreatedAt:           time.Now().UTC().Format(time.RFC3339),
 	}))
 	require.NoError(t, runner.WriteStatus(evidenceDir, runner.NewTerminalStatus(runner.StateSuccess, time.Now().Add(-time.Minute), time.Now(), 0, false)))
 	require.NoError(t, adapter.WriteAgentInfo(evidenceDir, adapter.NewAgentInfo("claude-code", map[string]any{}, map[string]bool{})))
-	require.NoError(t, adapter.WriteRuntimeInfo(evidenceDir, adapter.NewRuntimeInfo("test-image", "custom", "read-only", 0, "disabled", "disabled")))
+	require.NoError(t, adapter.WriteRuntimeInfo(evidenceDir, adapter.NewRuntimeInfo("test-image", "custom", "read-only", 0, "disabled", "disabled", "open")))
 	require.NoError(t, workspace.WriteMetadata(evidenceDir, workspace.BuildMetadata(baseSHA, "/tmp/worktree")))
 	require.NoError(t, os.WriteFile(filepath.Join(evidenceDir, "task.md"), []byte("# Sample Task\n"), 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(evidenceDir, "run.log"), []byte("ok\n"), 0o600))
@@ -498,14 +500,16 @@ func TestRun_TamperedManifestRunIDRejectedBeforeGitSideEffects(t *testing.T) {
 	tamperedRunID := "01BBBBBBBBBBBBBBBBBBBBBBBBB"
 	evidenceDir := filepath.Join(repo.Dir(), ".tessariq", "runs", testRunID)
 	require.NoError(t, run.WriteManifest(evidenceDir, run.Manifest{
-		SchemaVersion: 1,
-		RunID:         tamperedRunID,
-		TaskPath:      "tasks/sample.md",
-		TaskTitle:     "Tampered Task",
-		Agent:         "claude-code",
-		BaseSHA:       baseSHA,
-		WorkspaceMode: "worktree",
-		CreatedAt:     time.Now().UTC().Format(time.RFC3339),
+		SchemaVersion:       1,
+		RunID:               tamperedRunID,
+		TaskPath:            "tasks/sample.md",
+		TaskTitle:           "Tampered Task",
+		Agent:               "claude-code",
+		BaseSHA:             baseSHA,
+		WorkspaceMode:       "worktree",
+		RequestedEgressMode: "open",
+		ResolvedEgressMode:  "open",
+		CreatedAt:           time.Now().UTC().Format(time.RFC3339),
 	}))
 
 	_, err = Run(ctx, repo.Dir(), Options{RunRef: testRunID})
@@ -543,19 +547,21 @@ func createEvidenceFixture(t *testing.T, repoDir, runID, baseSHA, patch, diffsta
 	require.NoError(t, os.MkdirAll(evidenceDir, 0o700))
 
 	manifest := run.Manifest{
-		SchemaVersion: 1,
-		RunID:         runID,
-		TaskPath:      "tasks/sample.md",
-		TaskTitle:     "Promote Sample Task",
-		Agent:         "claude-code",
-		BaseSHA:       baseSHA,
-		WorkspaceMode: "worktree",
-		CreatedAt:     time.Now().UTC().Format(time.RFC3339),
+		SchemaVersion:       1,
+		RunID:               runID,
+		TaskPath:            "tasks/sample.md",
+		TaskTitle:           "Promote Sample Task",
+		Agent:               "claude-code",
+		BaseSHA:             baseSHA,
+		WorkspaceMode:       "worktree",
+		RequestedEgressMode: "open",
+		ResolvedEgressMode:  "open",
+		CreatedAt:           time.Now().UTC().Format(time.RFC3339),
 	}
 	require.NoError(t, run.WriteManifest(evidenceDir, manifest))
 	require.NoError(t, runner.WriteStatus(evidenceDir, runner.NewTerminalStatus(runner.StateSuccess, time.Now().Add(-time.Minute), time.Now(), 0, false)))
 	require.NoError(t, adapter.WriteAgentInfo(evidenceDir, adapter.NewAgentInfo("claude-code", map[string]any{}, map[string]bool{})))
-	require.NoError(t, adapter.WriteRuntimeInfo(evidenceDir, adapter.NewRuntimeInfo("test-image", "custom", "read-only", 0, "disabled", "disabled")))
+	require.NoError(t, adapter.WriteRuntimeInfo(evidenceDir, adapter.NewRuntimeInfo("test-image", "custom", "read-only", 0, "disabled", "disabled", "open")))
 	require.NoError(t, workspace.WriteMetadata(evidenceDir, workspace.BuildMetadata(baseSHA, "/tmp/cleaned-worktree")))
 	require.NoError(t, os.WriteFile(filepath.Join(evidenceDir, "task.md"), []byte("# Promote Sample Task\n"), 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(evidenceDir, "run.log"), []byte("ok\n"), 0o600))
@@ -622,6 +628,75 @@ func TestRun_RejectsRunWithCleanupError(t *testing.T) {
 	require.Empty(t, gitOutputAllowFailure(t, repo.Dir(), "branch", "--list", defaultBranchName(testRunID)))
 }
 
+func TestRun_TamperedManifestEgressModeRejectedBeforeGitSideEffects(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo, err := containers.StartGitRepo(ctx, t)
+	require.NoError(t, err)
+
+	writeFile(t, filepath.Join(repo.Dir(), "tracked.txt"), "before\n")
+	gitRunTest(t, repo.Dir(), "add", "tracked.txt")
+	gitRunTest(t, repo.Dir(), "commit", "-m", "base")
+
+	baseSHA := gitOutputTest(t, repo.Dir(), "rev-parse", "HEAD")
+	patch, diffstat := buildDiffArtifacts(t, repo.Dir(), baseSHA, func(worktree string) {
+		writeFile(t, filepath.Join(worktree, "tracked.txt"), "after\n")
+	})
+
+	evidenceDir := filepath.Join(repo.Dir(), ".tessariq", "runs", testRunID)
+	require.NoError(t, os.MkdirAll(evidenceDir, 0o700))
+	require.NoError(t, run.WriteManifest(evidenceDir, run.Manifest{
+		SchemaVersion:       1,
+		RunID:               testRunID,
+		TaskPath:            "tasks/sample.md",
+		TaskTitle:           "Proxy Task",
+		Agent:               "claude-code",
+		BaseSHA:             baseSHA,
+		WorkspaceMode:       "worktree",
+		RequestedEgressMode: "proxy",
+		ResolvedEgressMode:  "proxy",
+		CreatedAt:           time.Now().UTC().Format(time.RFC3339),
+	}))
+	require.NoError(t, runner.WriteStatus(evidenceDir, runner.NewTerminalStatus(runner.StateSuccess, time.Now().Add(-time.Minute), time.Now(), 0, false)))
+	require.NoError(t, adapter.WriteAgentInfo(evidenceDir, adapter.NewAgentInfo("claude-code", map[string]any{}, map[string]bool{})))
+	require.NoError(t, adapter.WriteRuntimeInfo(evidenceDir, adapter.NewRuntimeInfo("test-image", "custom", "read-only", 0, "disabled", "disabled", "proxy")))
+	require.NoError(t, workspace.WriteMetadata(evidenceDir, workspace.BuildMetadata(baseSHA, "/tmp/cleaned-worktree")))
+	require.NoError(t, os.WriteFile(filepath.Join(evidenceDir, "task.md"), []byte("# Proxy Task\n"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(evidenceDir, "run.log"), []byte("ok\n"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(evidenceDir, "runner.log"), []byte("ok\n"), 0o600))
+	if patch != "" {
+		require.NoError(t, os.WriteFile(filepath.Join(evidenceDir, "diff.patch"), []byte(patch), 0o600))
+	}
+	if diffstat != "" {
+		require.NoError(t, os.WriteFile(filepath.Join(evidenceDir, "diffstat.txt"), []byte(diffstat), 0o600))
+	}
+
+	runsDir := filepath.Join(repo.Dir(), ".tessariq", "runs")
+	require.NoError(t, run.AppendIndex(runsDir, run.IndexEntry{
+		RunID:         testRunID,
+		CreatedAt:     time.Now().UTC().Format(time.RFC3339),
+		TaskPath:      "tasks/sample.md",
+		TaskTitle:     "Proxy Task",
+		Agent:         "claude-code",
+		WorkspaceMode: "worktree",
+		State:         string(runner.StateSuccess),
+		EvidencePath:  filepath.Join(".tessariq", "runs", testRunID),
+	}))
+
+	// Tamper: relabel manifest from proxy to direct, leaving runtime at proxy.
+	tamperManifestEgressMode(t, repo.Dir(), testRunID, "direct")
+
+	_, err = Run(ctx, repo.Dir(), Options{RunRef: testRunID})
+	require.Error(t, err)
+	require.ErrorIs(t, err, runner.ErrEgressModeMismatch)
+	require.Contains(t, err.Error(), "tampered")
+
+	require.Empty(t, gitOutputAllowFailure(t, repo.Dir(), "branch", "--list", defaultBranchName(testRunID)))
+	branchCount := gitOutputTest(t, repo.Dir(), "rev-list", "--count", "--all")
+	require.Equal(t, "2", branchCount, "expected only the initial 2 commits, no promote commit")
+}
+
 func markProxyEgressMode(t *testing.T, repoDir, runID string) {
 	t.Helper()
 	evidenceDir := filepath.Join(repoDir, ".tessariq", "runs", runID)
@@ -629,6 +704,17 @@ func markProxyEgressMode(t *testing.T, repoDir, runID string) {
 	require.NoError(t, err)
 	m.ResolvedEgressMode = "proxy"
 	m.RequestedEgressMode = "proxy"
+	require.NoError(t, run.WriteManifest(evidenceDir, m))
+	require.NoError(t, adapter.WriteRuntimeInfo(evidenceDir, adapter.NewRuntimeInfo("test-image", "custom", "read-only", 0, "disabled", "disabled", "proxy")))
+}
+
+func tamperManifestEgressMode(t *testing.T, repoDir, runID, mode string) {
+	t.Helper()
+	evidenceDir := filepath.Join(repoDir, ".tessariq", "runs", runID)
+	m, err := run.ReadManifest(evidenceDir)
+	require.NoError(t, err)
+	m.ResolvedEgressMode = mode
+	m.RequestedEgressMode = mode
 	require.NoError(t, run.WriteManifest(evidenceDir, m))
 }
 

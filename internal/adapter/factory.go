@@ -113,7 +113,7 @@ func NewProcess(cfg run.Config, taskContent string, runID, worktreePath, evidenc
 
 	proc := container.New(containerCfg)
 
-	runtimeInfo := NewRuntimeInfo(a.Image(), imageSource, authMountMode, authMountCount, agentConfigMount, agentConfigMountStatus)
+	runtimeInfo := NewRuntimeInfo(a.Image(), imageSource, authMountMode, authMountCount, agentConfigMount, agentConfigMountStatus, resolvedEgress)
 	if updateResult.Attempted {
 		runtimeInfo.AgentUpdate = &AgentUpdate{
 			Attempted:     true,
