@@ -5,9 +5,9 @@ Automated adversarial testing against done tasks.
 | Key | Value |
 |-----|-------|
 | Started | 2026-03-31 |
-| Iteration | 41 |
-| Last bug found | iteration 41 |
-| Clean iterations | 6 / 40 |
+| Iteration | 43 |
+| Last bug found | iteration 43 |
+| Clean iterations | 6 / 42 |
 | Status | In progress |
 
 ---
@@ -90,6 +90,9 @@ BUG-043 through BUG-046 were reviewed against the current code and marked not re
 | BUG-058 | MEDIUM | `internal/container/process.go:141-152`, `internal/workspace/provision.go:31` | `prepareWritableMounts` runs `chmod -R a+rwX` on every writable bind-mount source (the worktree), and the worktree parent dirs are created 0o755; during the run, all local users on the host can read and modify the worktree files | **Fixed** (TASK-093) |
 | BUG-059 | MEDIUM | `internal/runner/runner.go:161-170,443-457`, `internal/container/process.go:102-105` | `Runner.writeTerminalStatus` calls `Process.Cleanup` AFTER the terminal `status.json` is written; if `docker rm -f` fails, the run returns a Go error while `status.json` already records `success`, and the caller CLI path maps the error to a generic failure — leaving the recorded terminal state and the CLI exit disagreeing about outcome | **Fixed** (TASK-094) |
 | BUG-061 | MEDIUM | `internal/workspace/validatepath.go:51-65`, `internal/lifecycle/reconcile.go:166-169` | TASK-090 regression: `ValidateWorkspacePath` calls `filepath.EvalSymlinks` on the stored `workspace_path` and returns `ErrWorkspacePathOutsideTree` when the canonical worktree has already been removed (prior reconcile, manual cleanup, or idempotent re-entry); `tessariq attach` / `tessariq promote` then fail even though there is nothing to clean and the stored path matches the trusted-input canonical lexically. `workspace.Cleanup` itself is idempotent for missing paths, but `cleanupTerminalRun` errors out before it is reached. | **Fixed** (TASK-095) |
+| BUG-062 | HIGH | `internal/runner/completeness.go`, `internal/promote/promote.go`, `internal/run/index.go` | Manifest `resolved_egress_mode` tampering suppresses required proxy evidence checks | **Open** |
+| BUG-063 | HIGH | `internal/runner/completeness.go`, `internal/promote/promote.go` | `promote` accepts non-empty malformed structured evidence as complete | **Open** |
+| BUG-064 | MEDIUM | `internal/proxy/events.go`, `internal/runner/completeness.go`, `internal/promote/promote.go` | Honest zero-denied proxy runs emit empty `egress.events.jsonl` and become unpromotable | **Open** |
 
 ---
 
@@ -2587,3 +2590,162 @@ even though the stored path matches the canonical derived from trusted inputs (`
 - No security impact: the lexical canonical equality check at `validatepath.go:41` still enforces `filepath.Clean(untrustedPath) == filepath.Clean(canonical)` before EvalSymlinks ever runs, so a missing path can never point anywhere except the trusted-input-derived canonical.
 
 **Fix direction:** In `ValidateWorkspacePath`, handle `errors.Is(err, os.ErrNotExist)` from both `EvalSymlinks(untrustedPath)` and `EvalSymlinks(canonical)` by returning `(canonical, nil)`. `Cleanup`'s own `os.Stat + IsNotExist → nil` fast path is then the next stop and the no-op idempotent branch is restored. The lexical canonical equality check above the ENOENT branch preserves the BUG-055 guarantee that the stored path cannot be redirected anywhere but the canonical derived from trusted inputs. Replace `TestValidateWorkspacePath_NonexistentCanonicalRejected` with an idempotent-no-op test, add a guard test that a *missing* lexically-outside path is still rejected, and add a reconcile-level test that drives the no-op case through the `cleanupWorkspace` dependency hook.
+
+---
+
+## Iteration 43
+
+Scope: narrow follow-up adversarial pass on proxy teardown telemetry trustworthiness, evidence atomicity/completeness, and what `promote` actually trusts after BUG-052 and BUG-053.
+
+### BUG-062: Manifest `resolved_egress_mode` tampering suppresses required proxy evidence checks
+
+**Severity:** HIGH
+**Files:** `internal/runner/completeness.go:41-49`, `internal/promote/promote.go:59-66,167-177`, `internal/run/index.go:15-24,38-49`
+
+**What was verified:**
+
+`runner.CheckEvidenceCompleteness` decides whether proxy artifacts are required entirely from `manifest.json.resolved_egress_mode`:
+
+```go
+manifest, err := run.ReadManifest(evidenceDir)
+...
+if manifest.ResolvedEgressMode == "proxy" {
+    if missing := collectMissing(evidenceDir, proxyRequiredEvidenceFiles); len(missing) > 0 {
+        return incompleteErr(missing)
+    }
+}
+```
+
+`promote.Run` validates only manifest run identity before trusting that manifest:
+
+```go
+manifest, err := run.ReadManifest(evidenceDir)
+...
+if err := validateManifestIdentity(entry, manifest, evidenceDir); err != nil {
+    return Result{}, err
+}
+```
+
+But the trusted run record in `index.jsonl` does not carry any egress-mode field that could detect a manifest rewrite:
+
+```go
+type IndexEntry struct {
+    RunID         string `json:"run_id"`
+    CreatedAt     string `json:"created_at"`
+    TaskPath      string `json:"task_path"`
+    TaskTitle     string `json:"task_title"`
+    Agent         string `json:"agent"`
+    WorkspaceMode string `json:"workspace_mode"`
+    State         string `json:"state"`
+    EvidencePath  string `json:"evidence_path"`
+}
+```
+
+A real proxy-mode run can therefore be relabeled to `"direct"` in `manifest.json`, which disables the proxy evidence requirement entirely.
+
+**Impact:**
+
+- A proxy-mode run can present as complete and promotable even when its required proxy evidence is missing.
+- This weakens the BUG-051 / TASK-088 fix: proxy evidence completeness is only enforced while the mutable manifest says the run was proxy mode.
+- The resulting evidence can look clean while omitting the exact proxy artifacts `promote` is supposed to require.
+
+**Fix direction:** Persist resolved egress mode in a second trusted record and drive proxy-evidence requirements from that trusted value, rejecting any mismatch with `manifest.json` before promote side effects.
+
+### BUG-063: `promote` accepts non-empty malformed structured evidence as complete
+
+**Severity:** HIGH
+**Files:** `internal/runner/completeness.go:36-67`, `internal/run/manifest.go:55-68`, `internal/runner/status.go:116-128`, `internal/promote/promote.go:59-85`
+
+**What was verified:**
+
+`runner.CheckEvidenceCompleteness` only checks existence and non-zero size:
+
+```go
+if missing := collectMissing(evidenceDir, requiredEvidenceFiles); len(missing) > 0 {
+    return incompleteErr(missing)
+}
+```
+
+`collectMissing` uses only `os.Stat` and `Size()`:
+
+```go
+info, err := os.Stat(filepath.Join(evidenceDir, name))
+...
+if info.Size() == 0 {
+    missing = append(missing, name+" (empty)")
+}
+```
+
+Only `manifest.json` is parsed there, and only to decide whether proxy artifacts are required. `promote` then parses only `manifest.json` and `status.json`, and even those readers do not validate minimum shape beyond JSON syntax:
+
+```go
+var m Manifest
+if err := json.Unmarshal(data, &m); err != nil { ... }
+
+var s Status
+if err := json.Unmarshal(data, &s); err != nil { ... }
+```
+
+So non-empty garbage or schema-only stubs in `agent.json`, `runtime.json`, `workspace.json`, `egress.compiled.yaml`, `egress.events.jsonl`, and minimally-populated `status.json` can still pass the completeness gate and let `promote` proceed.
+
+**Impact:**
+
+- Evidence can be partial, synthetic, stale, or malformed while still looking "complete" enough for `promote`.
+- `promote` can create a branch/commit from a run whose required structured artifacts are not actually intact.
+- This breaks the evidence contract's "required fields" and "parseable" expectations.
+
+**Fix direction:** Make completeness parse and minimally validate every structured artifact required for the run shape: syntax, `schema_version`, and required fields. Keep `promote` behind that stronger validator.
+
+### BUG-064: Honest proxy runs with zero denied events produce an empty `egress.events.jsonl` and become unpromotable
+
+**Severity:** MEDIUM
+**Files:** `internal/proxy/events.go:36-80,159-184`, `internal/runner/completeness.go:46-49,55-67`, `internal/promote/promote.go:55-57`
+
+**What was verified:**
+
+When Squid logs contain no `TCP_DENIED` entries, `ParseSquidAccessLog` returns an empty slice:
+
+```go
+func ParseSquidAccessLog(r io.Reader) ([]Event, error) {
+    var events []Event
+    ...
+    return events, nil
+}
+```
+
+`WriteEventsJSONL` writes zero lines for that empty slice, leaving a zero-byte `egress.events.jsonl`:
+
+```go
+enc := json.NewEncoder(f)
+for _, e := range events {
+    if err := enc.Encode(e); err != nil { ... }
+}
+```
+
+But completeness rejects empty proxy artifacts:
+
+```go
+if info.Size() == 0 {
+    missing = append(missing, name+" (empty)")
+}
+```
+
+So a successful proxy-mode run with no blocked destinations is later rejected by `promote` as incomplete evidence.
+
+**Impact:**
+
+- Honest proxy-mode runs with zero denied events are not promotable.
+- This is a clean-data failure mode, not just a telemetry-failure mode.
+- It also makes "no blocked events occurred" indistinguishable from "writer produced an empty artifact," which keeps the proxy evidence contract ambiguous.
+
+**Fix direction:** Emit a non-empty, parseable zero-events representation or explicit "no denied events" marker, and teach completeness to accept that while still failing closed on extraction failures.
+
+### Areas tested (clean)
+
+| Area | Probe | Result |
+|------|-------|--------|
+| `manifest.json` atomicity | tmp+rename still used in `WriteManifest` | CLEAN |
+| `status.json` atomicity | tmp+rename still used in `WriteStatus` | CLEAN |
+| Evidence-path containment | `promote` still rejects out-of-repo and symlinked evidence | CLEAN |
+| Manifest run-id integrity | `promote` still rejects run-id mismatch before git side effects | CLEAN |
+| Cleanup-error promote guard | `status.cleanup_error` still blocks promote | CLEAN |

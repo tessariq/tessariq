@@ -81,6 +81,9 @@ depends_on:
     - TASK-094-reconcile-terminal-status-with-container-cleanup-outcome
     - TASK-096-make-proxy-telemetry-extraction-fail-closed
     - TASK-097-make-agent-runtime-and-workspace-evidence-writes-atomic
+    - TASK-098-reject-manifest-egress-mode-tampering-at-promote
+    - TASK-099-validate-structured-evidence-parseability-before-promote
+    - TASK-100-represent-zero-denied-proxy-telemetry-without-empty-events-file
 milestone: v0.1.0
 spec_version: v0.1.0
 spec_refs:
@@ -96,7 +99,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#acceptance-scenarios
     - specs/tessariq-v0.1.0.md#failure-ux
     - specs/tessariq-v0.1.0.md#success-metrics
-updated_at: "2026-04-24T07:41:10Z"
+updated_at: "2026-04-24T08:04:00Z"
 areas:
     - verification
     - spec
@@ -164,3 +167,4 @@ Run the final v0.1.0 conformity sweep against the normative spec after the stren
 - 2026-04-13T20:55:00Z: Added TASK-085 as an explicit dependency so the final closeout sweep cannot run before stale `running` run state and orphaned-run recovery are fixed across all supported agents.
 - 2026-04-13T21:05:00Z: Added TASK-086 through TASK-089 as explicit dependencies so the final closeout sweep cannot run before the newly verified v0.1.0 blockers for diff-artifact integrity, read-only Claude auth mounts, proxy-mode evidence completeness, and symlink-safe evidence-path validation are resolved. BUG-048 is already covered by TASK-085.
 - 2026-04-24T07:41:10Z: Added TASK-096 and TASK-097 as explicit dependencies so the final closeout sweep cannot run before the newly confirmed v0.1.0 evidence-integrity blockers for proxy teardown telemetry trustworthiness and atomic writes for `workspace.json`, `agent.json`, and `runtime.json` are resolved.
+- 2026-04-24T08:04:00Z: Added TASK-098 through TASK-100 as explicit dependencies so the final closeout sweep cannot run before the newly verified v0.1.0 blockers for manifest egress-mode tamper resistance, structured evidence parseability, and zero-denied proxy telemetry semantics are resolved.
