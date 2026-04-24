@@ -189,6 +189,45 @@ func TestWriteAgentInfo_WritesValidJSON(t *testing.T) {
 	require.Equal(t, info.Agent, parsed.Agent)
 }
 
+func TestWriteAgentInfo_NoTempFileAfterSuccess(t *testing.T) {
+	t.Parallel()
+
+	dir := filepath.Join(t.TempDir(), "evidence")
+	info := NewAgentInfo("claude-code",
+		map[string]any{"model": "x"},
+		map[string]bool{"model": true},
+	)
+
+	require.NoError(t, WriteAgentInfo(dir, info))
+
+	_, err := os.Stat(filepath.Join(dir, "agent.json.tmp"))
+	require.True(t, os.IsNotExist(err), "temp file must not remain after successful write")
+}
+
+func TestWriteAgentInfo_OverwritesExisting(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	original := NewAgentInfo("original-agent",
+		map[string]any{"model": "x"},
+		map[string]bool{"model": true},
+	)
+	require.NoError(t, WriteAgentInfo(dir, original))
+
+	updated := NewAgentInfo("updated-agent",
+		map[string]any{"model": "y"},
+		map[string]bool{"model": false},
+	)
+	require.NoError(t, WriteAgentInfo(dir, updated))
+
+	data, err := os.ReadFile(filepath.Join(dir, "agent.json"))
+	require.NoError(t, err)
+
+	var parsed AgentInfo
+	require.NoError(t, json.Unmarshal(data, &parsed))
+	require.Equal(t, "updated-agent", parsed.Agent)
+}
+
 func TestWriteAgentInfo_JSONMatchesSpecShape(t *testing.T) {
 	t.Parallel()
 

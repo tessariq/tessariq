@@ -291,6 +291,36 @@ func TestWriteRuntimeInfo_WithAgentUpdate(t *testing.T) {
 	require.Equal(t, int64(4200), parsed.AgentUpdate.ElapsedMs)
 }
 
+func TestWriteRuntimeInfo_NoTempFileAfterSuccess(t *testing.T) {
+	t.Parallel()
+
+	dir := filepath.Join(t.TempDir(), "evidence")
+	info := NewRuntimeInfo("ghcr.io/tessariq/claude-code:latest", "reference", "read-only", 0, "disabled", "disabled")
+
+	require.NoError(t, WriteRuntimeInfo(dir, info))
+
+	_, err := os.Stat(filepath.Join(dir, "runtime.json.tmp"))
+	require.True(t, os.IsNotExist(err), "temp file must not remain after successful write")
+}
+
+func TestWriteRuntimeInfo_OverwritesExisting(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	original := NewRuntimeInfo("ghcr.io/tessariq/original:v1", "reference", "read-only", 0, "disabled", "disabled")
+	require.NoError(t, WriteRuntimeInfo(dir, original))
+
+	updated := NewRuntimeInfo("ghcr.io/tessariq/updated:v2", "custom", "read-only", 0, "enabled", "mounted")
+	require.NoError(t, WriteRuntimeInfo(dir, updated))
+
+	data, err := os.ReadFile(filepath.Join(dir, "runtime.json"))
+	require.NoError(t, err)
+
+	var parsed RuntimeInfo
+	require.NoError(t, json.Unmarshal(data, &parsed))
+	require.Equal(t, "ghcr.io/tessariq/updated:v2", parsed.Image)
+}
+
 func TestWriteRuntimeInfo_JSONMatchesSpecShape(t *testing.T) {
 	t.Parallel()
 

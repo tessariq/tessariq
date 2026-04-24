@@ -1,6 +1,6 @@
 ---
 schema_version: 1
-updated_at: "2026-04-24T09:17:08Z"
+updated_at: "2026-05-29T10:26:12Z"
 mode: user_request
 run_id: wf-20260424T090050Z
 agent_id: claude-code
@@ -12,7 +12,6 @@ last_completed: TASK-100-represent-zero-denied-proxy-telemetry-without-empty-eve
 next_tasks:
     - TASK-098-reject-manifest-egress-mode-tampering-at-promote
     - TASK-099-validate-structured-evidence-parseability-before-promote
-    - TASK-097-make-agent-runtime-and-workspace-evidence-writes-atomic
 repo_state: idle
 last_transition: finish
 last_transition_at: "2026-04-24T09:17:04Z"
@@ -37,12 +36,11 @@ max_retries: 2
 - Next tasks:
   - TASK-098-reject-manifest-egress-mode-tampering-at-promote
   - TASK-099-validate-structured-evidence-parseability-before-promote
-  - TASK-097-make-agent-runtime-and-workspace-evidence-writes-atomic
 
 ## Task Counts
 
-- todo: 4
+- todo: 3
 - in_progress: 0
-- done: 95
+- done: 96
 - blocked: 1
 - cancelled: 0

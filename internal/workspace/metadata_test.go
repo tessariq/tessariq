@@ -100,6 +100,36 @@ func TestWriteMetadata_CreatesDirectory(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestWriteMetadata_NoTempFileAfterSuccess(t *testing.T) {
+	t.Parallel()
+
+	dir := filepath.Join(t.TempDir(), "evidence")
+	m := BuildMetadata("abc123", "/some/path")
+
+	require.NoError(t, WriteMetadata(dir, m))
+
+	_, err := os.Stat(filepath.Join(dir, "workspace.json.tmp"))
+	require.True(t, os.IsNotExist(err), "temp file must not remain after successful write")
+}
+
+func TestWriteMetadata_OverwritesExisting(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	original := BuildMetadata("original-sha", "/original/path")
+	require.NoError(t, WriteMetadata(dir, original))
+
+	updated := BuildMetadata("updated-sha", "/updated/path")
+	require.NoError(t, WriteMetadata(dir, updated))
+
+	data, err := os.ReadFile(filepath.Join(dir, "workspace.json"))
+	require.NoError(t, err)
+
+	var parsed Metadata
+	require.NoError(t, json.Unmarshal(data, &parsed))
+	require.Equal(t, "updated-sha", parsed.BaseSHA)
+}
+
 func TestWriteMetadata_WritesValidJSON(t *testing.T) {
 	t.Parallel()
 

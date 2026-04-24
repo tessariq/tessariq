@@ -63,9 +63,16 @@ func WriteRuntimeInfo(evidenceDir string, info RuntimeInfo) error {
 		return fmt.Errorf("marshal runtime info: %w", err)
 	}
 
-	path := filepath.Join(evidenceDir, "runtime.json")
-	if err := os.WriteFile(path, data, 0o600); err != nil {
-		return fmt.Errorf("write runtime info: %w", err)
+	target := filepath.Join(evidenceDir, "runtime.json")
+	tmp := target + ".tmp"
+
+	if err := os.WriteFile(tmp, data, 0o600); err != nil {
+		return fmt.Errorf("write runtime info temp file: %w", err)
+	}
+
+	if err := os.Rename(tmp, target); err != nil {
+		os.Remove(tmp) // best-effort cleanup
+		return fmt.Errorf("rename runtime info file: %w", err)
 	}
 
 	return nil

@@ -1,7 +1,7 @@
 ---
 id: TASK-097-make-agent-runtime-and-workspace-evidence-writes-atomic
 title: Write agent.json runtime.json and workspace.json atomically to avoid crash-corrupted evidence
-status: todo
+status: done
 priority: p2
 depends_on:
     - TASK-004-worktree-provisioning-and-workspace-metadata
@@ -12,7 +12,7 @@ spec_version: v0.1.0
 spec_refs:
     - specs/tessariq-v0.1.0.md#evidence-contract
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-04-24T07:41:10Z"
+updated_at: "2026-04-24T08:01:24Z"
 areas:
     - evidence
     - reliability
@@ -81,3 +81,4 @@ verification:
 - Likely files: `internal/workspace/metadata.go`, `internal/adapter/agent.go`, `internal/adapter/runtime.go`, and their tests.
 - Prefer the existing repo-local atomic-write pattern over inventing a generalized utility unless the duplication becomes clearly worse.
 - Add this task to `TASK-017-v0-1-0-spec-conformity-closeout` dependencies so the release gate cannot run before BUG-053 is resolved.
+- 2026-04-24T08:01:24Z: workspace.json, agent.json, runtime.json now use temp-file+rename atomic writes matching manifest.json/status.json pattern; 6 regression tests added; mutation testing 86.5% efficacy; manual tests 5/5 pass
