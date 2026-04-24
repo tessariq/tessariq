@@ -5,7 +5,9 @@ package proxy_test
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -378,4 +380,50 @@ func TestIntegration_ProxyAllowsAndBlocks(t *testing.T) {
 		}
 	}
 	require.True(t, found, "expected a blocked event for example.com:443, got events: %+v", events)
+}
+
+func TestIntegration_Teardown_ExtractionFailure_SkipsEvidence_CleansUpInfra(t *testing.T) {
+	t.Parallel()
+	testutil.RequireDocker(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+
+	squidImage := buildSquidTestImage(t)
+	runID := testutil.UniqueName(t)
+	evidenceDir := t.TempDir()
+	forceCleanup(t, runID)
+
+	topo := &proxy.Topology{
+		RunID:           runID,
+		EvidenceDir:     evidenceDir,
+		Destinations:    []string{"example.com:443"},
+		AllowlistSource: "cli",
+		SquidImage:      squidImage,
+	}
+
+	_, err := topo.Setup(ctx)
+	require.NoError(t, err, "Setup must succeed")
+
+	// Remove the Squid container before Teardown to force extraction failure.
+	squidName := proxy.SquidContainerName(runID)
+	rmCmd := exec.CommandContext(ctx, "docker", "rm", "-f", squidName)
+	out, err := rmCmd.CombinedOutput()
+	require.NoError(t, err, "docker rm -f must succeed: %s", string(out))
+
+	// Teardown should return an error that includes the extraction failure cause.
+	tdErr := topo.Teardown(ctx)
+	require.Error(t, tdErr, "Teardown must return error when extraction fails")
+	require.Contains(t, tdErr.Error(), "telemetry extraction",
+		"error must surface telemetry extraction as the root cause")
+
+	// Evidence files must NOT be written (fail-closed).
+	_, statErr := os.Stat(filepath.Join(evidenceDir, "egress.events.jsonl"))
+	require.True(t, os.IsNotExist(statErr),
+		"egress.events.jsonl must not be written when extraction fails")
+
+	// Network cleanup must still run.
+	netName := proxy.NetworkName(runID)
+	out, inspectErr := exec.CommandContext(ctx, "docker", "network", "inspect", netName).CombinedOutput()
+	require.Error(t, inspectErr, "network should be removed after Teardown: %s", string(out))
 }

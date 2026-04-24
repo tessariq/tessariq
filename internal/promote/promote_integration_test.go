@@ -342,9 +342,8 @@ func TestRun_ProxyRunMissingEventsJSONLRejectsPromote(t *testing.T) {
 	createEvidenceFixture(t, repo.Dir(), testRunID, baseSHA, patch, diffstat)
 	markProxyEgressMode(t, repo.Dir(), testRunID)
 	writeProxyEgressArtifacts(t, repo.Dir(), testRunID)
-	require.NoError(t, os.WriteFile(
+	require.NoError(t, os.Remove(
 		filepath.Join(repo.Dir(), ".tessariq", "runs", testRunID, "egress.events.jsonl"),
-		[]byte{}, 0o600,
 	))
 
 	_, err = Run(ctx, repo.Dir(), Options{RunRef: testRunID})
@@ -352,6 +351,34 @@ func TestRun_ProxyRunMissingEventsJSONLRejectsPromote(t *testing.T) {
 	require.Contains(t, err.Error(), "egress.events.jsonl")
 	require.Contains(t, err.Error(), "evidence is intact")
 	require.Empty(t, gitOutputAllowFailure(t, repo.Dir(), "branch", "--list", defaultBranchName(testRunID)))
+}
+
+func TestRun_ProxyRunEmptyEventsJSONLPromotes(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo, err := containers.StartGitRepo(ctx, t)
+	require.NoError(t, err)
+
+	writeFile(t, filepath.Join(repo.Dir(), "tracked.txt"), "before\n")
+	gitRunTest(t, repo.Dir(), "add", "tracked.txt")
+	gitRunTest(t, repo.Dir(), "commit", "-m", "base")
+
+	baseSHA := gitOutputTest(t, repo.Dir(), "rev-parse", "HEAD")
+	patch, diffstat := buildDiffArtifacts(t, repo.Dir(), baseSHA, func(worktree string) {
+		writeFile(t, filepath.Join(worktree, "tracked.txt"), "after\n")
+	})
+	createEvidenceFixture(t, repo.Dir(), testRunID, baseSHA, patch, diffstat)
+	markProxyEgressMode(t, repo.Dir(), testRunID)
+	writeProxyEgressArtifacts(t, repo.Dir(), testRunID)
+	require.NoError(t, os.WriteFile(
+		filepath.Join(repo.Dir(), ".tessariq", "runs", testRunID, "egress.events.jsonl"),
+		[]byte{}, 0o600,
+	))
+
+	result, err := Run(ctx, repo.Dir(), Options{RunRef: testRunID})
+	require.NoError(t, err, "0-byte egress.events.jsonl means no blocked events, should promote")
+	require.Equal(t, testRunID, result.RunID)
 }
 
 func TestRun_IncompleteIndexFailsCleanly(t *testing.T) {
