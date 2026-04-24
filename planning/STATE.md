@@ -1,6 +1,6 @@
 ---
 schema_version: 1
-updated_at: "2026-05-29T10:26:12Z"
+updated_at: "2026-05-29T10:50:52Z"
 mode: user_request
 run_id: wf-20260424T090050Z
 agent_id: claude-code
@@ -11,7 +11,6 @@ attempt: 0
 last_completed: TASK-100-represent-zero-denied-proxy-telemetry-without-empty-events-file
 next_tasks:
     - TASK-098-reject-manifest-egress-mode-tampering-at-promote
-    - TASK-099-validate-structured-evidence-parseability-before-promote
 repo_state: idle
 last_transition: finish
 last_transition_at: "2026-04-24T09:17:04Z"
@@ -35,12 +34,11 @@ max_retries: 2
 - Active spec: v0.1.0 (specs/tessariq-v0.1.0.md)
 - Next tasks:
   - TASK-098-reject-manifest-egress-mode-tampering-at-promote
-  - TASK-099-validate-structured-evidence-parseability-before-promote
 
 ## Task Counts
 
-- todo: 3
+- todo: 2
 - in_progress: 0
-- done: 96
+- done: 97
 - blocked: 1
 - cancelled: 0

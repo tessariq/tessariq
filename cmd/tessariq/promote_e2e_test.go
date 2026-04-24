@@ -246,7 +246,7 @@ func TestE2E_PromoteProxyRequiresEgressEvidence(t *testing.T) {
 
 	// Write egress.compiled.yaml but leave egress.events.jsonl missing → promote
 	// must refuse with the canonical "evidence is intact" guidance.
-	execCmd(t, env, ctx, fmt.Sprintf("printf 'schema_version: 1\\n' > %s", compiledPath), "write compiled.yaml")
+	execCmd(t, env, ctx, fmt.Sprintf("printf 'schema_version: 1\\nallowlist_source: built_in\\ndestinations:\\n  - host: example.com\\n    port: 443\\n' > %s", compiledPath), "write compiled.yaml")
 
 	promoteCode, promoteOutput := runPromote(t, env, runID, "")
 	require.NotEqual(t, 0, promoteCode, "promote should fail when egress.events.jsonl is missing: %s", promoteOutput)

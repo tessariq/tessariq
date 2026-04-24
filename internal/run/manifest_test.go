@@ -184,6 +184,51 @@ func TestBuildManifestSeed_AllowlistSourceUserConfig(t *testing.T) {
 	require.Equal(t, "user_config", m.AllowlistSource)
 }
 
+func TestManifest_Validate(t *testing.T) {
+	t.Parallel()
+
+	valid := Manifest{
+		SchemaVersion:      1,
+		RunID:              "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+		TaskPath:           "tasks/t.md",
+		Agent:              "claude-code",
+		BaseSHA:            "abc123",
+		WorkspaceMode:      "worktree",
+		ResolvedEgressMode: "direct",
+		ContainerName:      "tessariq-test",
+		CreatedAt:          "2026-01-01T00:00:00Z",
+	}
+
+	require.NoError(t, valid.Validate())
+
+	cases := []struct {
+		name    string
+		mutate  func(*Manifest)
+		wantErr string
+	}{
+		{"bad schema_version", func(m *Manifest) { m.SchemaVersion = 0 }, "schema_version"},
+		{"missing run_id", func(m *Manifest) { m.RunID = "" }, "run_id"},
+		{"missing task_path", func(m *Manifest) { m.TaskPath = "" }, "task_path"},
+		{"missing agent", func(m *Manifest) { m.Agent = "" }, "agent"},
+		{"missing base_sha", func(m *Manifest) { m.BaseSHA = "" }, "base_sha"},
+		{"missing workspace_mode", func(m *Manifest) { m.WorkspaceMode = "" }, "workspace_mode"},
+		{"missing resolved_egress_mode", func(m *Manifest) { m.ResolvedEgressMode = "" }, "resolved_egress_mode"},
+		{"missing container_name", func(m *Manifest) { m.ContainerName = "" }, "container_name"},
+		{"missing created_at", func(m *Manifest) { m.CreatedAt = "" }, "created_at"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			m := valid
+			tc.mutate(&m)
+			err := m.Validate()
+			require.Error(t, err)
+			require.ErrorContains(t, err, tc.wantErr)
+		})
+	}
+}
+
 func TestWriteManifest_CreatesDirectory(t *testing.T) {
 	t.Parallel()
 

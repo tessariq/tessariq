@@ -31,6 +31,39 @@ func BuildMetadata(baseSHA, workspacePath string) Metadata {
 	}
 }
 
+// Validate checks that the workspace metadata has a supported schema version
+// and all spec-required fields are present.
+func (m Metadata) Validate() error {
+	if m.SchemaVersion != 1 {
+		return fmt.Errorf("unsupported schema_version %d", m.SchemaVersion)
+	}
+	for _, check := range []struct{ field, value string }{
+		{"workspace_mode", m.WorkspaceMode},
+		{"base_sha", m.BaseSHA},
+		{"workspace_path", m.WorkspacePath},
+		{"repo_mount_mode", m.RepoMountMode},
+		{"reproducibility", m.Reproducibility},
+	} {
+		if check.value == "" {
+			return fmt.Errorf("missing required field %q", check.field)
+		}
+	}
+	return nil
+}
+
+// ReadMetadata reads and parses workspace.json from the evidence directory.
+func ReadMetadata(evidenceDir string) (Metadata, error) {
+	data, err := os.ReadFile(filepath.Join(evidenceDir, "workspace.json"))
+	if err != nil {
+		return Metadata{}, fmt.Errorf("read workspace metadata: %w", err)
+	}
+	var m Metadata
+	if err := json.Unmarshal(data, &m); err != nil {
+		return Metadata{}, fmt.Errorf("parse workspace metadata: %w", err)
+	}
+	return m, nil
+}
+
 // WriteMetadata writes workspace.json into the given evidence directory.
 func WriteMetadata(evidenceDir string, m Metadata) error {
 	if err := os.MkdirAll(evidenceDir, 0o700); err != nil {

@@ -27,6 +27,31 @@ func NewAgentInfo(agent string, requested map[string]any, supported map[string]b
 	}
 }
 
+// Validate checks that the agent info has a supported schema version and
+// all spec-required fields are present.
+func (a AgentInfo) Validate() error {
+	if a.SchemaVersion != 1 {
+		return fmt.Errorf("unsupported schema_version %d", a.SchemaVersion)
+	}
+	if a.Agent == "" {
+		return fmt.Errorf("missing required field %q", "agent")
+	}
+	return nil
+}
+
+// ReadAgentInfo reads and parses agent.json from the evidence directory.
+func ReadAgentInfo(evidenceDir string) (AgentInfo, error) {
+	data, err := os.ReadFile(filepath.Join(evidenceDir, "agent.json"))
+	if err != nil {
+		return AgentInfo{}, fmt.Errorf("read agent info: %w", err)
+	}
+	var info AgentInfo
+	if err := json.Unmarshal(data, &info); err != nil {
+		return AgentInfo{}, fmt.Errorf("parse agent info: %w", err)
+	}
+	return info, nil
+}
+
 // WriteAgentInfo writes agent.json into the given evidence directory.
 func WriteAgentInfo(evidenceDir string, info AgentInfo) error {
 	if err := os.MkdirAll(evidenceDir, 0o700); err != nil {

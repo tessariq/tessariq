@@ -194,3 +194,35 @@ func TestReadStatus_MissingFile(t *testing.T) {
 	_, err := ReadStatus(t.TempDir())
 	require.Error(t, err)
 }
+
+func TestStatus_Validate(t *testing.T) {
+	t.Parallel()
+
+	valid := Status{
+		SchemaVersion: 1,
+		State:         StateSuccess,
+		StartedAt:     "2026-01-01T00:00:00Z",
+	}
+	require.NoError(t, valid.Validate())
+
+	cases := []struct {
+		name    string
+		mutate  func(*Status)
+		wantErr string
+	}{
+		{"bad schema_version", func(s *Status) { s.SchemaVersion = 0 }, "schema_version"},
+		{"missing state", func(s *Status) { s.State = "" }, "state"},
+		{"missing started_at", func(s *Status) { s.StartedAt = "" }, "started_at"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			s := valid
+			tc.mutate(&s)
+			err := s.Validate()
+			require.Error(t, err)
+			require.ErrorContains(t, err, tc.wantErr)
+		})
+	}
+}
