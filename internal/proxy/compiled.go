@@ -40,6 +40,29 @@ func NewCompiledAllowlist(source string, rawDestinations []string) (*CompiledAll
 	}, nil
 }
 
+// Validate checks that the compiled allowlist has a supported schema version
+// and all spec-required fields are present.
+func (c *CompiledAllowlist) Validate() error {
+	if c.SchemaVersion != 1 {
+		return fmt.Errorf("unsupported schema_version %d", c.SchemaVersion)
+	}
+	if c.AllowlistSource == "" {
+		return fmt.Errorf("missing required field %q", "allowlist_source")
+	}
+	if len(c.Destinations) == 0 {
+		return fmt.Errorf("missing required field %q", "destinations")
+	}
+	for i, d := range c.Destinations {
+		if d.Host == "" {
+			return fmt.Errorf("destination[%d]: missing required field %q", i, "host")
+		}
+		if d.Port == 0 {
+			return fmt.Errorf("destination[%d]: missing required field %q", i, "port")
+		}
+	}
+	return nil
+}
+
 // compiledFileName is the evidence artifact file name.
 const compiledFileName = "egress.compiled.yaml"
 

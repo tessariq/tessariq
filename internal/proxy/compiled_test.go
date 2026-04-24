@@ -208,6 +208,39 @@ func TestWriteCompiledYAML_Schema(t *testing.T) {
 	require.Equal(t, 8443, second["port"])
 }
 
+func TestCompiledAllowlist_Validate(t *testing.T) {
+	t.Parallel()
+
+	valid := &CompiledAllowlist{
+		SchemaVersion:   1,
+		AllowlistSource: "built_in",
+		Destinations:    []CompiledDestination{{Host: "example.com", Port: 443}},
+	}
+	require.NoError(t, valid.Validate())
+
+	cases := []struct {
+		name    string
+		c       *CompiledAllowlist
+		wantErr string
+	}{
+		{"bad schema_version", &CompiledAllowlist{SchemaVersion: 0, AllowlistSource: "cli", Destinations: []CompiledDestination{{Host: "x", Port: 443}}}, "schema_version"},
+		{"missing allowlist_source", &CompiledAllowlist{SchemaVersion: 1, Destinations: []CompiledDestination{{Host: "x", Port: 443}}}, "allowlist_source"},
+		{"empty destinations", &CompiledAllowlist{SchemaVersion: 1, AllowlistSource: "cli", Destinations: []CompiledDestination{}}, "destinations"},
+		{"nil destinations", &CompiledAllowlist{SchemaVersion: 1, AllowlistSource: "cli"}, "destinations"},
+		{"destination missing host", &CompiledAllowlist{SchemaVersion: 1, AllowlistSource: "cli", Destinations: []CompiledDestination{{Port: 443}}}, "host"},
+		{"destination missing port", &CompiledAllowlist{SchemaVersion: 1, AllowlistSource: "cli", Destinations: []CompiledDestination{{Host: "x"}}}, "port"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			err := tc.c.Validate()
+			require.Error(t, err)
+			require.ErrorContains(t, err, tc.wantErr)
+		})
+	}
+}
+
 func TestReadCompiledYAML_MissingFile(t *testing.T) {
 	t.Parallel()
 

@@ -373,14 +373,16 @@ func TestRun_IncompleteIndexFailsCleanly(t *testing.T) {
 	evidenceDir := filepath.Join(repo.Dir(), ".tessariq", "runs", testRunID)
 	require.NoError(t, os.MkdirAll(evidenceDir, 0o700))
 	require.NoError(t, run.WriteManifest(evidenceDir, run.Manifest{
-		SchemaVersion: 1,
-		RunID:         testRunID,
-		TaskPath:      "tasks/sample.md",
-		TaskTitle:     "Sample Task",
-		Agent:         "claude-code",
-		BaseSHA:       baseSHA,
-		WorkspaceMode: "worktree",
-		CreatedAt:     time.Now().UTC().Format(time.RFC3339),
+		SchemaVersion:      1,
+		RunID:              testRunID,
+		TaskPath:           "tasks/sample.md",
+		TaskTitle:          "Sample Task",
+		Agent:              "claude-code",
+		BaseSHA:            baseSHA,
+		WorkspaceMode:      "worktree",
+		ResolvedEgressMode: "direct",
+		ContainerName:      "tessariq-" + testRunID,
+		CreatedAt:          time.Now().UTC().Format(time.RFC3339),
 	}))
 	require.NoError(t, runner.WriteStatus(evidenceDir, runner.NewTerminalStatus(runner.StateSuccess, time.Now().Add(-time.Minute), time.Now(), 0, false)))
 	require.NoError(t, adapter.WriteAgentInfo(evidenceDir, adapter.NewAgentInfo("claude-code", map[string]any{}, map[string]bool{})))
@@ -498,14 +500,16 @@ func TestRun_TamperedManifestRunIDRejectedBeforeGitSideEffects(t *testing.T) {
 	tamperedRunID := "01BBBBBBBBBBBBBBBBBBBBBBBBB"
 	evidenceDir := filepath.Join(repo.Dir(), ".tessariq", "runs", testRunID)
 	require.NoError(t, run.WriteManifest(evidenceDir, run.Manifest{
-		SchemaVersion: 1,
-		RunID:         tamperedRunID,
-		TaskPath:      "tasks/sample.md",
-		TaskTitle:     "Tampered Task",
-		Agent:         "claude-code",
-		BaseSHA:       baseSHA,
-		WorkspaceMode: "worktree",
-		CreatedAt:     time.Now().UTC().Format(time.RFC3339),
+		SchemaVersion:      1,
+		RunID:              tamperedRunID,
+		TaskPath:           "tasks/sample.md",
+		TaskTitle:          "Tampered Task",
+		Agent:              "claude-code",
+		BaseSHA:            baseSHA,
+		WorkspaceMode:      "worktree",
+		ResolvedEgressMode: "direct",
+		ContainerName:      "tessariq-" + tamperedRunID,
+		CreatedAt:          time.Now().UTC().Format(time.RFC3339),
 	}))
 
 	_, err = Run(ctx, repo.Dir(), Options{RunRef: testRunID})
@@ -543,14 +547,16 @@ func createEvidenceFixture(t *testing.T, repoDir, runID, baseSHA, patch, diffsta
 	require.NoError(t, os.MkdirAll(evidenceDir, 0o700))
 
 	manifest := run.Manifest{
-		SchemaVersion: 1,
-		RunID:         runID,
-		TaskPath:      "tasks/sample.md",
-		TaskTitle:     "Promote Sample Task",
-		Agent:         "claude-code",
-		BaseSHA:       baseSHA,
-		WorkspaceMode: "worktree",
-		CreatedAt:     time.Now().UTC().Format(time.RFC3339),
+		SchemaVersion:      1,
+		RunID:              runID,
+		TaskPath:           "tasks/sample.md",
+		TaskTitle:          "Promote Sample Task",
+		Agent:              "claude-code",
+		BaseSHA:            baseSHA,
+		WorkspaceMode:      "worktree",
+		ResolvedEgressMode: "direct",
+		ContainerName:      "tessariq-" + runID,
+		CreatedAt:          time.Now().UTC().Format(time.RFC3339),
 	}
 	require.NoError(t, run.WriteManifest(evidenceDir, manifest))
 	require.NoError(t, runner.WriteStatus(evidenceDir, runner.NewTerminalStatus(runner.StateSuccess, time.Now().Add(-time.Minute), time.Now(), 0, false)))
@@ -620,6 +626,84 @@ func TestRun_RejectsRunWithCleanupError(t *testing.T) {
 	// No branch must have been created — promote refuses before any git
 	// side effects.
 	require.Empty(t, gitOutputAllowFailure(t, repo.Dir(), "branch", "--list", defaultBranchName(testRunID)))
+}
+
+func TestRun_MalformedEvidenceRejectsPromoteBeforeGitSideEffects(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name     string
+		artifact string
+		content  string
+		wantErr  string
+	}{
+		{
+			"malformed agent.json",
+			"agent.json",
+			`not valid json`,
+			"agent.json",
+		},
+		{
+			"agent.json missing required field",
+			"agent.json",
+			`{"schema_version":1}`,
+			"agent",
+		},
+		{
+			"malformed runtime.json",
+			"runtime.json",
+			`{bad json`,
+			"runtime.json",
+		},
+		{
+			"malformed workspace.json",
+			"workspace.json",
+			`{nope}`,
+			"workspace.json",
+		},
+		{
+			"workspace.json missing base_sha",
+			"workspace.json",
+			`{"schema_version":1,"workspace_mode":"worktree","workspace_path":"/tmp","repo_mount_mode":"rw","reproducibility":"strong"}`,
+			"base_sha",
+		},
+		{
+			"status.json missing state",
+			"status.json",
+			`{"schema_version":1,"started_at":"2026-01-01T00:00:00Z"}`,
+			"state",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			ctx := context.Background()
+			repo, err := containers.StartGitRepo(ctx, t)
+			require.NoError(t, err)
+
+			writeFile(t, filepath.Join(repo.Dir(), "tracked.txt"), "before\n")
+			gitRunTest(t, repo.Dir(), "add", "tracked.txt")
+			gitRunTest(t, repo.Dir(), "commit", "-m", "base")
+
+			baseSHA := gitOutputTest(t, repo.Dir(), "rev-parse", "HEAD")
+			patch, diffstat := buildDiffArtifacts(t, repo.Dir(), baseSHA, func(worktree string) {
+				writeFile(t, filepath.Join(worktree, "tracked.txt"), "after\n")
+			})
+			createEvidenceFixture(t, repo.Dir(), testRunID, baseSHA, patch, diffstat)
+
+			evidenceDir := filepath.Join(repo.Dir(), ".tessariq", "runs", testRunID)
+			require.NoError(t, os.WriteFile(filepath.Join(evidenceDir, tc.artifact), []byte(tc.content), 0o600))
+
+			_, err = Run(ctx, repo.Dir(), Options{RunRef: testRunID})
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tc.wantErr)
+			require.Contains(t, err.Error(), "evidence is intact")
+
+			require.Empty(t, gitOutputAllowFailure(t, repo.Dir(), "branch", "--list", defaultBranchName(testRunID)))
+		})
+	}
 }
 
 func markProxyEgressMode(t *testing.T, repoDir, runID string) {

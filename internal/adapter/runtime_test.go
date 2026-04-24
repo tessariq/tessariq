@@ -291,6 +291,67 @@ func TestWriteRuntimeInfo_WithAgentUpdate(t *testing.T) {
 	require.Equal(t, int64(4200), parsed.AgentUpdate.ElapsedMs)
 }
 
+func TestRuntimeInfo_Validate(t *testing.T) {
+	t.Parallel()
+
+	valid := NewRuntimeInfo("test-image", "custom", "read-only", 0, "disabled", "disabled")
+	require.NoError(t, valid.Validate())
+
+	cases := []struct {
+		name    string
+		mutate  func(*RuntimeInfo)
+		wantErr string
+	}{
+		{"bad schema_version", func(r *RuntimeInfo) { r.SchemaVersion = 0 }, "schema_version"},
+		{"missing image", func(r *RuntimeInfo) { r.Image = "" }, "image"},
+		{"missing image_source", func(r *RuntimeInfo) { r.ImageSource = "" }, "image_source"},
+		{"missing auth_mount_mode", func(r *RuntimeInfo) { r.AuthMountMode = "" }, "auth_mount_mode"},
+		{"missing agent_config_mount", func(r *RuntimeInfo) { r.AgentConfigMount = "" }, "agent_config_mount"},
+		{"missing agent_config_mount_status", func(r *RuntimeInfo) { r.AgentConfigMountStatus = "" }, "agent_config_mount_status"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			r := valid
+			tc.mutate(&r)
+			err := r.Validate()
+			require.Error(t, err)
+			require.ErrorContains(t, err, tc.wantErr)
+		})
+	}
+}
+
+func TestReadRuntimeInfo_RoundTrip(t *testing.T) {
+	t.Parallel()
+
+	dir := filepath.Join(t.TempDir(), "evidence")
+	original := NewRuntimeInfo("test-image", "custom", "read-only", 0, "disabled", "disabled")
+	require.NoError(t, WriteRuntimeInfo(dir, original))
+
+	got, err := ReadRuntimeInfo(dir)
+	require.NoError(t, err)
+	require.Equal(t, original, got)
+}
+
+func TestReadRuntimeInfo_MissingFile(t *testing.T) {
+	t.Parallel()
+
+	_, err := ReadRuntimeInfo(t.TempDir())
+	require.Error(t, err)
+}
+
+func TestReadRuntimeInfo_InvalidJSON(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "runtime.json"), []byte("not-json"), 0o600))
+
+	_, err := ReadRuntimeInfo(dir)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "parse")
+}
+
 func TestWriteRuntimeInfo_JSONMatchesSpecShape(t *testing.T) {
 	t.Parallel()
 

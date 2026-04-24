@@ -52,6 +52,39 @@ func NewRuntimeInfo(image, imageSource, authMountMode string, authMountCount int
 	}
 }
 
+// Validate checks that the runtime info has a supported schema version and
+// all spec-required fields are present.
+func (r RuntimeInfo) Validate() error {
+	if r.SchemaVersion != 1 {
+		return fmt.Errorf("unsupported schema_version %d", r.SchemaVersion)
+	}
+	for _, check := range []struct{ field, value string }{
+		{"image", r.Image},
+		{"image_source", r.ImageSource},
+		{"auth_mount_mode", r.AuthMountMode},
+		{"agent_config_mount", r.AgentConfigMount},
+		{"agent_config_mount_status", r.AgentConfigMountStatus},
+	} {
+		if check.value == "" {
+			return fmt.Errorf("missing required field %q", check.field)
+		}
+	}
+	return nil
+}
+
+// ReadRuntimeInfo reads and parses runtime.json from the evidence directory.
+func ReadRuntimeInfo(evidenceDir string) (RuntimeInfo, error) {
+	data, err := os.ReadFile(filepath.Join(evidenceDir, "runtime.json"))
+	if err != nil {
+		return RuntimeInfo{}, fmt.Errorf("read runtime info: %w", err)
+	}
+	var info RuntimeInfo
+	if err := json.Unmarshal(data, &info); err != nil {
+		return RuntimeInfo{}, fmt.Errorf("parse runtime info: %w", err)
+	}
+	return info, nil
+}
+
 // WriteRuntimeInfo writes runtime.json into the given evidence directory.
 func WriteRuntimeInfo(evidenceDir string, info RuntimeInfo) error {
 	if err := os.MkdirAll(evidenceDir, 0o700); err != nil {

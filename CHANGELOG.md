@@ -79,6 +79,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed prerequisite preflight UX for local CLI execution so `tessariq init`, `tessariq run`, and `tessariq attach` fail fast with actionable missing-dependency guidance before lifecycle side effects.
 - Changed `tessariq run --interactive` from a blanket rejection to full interactive runtime support: containers are created with TTY allocation, the tmux session attaches to the container for live terminal input, and the active-agent timeout pauses while the agent waits for human approval instead of ticking wall-clock time. OpenCode rejects `--interactive` with actionable guidance; Claude Code supports it natively.
 
+- Strengthened `tessariq promote` evidence gate: structured artifacts (`manifest.json`, `status.json`, `agent.json`, `runtime.json`, `workspace.json`, `egress.compiled.yaml`, `egress.events.jsonl`) must now be parseable and satisfy their minimum spec-defined shape before promote proceeds. Previously, non-empty but malformed evidence passed the completeness check silently.
+
 ### Fixed
 
 - Fixed `tessariq run` reporting an otherwise-successful run as failed while `status.json` still recorded `success` when container cleanup (`docker rm -f`) failed; the runner now runs container cleanup before the final status write and downgrades a successful run to `state=failed` with `exit_code=1` and a new `cleanup_error` field in `status.json`, the CLI prints `cleanup_error:` alongside the non-success output, and `tessariq promote` refuses any run whose `status.json` carries a `cleanup_error`. Cleanup failures on runs that were already failing never overwrite the primary state or exit code.

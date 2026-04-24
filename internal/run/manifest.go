@@ -52,6 +52,29 @@ func ResolveEgressMode(requested string) string {
 	return requested
 }
 
+// Validate checks that the manifest has a supported schema version and
+// all spec-required fields are present.
+func (m Manifest) Validate() error {
+	if m.SchemaVersion != 1 {
+		return fmt.Errorf("unsupported schema_version %d", m.SchemaVersion)
+	}
+	for _, check := range []struct{ field, value string }{
+		{"run_id", m.RunID},
+		{"task_path", m.TaskPath},
+		{"agent", m.Agent},
+		{"base_sha", m.BaseSHA},
+		{"workspace_mode", m.WorkspaceMode},
+		{"resolved_egress_mode", m.ResolvedEgressMode},
+		{"container_name", m.ContainerName},
+		{"created_at", m.CreatedAt},
+	} {
+		if check.value == "" {
+			return fmt.Errorf("missing required field %q", check.field)
+		}
+	}
+	return nil
+}
+
 // ReadManifest reads the manifest from the evidence directory.
 func ReadManifest(evidenceDir string) (Manifest, error) {
 	data, err := os.ReadFile(filepath.Join(evidenceDir, "manifest.json"))

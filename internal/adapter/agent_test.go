@@ -189,6 +189,65 @@ func TestWriteAgentInfo_WritesValidJSON(t *testing.T) {
 	require.Equal(t, info.Agent, parsed.Agent)
 }
 
+func TestAgentInfo_Validate(t *testing.T) {
+	t.Parallel()
+
+	valid := NewAgentInfo("claude-code", map[string]any{}, map[string]bool{})
+	require.NoError(t, valid.Validate())
+
+	cases := []struct {
+		name    string
+		info    AgentInfo
+		wantErr string
+	}{
+		{"bad schema_version", AgentInfo{SchemaVersion: 0, Agent: "claude-code"}, "schema_version"},
+		{"missing agent", AgentInfo{SchemaVersion: 1, Agent: ""}, "agent"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			err := tc.info.Validate()
+			require.Error(t, err)
+			require.ErrorContains(t, err, tc.wantErr)
+		})
+	}
+}
+
+func TestReadAgentInfo_RoundTrip(t *testing.T) {
+	t.Parallel()
+
+	dir := filepath.Join(t.TempDir(), "evidence")
+	original := NewAgentInfo("claude-code",
+		map[string]any{"model": "gpt-5.4"},
+		map[string]bool{"model": false},
+	)
+	require.NoError(t, WriteAgentInfo(dir, original))
+
+	got, err := ReadAgentInfo(dir)
+	require.NoError(t, err)
+	require.Equal(t, original.SchemaVersion, got.SchemaVersion)
+	require.Equal(t, original.Agent, got.Agent)
+}
+
+func TestReadAgentInfo_MissingFile(t *testing.T) {
+	t.Parallel()
+
+	_, err := ReadAgentInfo(t.TempDir())
+	require.Error(t, err)
+}
+
+func TestReadAgentInfo_InvalidJSON(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.json"), []byte("not-json"), 0o600))
+
+	_, err := ReadAgentInfo(dir)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "parse")
+}
+
 func TestWriteAgentInfo_JSONMatchesSpecShape(t *testing.T) {
 	t.Parallel()
 

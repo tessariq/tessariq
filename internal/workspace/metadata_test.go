@@ -60,6 +60,67 @@ func TestBuildMetadata_ExactlySevenFields(t *testing.T) {
 	require.Len(t, raw, len(expectedKeys), "workspace metadata should have exactly %d keys", len(expectedKeys))
 }
 
+func TestMetadata_Validate(t *testing.T) {
+	t.Parallel()
+
+	valid := BuildMetadata("abc123", "/some/path")
+	require.NoError(t, valid.Validate())
+
+	cases := []struct {
+		name    string
+		mutate  func(*Metadata)
+		wantErr string
+	}{
+		{"bad schema_version", func(m *Metadata) { m.SchemaVersion = 0 }, "schema_version"},
+		{"missing workspace_mode", func(m *Metadata) { m.WorkspaceMode = "" }, "workspace_mode"},
+		{"missing base_sha", func(m *Metadata) { m.BaseSHA = "" }, "base_sha"},
+		{"missing workspace_path", func(m *Metadata) { m.WorkspacePath = "" }, "workspace_path"},
+		{"missing repo_mount_mode", func(m *Metadata) { m.RepoMountMode = "" }, "repo_mount_mode"},
+		{"missing reproducibility", func(m *Metadata) { m.Reproducibility = "" }, "reproducibility"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			m := valid
+			tc.mutate(&m)
+			err := m.Validate()
+			require.Error(t, err)
+			require.ErrorContains(t, err, tc.wantErr)
+		})
+	}
+}
+
+func TestReadMetadata_RoundTrip(t *testing.T) {
+	t.Parallel()
+
+	dir := filepath.Join(t.TempDir(), "evidence")
+	original := BuildMetadata("abc123", "/some/path")
+	require.NoError(t, WriteMetadata(dir, original))
+
+	got, err := ReadMetadata(dir)
+	require.NoError(t, err)
+	require.Equal(t, original, got)
+}
+
+func TestReadMetadata_MissingFile(t *testing.T) {
+	t.Parallel()
+
+	_, err := ReadMetadata(t.TempDir())
+	require.Error(t, err)
+}
+
+func TestReadMetadata_InvalidJSON(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "workspace.json"), []byte("not-json"), 0o600))
+
+	_, err := ReadMetadata(dir)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "parse")
+}
+
 func TestWriteMetadata_DirectoryPermissions(t *testing.T) {
 	t.Parallel()
 

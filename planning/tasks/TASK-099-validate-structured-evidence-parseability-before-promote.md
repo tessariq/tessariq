@@ -1,7 +1,7 @@
 ---
 id: TASK-099-validate-structured-evidence-parseability-before-promote
 title: Reject malformed structured evidence before promote
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-004-worktree-provisioning-and-workspace-metadata
@@ -17,7 +17,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#tessariq-promote-run-ref
     - specs/tessariq-v0.1.0.md#failure-ux
     - specs/tessariq-v0.1.0.md#success-metrics
-updated_at: "2026-04-24T08:04:00Z"
+updated_at: "2026-04-24T08:46:25Z"
 areas:
     - promote
     - evidence
@@ -94,3 +94,4 @@ verification:
 - Reuse existing readers where possible, but do not rely on zero-value struct unmarshalling as shape validation.
 - `task.md`, `run.log`, `runner.log`, `diff.patch`, and `diffstat.txt` remain file-presence/content artifacts; this task is only about structured evidence.
 - Add this task to `TASK-017-v0-1-0-spec-conformity-closeout` dependencies so closeout cannot pass while non-empty malformed evidence is still promotable.
+- 2026-04-24T08:46:25Z: Structured evidence parseability validation in CheckEvidenceCompleteness. All 7 artifacts validated for syntax, schema_version=1, and minimum required fields. Unit: 11 malformed-artifact cases. Integration: 6 cases. E2E: updated+passing. Mutation: 87%. Manual: 5/5 pass.
