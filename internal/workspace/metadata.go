@@ -42,9 +42,16 @@ func WriteMetadata(evidenceDir string, m Metadata) error {
 		return fmt.Errorf("marshal workspace metadata: %w", err)
 	}
 
-	path := filepath.Join(evidenceDir, "workspace.json")
-	if err := os.WriteFile(path, data, 0o600); err != nil {
-		return fmt.Errorf("write workspace metadata: %w", err)
+	target := filepath.Join(evidenceDir, "workspace.json")
+	tmp := target + ".tmp"
+
+	if err := os.WriteFile(tmp, data, 0o600); err != nil {
+		return fmt.Errorf("write workspace metadata temp file: %w", err)
+	}
+
+	if err := os.Rename(tmp, target); err != nil {
+		os.Remove(tmp) // best-effort cleanup
+		return fmt.Errorf("rename workspace metadata file: %w", err)
 	}
 
 	return nil
