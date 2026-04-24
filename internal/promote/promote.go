@@ -53,6 +53,9 @@ func Run(ctx context.Context, repoRoot string, opts Options) (Result, error) {
 	}
 
 	if err := runner.CheckEvidenceCompleteness(evidenceDir); err != nil {
+		if errors.Is(err, runner.ErrEgressModeMismatch) {
+			return Result{}, fmt.Errorf("run evidence egress mode is inconsistent; evidence may be tampered and the run cannot be promoted: %w", err)
+		}
 		return Result{}, fmt.Errorf("required evidence is missing or incomplete; the run cannot be promoted until evidence is intact: %w", err)
 	}
 

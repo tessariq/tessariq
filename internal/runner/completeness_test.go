@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -13,13 +14,46 @@ const (
 	manifestProxy  = `{"schema_version":1,"run_id":"test-run","task_path":"tasks/t.md","agent":"claude-code","base_sha":"abc123","workspace_mode":"worktree","resolved_egress_mode":"proxy","container_name":"tessariq-test","created_at":"2026-01-01T00:00:00Z"}`
 )
 
+// runtimeJSON builds a full-shape runtime.json fixture that satisfies the
+// structured-field validation. When mode is non-empty it also records
+// resolved_egress_mode; when empty the field is omitted, modelling a
+// runtime.json that lacks the trusted egress mode.
+func runtimeJSON(mode string) string {
+	const base = `"schema_version":1,"image":"test","image_source":"custom","auth_mount_mode":"read-only","agent_config_mount":"disabled","agent_config_mount_status":"disabled"`
+	if mode == "" {
+		return "{" + base + "}"
+	}
+	return "{" + base + `,"resolved_egress_mode":"` + mode + `"}`
+}
+
 func writeBaseEvidence(t *testing.T, dir, manifestJSON string) {
+	t.Helper()
+	// Mirror the manifest's resolved egress mode into runtime.json so the
+	// base fixture represents an intact (non-tampered) run. runtime.json is
+	// the trusted source of resolved egress mode, so it must carry the field.
+	writeBaseEvidenceWithRuntime(t, dir, manifestJSON, runtimeJSON(manifestEgressMode(manifestJSON)))
+}
+
+// manifestEgressMode extracts resolved_egress_mode from a manifest JSON
+// string for test fixtures. Returns "" when the manifest is unparseable
+// (e.g. the malformed-manifest case).
+func manifestEgressMode(manifestJSON string) string {
+	var m struct {
+		ResolvedEgressMode string `json:"resolved_egress_mode"`
+	}
+	if err := json.Unmarshal([]byte(manifestJSON), &m); err != nil {
+		return ""
+	}
+	return m.ResolvedEgressMode
+}
+
+func writeBaseEvidenceWithRuntime(t *testing.T, dir, manifestJSON, runtimeJSON string) {
 	t.Helper()
 	files := map[string]string{
 		"manifest.json":  manifestJSON,
 		"status.json":    `{"schema_version":1,"state":"success","started_at":"2026-01-01T00:00:00Z"}`,
 		"agent.json":     `{"schema_version":1,"agent":"claude-code"}`,
-		"runtime.json":   `{"schema_version":1,"image":"test","image_source":"custom","auth_mount_mode":"read-only","agent_config_mount":"disabled","agent_config_mount_status":"disabled"}`,
+		"runtime.json":   runtimeJSON,
 		"task.md":        "# Task\n",
 		"run.log":        "ok\n",
 		"runner.log":     "ok\n",
@@ -269,4 +303,94 @@ func writeValidProxyEvidence(t *testing.T, dir string) {
 		[]byte("schema_version: 1\nallowlist_source: built_in\ndestinations:\n  - host: example.com\n    port: 443\n"), 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "egress.events.jsonl"),
 		[]byte(`{"timestamp":"2026-01-01T00:00:00Z","host":"blocked.example.com","port":443,"action":"blocked","reason":"not_in_allowlist","squid_result":"TCP_DENIED/403"}`+"\n"), 0o600))
+}
+
+func TestCheckEvidenceCompleteness_EgressModeMismatchManifestDirectRuntimeProxy(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	writeBaseEvidenceWithRuntime(t, dir, manifestDirect, runtimeJSON("proxy"))
+
+	err := CheckEvidenceCompleteness(dir)
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrEgressModeMismatch)
+	require.ErrorContains(t, err, "tampered")
+}
+
+func TestCheckEvidenceCompleteness_EgressModeMismatchManifestProxyRuntimeDirect(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	writeBaseEvidenceWithRuntime(t, dir, manifestProxy, runtimeJSON("direct"))
+
+	err := CheckEvidenceCompleteness(dir)
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrEgressModeMismatch)
+	require.ErrorContains(t, err, "tampered")
+}
+
+func TestCheckEvidenceCompleteness_BothAgreeDirectPasses(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	writeBaseEvidenceWithRuntime(t, dir, manifestDirect, runtimeJSON("direct"))
+
+	require.NoError(t, CheckEvidenceCompleteness(dir))
+}
+
+func TestCheckEvidenceCompleteness_BothAgreeProxyWithArtifactsPasses(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	writeBaseEvidenceWithRuntime(t, dir, manifestProxy, runtimeJSON("proxy"))
+	writeValidProxyEvidence(t, dir)
+
+	require.NoError(t, CheckEvidenceCompleteness(dir))
+}
+
+func TestCheckEvidenceCompleteness_BothAgreeProxyMissingArtifactsFails(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	writeBaseEvidenceWithRuntime(t, dir, manifestProxy, runtimeJSON("proxy"))
+
+	err := CheckEvidenceCompleteness(dir)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "egress.compiled.yaml")
+	require.ErrorContains(t, err, "egress.events.jsonl")
+}
+
+// A runtime.json that omits resolved_egress_mode must fail closed. Falling
+// back to manifest.json would reopen the tamper path: an attacker can relabel
+// a proxy run to "direct" in the manifest and drop the field from runtime.json
+// (the file stays non-empty, so the file-presence check still passes), which
+// would otherwise skip the required proxy evidence. The trusted resolved mode
+// must come from runtime.json, never the mutable manifest alone.
+func TestCheckEvidenceCompleteness_RuntimeMissingEgressModeFailsClosed(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	writeBaseEvidenceWithRuntime(t, dir, manifestProxy, runtimeJSON(""))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "egress.compiled.yaml"), []byte("schema_version: 1\n"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "egress.events.jsonl"), []byte(`{"host":"x"}`+"\n"), 0o600))
+
+	err := CheckEvidenceCompleteness(dir)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "runtime.json")
+	require.ErrorContains(t, err, "resolved_egress_mode")
+}
+
+// The exact suppression attack: proxy run relabeled to "direct" in the
+// manifest with the runtime field dropped and no proxy artifacts present.
+// Fail-closed on the missing runtime field blocks it before promote.
+func TestCheckEvidenceCompleteness_DirectManifestEmptyRuntimeFailsClosed(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	writeBaseEvidenceWithRuntime(t, dir, manifestDirect, runtimeJSON(""))
+
+	err := CheckEvidenceCompleteness(dir)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "runtime.json")
+	require.ErrorContains(t, err, "resolved_egress_mode")
 }
