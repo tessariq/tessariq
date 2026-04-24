@@ -122,7 +122,7 @@ func TestCheckEvidenceCompleteness_ProxyModeMissingEventsJSONL(t *testing.T) {
 	require.NotContains(t, err.Error(), "egress.compiled.yaml")
 }
 
-func TestCheckEvidenceCompleteness_ProxyModeEmptyEgressArtifact(t *testing.T) {
+func TestCheckEvidenceCompleteness_ProxyModeEmptyEventsJSONLPasses(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
@@ -130,9 +130,7 @@ func TestCheckEvidenceCompleteness_ProxyModeEmptyEgressArtifact(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "egress.compiled.yaml"), []byte("schema_version: 1\n"), 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "egress.events.jsonl"), []byte{}, 0o600))
 
-	err := CheckEvidenceCompleteness(dir)
-	require.Error(t, err)
-	require.ErrorContains(t, err, "egress.events.jsonl (empty)")
+	require.NoError(t, CheckEvidenceCompleteness(dir), "0-byte egress.events.jsonl means no blocked events, not extraction failure")
 }
 
 func TestCheckEvidenceCompleteness_ProxyModeBothMissing(t *testing.T) {

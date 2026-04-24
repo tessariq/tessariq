@@ -1,7 +1,7 @@
 ---
 id: TASK-096-make-proxy-telemetry-extraction-fail-closed
 title: Fail closed when proxy teardown telemetry extraction cannot produce trustworthy evidence
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-012-proxy-topology-and-egress-artifacts
@@ -13,7 +13,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#networking-and-egress
     - specs/tessariq-v0.1.0.md#evidence-contract
     - specs/tessariq-v0.1.0.md#failure-ux
-updated_at: "2026-04-24T07:41:10Z"
+updated_at: "2026-04-24T08:17:15Z"
 areas:
     - proxy
     - evidence
@@ -82,3 +82,4 @@ verification:
 - Keep this task focused on trustworthy proxy telemetry evidence; do not mix it with unrelated allowlist or startup-topology work.
 - A valid implementation may surface a teardown error directly, record an explicit extraction-failure marker, or withhold required artifacts so completeness fails, but it must not fabricate a clean empty result.
 - Add this task to `TASK-017-v0-1-0-spec-conformity-closeout` dependencies so the release gate cannot run before BUG-052 is resolved.
+- 2026-04-24T08:17:15Z: Proxy teardown is fail-closed: CopyAccessLog returns real errors, writeExtractedEvidence skips evidence writing on failure, completeness check distinguishes no-events (0-byte OK) from extraction-failed (missing), infrastructure cleanup always runs. Unit + integration + mutation (86.61%) + manual (6/6 pass) coverage.

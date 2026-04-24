@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -82,6 +84,8 @@ func (t *Topology) Setup(ctx context.Context) (*ProxyEnv, error) {
 	}, nil
 }
 
+const maxSquidLogBytes = 10 * 1024 * 1024 // 10 MB
+
 // Teardown cleans up the proxy topology:
 //  1. CopyAccessLog from Squid container
 //  2. ParseSquidAccessLog to extract blocked events
@@ -91,33 +95,64 @@ func (t *Topology) Setup(ctx context.Context) (*ProxyEnv, error) {
 //  6. RemoveNetwork
 //
 // Safe to call multiple times (idempotent via tornDown flag).
-// Evidence extraction errors (steps 1-4) are ignored because they are
-// non-critical. Infrastructure cleanup errors (steps 5-6) are returned
-// so the caller can warn the user.
+//
+// Evidence extraction (steps 1-4) is fail-closed: if any extraction
+// step fails, no evidence files are written so the completeness check
+// rejects the run at promote time. Infrastructure cleanup (steps 5-6)
+// always runs regardless of extraction outcome.
 func (t *Topology) Teardown(ctx context.Context) error {
 	if t.tornDown {
 		return nil
 	}
 	t.tornDown = true
 
-	const maxSquidLogBytes = 10 * 1024 * 1024 // 10 MB
+	// Steps 1-4: Evidence extraction (fail-closed).
+	var extractionErr error
+	logData, err := CopyAccessLog(ctx, t.squidName)
+	if err != nil {
+		extractionErr = fmt.Errorf("telemetry extraction: %w", err)
+	} else if err := WriteExtractedEvidence(t.EvidenceDir, logData, maxSquidLogBytes); err != nil {
+		extractionErr = fmt.Errorf("telemetry extraction: %w", err)
+	}
 
-	// Steps 1-4: Evidence extraction (best-effort).
-	logData, _ := CopyAccessLog(ctx, t.squidName)
-	events, _ := ParseSquidAccessLog(bytes.NewReader(logData))
-	_ = WriteEventsJSONL(t.EvidenceDir, events)
-	_ = CopySquidLog(t.EvidenceDir, bytes.NewReader(logData), maxSquidLogBytes)
-
-	// Steps 5-6: Infrastructure cleanup (errors surfaced).
-	var errs []string
+	// Steps 5-6: Infrastructure cleanup (always runs).
+	var cleanupErrs []string
 	if err := StopSquid(ctx, t.squidName); err != nil {
-		errs = append(errs, fmt.Sprintf("stop squid: %s", err))
+		cleanupErrs = append(cleanupErrs, fmt.Sprintf("stop squid: %s", err))
 	}
 	if err := RemoveNetwork(ctx, t.networkName); err != nil {
-		errs = append(errs, fmt.Sprintf("remove network: %s", err))
+		cleanupErrs = append(cleanupErrs, fmt.Sprintf("remove network: %s", err))
 	}
+
+	var errs []string
+	if extractionErr != nil {
+		errs = append(errs, extractionErr.Error())
+	}
+	errs = append(errs, cleanupErrs...)
 	if len(errs) > 0 {
 		return fmt.Errorf("%s", strings.Join(errs, "; "))
+	}
+	return nil
+}
+
+// WriteExtractedEvidence parses raw Squid access-log data and writes
+// derived evidence artifacts to evidenceDir. On error, any partially
+// written files are removed so no misleading evidence is left behind.
+func WriteExtractedEvidence(evidenceDir string, logData []byte, maxLogBytes int64) (retErr error) {
+	events, err := ParseSquidAccessLog(bytes.NewReader(logData))
+	if err != nil {
+		return fmt.Errorf("parse access log: %w", err)
+	}
+	if err := WriteEventsJSONL(evidenceDir, events); err != nil {
+		return fmt.Errorf("write events: %w", err)
+	}
+	defer func() {
+		if retErr != nil {
+			os.Remove(filepath.Join(evidenceDir, eventsFileName))
+		}
+	}()
+	if err := CopySquidLog(evidenceDir, bytes.NewReader(logData), maxLogBytes); err != nil {
+		return fmt.Errorf("write squid log: %w", err)
 	}
 	return nil
 }

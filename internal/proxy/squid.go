@@ -184,16 +184,21 @@ func StopSquid(ctx context.Context, name string) error {
 }
 
 // CopyAccessLog extracts the Squid access log from the container.
-// Returns the log content as bytes. If the log file doesn't exist,
-// returns empty bytes and nil error.
+// Returns the log content as bytes. If the log file doesn't exist
+// inside a running container, returns empty bytes and nil error.
+// All other docker exec failures are returned as errors.
 func CopyAccessLog(ctx context.Context, containerName string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, "docker", "exec", "-u", "proxy", containerName,
 		"cat", "/var/log/squid/access.log",
 	)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		// File not found or container gone — return empty.
-		return []byte{}, nil
+		outLower := strings.ToLower(string(out))
+		if strings.Contains(outLower, "no such file") {
+			return []byte{}, nil
+		}
+		return nil, fmt.Errorf("docker exec access log from %s: %s: %w",
+			containerName, strings.TrimSpace(string(out)), err)
 	}
 	return out, nil
 }
