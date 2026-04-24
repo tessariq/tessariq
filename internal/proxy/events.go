@@ -25,10 +25,18 @@ type Event struct {
 	SquidResult string `json:"squid_result"` // e.g. "TCP_DENIED/403"
 }
 
+// EventsSummary is the JSONL line written when no denied events occurred.
+// Its presence signals intentional "zero events" distinct from extraction failure.
+type EventsSummary struct {
+	SchemaVersion int `json:"schema_version"`
+	EventCount    int `json:"event_count"`
+}
+
 const (
-	eventsFileName   = "egress.events.jsonl"
-	squidLogName     = "squid.log"
-	truncationMarker = "\n[truncated]"
+	eventsFileName      = "egress.events.jsonl"
+	squidLogName        = "squid.log"
+	truncationMarker    = "\n[truncated]"
+	eventsSchemaVersion = 1
 )
 
 // ParseSquidAccessLog parses a Squid access.log, filters for TCP_DENIED entries,
@@ -167,9 +175,16 @@ func WriteEventsJSONL(evidenceDir string, events []Event) error {
 	defer f.Close()
 
 	enc := json.NewEncoder(f)
-	for _, e := range events {
-		if err := enc.Encode(e); err != nil {
-			return fmt.Errorf("encode event: %w", err)
+	if len(events) == 0 {
+		summary := EventsSummary{SchemaVersion: eventsSchemaVersion, EventCount: 0}
+		if err := enc.Encode(summary); err != nil {
+			return fmt.Errorf("encode events summary: %w", err)
+		}
+	} else {
+		for _, e := range events {
+			if err := enc.Encode(e); err != nil {
+				return fmt.Errorf("encode event: %w", err)
+			}
 		}
 	}
 
@@ -199,6 +214,18 @@ func ReadEventsJSONL(evidenceDir string) ([]Event, error) {
 		if line == "" {
 			continue
 		}
+
+		var probe struct {
+			SchemaVersion *int   `json:"schema_version"`
+			Host          string `json:"host"`
+		}
+		if err := json.Unmarshal([]byte(line), &probe); err != nil {
+			return nil, fmt.Errorf("decode event line: %w", err)
+		}
+		if probe.SchemaVersion != nil && probe.Host == "" {
+			continue
+		}
+
 		var e Event
 		if err := json.Unmarshal([]byte(line), &e); err != nil {
 			return nil, fmt.Errorf("decode event line: %w", err)

@@ -1,7 +1,7 @@
 ---
 id: TASK-100-represent-zero-denied-proxy-telemetry-without-empty-events-file
 title: Represent zero-denied proxy telemetry without an empty events file
-status: todo
+status: done
 priority: p1
 depends_on:
     - TASK-012-proxy-topology-and-egress-artifacts
@@ -14,7 +14,7 @@ spec_refs:
     - specs/tessariq-v0.1.0.md#evidence-contract
     - specs/tessariq-v0.1.0.md#tessariq-promote-run-ref
     - specs/tessariq-v0.1.0.md#success-metrics
-updated_at: "2026-04-24T08:04:00Z"
+updated_at: "2026-04-24T09:17:04Z"
 areas:
     - proxy
     - evidence
@@ -82,3 +82,4 @@ A proxy-mode run whose access log contains zero denied destinations currently pr
 - Keep the representation minimal and easy to audit; the important contract is non-empty, parseable, and distinguishable from extraction failure.
 - Coordinate this task with TASK-096 so the two proxy-telemetry cases are fixed together rather than reintroducing ambiguity.
 - Add this task to `TASK-017-v0-1-0-spec-conformity-closeout` dependencies so closeout cannot pass while honest zero-denied proxy runs remain unpromotable.
+- 2026-04-24T09:17:04Z: zero-denied proxy runs emit summary line; completeness requires non-empty; extraction failure stays distinct

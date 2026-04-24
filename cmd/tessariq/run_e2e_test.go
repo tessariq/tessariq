@@ -1092,11 +1092,11 @@ func TestE2E_ProxyModeWritesEgressEvidence(t *testing.T) {
 	require.Contains(t, compiledData, "allowlist_source:")
 	require.Contains(t, compiledData, "destinations:")
 
-	// Verify egress.events.jsonl exists (may be empty).
+	// Verify egress.events.jsonl exists and is non-empty (summary line for zero events).
 	catCode, _, err = env.Exec(ctx, []string{"sh", "-c",
-		fmt.Sprintf("test -f %s && echo exists", filepath.Join(evidencePath, "egress.events.jsonl"))})
+		fmt.Sprintf("test -s %s && echo exists", filepath.Join(evidencePath, "egress.events.jsonl"))})
 	require.NoError(t, err)
-	require.Equal(t, 0, catCode, "egress.events.jsonl must exist")
+	require.Equal(t, 0, catCode, "egress.events.jsonl must exist and be non-empty")
 
 	// Verify evidence file permissions are 0600.
 	for _, f := range []string{"egress.compiled.yaml", "egress.events.jsonl"} {
