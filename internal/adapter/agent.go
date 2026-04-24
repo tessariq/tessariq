@@ -38,9 +38,16 @@ func WriteAgentInfo(evidenceDir string, info AgentInfo) error {
 		return fmt.Errorf("marshal agent info: %w", err)
 	}
 
-	path := filepath.Join(evidenceDir, "agent.json")
-	if err := os.WriteFile(path, data, 0o600); err != nil {
-		return fmt.Errorf("write agent info: %w", err)
+	target := filepath.Join(evidenceDir, "agent.json")
+	tmp := target + ".tmp"
+
+	if err := os.WriteFile(tmp, data, 0o600); err != nil {
+		return fmt.Errorf("write agent info temp file: %w", err)
+	}
+
+	if err := os.Rename(tmp, target); err != nil {
+		os.Remove(tmp) // best-effort cleanup
+		return fmt.Errorf("rename agent info file: %w", err)
 	}
 
 	return nil
