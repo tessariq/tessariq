@@ -79,6 +79,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed prerequisite preflight UX for local CLI execution so `tessariq init`, `tessariq run`, and `tessariq attach` fail fast with actionable missing-dependency guidance before lifecycle side effects.
 - Changed `tessariq run --interactive` from a blanket rejection to full interactive runtime support: containers are created with TTY allocation, the tmux session attaches to the container for live terminal input, and the active-agent timeout pauses while the agent waits for human approval instead of ticking wall-clock time. OpenCode rejects `--interactive` with actionable guidance; Claude Code supports it natively.
 
+- Strengthened `tessariq promote` evidence gate: structured artifacts (`manifest.json`, `status.json`, `agent.json`, `runtime.json`, `workspace.json`, `egress.compiled.yaml`, `egress.events.jsonl`) must now be parseable and satisfy their minimum spec-defined shape before promote proceeds. Previously, non-empty but malformed evidence passed the completeness check silently.
+
 ### Fixed
 
 - Fixed `workspace.json`, `agent.json`, and `runtime.json` evidence writes using non-atomic `os.WriteFile`; all three now use the same temp-file-plus-rename pattern as `manifest.json` and `status.json` so a crash or interrupted write cannot leave partial or empty evidence files behind.

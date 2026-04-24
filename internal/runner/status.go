@@ -48,6 +48,21 @@ type Status struct {
 	CleanupError string `json:"cleanup_error,omitempty"`
 }
 
+// Validate checks that the status has a supported schema version and
+// all spec-required fields are present.
+func (s Status) Validate() error {
+	if s.SchemaVersion != 1 {
+		return fmt.Errorf("unsupported schema_version %d", s.SchemaVersion)
+	}
+	if s.State == "" {
+		return fmt.Errorf("missing required field %q", "state")
+	}
+	if s.StartedAt == "" {
+		return fmt.Errorf("missing required field %q", "started_at")
+	}
+	return nil
+}
+
 // NewInitialStatus creates a non-terminal status recording the start time.
 func NewInitialStatus(startedAt time.Time) Status {
 	return Status{
