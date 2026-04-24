@@ -56,7 +56,7 @@ func TestWriteExtractedEvidence_Success_WritesFiles(t *testing.T) {
 	require.Greater(t, info.Size(), int64(0), "squid log should be non-empty")
 }
 
-func TestWriteExtractedEvidence_EmptyLog_CreatesEmptyEventsFile(t *testing.T) {
+func TestWriteExtractedEvidence_EmptyLog_CreatesSummaryEventsFile(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
@@ -66,7 +66,11 @@ func TestWriteExtractedEvidence_EmptyLog_CreatesEmptyEventsFile(t *testing.T) {
 
 	info, err := os.Stat(filepath.Join(dir, "egress.events.jsonl"))
 	require.NoError(t, err)
-	require.Equal(t, int64(0), info.Size(), "events file should be empty (no blocked events)")
+	require.Greater(t, info.Size(), int64(0), "events file must contain summary line")
+
+	raw, err := os.ReadFile(filepath.Join(dir, "egress.events.jsonl"))
+	require.NoError(t, err)
+	require.Contains(t, string(raw), `"event_count":0`)
 
 	_, err = os.Stat(filepath.Join(dir, "squid.log"))
 	require.NoError(t, err, "squid.log should still be created")

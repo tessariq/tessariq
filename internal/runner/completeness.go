@@ -22,15 +22,11 @@ var requiredEvidenceFiles = []string{
 	"workspace.json",
 }
 
-// proxyNonEmptyEvidenceFiles must be present and non-empty for proxy-mode runs.
-var proxyNonEmptyEvidenceFiles = []string{
+// proxyEvidenceFiles must be present and non-empty for proxy-mode runs.
+// Zero-denied-events runs write a summary line so the file is non-empty.
+// A missing or empty file indicates telemetry extraction failure.
+var proxyEvidenceFiles = []string{
 	"egress.compiled.yaml",
-}
-
-// proxyPresenceEvidenceFiles must be present for proxy-mode runs but may
-// be 0 bytes (a valid run with no blocked egress events produces an empty
-// events file). A missing file indicates telemetry extraction failed.
-var proxyPresenceEvidenceFiles = []string{
 	"egress.events.jsonl",
 }
 
@@ -49,11 +45,8 @@ func CheckEvidenceCompleteness(evidenceDir string) error {
 	}
 
 	if manifest.ResolvedEgressMode == "proxy" {
-		var proxyMissing []string
-		proxyMissing = append(proxyMissing, collectMissing(evidenceDir, proxyNonEmptyEvidenceFiles)...)
-		proxyMissing = append(proxyMissing, collectPresenceOnly(evidenceDir, proxyPresenceEvidenceFiles)...)
-		if len(proxyMissing) > 0 {
-			return incompleteErr(proxyMissing)
+		if missing := collectMissing(evidenceDir, proxyEvidenceFiles); len(missing) > 0 {
+			return incompleteErr(missing)
 		}
 	}
 
@@ -70,16 +63,6 @@ func collectMissing(evidenceDir string, names []string) []string {
 		}
 		if info.Size() == 0 {
 			missing = append(missing, name+" (empty)")
-		}
-	}
-	return missing
-}
-
-func collectPresenceOnly(evidenceDir string, names []string) []string {
-	var missing []string
-	for _, name := range names {
-		if _, err := os.Stat(filepath.Join(evidenceDir, name)); err != nil {
-			missing = append(missing, name)
 		}
 	}
 	return missing

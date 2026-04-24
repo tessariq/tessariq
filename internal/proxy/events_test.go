@@ -127,9 +127,67 @@ func TestWriteEventsJSONL_EmptyEvents(t *testing.T) {
 	err := WriteEventsJSONL(dir, []Event{})
 	require.NoError(t, err)
 
+	// File must be non-empty (summary line written).
+	info, err := os.Stat(filepath.Join(dir, "egress.events.jsonl"))
+	require.NoError(t, err)
+	require.Greater(t, info.Size(), int64(0), "zero-events file must be non-empty")
+
+	// Reader still returns empty slice (summary line skipped).
 	got, err := ReadEventsJSONL(dir)
 	require.NoError(t, err)
 	require.Empty(t, got)
+
+	// Raw content must be parseable and contain schema_version.
+	raw, err := os.ReadFile(filepath.Join(dir, "egress.events.jsonl"))
+	require.NoError(t, err)
+	require.Contains(t, string(raw), `"schema_version"`)
+	require.Contains(t, string(raw), `"event_count"`)
+}
+
+func TestWriteEventsJSONL_ZeroDeniedEvents_SummaryContent(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	err := WriteEventsJSONL(dir, nil)
+	require.NoError(t, err)
+
+	raw, err := os.ReadFile(filepath.Join(dir, "egress.events.jsonl"))
+	require.NoError(t, err)
+	require.Equal(t, "{\"schema_version\":1,\"event_count\":0}\n", string(raw))
+}
+
+func TestWriteEventsJSONL_WithEvents_NoSummaryLine(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	events := []Event{{
+		Timestamp:   "2024-03-31T16:00:00Z",
+		Host:        "blocked.example.com",
+		Port:        443,
+		Action:      "blocked",
+		Reason:      "not_in_allowlist",
+		SquidResult: "TCP_DENIED/403",
+	}}
+
+	err := WriteEventsJSONL(dir, events)
+	require.NoError(t, err)
+
+	raw, err := os.ReadFile(filepath.Join(dir, "egress.events.jsonl"))
+	require.NoError(t, err)
+	require.NotContains(t, string(raw), `"schema_version"`,
+		"files with events must not contain a summary line")
+}
+
+func TestReadEventsJSONL_SkipsSummaryLine(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	content := "{\"schema_version\":1,\"event_count\":0}\n"
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "egress.events.jsonl"), []byte(content), 0o600))
+
+	got, err := ReadEventsJSONL(dir)
+	require.NoError(t, err)
+	require.Empty(t, got, "summary-only file must return empty events slice")
 }
 
 func TestWriteEventsJSONL_Permissions(t *testing.T) {

@@ -353,7 +353,7 @@ func TestRun_ProxyRunMissingEventsJSONLRejectsPromote(t *testing.T) {
 	require.Empty(t, gitOutputAllowFailure(t, repo.Dir(), "branch", "--list", defaultBranchName(testRunID)))
 }
 
-func TestRun_ProxyRunEmptyEventsJSONLPromotes(t *testing.T) {
+func TestRun_ProxyRunZeroEventsSummaryPromotes(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -373,11 +373,11 @@ func TestRun_ProxyRunEmptyEventsJSONLPromotes(t *testing.T) {
 	writeProxyEgressArtifacts(t, repo.Dir(), testRunID)
 	require.NoError(t, os.WriteFile(
 		filepath.Join(repo.Dir(), ".tessariq", "runs", testRunID, "egress.events.jsonl"),
-		[]byte{}, 0o600,
+		[]byte("{\"schema_version\":1,\"event_count\":0}\n"), 0o600,
 	))
 
 	result, err := Run(ctx, repo.Dir(), Options{RunRef: testRunID})
-	require.NoError(t, err, "0-byte egress.events.jsonl means no blocked events, should promote")
+	require.NoError(t, err, "summary-line egress.events.jsonl means zero denied events, should promote")
 	require.Equal(t, testRunID, result.RunID)
 }
 
