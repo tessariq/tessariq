@@ -74,7 +74,7 @@ jobs:
           done
 
       - name: Scan for vulnerabilities
-        uses: aquasecurity/trivy-action@v0.35.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ghcr.io/tessariq/claude-code:v0.1.0
           format: table
@@ -82,7 +82,7 @@ jobs:
           severity: CRITICAL,HIGH
 
       - name: Scan for vulnerabilities (opencode)
-        uses: aquasecurity/trivy-action@v0.35.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ghcr.io/tessariq/opencode:v0.1.0
           format: table
