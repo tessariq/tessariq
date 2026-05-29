@@ -482,10 +482,10 @@ func TestRunnerIntegration_EvidenceCompletenessAllRequired(t *testing.T) {
 	// Write the artifacts that the runner does NOT produce (they come from
 	// other parts of the pipeline: manifest, agent, runtime, workspace, task).
 	extraFiles := map[string]string{
-		"manifest.json":  `{"schema_version":1}`,
-		"agent.json":     `{"schema_version":1}`,
-		"runtime.json":   `{"schema_version":1}`,
-		"workspace.json": `{"schema_version":1}`,
+		"manifest.json":  manifestDirect,
+		"agent.json":     `{"schema_version":1,"agent":"claude-code"}`,
+		"runtime.json":   `{"schema_version":1,"image":"test","image_source":"custom","auth_mount_mode":"read-only","agent_config_mount":"disabled","agent_config_mount_status":"disabled"}`,
+		"workspace.json": `{"schema_version":1,"workspace_mode":"worktree","base_sha":"abc123","workspace_path":"/tmp/ws","repo_mount_mode":"rw","reproducibility":"strong"}`,
 		"task.md":        "# Task\nDo something.",
 	}
 	for name, content := range extraFiles {
