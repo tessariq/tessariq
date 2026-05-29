@@ -48,7 +48,11 @@ func TestProbeImageBinary_InvalidImage_ReturnsImagePullError(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	err := container.ProbeImageBinary(ctx, "ghcr.io/tessariq/does-not-exist:v0.0.0", "sh")
+	// Reference a registry on a guaranteed-unreachable local port so the pull
+	// fails offline (connection refused → docker exit 125) without depending on
+	// any live external registry. This exercises the same ImagePullError path
+	// as a real "manifest unknown" failure but stays deterministic and fast.
+	err := container.ProbeImageBinary(ctx, "127.0.0.1:1/does-not-exist:v0.0.0", "sh")
 	require.Error(t, err)
 
 	// Must be ImagePullError, NOT BinaryNotFoundError.
