@@ -38,6 +38,107 @@ func buildCurlTestImage(t *testing.T) string {
 	return testutil.BuildTestImage(t, "curl", curlDockerfile)
 }
 
+// tlsOriginAlias is the network alias of the in-network TLS origin used as the
+// allowlisted destination. Squid resolves it via Docker's embedded DNS on the
+// internal network, so the test never depends on external connectivity.
+const tlsOriginAlias = "allowed-origin"
+
+// tlsOriginDockerfile builds a minimal nginx origin that serves HTTPS on 443
+// with a self-signed certificate. Squid only permits CONNECT tunneling, so the
+// allowlisted destination must speak TLS; a plain-HTTP origin cannot validate
+// the allow path. The certificate is self-signed, so curl must use --insecure.
+const tlsOriginDockerfile = `FROM nginx:alpine
+RUN apk add --no-cache openssl \
+ && openssl req -x509 -newkey rsa:2048 -nodes -days 825 \
+    -keyout /etc/nginx/tls.key -out /etc/nginx/tls.crt -subj "/CN=allowed-origin" \
+ && printf 'server {\n  listen 443 ssl;\n  ssl_certificate /etc/nginx/tls.crt;\n  ssl_certificate_key /etc/nginx/tls.key;\n  location / { return 200 "ok\n"; }\n}\n' > /etc/nginx/conf.d/default.conf
+`
+
+func buildTLSOriginTestImage(t *testing.T) string {
+	t.Helper()
+	return testutil.BuildTestImage(t, "tls-origin", tlsOriginDockerfile)
+}
+
+// waitForContainerPort blocks until the given TCP port is in LISTEN state inside
+// the container, or the context expires. It greps /proc/net/tcp for the port in
+// hex, mirroring waitForSquid's portable readiness probe.
+func waitForContainerPort(ctx context.Context, t *testing.T, containerName string, port int) {
+	t.Helper()
+	cmd := exec.CommandContext(ctx, "docker", "exec", containerName,
+		"sh", "-c", fmt.Sprintf(
+			"while ! grep -q ':%04X' /proc/net/tcp /proc/net/tcp6 2>/dev/null; do sleep 0.5; done",
+			port,
+		),
+	)
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, "wait for %s to listen on port %d: %s", containerName, port, string(out))
+}
+
+// startTLSOrigin starts the self-signed HTTPS origin on the given internal
+// network under tlsOriginAlias and waits for it to listen on 443. It returns
+// the container name; cleanup is registered via t.Cleanup. Squid resolves the
+// alias via Docker's embedded DNS, so the allow path needs no external network.
+func startTLSOrigin(ctx context.Context, t *testing.T, image, networkName, runID string) string {
+	t.Helper()
+	name := fmt.Sprintf("tessariq-test-origin-%s", runID)
+	t.Cleanup(func() {
+		_ = exec.Command("docker", "rm", "-f", name).Run()
+	})
+
+	out, err := exec.CommandContext(ctx, "docker", "create",
+		"--name", name,
+		"--net", networkName,
+		"--network-alias", tlsOriginAlias,
+		image,
+	).CombinedOutput()
+	require.NoError(t, err, "docker create tls origin: %s", string(out))
+
+	out, err = exec.CommandContext(ctx, "docker", "start", name).CombinedOutput()
+	require.NoError(t, err, "docker start tls origin: %s", string(out))
+	waitForContainerPort(ctx, t, name, 443)
+	return name
+}
+
+// startCurlContainer starts a long-lived curl helper on the proxy's internal
+// network with the proxy environment variables set. It returns the container
+// name; cleanup is registered via t.Cleanup. BusyBox wget does not use CONNECT
+// tunneling for HTTPS, so curl is required to exercise HTTPS proxy enforcement.
+func startCurlContainer(ctx context.Context, t *testing.T, image string, env *proxy.ProxyEnv, runID string) string {
+	t.Helper()
+	name := fmt.Sprintf("tessariq-test-curl-%s", runID)
+	t.Cleanup(func() {
+		_ = exec.Command("docker", "rm", "-f", name).Run()
+	})
+
+	out, err := exec.CommandContext(ctx, "docker", "create",
+		"--name", name,
+		"--net", env.NetworkName,
+		"--env", "HTTP_PROXY="+env.ProxyAddr,
+		"--env", "HTTPS_PROXY="+env.ProxyAddr,
+		"--env", "http_proxy="+env.ProxyAddr,
+		"--env", "https_proxy="+env.ProxyAddr,
+		image,
+		"sleep", "300",
+	).CombinedOutput()
+	require.NoError(t, err, "docker create curl container: %s", string(out))
+
+	out, err = exec.CommandContext(ctx, "docker", "start", name).CombinedOutput()
+	require.NoError(t, err, "docker start curl container: %s", string(out))
+	return name
+}
+
+// curlViaProxy runs an HTTPS request from the curl container through the proxy.
+// --insecure tolerates the in-network origin's self-signed certificate; these
+// tests validate proxy enforcement, not certificate trust.
+func curlViaProxy(ctx context.Context, curlContainer, proxyAddr, url string) ([]byte, error) {
+	return exec.CommandContext(ctx, "docker", "exec", curlContainer,
+		"curl", "-sSf", "-k", "-o", "/dev/null",
+		"--max-time", "15",
+		"--proxy", proxyAddr,
+		url,
+	).CombinedOutput()
+}
+
 // forceCleanup removes the Squid container and Docker network for a run ID,
 // ignoring errors (best-effort). This runs even if the test fails.
 func forceCleanup(t *testing.T, runID string) {
@@ -166,16 +267,20 @@ func TestIntegration_ProxyCrossPortBlocked(t *testing.T) {
 
 	squidImage := buildSquidTestImage(t)
 	curlImage := buildCurlTestImage(t)
+	tlsOriginImage := buildTLSOriginTestImage(t)
 	runID := testutil.UniqueName(t)
 	evidenceDir := t.TempDir()
 	forceCleanup(t, runID)
 
-	// httpbin.org is allowed on 443; example.com is allowed only on 8443.
-	// The cross-product (example.com:443) must be blocked.
+	// The in-network origin (allowed-origin) is allowed on 443; a second host
+	// is allowed only on 8443. The cross-product (the second host on 443) must
+	// be blocked. Using an in-network origin keeps the allow path deterministic
+	// and free of any live external network dependency.
+	const crossHost = "cross-host"
 	topo := &proxy.Topology{
 		RunID:           runID,
 		EvidenceDir:     evidenceDir,
-		Destinations:    []string{"httpbin.org:443", "example.com:8443"},
+		Destinations:    []string{tlsOriginAlias + ":443", crossHost + ":8443"},
 		AllowlistSource: "cli",
 		SquidImage:      squidImage,
 	}
@@ -183,61 +288,25 @@ func TestIntegration_ProxyCrossPortBlocked(t *testing.T) {
 	env, err := topo.Setup(ctx)
 	require.NoError(t, err, "Setup must succeed")
 
-	alpineName := fmt.Sprintf("tessariq-test-curl-%s", runID)
-	t.Cleanup(func() {
-		_ = exec.Command("docker", "rm", "-f", alpineName).Run()
-	})
+	originName := startTLSOrigin(ctx, t, tlsOriginImage, env.NetworkName, runID)
+	curlName := startCurlContainer(ctx, t, curlImage, env, runID)
 
-	createCmd := exec.CommandContext(ctx, "docker", "create",
-		"--name", alpineName,
-		"--net", env.NetworkName,
-		curlImage,
-		"sleep", "300",
-	)
-	out, err := createCmd.CombinedOutput()
-	require.NoError(t, err, "docker create curl container: %s", string(out))
+	// Test 1: Allowed pair (allowed-origin:443) should succeed.
+	out, err := curlViaProxy(ctx, curlName, env.ProxyAddr, "https://"+tlsOriginAlias+"/")
+	require.NoError(t, err, "curl to %s:443 (allowed pair) should succeed: %s", tlsOriginAlias, string(out))
 
-	connectCmd := exec.CommandContext(ctx, "docker", "network", "connect", "bridge", alpineName)
-	out, err = connectCmd.CombinedOutput()
-	require.NoError(t, err, "docker network connect bridge: %s", string(out))
-
-	startCmd := exec.CommandContext(ctx, "docker", "start", alpineName)
-	out, err = startCmd.CombinedOutput()
-	require.NoError(t, err, "docker start curl container: %s", string(out))
-
-	// Test 1: Allowed pair (httpbin.org:443) should succeed.
-	curlAllowed := exec.CommandContext(ctx, "docker", "exec", alpineName,
-		"curl", "-sSf", "-o", "/dev/null",
-		"--max-time", "15",
-		"--proxy", env.ProxyAddr,
-		"https://httpbin.org/get",
-	)
-	out, err = curlAllowed.CombinedOutput()
-	require.NoError(t, err, "curl to httpbin.org:443 (allowed pair) should succeed: %s", string(out))
-
-	// Test 2: Cross-product (example.com:443) must be blocked by Squid.
-	// example.com is only allowed on port 8443, not 443.
-	curlCross := exec.CommandContext(ctx, "docker", "exec", alpineName,
-		"curl", "-sSf", "-o", "/dev/null",
-		"--max-time", "15",
-		"--proxy", env.ProxyAddr,
-		"https://example.com/",
-	)
-	out, err = curlCross.CombinedOutput()
-	require.Error(t, err, "curl to example.com:443 (cross-product) should be blocked: %s", string(out))
+	// Test 2: Cross-product (crossHost:443) must be blocked by Squid — crossHost
+	// is only allowed on 8443. Squid denies at the ACL, so no host need exist.
+	out, err = curlViaProxy(ctx, curlName, env.ProxyAddr, "https://"+crossHost+"/")
+	require.Error(t, err, "curl to %s:443 (cross-product) should be blocked: %s", crossHost, string(out))
 
 	// Test 3: Fully unlisted host must be blocked.
-	curlBlocked := exec.CommandContext(ctx, "docker", "exec", alpineName,
-		"curl", "-sSf", "-o", "/dev/null",
-		"--max-time", "15",
-		"--proxy", env.ProxyAddr,
-		"https://google.com/",
-	)
-	out, err = curlBlocked.CombinedOutput()
-	require.Error(t, err, "curl to google.com (fully blocked) should fail: %s", string(out))
+	out, err = curlViaProxy(ctx, curlName, env.ProxyAddr, "https://unlisted-host/")
+	require.Error(t, err, "curl to unlisted-host (fully blocked) should fail: %s", string(out))
 
-	// Remove the curl container before teardown so the network has no active endpoints.
-	_ = exec.CommandContext(ctx, "docker", "rm", "-f", alpineName).Run()
+	// Remove helper containers before teardown so the network has no active endpoints.
+	_ = exec.CommandContext(ctx, "docker", "rm", "-f", curlName).Run()
+	_ = exec.CommandContext(ctx, "docker", "rm", "-f", originName).Run()
 
 	err = topo.Teardown(ctx)
 	require.NoError(t, err, "Teardown must succeed")
@@ -294,15 +363,19 @@ func TestIntegration_ProxyAllowsAndBlocks(t *testing.T) {
 
 	squidImage := buildSquidTestImage(t)
 	curlImage := buildCurlTestImage(t)
+	tlsOriginImage := buildTLSOriginTestImage(t)
 	runID := testutil.UniqueName(t)
 	evidenceDir := t.TempDir()
 	forceCleanup(t, runID)
 
-	// Only httpbin.org is allowed; everything else should be blocked.
+	// Only the in-network TLS origin is allowed; everything else is blocked.
+	// Using a containerized origin (resolved by Squid via Docker's embedded
+	// DNS on the internal network) keeps the test fully deterministic and free
+	// of any live external network dependency.
 	topo := &proxy.Topology{
 		RunID:           runID,
 		EvidenceDir:     evidenceDir,
-		Destinations:    []string{"httpbin.org:443"},
+		Destinations:    []string{tlsOriginAlias + ":443"},
 		AllowlistSource: "cli",
 		SquidImage:      squidImage,
 	}
@@ -310,59 +383,27 @@ func TestIntegration_ProxyAllowsAndBlocks(t *testing.T) {
 	env, err := topo.Setup(ctx)
 	require.NoError(t, err, "Setup must succeed")
 
-	// Create a helper container with curl on the same internal network.
-	// BusyBox wget does not use HTTP CONNECT tunneling for HTTPS, so
-	// curl is required to properly test HTTPS proxy enforcement.
-	alpineName := fmt.Sprintf("tessariq-test-curl-%s", runID)
-	t.Cleanup(func() {
-		_ = exec.Command("docker", "rm", "-f", alpineName).Run()
-	})
+	// Start the allowlisted TLS origin and the curl helper on the internal
+	// network. Squid resolves the origin's alias via Docker's embedded DNS, so
+	// the allow path is exercised without any live external connectivity.
+	originName := startTLSOrigin(ctx, t, tlsOriginImage, env.NetworkName, runID)
+	curlName := startCurlContainer(ctx, t, curlImage, env, runID)
 
-	createCmd := exec.CommandContext(ctx, "docker", "create",
-		"--name", alpineName,
-		"--net", env.NetworkName,
-		"--env", "HTTP_PROXY="+env.ProxyAddr,
-		"--env", "HTTPS_PROXY="+env.ProxyAddr,
-		"--env", "http_proxy="+env.ProxyAddr,
-		"--env", "https_proxy="+env.ProxyAddr,
-		curlImage,
-		"sleep", "300",
-	)
-	out, err := createCmd.CombinedOutput()
-	require.NoError(t, err, "docker create curl container: %s", string(out))
-
-	// Connect to bridge for DNS resolution of external hostnames.
-	connectCmd := exec.CommandContext(ctx, "docker", "network", "connect", "bridge", alpineName)
-	out, err = connectCmd.CombinedOutput()
-	require.NoError(t, err, "docker network connect bridge: %s", string(out))
-
-	startCmd := exec.CommandContext(ctx, "docker", "start", alpineName)
-	out, err = startCmd.CombinedOutput()
-	require.NoError(t, err, "docker start curl container: %s", string(out))
-
-	// Test 1: Allowed destination (httpbin.org) should succeed.
+	// Test 1: Allowed destination (the in-network TLS origin) should succeed.
 	// curl uses the CONNECT method for HTTPS through a proxy.
-	curlAllowed := exec.CommandContext(ctx, "docker", "exec", alpineName,
-		"curl", "-sSf", "-o", "/dev/null",
-		"--max-time", "15",
-		"--proxy", env.ProxyAddr,
-		"https://httpbin.org/get",
-	)
-	out, err = curlAllowed.CombinedOutput()
-	require.NoError(t, err, "curl to httpbin.org (allowed) should succeed: %s", string(out))
+	out, err := curlViaProxy(ctx, curlName, env.ProxyAddr, "https://"+tlsOriginAlias+"/")
+	require.NoError(t, err, "curl to %s (allowed) should succeed: %s", tlsOriginAlias, string(out))
 
-	// Test 2: Blocked destination (example.com) should fail.
-	curlBlocked := exec.CommandContext(ctx, "docker", "exec", alpineName,
-		"curl", "-sSf", "-o", "/dev/null",
-		"--max-time", "15",
-		"--proxy", env.ProxyAddr,
-		"https://example.com/",
-	)
-	out, err = curlBlocked.CombinedOutput()
-	require.Error(t, err, "curl to example.com (blocked) should fail: %s", string(out))
+	// Test 2: Blocked destination should fail. The host is not allowlisted, so
+	// Squid denies the CONNECT at the ACL before any outbound connection — no
+	// external network is involved.
+	const blockedHost = "blocked-origin"
+	out, err = curlViaProxy(ctx, curlName, env.ProxyAddr, "https://"+blockedHost+"/")
+	require.Error(t, err, "curl to %s (blocked) should fail: %s", blockedHost, string(out))
 
-	// Remove the curl container before teardown so the network has no active endpoints.
-	_ = exec.CommandContext(ctx, "docker", "rm", "-f", alpineName).Run()
+	// Remove helper containers before teardown so the network has no active endpoints.
+	_ = exec.CommandContext(ctx, "docker", "rm", "-f", curlName).Run()
+	_ = exec.CommandContext(ctx, "docker", "rm", "-f", originName).Run()
 
 	// Teardown and verify events.
 	err = topo.Teardown(ctx)
@@ -371,15 +412,15 @@ func TestIntegration_ProxyAllowsAndBlocks(t *testing.T) {
 	events, err := proxy.ReadEventsJSONL(evidenceDir)
 	require.NoError(t, err, "ReadEventsJSONL must succeed")
 
-	// Verify that example.com:443 appears as a blocked event.
+	// Verify that the blocked host appears as a blocked event.
 	var found bool
 	for _, e := range events {
-		if e.Host == "example.com" && e.Port == 443 && e.Action == "blocked" {
+		if e.Host == blockedHost && e.Port == 443 && e.Action == "blocked" {
 			found = true
 			break
 		}
 	}
-	require.True(t, found, "expected a blocked event for example.com:443, got events: %+v", events)
+	require.True(t, found, "expected a blocked event for %s:443, got events: %+v", blockedHost, events)
 }
 
 func TestIntegration_Teardown_ExtractionFailure_SkipsEvidence_CleansUpInfra(t *testing.T) {
