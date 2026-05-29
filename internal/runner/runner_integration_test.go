@@ -484,7 +484,7 @@ func TestRunnerIntegration_EvidenceCompletenessAllRequired(t *testing.T) {
 	extraFiles := map[string]string{
 		"manifest.json":  manifestDirect,
 		"agent.json":     `{"schema_version":1,"agent":"claude-code"}`,
-		"runtime.json":   `{"schema_version":1,"image":"test","image_source":"custom","auth_mount_mode":"read-only","agent_config_mount":"disabled","agent_config_mount_status":"disabled"}`,
+		"runtime.json":   `{"schema_version":1,"image":"test","image_source":"custom","auth_mount_mode":"read-only","agent_config_mount":"disabled","agent_config_mount_status":"disabled","resolved_egress_mode":"direct"}`,
 		"workspace.json": `{"schema_version":1,"workspace_mode":"worktree","base_sha":"abc123","workspace_path":"/tmp/ws","repo_mount_mode":"rw","reproducibility":"strong"}`,
 		"task.md":        "# Task\nDo something.",
 	}
