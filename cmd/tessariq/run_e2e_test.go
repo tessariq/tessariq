@@ -1530,6 +1530,48 @@ func TestE2E_ControlCharTaskPathRejected(t *testing.T) {
 	require.Equal(t, runsBefore, runsAfter, "no evidence directory should be created")
 }
 
+func TestE2E_DirtyRepoRejectedBeforeContainerStart(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+
+	// skipImage: the dirty-repo gate must reject before any container work.
+	env := setupRunEnvCustom(t, bin, e2eSetupOpts{
+		skipImage: true,
+	})
+
+	ctx := context.Background()
+	hostDir := env.Dir()
+	repoPath := filepath.Join(hostDir, "repo")
+	homeDir := filepath.Join(hostDir, "home")
+	binPath := filepath.Join(hostDir, "tessariq")
+
+	// Dirty the repository with an uncommitted change after init.
+	execCmd(t, env, ctx,
+		fmt.Sprintf("printf 'uncommitted\\n' > %s/dirty.txt", repoPath),
+		"dirty repo setup")
+
+	// Capture runs directory listing before the attempt.
+	_, runsBefore, err := env.Exec(ctx, []string{"sh", "-c",
+		fmt.Sprintf("ls -1 %s/.tessariq/runs 2>/dev/null | grep -v '^index.jsonl$' || true", repoPath)})
+	require.NoError(t, err)
+
+	// Run tessariq against the dirty repo — must fail before container start.
+	code, output, err := env.Exec(ctx, []string{"sh", "-c",
+		fmt.Sprintf("cd %s && HOME=%s %s run --egress none tasks/sample.md",
+			repoPath, homeDir, binPath)})
+	require.NoError(t, err)
+	require.NotEqual(t, 0, code, "run should reject a dirty repository: %s", output)
+	require.Contains(t, output, "repository is dirty")
+	require.NotContains(t, output, "run_id:",
+		"must fail before evidence bootstrap: %s", output)
+
+	// Verify no new run directory was created.
+	_, runsAfter, err := env.Exec(ctx, []string{"sh", "-c",
+		fmt.Sprintf("ls -1 %s/.tessariq/runs 2>/dev/null | grep -v '^index.jsonl$' || true", repoPath)})
+	require.NoError(t, err)
+	require.Equal(t, runsBefore, runsAfter, "no evidence directory should be created")
+}
+
 func TestE2E_EgressNone_NoNetworkAccess(t *testing.T) {
 	t.Parallel()
 	bin := buildBinary(t)

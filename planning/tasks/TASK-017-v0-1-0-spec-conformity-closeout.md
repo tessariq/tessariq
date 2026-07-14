@@ -1,8 +1,9 @@
 ---
 id: TASK-017-v0-1-0-spec-conformity-closeout
 title: Run the final v0.1.0 spec conformity closeout sweep
-status: todo
+status: completed
 priority: high
+spec_ref: specs/tessariq-v0.1.0.md#release-intent
 dependencies:
     - TASK-001-init-skeleton-and-gitignore
     - TASK-002-run-cli-flags-and-manifest-bootstrap
@@ -84,51 +85,7 @@ dependencies:
     - TASK-098-reject-manifest-egress-mode-tampering-at-promote
     - TASK-099-validate-structured-evidence-parseability-before-promote
     - TASK-100-represent-zero-denied-proxy-telemetry-without-empty-events-file
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#release-intent
-spec_refs:
-    - specs/tessariq-v0.1.0.md#release-intent
-    - specs/tessariq-v0.1.0.md#product-intent
-    - specs/tessariq-v0.1.0.md#host-prerequisites
-    - specs/tessariq-v0.1.0.md#tessariq-version
-    - specs/tessariq-v0.1.0.md#tessariq-run-task-path
-    - specs/tessariq-v0.1.0.md#agent-and-runtime-contract
-    - specs/tessariq-v0.1.0.md#tessariq-attach-run-ref
-    - specs/tessariq-v0.1.0.md#tessariq-promote-run-ref
-    - specs/tessariq-v0.1.0.md#evidence-contract
-    - specs/tessariq-v0.1.0.md#acceptance-scenarios
-    - specs/tessariq-v0.1.0.md#failure-ux
-    - specs/tessariq-v0.1.0.md#success-metrics
-updated_at: "2026-04-24T08:04:00Z"
-areas:
-    - verification
-    - spec
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Keep spec-coverage and acceptance-scenario mapping checks under unit-test control during the closeout sweep.
-    integration:
-        required: false
-        commands:
-            - go test -tags=integration ./...
-        rationale: Integration coverage is optional unless the closeout sweep adds real collaborator dependencies.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: Final conformity still requires thin end-to-end evidence for the critical user-visible workflows.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Closeout relies on verification logic that should still meet the mutation threshold.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Validates CLI behavior and evidence artifacts through direct execution against acceptance criteria.
+updated_at: "2026-07-14T14:01:44Z"
 ---
 
 ## Summary
@@ -169,3 +126,8 @@ Run the final v0.1.0 conformity sweep against the normative spec after the stren
 - 2026-04-13T21:05:00Z: Added TASK-086 through TASK-089 as explicit dependencies so the final closeout sweep cannot run before the newly verified v0.1.0 blockers for diff-artifact integrity, read-only Claude auth mounts, proxy-mode evidence completeness, and symlink-safe evidence-path validation are resolved. BUG-048 is already covered by TASK-085.
 - 2026-04-24T07:41:10Z: Added TASK-096 and TASK-097 as explicit dependencies so the final closeout sweep cannot run before the newly confirmed v0.1.0 evidence-integrity blockers for proxy teardown telemetry trustworthiness and atomic writes for `workspace.json`, `agent.json`, and `runtime.json` are resolved.
 - 2026-04-24T08:04:00Z: Added TASK-098 through TASK-100 as explicit dependencies so the final closeout sweep cannot run before the newly verified v0.1.0 blockers for manifest egress-mode tamper resistance, structured evidence parseability, and zero-denied proxy telemetry semantics are resolved.
+
+## Implementation Notes
+
+- 2026-07-14T14:01:35Z: verification pass
+- 2026-07-14T14:01:44Z: v0.1.0 closeout gate pass. New e2e cmd/tessariq/run_e2e_test.go:TestE2E_DirtyRepoRejectedBeforeContainerStart closes CLI dirty-repo rejection gap. Evidence: planning/artifacts/manual-test/TASK-017-v0-1-0-spec-conformity-closeout/{plan,report}.md, planning/artifacts/verify/TASK-017-v0-1-0-spec-conformity-closeout/20260714T140135Z/report.json. go test ./... 1083 pass; validate=state valid; coverage uncovered=0.

@@ -1,14 +1,14 @@
 ---
 schema_version: 1
-updated_at: "2026-07-14T11:26:06Z"
+updated_at: "2026-07-14T14:01:44Z"
 active_spec_version: v0.1.0
 active_spec_path: specs/tessariq-v0.1.0.md
 current_task: ""
 current_task_title: ""
-status_summary: 'v0.1.0 closeout pending: 98 completed, 1 todo (TASK-017 spec-conformity closeout), 5 blocked (v0.2.0 scope)'
+status_summary: idle
 blockers: []
-next_action: 'Start task TASK-017-v0-1-0-spec-conformity-closeout: Run the final v0.1.0 spec conformity closeout sweep'
-last_verification_result: ""
+next_action: Select the next eligible task
+last_verification_result: pass for TASK-017-v0-1-0-spec-conformity-closeout at 2026-07-14T14:01:35Z
 relevant_artifacts: []
 continuation_notes: []
 ---
@@ -25,7 +25,7 @@ continuation_notes: []
 
 ## Status
 
-- v0.1.0 closeout pending: 98 completed, 1 todo (TASK-017 spec-conformity closeout), 5 blocked (v0.2.0 scope)
+- idle
 
 ## Blockers
 
@@ -33,11 +33,11 @@ continuation_notes: []
 
 ## Last Verification
 
-- 
+- pass for TASK-017-v0-1-0-spec-conformity-closeout at 2026-07-14T14:01:35Z
 
 ## Next Action
 
-- Start task TASK-017-v0-1-0-spec-conformity-closeout: Run the final v0.1.0 spec conformity closeout sweep
+- Select the next eligible task
 
 ## Relevant Artifacts
 
@@ -49,8 +49,8 @@ continuation_notes: []
 
 ## Task Counts
 
-- todo: 1
+- todo: 0
 - in_progress: 0
-- completed: 98
+- completed: 99
 - blocked: 5
 - cancelled: 0
