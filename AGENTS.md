@@ -77,7 +77,7 @@ Use these defaults unless a task requires otherwise.
 - Install gremlins: `go install github.com/go-gremlins/gremlins/cmd/gremlins@v0.6.0`
 
 ### Tracked-work workflow commands
-Tracked work is managed by the external `taskrail` binary (`github.com/tessariq/taskrail`), installed via `go install github.com/tessariq/taskrail@v0.3.0` or `brew install tessariq/tap/taskrail`. The former in-repo `cmd/tessariq-workflow` tool has been removed.
+Tracked work is managed by the external `taskrail` binary (`github.com/tessariq/taskrail`), installed via `go install github.com/tessariq/taskrail/cmd/taskrail@v0.3.0` or `brew install tessariq/tap/taskrail`. The former in-repo `cmd/tessariq-workflow` tool has been removed.
 - Validate state: `taskrail validate`
 - Select next task: `taskrail next --json`
 - Start task: `taskrail start <task-id>`

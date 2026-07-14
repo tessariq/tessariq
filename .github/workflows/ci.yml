@@ -45,7 +45,7 @@ jobs:
         run: go-licenses check ./cmd/tessariq --allowed_licenses=Apache-2.0,MIT,BSD-3-Clause,ISC,AGPL-3.0
 
       - name: Install taskrail
-        run: go install github.com/tessariq/taskrail@v0.3.0
+        run: go install github.com/tessariq/taskrail/cmd/taskrail@v0.3.0
 
       - name: Validate Taskrail tracked-work state and live spec refs  # hard failure gate
         run: taskrail validate
