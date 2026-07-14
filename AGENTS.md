@@ -12,18 +12,21 @@ Guidance for coding agents working in the Tessariq repository.
 ## Source-of-truth files
 - Product specifications: `specs/tessariq-v0.1.0.md` and `specs/tessariq-v0.2.0.md`.
 - Spec reading order and versioning policy: `specs/README.md`.
+- Pinned developer toolchain: `mise.toml`.
 - Commands and local workflows: `Taskfile.yml`.
 - CI checks and required validations: `.github/workflows/ci.yml`.
-- Release pipeline: `.goreleaser.yml`.
+- Release pipeline: `.goreleaser.yml` and `.github/workflows/release.yml`.
 - Product overview: `README.md`.
 - Tracked-work workflow and testing policy: `docs/workflow/`.
 - Mirrored agent skills: `.agents/skills/` and `.claude/skills/`.
 
 ## Toolchain and environment
 - Go version: `1.26` (`go.mod`).
-- `task` is optional convenience; Go commands are the source of truth.
+- The developer toolchain is pinned in `mise.toml` (go, task, goreleaser, trivy, lefthook, and the `go:`-backed gremlins/go-licenses/taskrail). It is the single source of truth for versions and is consumed identically in CI via `jdx/mise-action`.
+- Provision a fresh clone with `mise install` (or `mise run setup` to also build `tessariq` onto PATH and install the opt-in git hooks). Install mise from https://mise.jdx.dev if needed.
+- `mise` and `task` are optional convenience; direct Go commands remain the source of truth and work without mise. Every operation has a `task <name>` wrapper, and CI runs those wrappers.
 - Prefer commands that mirror CI.
-- Docker is a runtime dependency for `tessariq run`; it is not needed for building or testing the CLI itself.
+- Docker is a runtime dependency for `tessariq run` and for `task images:*`; it is not needed for building or testing the CLI itself.
 
 ## Build, lint, and test commands
 Use these defaults unless a task requires otherwise.
@@ -33,9 +36,9 @@ Use these defaults unless a task requires otherwise.
 - Task wrapper: `task build`
 
 ### Formatting and static checks
-- Check formatting (CI): `gofmt -l .`
-- Apply formatting: `gofmt -w .`
-- Vet: `go vet ./...`
+- Check formatting (CI): `gofmt -l .` (or `task fmt:check`)
+- Apply formatting: `gofmt -w .` (or `task fmt`)
+- Vet: `go vet ./...` (or `task vet`)
 
 ### Unit tests
 - Run all unit tests: `go test ./...`
@@ -68,16 +71,15 @@ Use these defaults unless a task requires otherwise.
   `go test ./internal/workspace`
 
 ### CLI smoke checks used in CI
-- `go run ./cmd/tessariq --help`
+- `go run ./cmd/tessariq --help` (or `task run:help`)
 
 ### Mutation tests
-- Run mutation testing: `gremlins unleash`
-- Task wrapper: `task test:mutate`
-- With quality gate (used in CI): `gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70`
-- Install gremlins: `go install github.com/go-gremlins/gremlins/cmd/gremlins@v0.6.0`
+- Run mutation testing: `gremlins unleash` (or `task test:mutate`)
+- With quality gate (used in CI): `task test:mutate:gate` (`gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70`)
+- gremlins is pinned in `mise.toml`; `mise install` provides it.
 
 ### Tracked-work workflow commands
-Tracked work is managed by the external `taskrail` binary (`github.com/tessariq/taskrail`), installed via `go install github.com/tessariq/taskrail/cmd/taskrail@v0.3.0` or `brew install tessariq/tap/taskrail`. The former in-repo `cmd/tessariq-workflow` tool has been removed.
+Tracked work is managed by the external `taskrail` binary (`github.com/tessariq/taskrail`), pinned in `mise.toml` and provided by `mise install`. (Outside mise: `go install github.com/tessariq/taskrail/cmd/taskrail@v0.3.0` or `brew install tessariq/tap/taskrail`.) The former in-repo `cmd/tessariq-workflow` tool has been removed.
 - Validate state: `taskrail validate`
 - Select next task: `taskrail next --json`
 - Start task: `taskrail start <task-id>`
@@ -90,12 +92,19 @@ Tracked work is managed by the external `taskrail` binary (`github.com/tessariq/
 - See `docs/workflow/` for the full deterministic workflow contract.
 
 ### License compliance check used in CI
-- Check allowed licenses: `go-licenses check ./cmd/tessariq --allowed_licenses=Apache-2.0,MIT,BSD-3-Clause,ISC,AGPL-3.0`
-- Install go-licenses: `go install github.com/google/go-licenses/v2@v2.0.1`
+- Check allowed licenses: `task licenses:check` (`go-licenses check ./cmd/tessariq --allowed_licenses=Apache-2.0,MIT,BSD-3-Clause,ISC,AGPL-3.0`)
+- go-licenses is pinned in `mise.toml`; `mise install` provides it.
 
 ### Release-related commands
-- Validate GoReleaser config: `goreleaser check` (or `task release:check`)
-- Dry snapshot release: `goreleaser release --snapshot --clean`
+- Validate GoReleaser config: `task release:check` (`goreleaser check`)
+- Dry snapshot release: `task release:dry` (`goreleaser release --snapshot --clean`)
+- Publishing is automated by `.github/workflows/release.yml` on `v*` tags (GoReleaser with release notes extracted from `CHANGELOG.md`); goreleaser is pinned in `mise.toml`.
+
+### Container images
+- Build/test/scan/push runtime images: `task images:build`, `task images:test`, `task images:scan`, `task images:push` (requires Docker; trivy is pinned in `mise.toml`). The image tag defaults to `v0.1.0` via the `IMAGE_VERSION` Taskfile var. CI runs these in `.github/workflows/images.yml`.
+
+### Git hooks (opt-in)
+- Install: `task hooks:install` (lefthook, pinned in `mise.toml`). Hooks mirror CI's fast checks (gofmt/vet/`taskrail validate`/skill parity on pre-commit, tests on pre-push, Conventional Commit + no-attribution on commit-msg). CI remains authoritative.
 
 ## Coding style guidelines
 Follow existing conventions and keep CLI UX stable.
@@ -242,15 +251,15 @@ When tessariq itself creates Docker containers (via `docker create` / `docker st
 - Evidence is written by the host-side runner process, not by the agent inside the container. The evidence mount inside the container is read-only.
 
 ## Change checklist for agents
-- Run `gofmt -w` on edited Go files.
-- Run `go vet ./...` for non-trivial changes.
+- Run `task fmt` (`gofmt -w`) on edited Go files.
+- Run `task vet` (`go vet ./...`) for non-trivial changes.
 - Keep implementation in a TDD loop for code changes.
 - Run targeted tests for touched packages.
-- Run full `go test ./...` before handing off broad changes.
-- If integration paths changed, run `go test -tags=integration ./...`.
-- If e2e paths changed, run `go test -tags=e2e ./...`.
-- If non-trivial logic changed, run `gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70`.
-- If tracked-work tooling or skills changed, run `taskrail validate`, `diff -rq .agents/skills .claude/skills`, and `taskrail coverage --json`.
+- Run full `task test` (`go test ./...`) before handing off broad changes.
+- If integration paths changed, run `task test:integration` (`go test -tags=integration ./...`).
+- If e2e paths changed, run `task test:e2e` (`go test -tags=e2e ./...`).
+- If non-trivial logic changed, run `task test:mutate:gate` (`gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70`).
+- If tracked-work tooling or skills changed, run `task workflow:validate`, `task workflow:check-skills`, and `task workflow:verify:spec`.
 - Update `README.md` when CLI flags/commands/behavior change.
 - Update `CHANGELOG.md` for user-visible behavior changes; keep entries user-facing and skip internal-only maintenance noise.
 - Verify evidence file contracts are maintained when changing run or promote logic.

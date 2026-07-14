@@ -1,6 +1,7 @@
 # Binaries for programs and plugins
 dist/
 /tessariq
+bin/
 *.exe
 *.exe~
 *.dll
@@ -32,9 +33,6 @@ go.work.sum
 
 # Claude Code local settings
 .claude/settings.local.json
-
-# Hugo build output
-website/public/
 
 # Tessariq runtime state
 .tessariq/

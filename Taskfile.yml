@@ -1,5 +1,13 @@
 version: "3"
 
+# Taskfile owns every developer operation. Tools are provided by the pinned mise
+# toolchain (see mise.toml) and called directly off PATH; direct `go` commands
+# remain canonical and work without mise. CI runs these same `task` targets.
+
+vars:
+  REGISTRY: ghcr.io/tessariq
+  IMAGE_VERSION: '{{.IMAGE_VERSION | default "v0.1.0"}}'
+
 tasks:
   tidy:
     desc: Tidy Go module dependencies
@@ -8,8 +16,52 @@ tasks:
 
   build:
     desc: Build tessariq CLI
+    env:
+      CGO_ENABLED: "0"
     cmds:
       - go build ./cmd/tessariq
+
+  install:
+    desc: Build the working-tree tessariq CLI onto the mise-provided PATH (./bin)
+    env:
+      CGO_ENABLED: "0"
+    cmds:
+      - go build -trimpath -o bin/tessariq{{if eq OS "windows"}}.exe{{end}} ./cmd/tessariq
+
+  release:
+    desc: Build tessariq with an injected release version (VERSION=v0.1.0 task release)
+    vars:
+      VERSION: '{{.VERSION | default "0.0.0-dev"}}'
+    env:
+      CGO_ENABLED: "0"
+    cmds:
+      - go build -ldflags "-s -w -X github.com/tessariq/tessariq/internal/version.Version={{.VERSION}}" -o bin/tessariq ./cmd/tessariq
+
+  fmt:
+    desc: Format all Go files with gofmt
+    cmds:
+      - gofmt -w .
+
+  fmt:check:
+    desc: Fail if any Go file needs gofmt
+    cmds:
+      - |
+        out="$(gofmt -l .)"
+        if [ -n "$out" ]; then
+          echo "The following files need gofmt:" >&2
+          echo "$out" >&2
+          exit 1
+        fi
+
+  vet:
+    desc: Run go vet across all packages
+    cmds:
+      - go vet ./...
+
+  licenses:check:
+    desc: Fail if any dependency license is outside the allowed set
+    cmds:
+      - go-licenses check ./cmd/tessariq --allowed_licenses=Apache-2.0,MIT,BSD-3-Clause,ISC,AGPL-3.0
 
   test:
     desc: Run unit tests
@@ -24,7 +76,7 @@ tasks:
   test:e2e:
     desc: Run end-to-end tests
     cmds:
-      - go test -tags=e2e ./...
+      - go test -tags=e2e ./... -count=1 -timeout=15m
 
   test:mutate:
     desc: Run mutation testing with gremlins
@@ -32,7 +84,7 @@ tasks:
       - gremlins unleash
 
   test:mutate:gate:
-    desc: Run mutation testing with CI threshold
+    desc: Run mutation testing with the CI efficacy threshold
     cmds:
       - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
 
@@ -87,3 +139,60 @@ tasks:
     desc: Build snapshot release artifacts for all targets
     cmds:
       - goreleaser release --snapshot --clean
+
+  images:build:
+    desc: Build the reference runtime and agent container images
+    cmds:
+      - docker build -t {{.REGISTRY}}/reference-runtime:{{.IMAGE_VERSION}} -f runtime/reference/Dockerfile runtime/reference
+      - |
+        set -e
+        for agent in claude-code opencode; do
+          docker build -t "{{.REGISTRY}}/${agent}:{{.IMAGE_VERSION}}" -f "runtime/${agent}/Dockerfile" "runtime/${agent}"
+        done
+
+  images:test:
+    desc: Smoke-test agent image binaries and enforce non-root user
+    cmds:
+      - docker run --rm {{.REGISTRY}}/claude-code:{{.IMAGE_VERSION}} claude --version
+      - docker run --rm {{.REGISTRY}}/opencode:{{.IMAGE_VERSION}} opencode --version
+      - |
+        set -e
+        for agent in claude-code opencode; do
+          user=$(docker run --rm "{{.REGISTRY}}/${agent}:{{.IMAGE_VERSION}}" whoami)
+          echo "${agent}: ${user}"
+          if [ "$user" = "root" ]; then
+            echo "ERROR: ${agent} container must not run as root" >&2
+            exit 1
+          fi
+        done
+
+  images:scan:
+    desc: Scan agent images for CRITICAL/HIGH vulnerabilities (non-blocking report)
+    cmds:
+      - |
+        set -e
+        for agent in claude-code opencode; do
+          echo "scanning ${agent}"
+          trivy image --severity CRITICAL,HIGH --exit-code 0 --format table "{{.REGISTRY}}/${agent}:{{.IMAGE_VERSION}}"
+        done
+
+  images:push:
+    desc: Push the reference runtime and agent images to the registry
+    cmds:
+      - |
+        set -e
+        for image in reference-runtime claude-code opencode; do
+          docker push "{{.REGISTRY}}/${image}:{{.IMAGE_VERSION}}"
+        done
+
+  hooks:install:
+    desc: Install opt-in git hooks via lefthook (pre-commit, commit-msg, pre-push)
+    cmds:
+      - |
+        if ! command -v lefthook >/dev/null 2>&1; then
+          echo "lefthook not found. Install it, then re-run 'task hooks:install':" >&2
+          echo "  mise install   # provides the pinned lefthook" >&2
+          echo "  # or: go install github.com/evilmartians/lefthook@v1.13.6" >&2
+          exit 1
+        fi
+        lefthook install

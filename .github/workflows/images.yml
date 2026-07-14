@@ -6,10 +6,12 @@ on:
     paths:
       - "runtime/**"
       - ".github/workflows/images.yml"
+      - "Taskfile.yml"
   pull_request:
     paths:
       - "runtime/**"
       - ".github/workflows/images.yml"
+      - "Taskfile.yml"
   workflow_dispatch:
 
 concurrency:
@@ -20,9 +22,6 @@ permissions:
   contents: read
   packages: write
 
-env:
-  REGISTRY: ghcr.io
-
 jobs:
   build-test-push:
     runs-on: ubuntu-latest
@@ -30,71 +29,29 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Provision toolchain (mise)
+        uses: jdx/mise-action@v4
+
       - name: Log in to GHCR
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v4
         with:
-          registry: ${{ env.REGISTRY }}
+          registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build reference runtime
-        run: |
-          docker build \
-            -t ghcr.io/tessariq/reference-runtime:v0.1.0 \
-            -f runtime/reference/Dockerfile \
-            runtime/reference
+      - name: Build images
+        run: task images:build
 
-      - name: Build agent images
-        run: |
-          for agent in claude-code opencode; do
-            docker build \
-              -t "ghcr.io/tessariq/${agent}:v0.1.0" \
-              -f "runtime/${agent}/Dockerfile" \
-              "runtime/${agent}"
-          done
-
-      - name: Test claude binary
-        run: |
-          docker run --rm ghcr.io/tessariq/claude-code:v0.1.0 claude --version
-
-      - name: Test opencode binary
-        run: |
-          docker run --rm ghcr.io/tessariq/opencode:v0.1.0 opencode --version
-
-      - name: Test non-root user
-        run: |
-          for agent in claude-code opencode; do
-            user=$(docker run --rm "ghcr.io/tessariq/${agent}:v0.1.0" whoami)
-            echo "${agent}: ${user}"
-            if [ "$user" = "root" ]; then
-              echo "ERROR: ${agent} container must not run as root"
-              exit 1
-            fi
-          done
+      - name: Test image binaries and non-root user
+        run: task images:test
 
       - name: Scan for vulnerabilities
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: ghcr.io/tessariq/claude-code:v0.1.0
-          format: table
-          exit-code: 0
-          severity: CRITICAL,HIGH
-
-      - name: Scan for vulnerabilities (opencode)
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: ghcr.io/tessariq/opencode:v0.1.0
-          format: table
-          exit-code: 0
-          severity: CRITICAL,HIGH
+        run: task images:scan
 
       - name: Push images
         if: github.event_name != 'pull_request'
-        run: |
-          for image in reference-runtime claude-code opencode; do
-            docker push "ghcr.io/tessariq/${image}:v0.1.0"
-          done
+        run: task images:push
 
       - name: Output digests
         if: github.event_name != 'pull_request'

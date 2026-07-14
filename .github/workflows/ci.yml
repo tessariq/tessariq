@@ -20,48 +20,29 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
-          cache: true
+      - name: Provision toolchain (mise)
+        uses: jdx/mise-action@v4
 
       - name: Verify formatting
-        run: |
-          fmt_out="$(gofmt -l .)"
-          if [ -n "$fmt_out" ]; then
-            echo "The following files need gofmt:" >&2
-            echo "$fmt_out" >&2
-            exit 1
-          fi
+        run: task fmt:check
 
       - name: Vet
-        run: go vet ./...
-
-      - name: Install go-licenses
-        run: go install github.com/google/go-licenses/v2@v2.0.1
+        run: task vet
 
       - name: Check dependency licenses
-        run: go-licenses check ./cmd/tessariq --allowed_licenses=Apache-2.0,MIT,BSD-3-Clause,ISC,AGPL-3.0
-
-      - name: Install taskrail
-        run: go install github.com/tessariq/taskrail/cmd/taskrail@v0.3.0
+        run: task licenses:check
 
       - name: Validate Taskrail tracked-work state and live spec refs  # hard failure gate
-        run: taskrail validate
+        run: task workflow:validate
 
       - name: Verify mirrored workflow skills
-        run: diff -rq .agents/skills .claude/skills
+        run: task workflow:check-skills
 
       - name: Report active milestone spec coverage  # advisory
-        run: taskrail coverage --json
+        run: task workflow:verify:spec
 
       - name: Validate GoReleaser config
-        uses: goreleaser/goreleaser-action@v7
-        with:
-          distribution: goreleaser
-          version: '~> v2'
-          args: check
+        run: task release:check
 
   unit-tests:
     needs: checks
@@ -74,14 +55,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
-          cache: true
+      - name: Provision toolchain (mise)
+        uses: jdx/mise-action@v4
 
       - name: Unit tests
-        run: go test ./...
+        run: task test
 
   smoke-tests:
     needs: checks
@@ -94,14 +72,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
-          cache: true
+      - name: Provision toolchain (mise)
+        uses: jdx/mise-action@v4
 
       - name: Build binary
-        run: CGO_ENABLED=0 go build -o tessariq ./cmd/tessariq
+        run: task build
 
       - name: Smoke test --help
         run: ./tessariq --help
@@ -113,14 +88,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
-          cache: true
+      - name: Provision toolchain (mise)
+        uses: jdx/mise-action@v4
 
       - name: Integration tests
-        run: go test -tags=integration ./...
+        run: task test:integration
 
       - name: Cleanup orphaned Docker resources
         if: always()
@@ -136,14 +108,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
-          cache: true
+      - name: Provision toolchain (mise)
+        uses: jdx/mise-action@v4
 
       - name: End-to-end tests
-        run: go test -tags=e2e ./... -count=1 -timeout=15m
+        run: task test:e2e
 
       - name: Cleanup orphaned Docker resources
         if: always()
@@ -159,14 +128,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
-          cache: true
-
-      - name: Install gremlins
-        run: go install github.com/go-gremlins/gremlins/cmd/gremlins@v0.6.0
+      - name: Provision toolchain (mise)
+        uses: jdx/mise-action@v4
 
       - name: Run mutation tests
-        run: gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
+        run: task test:mutate:gate

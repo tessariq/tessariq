@@ -4,6 +4,7 @@ Contributor and coding-agent workflow for tracked work in Tessariq.
 
 ## Source Of Truth
 
+- `mise.toml`
 - `Taskfile.yml`
 - `.github/workflows/ci.yml`
 - `docs/workflow/`
@@ -12,15 +13,19 @@ Contributor and coding-agent workflow for tracked work in Tessariq.
 
 ## Build And Validation
 
-- Build: `go build ./cmd/tessariq`
-- Product tests: `go test ./...`
-- Integration tests: `go test -tags=integration ./...`
-- End-to-end tests: `go test -tags=e2e ./...`
-- Mutation tests: `gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70`
-- Workflow validation: `taskrail validate`
+The developer toolchain is pinned in `mise.toml`; `mise install` (or `mise run
+setup`) provisions it, and CI runs the same `task` targets via `jdx/mise-action`.
+Direct `go` commands remain canonical.
+
+- Build: `task build` (`go build ./cmd/tessariq`)
+- Product tests: `task test` (`go test ./...`)
+- Integration tests: `task test:integration` (`go test -tags=integration ./...`)
+- End-to-end tests: `task test:e2e` (`go test -tags=e2e ./...`)
+- Mutation tests: `task test:mutate:gate` (`gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70`)
+- Workflow validation: `task workflow:validate` (`taskrail validate`)
 - Workflow validation bundle: `task workflow:check`
-- Skill parity: `diff -rq .agents/skills .claude/skills`
-- Spec verification: `taskrail coverage --json` (active milestone spec only)
+- Skill parity: `task workflow:check-skills` (`diff -rq .agents/skills .claude/skills`)
+- Spec verification: `task workflow:verify:spec` (`taskrail coverage --json`, active milestone spec only)
 
 ## TDD Default
 

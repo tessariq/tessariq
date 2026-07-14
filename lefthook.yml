@@ -1,0 +1,35 @@
+# Local git hooks for tessariq (opt-in).
+#
+# Install:  task hooks:install   (runs `lefthook install`)
+# These hooks mirror the fast checks in .github/workflows/ci.yml; CI remains the
+# authoritative gate. Pinned tool version: lefthook v1.13.6 (see mise.toml and
+# the Taskfile `hooks:install` target). Do not bypass hooks with `--no-verify`.
+
+pre-commit:
+  parallel: true
+  commands:
+    gofmt:
+      glob: "*.go"
+      run: |
+        unformatted="$(gofmt -l {staged_files})"
+        if [ -n "$unformatted" ]; then
+          echo "gofmt needed on:" >&2
+          echo "$unformatted" >&2
+          exit 1
+        fi
+    vet:
+      run: task vet
+    workflow-validate:
+      run: task workflow:validate
+    skill-parity:
+      run: task workflow:check-skills
+
+commit-msg:
+  commands:
+    conventional:
+      run: bash scripts/check-commit-msg.sh {1}
+
+pre-push:
+  commands:
+    tests:
+      run: task test

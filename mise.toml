@@ -1,0 +1,34 @@
+# Optional, pinned developer toolchain for Tessariq.
+#
+# mise (https://mise.jdx.dev) is convenience only: direct `go` commands and the
+# Taskfile.yml targets remain canonical and work without mise. These pins are the
+# single source of truth for the developer environment and CI (via
+# jdx/mise-action) — the `go` pin matches go.mod.
+#
+# Usage:
+#   mise install     # provision the pinned toolchain on a fresh clone
+#   mise run setup   # provision + build tessariq onto PATH + install git hooks
+
+[tools]
+go = "1.26"
+task = "3.52.0"
+lefthook = "1.13.6"
+goreleaser = "2.17.0"
+trivy = "0.72.0"
+"go:github.com/go-gremlins/gremlins/cmd/gremlins" = "0.6.0"
+"go:github.com/google/go-licenses/v2" = "2.0.1"
+"go:github.com/tessariq/taskrail/cmd/taskrail" = "0.3.0"
+
+# Expose the working-tree tessariq build on the mise-provided PATH so a bare
+# `tessariq` resolves to ./bin/tessariq. `mise run setup` / `task install`
+# populate it.
+[env]
+_.path = ["{{config_root}}/bin"]
+
+[tasks.setup]
+description = "Provision the pinned toolchain, build tessariq onto PATH, and install the opt-in git hooks"
+run = [
+  "mise install",
+  "task install",
+  "lefthook install",
+]

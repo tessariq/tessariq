@@ -87,6 +87,20 @@ go build ./cmd/tessariq
 ./tessariq --help
 ```
 
+### Developer setup (optional, with mise)
+
+The developer toolchain (Go, [Task](https://taskfile.dev), GoReleaser, Trivy,
+Lefthook, and the tracked-work tools) is pinned in `mise.toml`. With
+[mise](https://mise.jdx.dev) installed:
+
+```sh
+mise run setup   # provision the pinned toolchain, build tessariq onto PATH, install git hooks
+task test        # run the unit suite (see `task --list` for all targets)
+```
+
+mise and Task are optional convenience — the direct `go` commands above work
+without them.
+
 ## Prepare a Runtime Image
 
 Tessariq runs agents inside Docker containers. The official reference runtime image includes a broad development toolchain, but it does not bundle third-party agent binaries. You derive your own image by adding the agent you want to run.
