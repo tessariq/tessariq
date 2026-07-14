@@ -3,43 +3,12 @@ id: TASK-076-pin-default-agent-images-by-digest
 title: Pin default agent images by digest
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
 dependencies:
     - TASK-024-claude-code-agent-runtime-integration
     - TASK-025-opencode-agent-runtime-integration
     - TASK-063-pin-squid-proxy-image-by-digest
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
-spec_refs:
-    - specs/tessariq-v0.1.0.md#tessariq-run-task-path
-    - specs/tessariq-v0.1.0.md#agent-and-runtime-contract
 updated_at: "2026-04-05T08:45:18Z"
-areas:
-    - runtime
-    - security
-    - supply-chain
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Default image selection and digest guardrails should start with focused tests.
-    integration:
-        required: false
-        commands: []
-        rationale: The change is constant and validation logic, not a new process interaction.
-    e2e:
-        required: false
-        commands: []
-        rationale: Existing runtime integration coverage should remain sufficient once the defaults are pinned.
-    mutation:
-        required: false
-        commands: []
-        rationale: The task is mostly constant replacement plus guard tests.
-    manual_test:
-        required: false
-        commands: []
-        rationale: No manual-only behavior is expected once automated guards prove the defaults are pinned.
 ---
 
 ## Summary

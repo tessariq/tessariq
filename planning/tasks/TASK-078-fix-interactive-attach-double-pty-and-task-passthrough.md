@@ -3,45 +3,11 @@ id: TASK-078-fix-interactive-attach-double-pty-and-task-passthrough
 title: Fix interactive attach double-PTY hang and pass task content
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
 dependencies:
     - TASK-071-implement-run-attach-live-session
     - TASK-029-interactive-runtime-mode-independent-of-attach
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
-spec_refs:
-    - specs/tessariq-v0.1.0.md#tessariq-run-task-path
-    - specs/tessariq-v0.1.0.md#acceptance-scenarios
 updated_at: "2026-04-05T13:03:04Z"
-areas:
-    - cli
-    - runner
-    - tmux
-    - interactive
-    - adapter
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Adapter arg building and runner session signaling changes require precise unit coverage.
-    integration:
-        required: false
-        commands: []
-        rationale: The double-PTY fix changes the attach path but uses the same container and tmux primitives already covered.
-    e2e:
-        required: false
-        commands: []
-        rationale: The fix changes plumbing between existing components; manual testing covers the real UX.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Conditional branching on interactive mode is easy to partially wire.
-    manual_test:
-        required: true
-        commands: []
-        rationale: The interactive attach TUI flow can only be verified manually with a live container.
 ---
 
 ## Summary

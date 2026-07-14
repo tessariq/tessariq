@@ -3,6 +3,7 @@ id: TASK-027-container-lifecycle-and-mount-isolation
 title: Implement Docker container lifecycle and mount isolation for agent execution
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#workspace-guarantees
 dependencies:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
     - TASK-006-tmux-session-and-detached-attach-guidance
@@ -12,46 +13,7 @@ dependencies:
     - TASK-024-claude-code-agent-runtime-integration
     - TASK-025-opencode-agent-runtime-integration
     - TASK-026-mount-agent-config-flag-and-config-dir-mounts
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#workspace-guarantees
-spec_refs:
-    - specs/tessariq-v0.1.0.md#workspace-guarantees
-    - specs/tessariq-v0.1.0.md#tessariq-run-task-path
-    - specs/tessariq-v0.1.0.md#agent-and-runtime-contract
-    - specs/tessariq-v0.1.0.md#evidence-contract
-    - specs/tessariq-v0.1.0.md#acceptance-scenarios
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-03-31T12:02:33Z"
-areas:
-    - container
-    - runtime
-    - security
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Docker command construction and mount assembly are branch-heavy and must start with unit tests.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Real Docker container lifecycle requires Testcontainers-backed integration coverage.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: Container isolation is a core user-visible security property and needs thin e2e coverage.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Mount assembly and container lifecycle are safety-critical.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Real container isolation must be validated manually with a live agent run.
 ---
 
 ## Summary

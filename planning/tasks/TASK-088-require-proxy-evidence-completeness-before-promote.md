@@ -3,48 +3,12 @@ id: TASK-088-require-proxy-evidence-completeness-before-promote
 title: Require proxy evidence completeness before promote
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
 dependencies:
     - TASK-012-proxy-topology-and-egress-artifacts
     - TASK-015-promote-branch-commit-trailers-and-zero-diff-guard
     - TASK-047-promote-repo-local-evidence-path-validation
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
-spec_refs:
-    - specs/tessariq-v0.1.0.md#networking-and-egress
-    - specs/tessariq-v0.1.0.md#evidence-contract
-    - specs/tessariq-v0.1.0.md#tessariq-promote-run-ref
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-14T14:41:09Z"
-areas:
-    - promote
-    - proxy
-    - evidence
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Completeness checks should be pinned with deterministic manifest-driven coverage.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: The fix spans proxy-mode evidence generation and promote-time validation.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: Promotion correctness is a core user-visible contract and should hold for proxy runs end to end.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Conditional evidence gates are prone to mode-detection regressions.
-    manual_test:
-        required: true
-        commands: []
-        rationale: A built CLI check should confirm that proxy-mode runs missing required egress artifacts are rejected before promote.
 ---
 
 ## Summary

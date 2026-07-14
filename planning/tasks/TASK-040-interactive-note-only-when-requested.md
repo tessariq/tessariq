@@ -3,43 +3,11 @@ id: TASK-040-interactive-note-only-when-requested
 title: Gate interactive-without-attach note on explicit user request
 status: completed
 priority: low
+spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
 dependencies:
     - TASK-018-replace-yolo-with-interactive-and-cli-polish
     - TASK-029-interactive-runtime-mode-independent-of-attach
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
-spec_refs:
-    - specs/tessariq-v0.1.0.md#tessariq-run-task-path
-    - specs/tessariq-v0.1.0.md#acceptance-scenarios
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-01T18:20:23Z"
-areas:
-    - cli
-    - runtime
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: The note gating condition is a small decision branch and should be covered with focused unit tests.
-    integration:
-        required: false
-        commands: []
-        rationale: Behavior is command-output logic and does not require container collaborators.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: Validate user-visible stderr guidance for default vs explicitly interactive runs.
-    mutation:
-        required: false
-        commands: []
-        rationale: Existing mutation coverage can remain unchanged for this targeted output fix.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Confirm CLI UX wording and absence/presence of the note in real runs.
 ---
 
 ## Summary

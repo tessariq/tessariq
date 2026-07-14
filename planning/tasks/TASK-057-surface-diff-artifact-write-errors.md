@@ -3,41 +3,10 @@ id: TASK-057-surface-diff-artifact-write-errors
 title: Surface WriteDiffArtifacts errors as warnings instead of silent discard
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#required-artifacts
 dependencies:
     - TASK-013-diff-log-and-evidence-artifacts
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#required-artifacts
-spec_refs:
-    - specs/tessariq-v0.1.0.md#required-artifacts
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-02T08:31:34Z"
-areas:
-    - evidence
-    - cli
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: The warning branch is deterministic and should be covered by unit tests.
-    integration:
-        required: false
-        commands: []
-        rationale: The fix is a warning-print branch with no new collaborator boundary.
-    e2e:
-        required: false
-        commands: []
-        rationale: Unit coverage is sufficient for a stderr warning branch.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: The new error-handling branch is safety-critical for evidence completeness.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Confirms the warning appears when diff generation fails and is absent on success.
 ---
 
 ## Summary

@@ -3,44 +3,10 @@ id: TASK-006-tmux-session-and-detached-attach-guidance
 title: Start tmux sessions and print detached attach guidance
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#product-intent
 dependencies:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#product-intent
-spec_refs:
-    - specs/tessariq-v0.1.0.md#product-intent
-    - specs/tessariq-v0.1.0.md#core-workflow
-    - specs/tessariq-v0.1.0.md#tessariq-run-task-path
 updated_at: "2026-03-30T15:21:26Z"
-areas:
-    - tmux
-    - cli
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Printed output composition and tmux session naming can begin with unit tests.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Tmux lifecycle interaction crosses process boundaries and must be validated through Testcontainers-backed integration coverage.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: Detached-by-default user experience is a critical flow and should get thin end-to-end coverage once available.
-    mutation:
-        required: false
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Mutation testing is optional unless the session lifecycle logic becomes complex.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Validates CLI behavior and evidence artifacts through direct execution against acceptance criteria.
 ---
 
 ## Summary

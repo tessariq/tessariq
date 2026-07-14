@@ -3,47 +3,11 @@ id: TASK-052-attach-run-id-evidence-path-consistency
 title: Require attach evidence to match the resolved run_id
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#core-workflow
 dependencies:
     - TASK-007-attach-command-live-run-resolution
     - TASK-051-attach-repo-local-evidence-path-validation
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#core-workflow
-spec_refs:
-    - specs/tessariq-v0.1.0.md#core-workflow
-    - specs/tessariq-v0.1.0.md#lifecycle-rules
-    - specs/tessariq-v0.1.0.md#evidence-contract
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-02T13:54:55Z"
-areas:
-    - attach
-    - evidence
-    - security
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Run-ID-to-evidence consistency checks are deterministic and unit-testable.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Attach behavior must be validated against forged mixed-run index entries and real tmux sessions.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: This is a user-visible attach integrity rule.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Identity checks are branch-heavy and easy to weaken accidentally.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Confirms another run's `status.json` cannot authorize attach for the requested run.
 ---
 
 ## Summary

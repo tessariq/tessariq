@@ -3,43 +3,11 @@ id: TASK-042-opencode-auth-missing-actionable-error
 title: Surface actionable auth-missing guidance for OpenCode provider resolution
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#failure-ux
 dependencies:
     - TASK-023-supported-agent-auth-mounts
     - TASK-041-opencode-proxy-user-config-allowlist-without-auth
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#failure-ux
-spec_refs:
-    - specs/tessariq-v0.1.0.md#failure-ux
-    - specs/tessariq-v0.1.0.md#tessariq-run-task-path
 updated_at: "2026-04-01T18:21:48Z"
-areas:
-    - egress
-    - opencode
-    - error-handling
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Error typing and message mapping should be asserted with deterministic unit tests.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Auth discovery and provider resolution sequencing needs realistic coverage.
-    e2e:
-        required: false
-        commands: []
-        rationale: Integration coverage is sufficient for this focused pre-start failure UX.
-    mutation:
-        required: false
-        commands: []
-        rationale: Existing mutation scope can stay unchanged for this narrow UX mapping fix.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Confirm final CLI error wording is actionable and references local authentication.
 ---
 
 ## Summary

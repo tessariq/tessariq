@@ -3,45 +3,11 @@ id: TASK-046-unique-run-aware-last-run-resolution
 title: Resolve last and last-N by unique runs instead of raw index lines
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#lifecycle-rules
 dependencies:
     - TASK-014-run-index-and-run-ref-resolution
     - TASK-045-validate-index-entry-shape-before-resolution
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#lifecycle-rules
-spec_refs:
-    - specs/tessariq-v0.1.0.md#lifecycle-rules
-    - specs/tessariq-v0.1.0.md#evidence-contract
 updated_at: "2026-04-02T08:39:44Z"
-areas:
-    - indexing
-    - attach
-    - promote
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Unique-run resolution semantics should be proven in focused unit tests.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Index files with repeated lifecycle entries need realistic file-backed coverage.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: '`last-N` directly affects user-facing attach and promote commands.'
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Off-by-one and de-duplication logic are mutation-prone.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Confirms `last-1` selects the previous run rather than an earlier lifecycle entry for the same run.
 ---
 
 ## Summary

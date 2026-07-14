@@ -3,44 +3,10 @@ id: TASK-043-index-append-error-visibility
 title: Make run index append failures visible to users
 status: completed
 priority: high
+spec_ref: specs/tessariq-v0.1.0.md#evidence-contract
 dependencies:
     - TASK-014-run-index-and-run-ref-resolution
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#evidence-contract
-spec_refs:
-    - specs/tessariq-v0.1.0.md#evidence-contract
-    - specs/tessariq-v0.1.0.md#tessariq-attach-run-ref
-    - specs/tessariq-v0.1.0.md#tessariq-promote-run-ref
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-01T18:06:11Z"
-areas:
-    - indexing
-    - cli
-    - evidence
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Index append and warning behavior should be covered with deterministic stubs.
-    integration:
-        required: false
-        commands: []
-        rationale: Behavior is local file/evidence error handling and can be covered in unit tests.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: Validate user-visible warning and run-ref behavior under partial evidence failures.
-    mutation:
-        required: false
-        commands: []
-        rationale: This is localized warning-path hardening.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Confirm CLI warns while preserving run completion semantics.
 ---
 
 ## Summary

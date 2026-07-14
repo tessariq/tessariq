@@ -3,44 +3,11 @@ id: TASK-082-clarify-applied-field-semantics
 title: Align applied-field semantics between spec, code comments, and implementation
 status: completed
 priority: low
+spec_ref: specs/tessariq-v0.1.0.md#agent-and-runtime-contract
 dependencies:
     - TASK-008-adapter-contract-and-adapter-json
     - TASK-080-opencode-interactive-support
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#agent-and-runtime-contract
-spec_refs:
-    - specs/tessariq-v0.1.0.md#agent-and-runtime-contract
-    - specs/tessariq-v0.1.0.md#evidence-contract
 updated_at: "2026-04-07T15:00:01Z"
-areas:
-    - adapters
-    - evidence
-    - spec
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Any semantic change to applied must be reflected in adapter unit tests.
-    integration:
-        required: false
-        commands: []
-        rationale: No new subsystem boundaries; applied semantics are tested at unit and e2e level.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: E2e tests assert applied values in agent.json evidence artifacts.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Applied-flag logic is trivially mutatable.
-    manual_test:
-        required: false
-        commands: []
-        rationale: This is a documentation and semantic alignment task; automated tests cover correctness.
 ---
 
 ## Summary

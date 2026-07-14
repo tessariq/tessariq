@@ -3,43 +3,10 @@ id: TASK-008-adapter-contract-and-adapter-json
 title: Implement adapter contract and adapter metadata recording
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#adapter-contract
 dependencies:
     - TASK-002-run-cli-flags-and-manifest-bootstrap
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#adapter-contract
-spec_refs:
-    - specs/tessariq-v0.1.0.md#adapter-contract
-    - specs/tessariq-v0.1.0.md#evidence-contract
 updated_at: "2026-03-30T15:34:54Z"
-areas:
-    - adapters
-    - evidence
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Adapter option recording and applied/requested semantics should start with unit tests.
-    integration:
-        required: false
-        commands:
-            - go test -tags=integration ./...
-        rationale: Containerized integration tests can wait until concrete adapters are wired into run execution.
-    e2e:
-        required: false
-        commands:
-            - go test -tags=e2e ./...
-        rationale: End-to-end coverage belongs with concrete adapter flows rather than the shared contract alone.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Requested-versus-applied bookkeeping is a good mutation target.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Validates CLI behavior and evidence artifacts through direct execution against acceptance criteria.
 ---
 
 ## Summary

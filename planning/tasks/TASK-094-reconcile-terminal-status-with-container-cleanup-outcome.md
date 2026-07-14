@@ -3,49 +3,13 @@ id: TASK-094-reconcile-terminal-status-with-container-cleanup-outcome
 title: Reconcile terminal status with container cleanup outcome
 status: completed
 priority: low
+spec_ref: specs/tessariq-v0.1.0.md#lifecycle-rules
 dependencies:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
     - TASK-028-container-session-streaming-and-cleanup-hardening
     - TASK-077-treat-terminal-non-success-run-outcomes-as-cli-failures
     - TASK-085-harden-run-finalization-and-orphaned-run-recovery
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#lifecycle-rules
-spec_refs:
-    - specs/tessariq-v0.1.0.md#lifecycle-rules
-    - specs/tessariq-v0.1.0.md#evidence-contract
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-15T16:33:57Z"
-areas:
-    - runner
-    - container
-    - evidence
-    - cli
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: The fix is a branchy state transition in `writeTerminalStatus` that should be pinned with deterministic unit coverage.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Container cleanup errors must be simulated against a real `Process.Cleanup` to prove the reconciled outcome holds.
-    e2e:
-        required: false
-        commands:
-            - go test -tags=e2e ./...
-        rationale: End-to-end coverage is nice to have, but the core contract can be exercised from integration level.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Terminal-state branching is easy to weaken to a shape that still passes the happy path.
-    manual_test:
-        required: true
-        commands: []
-        rationale: A built CLI check should confirm that a cleanup failure on a successful run produces a consistent CLI exit, evidence state, and promote eligibility.
 ---
 
 ## Summary

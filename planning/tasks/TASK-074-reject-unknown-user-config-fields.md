@@ -3,43 +3,11 @@ id: TASK-074-reject-unknown-user-config-fields
 title: Reject unknown keys in user config instead of silently ignoring them
 status: completed
 priority: low
+spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
 dependencies:
     - TASK-011-egress-mode-resolution-and-manifest-recording
     - TASK-053-bypass-user-config-when-cli-egress-is-explicit
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
-spec_refs:
-    - specs/tessariq-v0.1.0.md#networking-and-egress
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-04T07:19:12Z"
-areas:
-    - config
-    - networking
-    - ux
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Unknown-field handling belongs in config parser unit coverage first.
-    integration:
-        required: false
-        commands: []
-        rationale: The fix is parser behavior rather than a new collaborator boundary.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: Misconfigured user config is a real CLI failure mode and should be validated end to end.
-    mutation:
-        required: false
-        commands: []
-        rationale: Decoder strictness is a narrow parser change rather than branch-heavy logic.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Real config-typo behavior should be checked from the CLI to confirm the resulting guidance is actionable.
 ---
 
 ## Summary

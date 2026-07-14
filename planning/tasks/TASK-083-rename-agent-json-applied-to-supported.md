@@ -3,46 +3,11 @@ id: TASK-083-rename-agent-json-applied-to-supported
 title: Rename agent.json applied field to supported
 status: completed
 priority: high
+spec_ref: specs/tessariq-v0.1.0.md#agent-and-runtime-contract
 dependencies:
     - TASK-022-agent-and-runtime-evidence-migration
     - TASK-082-clarify-applied-field-semantics
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#agent-and-runtime-contract
-spec_refs:
-    - specs/tessariq-v0.1.0.md#agent-and-runtime-contract
-    - specs/tessariq-v0.1.0.md#compatibility-rules
-    - specs/tessariq-v0.1.0.md#evidence-contract
 updated_at: "2026-04-07T17:57:10Z"
-areas:
-    - adapters
-    - evidence
-    - spec
-    - docs
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: The rename changes shared adapter metadata types, JSON shaping, and evidence assertions across multiple packages.
-    integration:
-        required: false
-        commands: []
-        rationale: No new subsystem boundary is introduced; the change is primarily a contract and evidence-shape rename.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: End-to-end tests must prove emitted agent.json artifacts use supported and no longer emit applied.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: The requested-versus-supported bookkeeping is simple, branchy, and easy to regress with superficial renames.
-    manual_test:
-        required: true
-        commands: []
-        rationale: A real run should be inspected to confirm agent.json uses supported, omits applied, and matches the updated contract.
 ---
 
 ## Summary

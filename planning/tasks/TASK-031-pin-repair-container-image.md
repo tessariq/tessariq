@@ -3,41 +3,10 @@ id: TASK-031-pin-repair-container-image
 title: Pin workspace repair container image by digest
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
 dependencies:
     - TASK-028-container-session-streaming-and-cleanup-hardening
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
-spec_refs:
-    - specs/tessariq-v0.1.0.md#tessariq-run-task-path
-    - specs/tessariq-v0.1.0.md#workspace-guarantees
 updated_at: "2026-04-01T10:56:08Z"
-areas:
-    - workspace
-    - security
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Image reference construction should be unit-testable.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Repair container behavior crosses process boundaries and requires integration testing.
-    e2e:
-        required: false
-        commands: []
-        rationale: Existing e2e cleanup coverage is sufficient once the image is pinned.
-    mutation:
-        required: false
-        commands: []
-        rationale: Image reference is a constant, not branch logic.
-    manual_test:
-        required: false
-        commands: []
-        rationale: Image pinning is fully testable through automated tests.
 ---
 
 ## Summary

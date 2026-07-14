@@ -3,45 +3,10 @@ id: TASK-064-enforce-host-port-pair-acls-in-squid-conf
 title: Enforce exact host-port pairs in generated Squid ACLs
 status: completed
 priority: high
+spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
 dependencies:
     - TASK-012-proxy-topology-and-egress-artifacts
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
-spec_refs:
-    - specs/tessariq-v0.1.0.md#networking-and-egress
-    - specs/tessariq-v0.1.0.md#acceptance-scenarios
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-03T09:08:44Z"
-areas:
-    - proxy
-    - networking
-    - security
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Squid config generation is deterministic text output and should be locked down with focused unit coverage.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: The fix must be validated against a real Squid container to prove unintended host-port pairs are blocked.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: This is a user-visible and security-critical proxy guarantee.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: ACL-composition logic is branch-heavy and safety-critical.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Confirms proxy-mode runs can reach only the exact configured host-port pairs.
 ---
 
 ## Summary

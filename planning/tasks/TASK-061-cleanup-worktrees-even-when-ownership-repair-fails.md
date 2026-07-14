@@ -3,45 +3,12 @@ id: TASK-061-cleanup-worktrees-even-when-ownership-repair-fails
 title: Continue worktree cleanup when ownership repair fails
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#workspace-guarantees
 dependencies:
     - TASK-004-worktree-provisioning-and-workspace-metadata
     - TASK-031-pin-repair-container-image
     - TASK-038-guaranteed-worktree-cleanup-on-run-failure
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#workspace-guarantees
-spec_refs:
-    - specs/tessariq-v0.1.0.md#workspace-guarantees
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-03T08:56:28Z"
-areas:
-    - workspace
-    - cleanup
-    - reliability
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Cleanup fallback control flow should be verified deterministically before any Docker-backed checks.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Real git-worktree removal behavior must be exercised when repair fails.
-    e2e:
-        required: false
-        commands: []
-        rationale: Integration coverage should be enough for the narrow cleanup path.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Failure-path cleanup logic is branch-heavy and easy to regress.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Confirms leaked worktrees do not remain when Docker becomes unavailable mid-run.
 ---
 
 ## Summary

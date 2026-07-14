@@ -3,52 +3,14 @@ id: TASK-087-restore-read-only-claude-auth-mount-contract
 title: Enforce a secure host auth and config mount contract across all supported agents
 status: completed
 priority: high
+spec_ref: specs/tessariq-v0.1.0.md#product-intent
 dependencies:
     - TASK-023-supported-agent-auth-mounts
     - TASK-024-claude-code-agent-runtime-integration
     - TASK-025-opencode-agent-runtime-integration
     - TASK-026-mount-agent-config-flag-and-config-dir-mounts
     - TASK-027-container-lifecycle-and-mount-isolation
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#product-intent
-spec_refs:
-    - specs/tessariq-v0.1.0.md#product-intent
-    - specs/tessariq-v0.1.0.md#agent-and-runtime-contract
-    - specs/tessariq-v0.1.0.md#acceptance-scenarios
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-14T16:19:33Z"
-areas:
-    - auth
-    - security
-    - adapters
-    - container
-    - evidence
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Auth-discovery, runtime-state preparation, and runtime-evidence behavior should first be pinned with deterministic unit coverage.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: The bug is about actual mount flags and host/container interaction, not only struct values.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: v0.1.0's auth-reuse contract is user-visible and security-sensitive.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: A shallow fix could update evidence text without removing the writable host persistence path.
-    manual_test:
-        required: true
-        commands: []
-        rationale: A built CLI check should prove the container cannot persist agent state mutations back onto live host auth or config paths for any supported agent.
 ---
 
 ## Summary

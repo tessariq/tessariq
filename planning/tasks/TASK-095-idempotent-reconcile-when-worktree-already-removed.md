@@ -3,47 +3,10 @@ id: TASK-095-idempotent-reconcile-when-worktree-already-removed
 title: Keep reconcile cleanup idempotent when the canonical worktree has already been removed
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#lifecycle-rules
 dependencies:
     - TASK-090-validate-workspace-path-before-reconcile-cleanup
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#lifecycle-rules
-spec_refs:
-    - specs/tessariq-v0.1.0.md#lifecycle-rules
-    - specs/tessariq-v0.1.0.md#tessariq-attach-run-ref
-    - specs/tessariq-v0.1.0.md#tessariq-promote-run-ref
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-15T16:12:25Z"
-areas:
-    - lifecycle
-    - workspace
-    - attach
-    - promote
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: The ENOENT-idempotent branch must be pinned at the unit level alongside the existing BUG-055 containment tests so a regression cannot silently re-break either direction.
-    integration:
-        required: false
-        commands: []
-        rationale: No new integration surface; the existing TASK-090 integration tests keep driving the real Docker chown/chmod/remove path and stay green unchanged.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e -run '^TestE2E_(AttachReconcilesExitedOrphanedRun|AttachForgedCrossRunEvidenceRejectsBeforeAttaching|PromoteTamperedManifestRejectedBeforeGitSideEffects)$' ./cmd/tessariq/...
-        rationale: The three reconcile-adjacent e2e tests that TASK-090 exercised must still be green; they confirm `attach`/`promote` keep working end-to-end with real CLI binaries inside the runtime container.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*|.*_test\.go|metadata\.go|provision\.go|repoid\.go' --timeout-coefficient 10 --threshold-efficacy 70 ./internal/workspace
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*|.*_test\.go' --timeout-coefficient 10 --threshold-efficacy 70 ./internal/lifecycle
-        rationale: New ENOENT branches in a containment predicate are exactly the kind of one-line change that mutation testing is good at catching — the branch must be killed by a deterministic test, not an incidental one.
-    manual_test:
-        required: true
-        commands: []
-        rationale: A built CLI check must prove that `tessariq attach <run-id>` succeeds after the worktree is manually removed and still fails when the stored `workspace_path` is genuinely tampered to point outside the canonical tree.
 ---
 
 ## Summary

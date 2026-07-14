@@ -3,44 +3,10 @@ id: TASK-010-opencode-adapter
 title: Implement the OpenCode adapter
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#adapter-contract
 dependencies:
     - TASK-008-adapter-contract-and-adapter-json
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#adapter-contract
-spec_refs:
-    - specs/tessariq-v0.1.0.md#adapter-contract
-    - specs/tessariq-v0.1.0.md#evidence-contract
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-03-30T18:41:18Z"
-areas:
-    - adapters
-    - opencode
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Adapter command construction and option application should start with unit tests.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Real adapter invocation touches process boundaries and should use Testcontainers-backed integration coverage only.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: Adapter behavior affects the end-to-end user flow and deserves thin CLI coverage.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Option mapping and partial-application reporting are branch-heavy.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Validates CLI behavior and evidence artifacts through direct execution against acceptance criteria.
 ---
 
 ## Summary

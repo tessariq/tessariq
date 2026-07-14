@@ -3,50 +3,12 @@ id: TASK-029-interactive-runtime-mode-independent-of-attach
 title: Implement interactive runtime mode independently of attach
 status: completed
 priority: high
+spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
 dependencies:
     - TASK-018-replace-yolo-with-interactive-and-cli-polish
     - TASK-027-container-lifecycle-and-mount-isolation
     - TASK-028-container-session-streaming-and-cleanup-hardening
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
-spec_refs:
-    - specs/tessariq-v0.1.0.md#tessariq-run-task-path
-    - specs/tessariq-v0.1.0.md#lifecycle-rules
-    - specs/tessariq-v0.1.0.md#agent-and-runtime-contract
-    - specs/tessariq-v0.1.0.md#acceptance-scenarios
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-03-31T17:33:11Z"
-areas:
-    - container
-    - tmux
-    - interactive
-    - timeout
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Interactive runtime state handling and timeout semantics should start with focused unit tests.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Interactive mode depends on real terminal and process behavior across host tmux and Docker boundaries.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: Interactive runtime is a primary user-visible workflow and needs thin end-to-end coverage.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Timeout and approval-state branching should survive mutation testing.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Human approval flows must be exercised manually with a live interactive run.
 ---
 
 ## Summary

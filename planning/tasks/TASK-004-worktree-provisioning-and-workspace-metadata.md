@@ -3,43 +3,10 @@ id: TASK-004-worktree-provisioning-and-workspace-metadata
 title: Provision detached worktrees and record workspace metadata
 status: completed
 priority: high
+spec_ref: specs/tessariq-v0.1.0.md#workspace-guarantees
 dependencies:
     - TASK-003-dirty-repo-gate-and-task-ingest
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#workspace-guarantees
-spec_refs:
-    - specs/tessariq-v0.1.0.md#workspace-guarantees
-    - specs/tessariq-v0.1.0.md#evidence-contract
 updated_at: "2026-03-29T19:45:01Z"
-areas:
-    - git
-    - workspace
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Workspace-path derivation and metadata shaping should begin with unit tests.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Real worktree provisioning crosses process boundaries and the integration coverage must use Testcontainers-backed collaborators only.
-    e2e:
-        required: false
-        commands:
-            - go test -tags=e2e ./...
-        rationale: Full CLI coverage can wait until run orchestration is complete.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Provisioning and cleanup branching should be mutation-tested once implemented.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Validates CLI behavior and evidence artifacts through direct execution against acceptance criteria.
 ---
 
 ## Summary

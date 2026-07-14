@@ -3,42 +3,11 @@ id: TASK-079-forward-model-flag-and-adapter-interface
 title: Forward --model flag to OpenCode and introduce adapter Agent interface
 status: completed
 priority: low
+spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
 dependencies:
     - TASK-010-opencode-adapter
     - TASK-008-adapter-contract-and-adapter-json
-milestone: v0.2.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
-spec_refs:
-    - specs/tessariq-v0.1.0.md#tessariq-run-task-path
 updated_at: "2026-04-05T20:41:35Z"
-areas:
-    - adapter
-    - cli
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./internal/adapter/...
-            - go test ./...
-        rationale: Adapter arg building and interface conformance need precise unit coverage.
-    integration:
-        required: false
-        commands: []
-        rationale: No new subsystem boundaries introduced; factory dispatch is covered by unit tests.
-    e2e:
-        required: false
-        commands: []
-        rationale: Model forwarding is a CLI arg change, not a runtime flow change.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Conditional branching on model presence is mutation-sensitive.
-    manual_test:
-        required: false
-        commands: []
-        rationale: Model forwarding can be fully validated through unit tests on adapter arg building.
 ---
 
 ## Summary

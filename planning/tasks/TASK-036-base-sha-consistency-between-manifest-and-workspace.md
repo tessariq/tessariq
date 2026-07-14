@@ -3,44 +3,11 @@ id: TASK-036-base-sha-consistency-between-manifest-and-workspace
 title: Eliminate base_sha race between manifest and workspace evidence
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#workspace-guarantees
 dependencies:
     - TASK-004-worktree-provisioning-and-workspace-metadata
     - TASK-022-agent-and-runtime-evidence-migration
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#workspace-guarantees
-spec_refs:
-    - specs/tessariq-v0.1.0.md#workspace-guarantees
-    - specs/tessariq-v0.1.0.md#evidence-contract
 updated_at: "2026-04-01T12:09:20Z"
-areas:
-    - workspace
-    - run
-    - evidence
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Base SHA propagation is deterministic and should be enforced with unit tests at function boundaries.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Worktree provisioning and evidence writing cross package boundaries and require integration coverage.
-    e2e:
-        required: false
-        commands: []
-        rationale: Risk is internal consistency rather than top-level CLI UX.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Data-flow regressions are subtle and mutation tests help catch missed branches.
-    manual_test:
-        required: false
-        commands: []
-        rationale: Deterministic consistency can be fully automated.
 ---
 
 ## Summary

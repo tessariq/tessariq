@@ -3,44 +3,11 @@ id: TASK-105-run-lifecycle-architecture-note
 title: Add an architecture note for the run lifecycle and evidence ownership
 status: blocked
 priority: low
+spec_ref: specs/tessariq-v0.2.0.md#shared-runtime-sketch
 dependencies:
     - TASK-101-extract-run-orchestrator
     - TASK-102-evidence-package-and-atomic-json
-milestone: v0.2.0
-spec_version: v0.2.0
-spec_ref: specs/tessariq-v0.2.0.md#shared-runtime-sketch
-spec_refs:
-    - specs/tessariq-v0.2.0.md#shared-runtime-sketch
-    - specs/tessariq-v0.2.0.md#runner-responsibilities
-    - specs/tessariq-v0.2.0.md#evidence-additions
 updated_at: "2026-06-10T00:00:00Z"
-areas:
-    - docs
-verification:
-    unit:
-        required: false
-        commands:
-            - go test ./...
-        rationale: Documentation-only change; no code under test.
-    integration:
-        required: false
-        commands:
-            - go test -tags=integration ./...
-        rationale: No code paths change.
-    e2e:
-        required: false
-        commands:
-            - go test -tags=e2e ./...
-        rationale: No code paths change.
-    mutation:
-        required: false
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: No production code changes.
-    manual_test:
-        required: false
-        commands: []
-        rationale: Documentation-only; reviewed by reading, not executed.
 ---
 
 ## Summary

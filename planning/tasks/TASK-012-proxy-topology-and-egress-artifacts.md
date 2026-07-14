@@ -3,50 +3,12 @@ id: TASK-012-proxy-topology-and-egress-artifacts
 title: Implement proxy topology and provider-aware egress evidence artifacts
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#host-prerequisites
 dependencies:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
     - TASK-011-egress-mode-resolution-and-manifest-recording
     - TASK-027-container-lifecycle-and-mount-isolation
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#host-prerequisites
-spec_refs:
-    - specs/tessariq-v0.1.0.md#host-prerequisites
-    - specs/tessariq-v0.1.0.md#agent-and-runtime-contract
-    - specs/tessariq-v0.1.0.md#networking-and-egress
-    - specs/tessariq-v0.1.0.md#evidence-contract
-    - specs/tessariq-v0.1.0.md#acceptance-scenarios
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-03-31T19:37:40Z"
-areas:
-    - networking
-    - proxy
-    - agents
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Allowlists and compiled rule rendering should begin with unit tests.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Proxy networking is a real container boundary and must use Testcontainers-backed integration coverage only.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: The user-visible proxy mode should receive thin end-to-end verification once the run flow is complete.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Rule compilation and allowlist enforcement are high-value mutation targets.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Validates CLI behavior and evidence artifacts through direct execution against acceptance criteria.
 ---
 
 ## Summary

@@ -3,6 +3,7 @@ id: TASK-085-harden-run-finalization-and-orphaned-run-recovery
 title: Harden run finalization and orphaned run recovery across all supported agents
 status: completed
 priority: high
+spec_ref: specs/tessariq-v0.1.0.md#core-workflow
 dependencies:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
     - TASK-014-run-index-and-run-ref-resolution
@@ -13,50 +14,7 @@ dependencies:
     - TASK-071-implement-run-attach-live-session
     - TASK-077-treat-terminal-non-success-run-outcomes-as-cli-failures
     - TASK-080-opencode-interactive-support
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#core-workflow
-spec_refs:
-    - specs/tessariq-v0.1.0.md#core-workflow
-    - specs/tessariq-v0.1.0.md#tessariq-run-task-path
-    - specs/tessariq-v0.1.0.md#tessariq-attach-run-ref
-    - specs/tessariq-v0.1.0.md#lifecycle-rules
-    - specs/tessariq-v0.1.0.md#evidence-contract
-    - specs/tessariq-v0.1.0.md#required-artifacts
-    - specs/tessariq-v0.1.0.md#failure-ux
-    - specs/tessariq-v0.1.0.md#success-metrics
 updated_at: "2026-04-13T19:37:30Z"
-areas:
-    - runner
-    - lifecycle
-    - evidence
-    - attach
-    - adapters
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: The fix will change signal handling, terminal-state persistence, and stale-run reconciliation logic that should be covered deterministically at the unit level.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: The bug sits at the process and container lifecycle boundary, so integration coverage should exercise real Docker-backed runner behavior without relying only on mocks.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: User-visible correctness depends on full CLI runs emitting terminal status and usable run resolution for every supported agent.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Terminal-state and recovery code is branchy and easy to weaken with superficial fixes; mutation testing should guard the core decision logic.
-    manual_test:
-        required: true
-        commands: []
-        rationale: This bug involves real process interruption and orphan recovery, so a built CLI manual check is required in addition to automated tests.
 ---
 
 ## Summary

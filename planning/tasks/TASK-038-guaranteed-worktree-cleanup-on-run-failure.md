@@ -3,45 +3,11 @@ id: TASK-038-guaranteed-worktree-cleanup-on-run-failure
 title: Guarantee worktree cleanup on all post-provision run failure paths
 status: completed
 priority: high
+spec_ref: specs/tessariq-v0.1.0.md#workspace-guarantees
 dependencies:
     - TASK-004-worktree-provisioning-and-workspace-metadata
     - TASK-028-container-session-streaming-and-cleanup-hardening
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#workspace-guarantees
-spec_refs:
-    - specs/tessariq-v0.1.0.md#workspace-guarantees
-    - specs/tessariq-v0.1.0.md#lifecycle-rules
 updated_at: "2026-04-01T09:20:19Z"
-areas:
-    - workspace
-    - cleanup
-    - run
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Error-path cleanup guarantees must be pinned with deterministic tests.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Worktree and git cleanup behavior spans filesystem and git command execution.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: Real run failures should not leak worktrees in user-visible workflows.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Cleanup defers and branching are frequent mutation weak points.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Validate no leaked worktrees after intentionally failed runs.
 ---
 
 ## Summary

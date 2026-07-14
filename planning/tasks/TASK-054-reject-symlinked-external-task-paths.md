@@ -3,47 +3,11 @@ id: TASK-054-reject-symlinked-external-task-paths
 title: Reject symlinked task files whose real target escapes the repository
 status: completed
 priority: high
+spec_ref: specs/tessariq-v0.1.0.md#repository-model
 dependencies:
     - TASK-002-run-cli-flags-and-manifest-bootstrap
     - TASK-003-dirty-repo-gate-and-task-ingest
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#repository-model
-spec_refs:
-    - specs/tessariq-v0.1.0.md#repository-model
-    - specs/tessariq-v0.1.0.md#user-authored-inputs
-    - specs/tessariq-v0.1.0.md#lifecycle-rules
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-02T07:40:35Z"
-areas:
-    - cli
-    - evidence
-    - security
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Real-path validation logic should start with focused path-handling unit tests.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Symlink behavior is filesystem-dependent and should be verified with real repo fixtures.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: This is a repository-boundary contract on the user-visible run command.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Boundary checks are safety-critical and branch-heavy.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Confirms repo-local symlinks cannot smuggle external task content into evidence.
 ---
 
 ## Summary

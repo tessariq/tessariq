@@ -3,51 +3,13 @@ id: TASK-011-egress-mode-resolution-and-manifest-recording
 title: Resolve egress modes, provider-aware allowlists, and manifest recording
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#generated-runtime-state
 dependencies:
     - TASK-002-run-cli-flags-and-manifest-bootstrap
     - TASK-022-agent-and-runtime-evidence-migration
     - TASK-024-claude-code-agent-runtime-integration
     - TASK-025-opencode-agent-runtime-integration
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#generated-runtime-state
-spec_refs:
-    - specs/tessariq-v0.1.0.md#generated-runtime-state
-    - specs/tessariq-v0.1.0.md#tessariq-run-task-path
-    - specs/tessariq-v0.1.0.md#agent-and-runtime-contract
-    - specs/tessariq-v0.1.0.md#networking-and-egress
-    - specs/tessariq-v0.1.0.md#evidence-contract
-    - specs/tessariq-v0.1.0.md#acceptance-scenarios
 updated_at: "2026-03-31T09:33:02Z"
-areas:
-    - networking
-    - evidence
-    - agents
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Egress resolution, allowlist provenance, and manifest-field population should be unit-tested first.
-    integration:
-        required: false
-        commands:
-            - go test -tags=integration ./...
-        rationale: Integration coverage can wait until proxy topology and runtime networking are implemented.
-    e2e:
-        required: false
-        commands:
-            - go test -tags=e2e ./...
-        rationale: Full user-flow verification belongs with the proxy runtime task.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Mode resolution and built-in allowlist selection are mutation-prone.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Validates CLI behavior and evidence artifacts through direct execution against acceptance criteria.
 ---
 
 ## Summary

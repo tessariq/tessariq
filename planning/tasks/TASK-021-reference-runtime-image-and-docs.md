@@ -3,49 +3,12 @@ id: TASK-021-reference-runtime-image-and-docs
 title: Publish the v0.1.0 minimal reference runtime image and docs
 status: completed
 priority: high
+spec_ref: specs/tessariq-v0.1.0.md#product-intent
 dependencies:
     - TASK-022-agent-and-runtime-evidence-migration
     - TASK-002-run-cli-flags-and-manifest-bootstrap
     - TASK-020-prerequisite-preflight-and-missing-dependency-ux
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#product-intent
-spec_refs:
-    - specs/tessariq-v0.1.0.md#product-intent
-    - specs/tessariq-v0.1.0.md#tessariq-run-task-path
-    - specs/tessariq-v0.1.0.md#agent-and-runtime-contract
-    - specs/tessariq-v0.1.0.md#acceptance-scenarios
-    - specs/tessariq-v0.1.0.md#specification-changelog
 updated_at: "2026-03-30T22:35:18Z"
-areas:
-    - runtime
-    - docker
-    - docs
-verification:
-    unit:
-        required: false
-        commands:
-            - go test ./...
-        rationale: Most work is image and documentation oriented rather than core branch logic.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: The runtime image contract should be validated through real container behavior.
-    e2e:
-        required: false
-        commands:
-            - go test -tags=e2e ./...
-        rationale: End-to-end agent flows are owned by the agent integration tasks.
-    mutation:
-        required: false
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: This task is not primarily branch-heavy logic.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Runtime-image usability and docs need direct verification.
 ---
 
 ## Summary

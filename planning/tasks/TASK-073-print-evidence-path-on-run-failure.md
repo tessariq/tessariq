@@ -3,44 +3,12 @@ id: TASK-073-print-evidence-path-on-run-failure
 title: Print failed run evidence details before returning run errors
 status: completed
 priority: low
+spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
 dependencies:
     - TASK-002-run-cli-flags-and-manifest-bootstrap
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
     - TASK-006-tmux-session-and-detached-attach-guidance
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
-spec_refs:
-    - specs/tessariq-v0.1.0.md#tessariq-run-task-path
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-05T10:25:11Z"
-areas:
-    - cli
-    - ux
-    - evidence
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Failure-path output shaping should start with focused unit tests.
-    integration:
-        required: false
-        commands: []
-        rationale: The main change is CLI output formatting once evidence already exists.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: Failure output is directly user-visible and should be validated through the real CLI.
-    mutation:
-        required: false
-        commands: []
-        rationale: This is output branching rather than complex business logic.
-    manual_test:
-        required: true
-        commands: []
-        rationale: A real failed run should confirm evidence details are surfaced where users expect them.
 ---
 
 ## Summary

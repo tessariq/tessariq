@@ -3,46 +3,11 @@ id: TASK-048-promote-manifest-run-identity-consistency
 title: Verify promote evidence identity matches the resolved run
 status: completed
 priority: high
+spec_ref: specs/tessariq-v0.1.0.md#core-workflow
 dependencies:
     - TASK-015-promote-branch-commit-trailers-and-zero-diff-guard
     - TASK-047-promote-repo-local-evidence-path-validation
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#core-workflow
-spec_refs:
-    - specs/tessariq-v0.1.0.md#core-workflow
-    - specs/tessariq-v0.1.0.md#lifecycle-rules
-    - specs/tessariq-v0.1.0.md#evidence-contract
 updated_at: "2026-04-02T13:54:54Z"
-areas:
-    - promote
-    - evidence
-    - security
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Manifest-vs-run identity checks are deterministic and should begin with unit tests.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Promote side effects must be validated against tampered evidence in a real git repo.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: A forged manifest must be rejected on the user-facing promote path.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Identity cross-checks are safety-critical and branch-heavy.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Confirms tampered manifest metadata cannot rewrite branch identity or commit trailers.
 ---
 
 ## Summary

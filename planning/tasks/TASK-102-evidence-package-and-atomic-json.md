@@ -3,44 +3,10 @@ id: TASK-102-evidence-package-and-atomic-json
 title: Introduce internal/evidence for shared schema validation and atomic JSON writes
 status: blocked
 priority: medium
+spec_ref: specs/tessariq-v0.2.0.md#evidence-additions
 dependencies:
     - TASK-017-v0-1-0-spec-conformity-closeout
-milestone: v0.2.0
-spec_version: v0.2.0
-spec_ref: specs/tessariq-v0.2.0.md#evidence-additions
-spec_refs:
-    - specs/tessariq-v0.2.0.md#evidence-additions
-    - specs/tessariq-v0.2.0.md#shared-runtime-sketch
 updated_at: "2026-06-10T00:00:00Z"
-areas:
-    - evidence
-    - runner
-    - promote
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Schema validation, atomic write, and completeness helpers are pure logic and must be unit-tested directly.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Promote and runner completeness consume these helpers across package boundaries; the contract must hold end-to-end.
-    e2e:
-        required: false
-        commands:
-            - go test -tags=e2e ./...
-        rationale: No user-facing flow changes; covered transitively by existing run/promote e2e.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Completeness and schema-validation branches are fail-closed security logic and must survive mutation.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Confirms evidence artifacts are byte-for-byte unchanged and promote still rejects the same tamper/incompleteness cases.
 ---
 
 ## Summary

@@ -3,45 +3,10 @@ id: TASK-101-extract-run-orchestrator
 title: Extract run lifecycle orchestration out of the Cobra run command
 status: blocked
 priority: medium
+spec_ref: specs/tessariq-v0.2.0.md#shared-runtime-sketch
 dependencies:
     - TASK-017-v0-1-0-spec-conformity-closeout
-milestone: v0.2.0
-spec_version: v0.2.0
-spec_ref: specs/tessariq-v0.2.0.md#shared-runtime-sketch
-spec_refs:
-    - specs/tessariq-v0.2.0.md#shared-runtime-sketch
-    - specs/tessariq-v0.2.0.md#workspace-guarantees
-    - specs/tessariq-v0.2.0.md#runner-responsibilities
 updated_at: "2026-06-10T00:00:00Z"
-areas:
-    - cli
-    - run
-    - runner
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: The extracted orchestrator must be unit-testable end-to-end with injected collaborators (prereq, git, provision, runner) without going through Cobra.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: The run pipeline crosses worktree, container, and proxy boundaries; the extraction must preserve those integration contracts.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: This is a behavior-preserving refactor of the primary user flow; the full run -> attach -> promote e2e path must stay green.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Orchestration moves branchy lifecycle and cleanup decisions into testable library code; mutation testing guards the new branches.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Confirms the user-facing run command output, exit codes, and evidence artifacts are byte-for-byte unchanged after extraction.
 ---
 
 ## Summary

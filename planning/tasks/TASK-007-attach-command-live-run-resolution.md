@@ -3,47 +3,11 @@ id: TASK-007-attach-command-live-run-resolution
 title: Implement attach command and live run resolution
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#host-prerequisites
 dependencies:
     - TASK-006-tmux-session-and-detached-attach-guidance
     - TASK-014-run-index-and-run-ref-resolution
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#host-prerequisites
-spec_refs:
-    - specs/tessariq-v0.1.0.md#host-prerequisites
-    - specs/tessariq-v0.1.0.md#tessariq-attach-run-ref
-    - specs/tessariq-v0.1.0.md#lifecycle-rules
-    - specs/tessariq-v0.1.0.md#acceptance-scenarios
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-01T17:16:44Z"
-areas:
-    - tmux
-    - cli
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Run-ref parsing and live-run eligibility checks should start with unit tests.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Attach behavior relies on real session/process resolution and must use Testcontainers-backed integration coverage only.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: A thin attach end-to-end flow is needed because the feature is explicitly user-visible.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Run-ref and eligibility branching should survive mutation testing.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Validates CLI behavior and evidence artifacts through direct execution against acceptance criteria.
 ---
 
 ## Summary

@@ -3,47 +3,10 @@ id: TASK-002-run-cli-flags-and-manifest-bootstrap
 title: Add run command flags and manifest bootstrap
 status: completed
 priority: high
+spec_ref: specs/tessariq-v0.1.0.md#product-intent
 dependencies:
     - TASK-001-init-skeleton-and-gitignore
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#product-intent
-spec_refs:
-    - specs/tessariq-v0.1.0.md#product-intent
-    - specs/tessariq-v0.1.0.md#core-workflow
-    - specs/tessariq-v0.1.0.md#repository-model
-    - specs/tessariq-v0.1.0.md#tessariq-run-task-path
-    - specs/tessariq-v0.1.0.md#failure-ux
-    - specs/tessariq-v0.1.0.md#evidence-contract
 updated_at: "2026-03-29T14:23:26Z"
-areas:
-    - cli
-    - evidence
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Flag parsing, defaulting, and manifest bootstrap should be covered through focused unit tests.
-    integration:
-        required: false
-        commands:
-            - go test -tags=integration ./...
-        rationale: Containerized integration coverage becomes useful once the run pipeline starts external collaborators.
-    e2e:
-        required: false
-        commands:
-            - go test -tags=e2e ./...
-        rationale: The user-visible run flow is not complete until runner and adapter tasks land.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Defaulting and option-application logic are mutation-prone and should meet the CI threshold once implemented.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Validates CLI behavior and evidence artifacts through direct execution against acceptance criteria.
 ---
 
 ## Summary

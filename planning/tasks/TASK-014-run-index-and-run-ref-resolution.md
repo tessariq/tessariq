@@ -3,45 +3,12 @@ id: TASK-014-run-index-and-run-ref-resolution
 title: Maintain the run index and resolve repository-scoped run refs
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#lifecycle-rules
 dependencies:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
     - TASK-013-diff-log-and-evidence-artifacts
     - TASK-022-agent-and-runtime-evidence-migration
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#lifecycle-rules
-spec_refs:
-    - specs/tessariq-v0.1.0.md#lifecycle-rules
-    - specs/tessariq-v0.1.0.md#evidence-contract
 updated_at: "2026-04-01T10:00:00Z"
-areas:
-    - evidence
-    - indexing
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Index entry shaping and `last`/`last-N` resolution belong in unit tests first.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Append-only file I/O with potential concurrent runs needs Testcontainers-backed validation for atomic append safety and corrupted-index resilience.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: Run-ref resolution affects attach and promote user flows and deserves thin end-to-end coverage.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Index ordering and run-ref parsing are branch-heavy.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Validates CLI behavior and evidence artifacts through direct execution against acceptance criteria.
 ---
 
 ## Summary

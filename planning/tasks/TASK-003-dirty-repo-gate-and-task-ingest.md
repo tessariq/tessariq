@@ -3,46 +3,10 @@ id: TASK-003-dirty-repo-gate-and-task-ingest
 title: Enforce clean-repo gating and ingest task metadata
 status: completed
 priority: high
+spec_ref: specs/tessariq-v0.1.0.md#repository-model
 dependencies:
     - TASK-002-run-cli-flags-and-manifest-bootstrap
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#repository-model
-spec_refs:
-    - specs/tessariq-v0.1.0.md#repository-model
-    - specs/tessariq-v0.1.0.md#user-authored-inputs
-    - specs/tessariq-v0.1.0.md#workspace-guarantees
-    - specs/tessariq-v0.1.0.md#acceptance-scenarios
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-03-29T14:46:33Z"
-areas:
-    - git
-    - evidence
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Parsing H1 titles, basename fallback, and dirty-repo classification should start with unit tests.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Dirty-repo detection shells out to git, a real process boundary; Testcontainers-backed tests must verify staged, unstaged, and untracked non-ignored states in a real git repo.
-    e2e:
-        required: false
-        commands:
-            - go test -tags=e2e ./...
-        rationale: No full user-flow assertion is needed until run execution is complete.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Dirty-repo gating and metadata fallback logic are good mutation-testing targets.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Validates CLI behavior and evidence artifacts through direct execution against acceptance criteria.
 ---
 
 ## Summary

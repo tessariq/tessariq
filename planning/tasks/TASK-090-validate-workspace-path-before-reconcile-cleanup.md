@@ -3,52 +3,13 @@ id: TASK-090-validate-workspace-path-before-reconcile-cleanup
 title: Validate workspace path before reconcile triggers cleanup
 status: completed
 priority: high
+spec_ref: specs/tessariq-v0.1.0.md#evidence-contract
 dependencies:
     - TASK-004-worktree-provisioning-and-workspace-metadata
     - TASK-051-attach-repo-local-evidence-path-validation
     - TASK-061-cleanup-worktrees-even-when-ownership-repair-fails
     - TASK-085-harden-run-finalization-and-orphaned-run-recovery
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#evidence-contract
-spec_refs:
-    - specs/tessariq-v0.1.0.md#evidence-contract
-    - specs/tessariq-v0.1.0.md#lifecycle-rules
-    - specs/tessariq-v0.1.0.md#tessariq-attach-run-ref
-    - specs/tessariq-v0.1.0.md#tessariq-promote-run-ref
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-15T12:34:19Z"
-areas:
-    - lifecycle
-    - workspace
-    - attach
-    - promote
-    - security
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Path-containment checks on an untrusted evidence field should be pinned deterministically at the unit level.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Reconcile drives real Docker chown/chmod and host-side filesystem teardown; integration coverage must exercise the full workspace cleanup path.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: attach and promote are user-visible commands and both invoke reconcile with workspace cleanup on non-success runs.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Containment predicates are easy to weaken to a string-prefix that still passes happy-path tests.
-    manual_test:
-        required: true
-        commands: []
-        rationale: A built CLI check must confirm that a tampered `workspace.json` cannot redirect `chown`/`chmod`/`os.RemoveAll` to a path outside the canonical per-run worktree tree.
 ---
 
 ## Summary

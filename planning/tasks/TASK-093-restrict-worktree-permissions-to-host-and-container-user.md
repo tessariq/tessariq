@@ -3,47 +3,12 @@ id: TASK-093-restrict-worktree-permissions-to-host-and-container-user
 title: Restrict worktree permissions to the host and container user only
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#agent-and-runtime-contract
 dependencies:
     - TASK-004-worktree-provisioning-and-workspace-metadata
     - TASK-027-container-lifecycle-and-mount-isolation
     - TASK-061-cleanup-worktrees-even-when-ownership-repair-fails
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#agent-and-runtime-contract
-spec_refs:
-    - specs/tessariq-v0.1.0.md#agent-and-runtime-contract
-    - specs/tessariq-v0.1.0.md#evidence-contract
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-15T19:51:26Z"
-areas:
-    - workspace
-    - container
-    - security
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Permission bits and path contracts should be pinned deterministically where possible.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: The fix spans a host-side chmod (or chown) plus Docker bind-mount UID semantics, which require real filesystem coverage.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: Worktree access is observable to any concurrent shell on the host and should be verified from a full CLI run.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: A weakened permission check can still make every happy-path test pass.
-    manual_test:
-        required: true
-        commands: []
-        rationale: A built CLI check on a multi-user host should confirm that a second local user cannot read or modify a live worktree.
 ---
 
 ## Summary

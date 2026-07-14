@@ -3,49 +3,12 @@ id: TASK-026-mount-agent-config-flag-and-config-dir-mounts
 title: Add --mount-agent-config and read-only default config-dir mounts
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
 dependencies:
     - TASK-002-run-cli-flags-and-manifest-bootstrap
     - TASK-022-agent-and-runtime-evidence-migration
     - TASK-023-supported-agent-auth-mounts
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
-spec_refs:
-    - specs/tessariq-v0.1.0.md#tessariq-run-task-path
-    - specs/tessariq-v0.1.0.md#agent-and-runtime-contract
-    - specs/tessariq-v0.1.0.md#evidence-contract
-    - specs/tessariq-v0.1.0.md#acceptance-scenarios
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-03-31T08:15:44Z"
-areas:
-    - cli
-    - agents
-    - runtime
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Flag wiring and mount-policy recording should start with unit tests.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Container-visible config-dir mounts need Testcontainers-backed verification.
-    e2e:
-        required: false
-        commands:
-            - go test -tags=e2e ./...
-        rationale: Full end-to-end behavior is already exercised by the supported-agent tasks.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Config-mount guardrails and failure behavior are branch-prone.
-    manual_test:
-        required: true
-        commands: []
-        rationale: The opt-in config-dir mount UX should be validated directly.
 ---
 
 ## Summary

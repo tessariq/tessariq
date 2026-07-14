@@ -3,43 +3,10 @@ id: TASK-104-runner-phase-decoupling
 title: Reduce Runner.Run phase coupling with typed phase results
 status: blocked
 priority: low
+spec_ref: specs/tessariq-v0.2.0.md#runner-responsibilities
 dependencies:
     - TASK-017-v0-1-0-spec-conformity-closeout
-milestone: v0.2.0
-spec_version: v0.2.0
-spec_ref: specs/tessariq-v0.2.0.md#runner-responsibilities
-spec_refs:
-    - specs/tessariq-v0.2.0.md#runner-responsibilities
-    - specs/tessariq-v0.2.0.md#lifecycle-rules
-    - specs/tessariq-v0.2.0.md#resume-rules
 updated_at: "2026-06-10T00:00:00Z"
-areas:
-    - runner
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Each extracted phase must be unit-testable in isolation with injected collaborators while preserving downgrade and reconciliation rules.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: The runner lifecycle spans tmux, container, and evidence boundaries; the refactor must not break those contracts.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: Runner.Run is on the critical run path; terminal-state and timeout behavior must stay green end-to-end.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Status downgrade, timeout-flag, and signal-derived-state branches are subtle correctness logic and must survive mutation.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Confirms status.json terminal states for success, failure, timeout, and cleanup-error runs are unchanged.
 ---
 
 ## Summary

@@ -3,47 +3,11 @@ id: TASK-022-agent-and-runtime-evidence-migration
 title: Replace adapter evidence with agent and runtime evidence
 status: completed
 priority: high
+spec_ref: specs/tessariq-v0.1.0.md#agent-and-runtime-contract
 dependencies:
     - TASK-002-run-cli-flags-and-manifest-bootstrap
     - TASK-008-adapter-contract-and-adapter-json
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#agent-and-runtime-contract
-spec_refs:
-    - specs/tessariq-v0.1.0.md#agent-and-runtime-contract
-    - specs/tessariq-v0.1.0.md#adapter-contract
-    - specs/tessariq-v0.1.0.md#evidence-contract
-    - specs/tessariq-v0.1.0.md#acceptance-scenarios
 updated_at: "2026-03-30T22:06:40Z"
-areas:
-    - agents
-    - runtime
-    - evidence
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Evidence shaping and schema compatibility should start with unit tests.
-    integration:
-        required: false
-        commands:
-            - go test -tags=integration ./...
-        rationale: Integration coverage can remain with agent-specific run tasks.
-    e2e:
-        required: false
-        commands:
-            - go test -tags=e2e ./...
-        rationale: End-to-end coverage is better owned by full run-path tasks.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Requested-versus-applied bookkeeping and evidence migration are mutation-prone.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Validates the visible evidence layout and JSON artifacts.
 ---
 
 ## Summary

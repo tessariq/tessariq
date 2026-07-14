@@ -3,44 +3,11 @@ id: TASK-059-reject-leading-dot-allowlist-hosts
 title: Reject leading-dot allowlist hosts that widen Squid matching
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
 dependencies:
     - TASK-011-egress-mode-resolution-and-manifest-recording
     - TASK-012-proxy-topology-and-egress-artifacts
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
-spec_refs:
-    - specs/tessariq-v0.1.0.md#networking-and-egress
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-03T10:28:46Z"
-areas:
-    - networking
-    - proxy
-    - security
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Leading-dot rejection is deterministic parser behavior.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: The regression should be checked against generated Squid ACL behavior, not just parser output.
-    e2e:
-        required: false
-        commands: []
-        rationale: The failure should occur before the full CLI runtime path is needed.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Security-relevant validation branches should survive mutation testing.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Confirms wildcard-like host forms are rejected from both CLI and user config.
 ---
 
 ## Summary

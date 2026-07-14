@@ -3,44 +3,11 @@ id: TASK-058-reject-control-characters-in-allowlist-hosts
 title: Reject control characters in allowlist hosts before Squid config generation
 status: completed
 priority: high
+spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
 dependencies:
     - TASK-011-egress-mode-resolution-and-manifest-recording
     - TASK-012-proxy-topology-and-egress-artifacts
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
-spec_refs:
-    - specs/tessariq-v0.1.0.md#networking-and-egress
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-03T09:04:09Z"
-areas:
-    - networking
-    - proxy
-    - security
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Destination parsing and Squid-conf generation are deterministic string-handling logic.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Proxy-mode validation should be exercised with real Squid config generation paths.
-    e2e:
-        required: false
-        commands: []
-        rationale: Integration coverage is sufficient once invalid input is rejected before runtime.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Input-validation branches are security-sensitive and easy to weaken accidentally.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Confirms malformed user-config and CLI allowlist values are rejected with actionable errors.
 ---
 
 ## Summary

@@ -3,42 +3,10 @@ id: TASK-063-pin-squid-proxy-image-by-digest
 title: Pin the default Squid proxy image by digest
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
 dependencies:
     - TASK-012-proxy-topology-and-egress-artifacts
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
-spec_refs:
-    - specs/tessariq-v0.1.0.md#networking-and-egress
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-03T11:23:22Z"
-areas:
-    - proxy
-    - security
-    - supply-chain
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Image-reference pinning is deterministic constant-level behavior.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: The pinned image still needs to start cleanly in proxy-mode tests.
-    e2e:
-        required: false
-        commands: []
-        rationale: Existing proxy runtime coverage plus integration startup checks are sufficient.
-    mutation:
-        required: false
-        commands: []
-        rationale: This is constant replacement rather than branch-heavy logic.
-    manual_test:
-        required: false
-        commands: []
-        rationale: Digest pinning is fully verifiable through automated checks and inspection.
 ---
 
 ## Summary

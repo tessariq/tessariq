@@ -3,47 +3,12 @@ id: TASK-097-make-agent-runtime-and-workspace-evidence-writes-atomic
 title: Write agent.json runtime.json and workspace.json atomically to avoid crash-corrupted evidence
 status: completed
 priority: low
+spec_ref: specs/tessariq-v0.1.0.md#evidence-contract
 dependencies:
     - TASK-004-worktree-provisioning-and-workspace-metadata
     - TASK-022-agent-and-runtime-evidence-migration
     - TASK-068-make-manifest-writes-atomic
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#evidence-contract
-spec_refs:
-    - specs/tessariq-v0.1.0.md#evidence-contract
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-24T08:01:24Z"
-areas:
-    - evidence
-    - reliability
-    - filesystem
-    - workspace
-    - adapters
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Atomic file-writing behavior is deterministic and belongs under focused unit coverage.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: The evidence contract depends on real filesystem write, overwrite, and rename behavior, so integration coverage is justified for the I/O path.
-    e2e:
-        required: false
-        commands: []
-        rationale: Focused writer coverage is sufficient for this local evidence-write hardening.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Small write-path branches are easy to weaken while preserving happy-path behavior.
-    manual_test:
-        required: false
-        commands: []
-        rationale: This crash-safety pattern is better validated by automated filesystem tests than by ad-hoc manual interruption.
 ---
 
 ## Summary

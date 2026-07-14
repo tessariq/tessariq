@@ -3,42 +3,10 @@ id: TASK-072-run-hooks-from-repo-root
 title: Run pre and verify hooks from the repository root
 status: completed
 priority: low
+spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
 dependencies:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
-spec_refs:
-    - specs/tessariq-v0.1.0.md#tessariq-run-task-path
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-05T10:17:14Z"
-areas:
-    - runner
-    - hooks
-    - cli
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Hook workdir selection is deterministic and should start with unit coverage.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Host-side hook execution should be exercised through real command execution, not mocks alone.
-    e2e:
-        required: false
-        commands: []
-        rationale: Focused unit and integration coverage should be sufficient for the workdir fix.
-    mutation:
-        required: false
-        commands: []
-        rationale: This is primarily a workdir-threading fix rather than complex branching.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Real hook commands like `ls Makefile` or `go test ./...` should be verified from a live repo.
 ---
 
 ## Summary

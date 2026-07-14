@@ -3,50 +3,13 @@ id: TASK-098-reject-manifest-egress-mode-tampering-at-promote
 title: Reject manifest egress-mode tampering that suppresses proxy evidence requirements
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
 dependencies:
     - TASK-011-egress-mode-resolution-and-manifest-recording
     - TASK-015-promote-branch-commit-trailers-and-zero-diff-guard
     - TASK-048-promote-manifest-run-identity-consistency
     - TASK-088-require-proxy-evidence-completeness-before-promote
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
-spec_refs:
-    - specs/tessariq-v0.1.0.md#networking-and-egress
-    - specs/tessariq-v0.1.0.md#evidence-contract
-    - specs/tessariq-v0.1.0.md#tessariq-promote-run-ref
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-24T08:44:30Z"
-areas:
-    - promote
-    - proxy
-    - evidence
-    - security
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: The trusted-source mode decision and mismatch checks are deterministic and should be pinned at unit level first.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Promote rejection must be proven against tampered evidence in a real git repository.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: This is a user-visible promote trust boundary and should hold end to end.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Conditional trust gates are easy to weaken accidentally while keeping happy paths green.
-    manual_test:
-        required: true
-        commands: []
-        rationale: A built CLI check should show that a proxy run relabeled to direct in `manifest.json` is rejected before any git side effects.
 ---
 
 ## Summary

@@ -3,42 +3,11 @@ id: TASK-069-reject-egress-allow-with-egress-open
 title: Reject misleading --egress open plus --egress-allow combinations
 status: completed
 priority: low
+spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
 dependencies:
     - TASK-011-egress-mode-resolution-and-manifest-recording
     - TASK-053-bypass-user-config-when-cli-egress-is-explicit
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
-spec_refs:
-    - specs/tessariq-v0.1.0.md#networking-and-egress
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-03T08:59:22Z"
-areas:
-    - cli
-    - networking
-    - validation
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Flag-validation behavior is deterministic CLI logic.
-    integration:
-        required: false
-        commands: []
-        rationale: The fix should fail at config validation time before runtime collaborators matter.
-    e2e:
-        required: false
-        commands: []
-        rationale: Unit and command-level coverage are sufficient for this validation rule.
-    mutation:
-        required: false
-        commands: []
-        rationale: This is a narrow validation branch rather than complex business logic.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Confirms the CLI stops users from believing open mode still enforces an allowlist.
 ---
 
 ## Summary

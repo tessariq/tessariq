@@ -3,48 +3,12 @@ id: TASK-051-attach-repo-local-evidence-path-validation
 title: Reject non-repo evidence paths during attach resolution
 status: completed
 priority: high
+spec_ref: specs/tessariq-v0.1.0.md#core-workflow
 dependencies:
     - TASK-007-attach-command-live-run-resolution
     - TASK-014-run-index-and-run-ref-resolution
     - TASK-045-validate-index-entry-shape-before-resolution
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#core-workflow
-spec_refs:
-    - specs/tessariq-v0.1.0.md#core-workflow
-    - specs/tessariq-v0.1.0.md#generated-runtime-state
-    - specs/tessariq-v0.1.0.md#lifecycle-rules
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-02T10:31:36Z"
-areas:
-    - attach
-    - evidence
-    - security
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Evidence-path validation is deterministic and should be exercised at unit level.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Attach liveness checks should be verified against forged index data and real session checks.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: This is a user-visible trust boundary on the attach command.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Path-validation branches should not silently weaken.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Confirms attach cannot validate liveness from external evidence outside the repository.
 ---
 
 ## Summary

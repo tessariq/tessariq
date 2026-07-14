@@ -3,49 +3,13 @@ id: TASK-091-enforce-timeout-on-pre-and-verify-hooks
 title: Enforce run timeout and grace on pre and verify hooks
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
 dependencies:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
     - TASK-030-fix-timeout-signal-escalation
     - TASK-060-respect-grace-duration-during-container-shutdown
     - TASK-072-run-hooks-from-repo-root
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
-spec_refs:
-    - specs/tessariq-v0.1.0.md#tessariq-run-task-path
-    - specs/tessariq-v0.1.0.md#lifecycle-rules
-    - specs/tessariq-v0.1.0.md#evidence-contract
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-15T12:20:18Z"
-areas:
-    - runner
-    - hooks
-    - lifecycle
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Timeout bookkeeping across the run phases belongs under deterministic unit coverage.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Hook cancellation must propagate through `exec.CommandContext` and escalate via real signal delivery.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: The --timeout flag is a user-visible SLA and should be validated from a CLI-level pre-hook scenario.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Timeout accounting is easy to weaken to a shape that still passes happy-path tests.
-    manual_test:
-        required: true
-        commands: []
-        rationale: A built CLI check should confirm that a hung pre-hook is killed and the run reaches a terminal state within the declared timeout budget.
 ---
 
 ## Summary

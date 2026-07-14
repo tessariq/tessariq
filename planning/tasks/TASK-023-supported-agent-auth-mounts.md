@@ -3,49 +3,12 @@ id: TASK-023-supported-agent-auth-mounts
 title: Implement supported-agent auth discovery and read-only mounts
 status: completed
 priority: high
+spec_ref: specs/tessariq-v0.1.0.md#product-intent
 dependencies:
     - TASK-002-run-cli-flags-and-manifest-bootstrap
     - TASK-021-reference-runtime-image-and-docs
     - TASK-022-agent-and-runtime-evidence-migration
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#product-intent
-spec_refs:
-    - specs/tessariq-v0.1.0.md#product-intent
-    - specs/tessariq-v0.1.0.md#tessariq-run-task-path
-    - specs/tessariq-v0.1.0.md#agent-and-runtime-contract
-    - specs/tessariq-v0.1.0.md#acceptance-scenarios
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-03-31T07:59:16Z"
-areas:
-    - agents
-    - runtime
-    - auth
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Per-agent detection rules and mount-policy decisions should start with unit tests.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Mount behavior and container-visible path expectations need real container validation.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: Auth reuse is a core v0.1.0 UX promise and needs thin end-to-end coverage.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Detection and failure-UX branching should survive mutation testing.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Real local auth reuse must be validated manually against the acceptance criteria.
 ---
 
 ## Summary

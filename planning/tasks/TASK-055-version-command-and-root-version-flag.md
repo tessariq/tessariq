@@ -3,40 +3,9 @@ id: TASK-055-version-command-and-root-version-flag
 title: Add version command and root version flag
 status: completed
 priority: medium
-dependencies: []
-milestone: v0.1.0
-spec_version: v0.1.0
 spec_ref: specs/tessariq-v0.1.0.md#tessariq-version
-spec_refs:
-    - specs/tessariq-v0.1.0.md#tessariq-version
-    - specs/tessariq-v0.1.0.md#acceptance-scenarios
+dependencies: []
 updated_at: "2026-04-01T20:21:40Z"
-areas:
-    - cli
-    - versioning
-    - docs
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Root-command wiring and output formatting are deterministic and should be covered with focused unit tests.
-    integration:
-        required: false
-        commands: []
-        rationale: The feature is pure CLI metadata output and does not require external collaborators.
-    e2e:
-        required: false
-        commands: []
-        rationale: Unit coverage is sufficient for this repository-independent command surface.
-    mutation:
-        required: false
-        commands: []
-        rationale: The implementation is narrow command wiring rather than branch-heavy domain logic.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Confirms both invocation forms work from the CLI without repository context.
 ---
 
 ## Summary

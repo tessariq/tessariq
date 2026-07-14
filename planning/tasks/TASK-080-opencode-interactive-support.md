@@ -3,48 +3,12 @@ id: TASK-080-opencode-interactive-support
 title: Support --interactive flag for OpenCode adapter
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
 dependencies:
     - TASK-033-opencode-interactive-request-recording
     - TASK-078-fix-interactive-attach-double-pty-and-task-passthrough
     - TASK-079-forward-model-flag-and-adapter-interface
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
-spec_refs:
-    - specs/tessariq-v0.1.0.md#tessariq-run-task-path
-    - specs/tessariq-v0.1.0.md#agent-and-runtime-contract
-    - specs/tessariq-v0.1.0.md#evidence-contract
 updated_at: "2026-04-06T09:31:30Z"
-areas:
-    - adapter
-    - opencode
-    - cli
-    - interactive
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./internal/adapter/...
-            - go test ./...
-        rationale: buildApplied change and warning removal are small but branch-sensitive; unit tests pin the new semantics.
-    integration:
-        required: false
-        commands: []
-        rationale: No new subsystem boundaries introduced; existing integration tests cover the agent-agnostic interactive runtime.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: Existing e2e tests assert opencode interactive is not applied; they must be updated and re-verified.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: The applied-flag branch is trivially mutatable and guards user-visible evidence output.
-    manual_test:
-        required: true
-        commands: []
-        rationale: The opencode TUI in a Docker container with TTY must be validated manually — automated tests use fake binaries that do not exercise real TUI rendering.
 ---
 
 ## Summary

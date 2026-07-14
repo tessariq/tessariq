@@ -3,45 +3,11 @@ id: TASK-056-enforce-network-none-for-egress-none
 title: Enforce Docker --net none for --egress none container runs
 status: completed
 priority: high
+spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
 dependencies:
     - TASK-011-egress-mode-resolution-and-manifest-recording
     - TASK-032-container-security-hardening
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
-spec_refs:
-    - specs/tessariq-v0.1.0.md#networking-and-egress
-    - specs/tessariq-v0.1.0.md#acceptance-scenarios
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-02T08:44:18Z"
-areas:
-    - networking
-    - container
-    - security
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Network-mode selection is branch logic that should be covered by focused unit tests.
-    integration:
-        required: false
-        commands: []
-        rationale: The core fix is container config wiring; Docker behavior is tested at the e2e level.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: Real Docker networking posture must be validated with a running container.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Network isolation is security-critical and branch-heavy.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Confirms the container has no internet access when --egress none is specified.
 ---
 
 ## Summary

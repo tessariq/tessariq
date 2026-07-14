@@ -3,45 +3,9 @@ id: TASK-001-init-skeleton-and-gitignore
 title: Initialize repository skeleton and ignore generated runtime state
 status: completed
 priority: high
-dependencies: []
-milestone: v0.1.0
-spec_version: v0.1.0
 spec_ref: specs/tessariq-v0.1.0.md#release-intent
-spec_refs:
-    - specs/tessariq-v0.1.0.md#release-intent
-    - specs/tessariq-v0.1.0.md#repository-model
-    - specs/tessariq-v0.1.0.md#generated-runtime-state
-    - specs/tessariq-v0.1.0.md#tessariq-init
-    - specs/tessariq-v0.1.0.md#acceptance-scenarios
+dependencies: []
 updated_at: "2026-03-29T13:39:40Z"
-areas:
-    - cli
-    - repository
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Add focused unit tests for initialization helpers and ignore-file updates.
-    integration:
-        required: false
-        commands:
-            - go test -tags=integration ./...
-        rationale: No containerized collaborator is required if initialization remains local filesystem only.
-    e2e:
-        required: false
-        commands:
-            - go test -tags=e2e ./...
-        rationale: No end-to-end flow needs coverage until the CLI wiring exists.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Idempotent `.gitignore` insertion has branches (file exists vs not, entry present vs not, trailing newline handling) that mutations can weaken.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Validates CLI behavior and evidence artifacts through direct execution against acceptance criteria.
 ---
 
 ## Summary

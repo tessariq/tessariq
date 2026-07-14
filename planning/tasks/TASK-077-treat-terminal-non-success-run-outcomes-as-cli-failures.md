@@ -3,48 +3,11 @@ id: TASK-077-treat-terminal-non-success-run-outcomes-as-cli-failures
 title: Treat terminal non-success run outcomes as CLI failures
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#core-workflow
 dependencies:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
     - TASK-038-guaranteed-worktree-cleanup-on-run-failure
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#core-workflow
-spec_refs:
-    - specs/tessariq-v0.1.0.md#core-workflow
-    - specs/tessariq-v0.1.0.md#tessariq-run-task-path
-    - specs/tessariq-v0.1.0.md#lifecycle-rules
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-05T10:27:03Z"
-areas:
-    - cli
-    - runner
-    - lifecycle
-    - ux
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Runner result shaping and CLI branching should start with precise unit coverage.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Terminal non-success paths cross real runner and process boundaries.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: Exit code and printed-output semantics are directly user-visible CLI behavior.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Lifecycle branching is easy to partially fix while leaving inconsistent states behind.
-    manual_test:
-        required: true
-        commands: []
-        rationale: A real failed or timed-out run should confirm the final user-facing behavior and evidence guidance.
 ---
 
 ## Summary

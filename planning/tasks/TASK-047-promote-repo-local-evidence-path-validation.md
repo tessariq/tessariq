@@ -3,48 +3,12 @@ id: TASK-047-promote-repo-local-evidence-path-validation
 title: Reject non-repo evidence paths during promote resolution
 status: completed
 priority: high
+spec_ref: specs/tessariq-v0.1.0.md#core-workflow
 dependencies:
     - TASK-014-run-index-and-run-ref-resolution
     - TASK-015-promote-branch-commit-trailers-and-zero-diff-guard
     - TASK-045-validate-index-entry-shape-before-resolution
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#core-workflow
-spec_refs:
-    - specs/tessariq-v0.1.0.md#core-workflow
-    - specs/tessariq-v0.1.0.md#generated-runtime-state
-    - specs/tessariq-v0.1.0.md#lifecycle-rules
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-02T08:38:48Z"
-areas:
-    - promote
-    - evidence
-    - security
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Evidence-path normalization and repo-boundary rejection are deterministic path rules.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Promote should be exercised against real git side effects and forged index inputs.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: This is a user-visible safety boundary on a primary workflow.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Path-validation branches should survive mutation testing.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Confirms forged external evidence cannot be promoted into a real branch and commit.
 ---
 
 ## Summary

@@ -3,47 +3,12 @@ id: TASK-041-opencode-proxy-user-config-allowlist-without-auth
 title: Skip OpenCode provider resolution when user-config allowlist already resolves proxy egress
 status: completed
 priority: high
+spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
 dependencies:
     - TASK-011-egress-mode-resolution-and-manifest-recording
     - TASK-023-supported-agent-auth-mounts
     - TASK-034-opencode-egress-allow-provider-bypass
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
-spec_refs:
-    - specs/tessariq-v0.1.0.md#tessariq-run-task-path
-    - specs/tessariq-v0.1.0.md#networking-and-egress
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-01T17:41:52Z"
-areas:
-    - egress
-    - opencode
-    - config
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Allowlist precedence and provider-resolution guards should be validated via deterministic unit cases.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: OpenCode auth/config path interactions must be validated with realistic filesystem/layout collaborators.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: Confirm end-user run behavior with user config defaults and missing auth.json.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Precedence branches are easy to regress and should retain mutation resistance.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Validate practical CLI flow using only `~/.config/tessariq/config.yaml` allowlist defaults.
 ---
 
 ## Summary

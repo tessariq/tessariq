@@ -3,47 +3,12 @@ id: TASK-096-make-proxy-telemetry-extraction-fail-closed
 title: Fail closed when proxy teardown telemetry extraction cannot produce trustworthy evidence
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
 dependencies:
     - TASK-012-proxy-topology-and-egress-artifacts
     - TASK-067-cleanup-squid-resources-on-startup-failure
     - TASK-088-require-proxy-evidence-completeness-before-promote
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
-spec_refs:
-    - specs/tessariq-v0.1.0.md#networking-and-egress
-    - specs/tessariq-v0.1.0.md#evidence-contract
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-24T08:17:15Z"
-areas:
-    - proxy
-    - evidence
-    - reliability
-    - promote
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Teardown error-shaping and evidence-write decisions are deterministic and should be pinned first at unit level.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: The bug sits at the real Docker and Squid teardown boundary, so integration coverage must exercise actual proxy log extraction failure paths.
-    e2e:
-        required: false
-        commands: []
-        rationale: Focused proxy integration coverage is sufficient if it proves promote rejects untrustworthy proxy evidence.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Best-effort cleanup branches are easy to weaken into silent evidence corruption while keeping happy-path tests green.
-    manual_test:
-        required: true
-        commands: []
-        rationale: A built CLI check should confirm that proxy-mode runs do not leave behind misleading empty telemetry artifacts when Squid log extraction fails.
 ---
 
 ## Summary

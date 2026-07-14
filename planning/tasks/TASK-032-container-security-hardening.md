@@ -3,45 +3,10 @@ id: TASK-032-container-security-hardening
 title: Add container capability dropping, privilege escalation prevention, and evidence permission hardening
 status: completed
 priority: high
+spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
 dependencies:
     - TASK-027-container-lifecycle-and-mount-isolation
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
-spec_refs:
-    - specs/tessariq-v0.1.0.md#tessariq-run-task-path
-    - specs/tessariq-v0.1.0.md#evidence-permissions
-    - specs/tessariq-v0.1.0.md#evidence-contract
 updated_at: "2026-03-31T18:00:37Z"
-areas:
-    - container
-    - evidence
-    - security
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Container arg construction and evidence file creation are unit-testable.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Container security flags must be verified against real Docker.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: Agent must still function correctly with dropped capabilities.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Security flag injection is easy to accidentally weaken.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Container security posture should be manually verified via docker inspect.
 ---
 
 ## Summary

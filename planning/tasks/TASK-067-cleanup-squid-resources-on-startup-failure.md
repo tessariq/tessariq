@@ -3,44 +3,10 @@ id: TASK-067-cleanup-squid-resources-on-startup-failure
 title: Clean up Squid containers and networks when proxy startup fails mid-sequence
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
 dependencies:
     - TASK-012-proxy-topology-and-egress-artifacts
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
-spec_refs:
-    - specs/tessariq-v0.1.0.md#networking-and-egress
-    - specs/tessariq-v0.1.0.md#evidence-contract
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-03T11:27:04Z"
-areas:
-    - proxy
-    - cleanup
-    - reliability
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Partial-start cleanup control flow should be covered deterministically first.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Real Docker resources are needed to prove failed startup does not leak containers or networks.
-    e2e:
-        required: false
-        commands: []
-        rationale: Focused proxy integration coverage is sufficient for this failure path.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Error-path cleanup branches are subtle and easy to regress.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Confirms a broken proxy startup leaves no orphaned Docker resources behind.
 ---
 
 ## Summary

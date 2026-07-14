@@ -3,44 +3,11 @@ id: TASK-030-fix-timeout-signal-escalation
 title: Fix timeout signal escalation to send SIGTERM before SIGKILL
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#lifecycle-rules
 dependencies:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
     - TASK-028-container-session-streaming-and-cleanup-hardening
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#lifecycle-rules
-spec_refs:
-    - specs/tessariq-v0.1.0.md#lifecycle-rules
-    - specs/tessariq-v0.1.0.md#runner-responsibilities
 updated_at: "2026-04-01T10:57:36Z"
-areas:
-    - runner
-    - container
-    - security
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Signal escalation sequence is branch-heavy and must be verified with unit tests.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Real container signal behavior crosses process boundaries.
-    e2e:
-        required: false
-        commands: []
-        rationale: Existing e2e timeout coverage from TASK-005 is sufficient once unit/integration pass.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Signal escalation logic is safety-critical and easy to weaken.
-    manual_test:
-        required: false
-        commands: []
-        rationale: Signal behavior is fully testable through automated tests.
 ---
 
 ## Summary

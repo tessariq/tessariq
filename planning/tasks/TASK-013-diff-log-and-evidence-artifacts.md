@@ -3,46 +3,13 @@ id: TASK-013-diff-log-and-evidence-artifacts
 title: Emit diff, log, agent, and runtime evidence artifacts
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#evidence-contract
 dependencies:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
     - TASK-012-proxy-topology-and-egress-artifacts
     - TASK-022-agent-and-runtime-evidence-migration
     - TASK-027-container-lifecycle-and-mount-isolation
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#evidence-contract
-spec_refs:
-    - specs/tessariq-v0.1.0.md#evidence-contract
-    - specs/tessariq-v0.1.0.md#acceptance-scenarios
 updated_at: "2026-03-31T23:04:49Z"
-areas:
-    - evidence
-    - diff
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Artifact naming, truncation markers, and conditional emission rules should be unit-tested.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Diff and log production spans real processes and should use Testcontainers-backed integration coverage only.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: A thin end-to-end check is useful because durable evidence is a core user contract.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Conditional artifact emission and truncation logic benefit from mutation testing.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Validates CLI behavior and evidence artifacts through direct execution against acceptance criteria.
 ---
 
 ## Summary

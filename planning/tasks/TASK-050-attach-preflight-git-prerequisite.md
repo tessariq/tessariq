@@ -3,44 +3,11 @@ id: TASK-050-attach-preflight-git-prerequisite
 title: Preflight git as an attach prerequisite
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#generated-runtime-state
 dependencies:
     - TASK-007-attach-command-live-run-resolution
     - TASK-020-prerequisite-preflight-and-missing-dependency-ux
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#generated-runtime-state
-spec_refs:
-    - specs/tessariq-v0.1.0.md#generated-runtime-state
-    - specs/tessariq-v0.1.0.md#acceptance-scenarios
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-02T07:35:44Z"
-areas:
-    - cli
-    - prerequisites
-    - attach
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Command prerequisite sets and attach preflight behavior are best covered in unit tests.
-    integration:
-        required: false
-        commands: []
-        rationale: This fix is command-preflight logic and does not require additional collaborator coverage.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: The user-facing missing-prerequisite message should be validated on the actual command path.
-    mutation:
-        required: false
-        commands: []
-        rationale: This is a small prerequisite-list correction with limited branch complexity.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Confirms attach now fails as a prerequisite error before repo-resolution work begins.
 ---
 
 ## Summary

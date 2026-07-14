@@ -3,46 +3,12 @@ id: TASK-053-bypass-user-config-when-cli-egress-is-explicit
 title: Skip user-config loading when CLI egress fully determines resolution
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#generated-runtime-state
 dependencies:
     - TASK-011-egress-mode-resolution-and-manifest-recording
     - TASK-041-opencode-proxy-user-config-allowlist-without-auth
     - TASK-042-opencode-auth-missing-actionable-error
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#generated-runtime-state
-spec_refs:
-    - specs/tessariq-v0.1.0.md#generated-runtime-state
-    - specs/tessariq-v0.1.0.md#networking-and-egress
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-02T13:56:35Z"
-areas:
-    - networking
-    - config
-    - cli
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Precedence and short-circuit behavior belong in unit coverage first.
-    integration:
-        required: false
-        commands: []
-        rationale: The core fix is config-loading control flow rather than a new collaborator boundary.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: This is a real user-facing run failure mode caused by malformed user config.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Config precedence and bypass logic are branch-heavy.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Confirms explicit CLI egress choices no longer fail on irrelevant malformed user config.
 ---
 
 ## Summary

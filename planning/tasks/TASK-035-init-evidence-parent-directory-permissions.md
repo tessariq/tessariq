@@ -3,43 +3,11 @@ id: TASK-035-init-evidence-parent-directory-permissions
 title: Harden init-created evidence parent directories to owner-only permissions
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#evidence-permissions
 dependencies:
     - TASK-001-init-skeleton-and-gitignore
     - TASK-032-container-security-hardening
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#evidence-permissions
-spec_refs:
-    - specs/tessariq-v0.1.0.md#evidence-permissions
-    - specs/tessariq-v0.1.0.md#evidence-contract
 updated_at: "2026-04-01T12:05:06Z"
-areas:
-    - init
-    - evidence
-    - security
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Directory mode behavior is deterministic and should be pinned with unit tests.
-    integration:
-        required: false
-        commands: []
-        rationale: Permission behavior can be validated in unit tests with temp directories.
-    e2e:
-        required: false
-        commands: []
-        rationale: No CLI flow complexity beyond init path and filesystem mode.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Permission constants are small but security-sensitive.
-    manual_test:
-        required: false
-        commands: []
-        rationale: Automated permission assertions are sufficient.
 ---
 
 ## Summary

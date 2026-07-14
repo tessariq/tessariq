@@ -3,44 +3,11 @@ id: TASK-062-harden-squid-proxy-container-security
 title: Apply capability dropping and no-new-privileges to the Squid proxy container
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
 dependencies:
     - TASK-012-proxy-topology-and-egress-artifacts
     - TASK-032-container-security-hardening
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
-spec_refs:
-    - specs/tessariq-v0.1.0.md#networking-and-egress
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-03T10:38:21Z"
-areas:
-    - proxy
-    - container
-    - security
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Docker create arg construction should be covered at unit level first.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: The proxy container's effective security posture must be verified against real Docker state.
-    e2e:
-        required: false
-        commands: []
-        rationale: Focused integration inspection is sufficient for the proxy hardening path.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Security-flag injection should not silently weaken.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Confirms the proxy container matches the intended Docker security posture under `docker inspect`.
 ---
 
 ## Summary

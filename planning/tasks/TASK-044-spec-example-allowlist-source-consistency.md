@@ -3,38 +3,10 @@ id: TASK-044-spec-example-allowlist-source-consistency
 title: Align manifest example allowlist_source with normative values
 status: completed
 priority: low
+spec_ref: specs/tessariq-v0.1.0.md#evidence-contract
 dependencies:
     - TASK-011-egress-mode-resolution-and-manifest-recording
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#evidence-contract
-spec_refs:
-    - specs/tessariq-v0.1.0.md#evidence-contract
 updated_at: "2026-04-01T17:35:54Z"
-areas:
-    - specification
-    - docs
-verification:
-    unit:
-        required: false
-        commands: []
-        rationale: Spec-only documentation correction.
-    integration:
-        required: false
-        commands: []
-        rationale: Spec-only documentation correction.
-    e2e:
-        required: false
-        commands: []
-        rationale: Spec-only documentation correction.
-    mutation:
-        required: false
-        commands: []
-        rationale: Spec-only documentation correction.
-    manual_test:
-        required: false
-        commands: []
-        rationale: Spec-only documentation correction.
 ---
 
 ## Summary

@@ -3,46 +3,12 @@ id: TASK-039-capped-log-writers-and-truncation-markers
 title: Enforce capped run logs with explicit truncation markers
 status: completed
 priority: high
+spec_ref: specs/tessariq-v0.1.0.md#evidence-contract
 dependencies:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
     - TASK-013-diff-log-and-evidence-artifacts
     - TASK-028-container-session-streaming-and-cleanup-hardening
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#evidence-contract
-spec_refs:
-    - specs/tessariq-v0.1.0.md#evidence-contract
-    - specs/tessariq-v0.1.0.md#acceptance-scenarios
 updated_at: "2026-04-01T09:23:30Z"
-areas:
-    - runner
-    - logs
-    - evidence
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Cap/truncation behavior should be deterministic at writer boundary level.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Container log streaming path must be exercised with real process output.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: User-visible evidence files must match capped-log contract under realistic runs.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Boundary and marker logic is branch-heavy and benefits from mutation checks.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Confirm truncation UX in emitted artifacts with intentionally noisy runs.
 ---
 
 ## Summary

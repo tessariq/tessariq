@@ -3,45 +3,11 @@ id: TASK-034-opencode-egress-allow-provider-bypass
 title: Honor --egress-allow precedence when OpenCode provider host auto-resolution fails
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
 dependencies:
     - TASK-011-egress-mode-resolution-and-manifest-recording
     - TASK-025-opencode-agent-runtime-integration
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
-spec_refs:
-    - specs/tessariq-v0.1.0.md#networking-and-egress
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-01T12:15:52Z"
-areas:
-    - egress
-    - opencode
-    - cli
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Allowlist precedence and provider-resolution fallback are deterministic and unit-testable.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Must validate behavior with realistic auth/config file states.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: User-facing failure/success paths under `run --agent opencode --egress auto` are critical UX.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Conditional precedence logic is easy to break silently.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Confirm guidance text and command-line workaround work in a realistic setup.
 ---
 
 ## Summary

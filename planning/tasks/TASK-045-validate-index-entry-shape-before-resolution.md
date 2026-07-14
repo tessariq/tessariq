@@ -3,46 +3,10 @@ id: TASK-045-validate-index-entry-shape-before-resolution
 title: Reject semantically invalid index lines before run-ref resolution
 status: completed
 priority: high
+spec_ref: specs/tessariq-v0.1.0.md#lifecycle-rules
 dependencies:
     - TASK-014-run-index-and-run-ref-resolution
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#lifecycle-rules
-spec_refs:
-    - specs/tessariq-v0.1.0.md#lifecycle-rules
-    - specs/tessariq-v0.1.0.md#evidence-contract
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-02T07:40:49Z"
-areas:
-    - evidence
-    - indexing
-    - attach
-    - promote
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Index-entry shape validation belongs in deterministic unit coverage first.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Corrupted-index behavior should be exercised through real file-backed index reads.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: Invalid index entries affect user-visible attach and promote flows.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Validation and skip-or-reject branching is easy to regress silently.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Confirms corrupted index lines are rejected cleanly in the CLI.
 ---
 
 ## Summary

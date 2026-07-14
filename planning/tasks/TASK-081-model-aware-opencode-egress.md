@@ -3,45 +3,10 @@ id: TASK-081-model-aware-opencode-egress
 title: Include model provider host in OpenCode proxy allowlist
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
 dependencies:
     - TASK-079-forward-model-flag-and-adapter-interface
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
-spec_refs:
-    - specs/tessariq-v0.1.0.md#networking-and-egress
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-06T09:34:39Z"
-areas:
-    - adapter
-    - egress
-    - cli
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./internal/adapter/opencode/...
-            - go test ./internal/adapter/...
-            - go test ./cmd/tessariq/...
-            - go test ./...
-        rationale: Provider parsing, known-host lookup, and allowlist resolution are pure logic with conditional branching.
-    integration:
-        required: false
-        commands: []
-        rationale: No new subsystem boundaries; allowlist resolution is exercised through unit tests on resolveAllowlistCore.
-    e2e:
-        required: false
-        commands: []
-        rationale: Proxy topology is unchanged; the change is in which destinations feed into it.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Known-provider map lookup, fallback logic, and model-prefix parsing all have mutation-sensitive branches.
-    manual_test:
-        required: false
-        commands: []
-        rationale: All behavior can be validated through unit tests on resolveAllowlistCore and provider functions.
 ---
 
 ## Summary

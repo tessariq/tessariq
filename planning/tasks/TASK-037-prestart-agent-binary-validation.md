@@ -3,46 +3,12 @@ id: TASK-037-prestart-agent-binary-validation
 title: Validate selected agent binary in runtime image before agent start
 status: completed
 priority: high
+spec_ref: specs/tessariq-v0.1.0.md#acceptance-scenarios
 dependencies:
     - TASK-024-claude-code-agent-runtime-integration
     - TASK-025-opencode-agent-runtime-integration
     - TASK-027-container-lifecycle-and-mount-isolation
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#acceptance-scenarios
-spec_refs:
-    - specs/tessariq-v0.1.0.md#acceptance-scenarios
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-01T09:10:15Z"
-areas:
-    - agents
-    - runtime
-    - failure-ux
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Missing-binary detection and error mapping should be deterministic and unit-testable.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Runtime-image checks execute against real containers and require integration coverage.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: This is a user-visible run failure mode promised by spec acceptance criteria.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Failure-path message quality and detection branching are easy to regress.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Validate end-user error guidance wording and image override advice.
 ---
 
 ## Summary

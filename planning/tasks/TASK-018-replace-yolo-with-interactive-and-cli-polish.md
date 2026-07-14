@@ -3,44 +3,10 @@ id: TASK-018-replace-yolo-with-interactive-and-cli-polish
 title: Replace --yolo with --interactive and polish CLI flags
 status: completed
 priority: high
+spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
 dependencies:
     - TASK-002-run-cli-flags-and-manifest-bootstrap
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
-spec_refs:
-    - specs/tessariq-v0.1.0.md#tessariq-run-task-path
-    - specs/tessariq-v0.1.0.md#adapter-contract
-    - specs/tessariq-v0.1.0.md#networking-and-egress
-    - specs/tessariq-v0.1.0.md#specification-changelog
 updated_at: "2026-03-29T20:18:47Z"
-areas:
-    - cli
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Flag renaming, default changes, and custom duration formatting must be covered by unit tests.
-    integration:
-        required: false
-        commands:
-            - go test -tags=integration ./...
-        rationale: No integration-level behavior changes; this is purely CLI surface and config struct work.
-    e2e:
-        required: false
-        commands:
-            - go test -tags=e2e ./...
-        rationale: E2E coverage deferred until the run pipeline is executable end-to-end.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Default value changes and duration formatting logic are mutation-prone.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Validates --help output reads correctly and flag behavior matches spec.
 ---
 
 ## Summary

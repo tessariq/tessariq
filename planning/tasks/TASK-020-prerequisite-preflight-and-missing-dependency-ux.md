@@ -3,50 +3,12 @@ id: TASK-020-prerequisite-preflight-and-missing-dependency-ux
 title: Add prerequisite preflight and missing dependency guidance
 status: completed
 priority: high
+spec_ref: specs/tessariq-v0.1.0.md#host-prerequisites
 dependencies:
     - TASK-002-run-cli-flags-and-manifest-bootstrap
     - TASK-003-dirty-repo-gate-and-task-ingest
     - TASK-006-tmux-session-and-detached-attach-guidance
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#host-prerequisites
-spec_refs:
-    - specs/tessariq-v0.1.0.md#host-prerequisites
-    - specs/tessariq-v0.1.0.md#tessariq-init
-    - specs/tessariq-v0.1.0.md#tessariq-run-task-path
-    - specs/tessariq-v0.1.0.md#tessariq-attach-run-ref
-    - specs/tessariq-v0.1.0.md#failure-ux
-    - specs/tessariq-v0.1.0.md#acceptance-scenarios
 updated_at: "2026-03-30T17:55:09Z"
-areas:
-    - cli
-    - ux
-    - prerequisites
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Prerequisite detection and error-message shaping are branch-heavy and should start with unit coverage.
-    integration:
-        required: false
-        commands:
-            - go test -tags=integration ./...
-        rationale: Integration tests are optional unless this task adds process collaborators beyond existing command execution paths.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: Missing-prerequisite behavior is directly user-visible CLI UX and needs thin end-to-end validation.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Preflight decision branches and failure guidance should survive mutation testing.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Validates actionable prerequisite failures in real CLI workflows.
 ---
 
 ## Summary

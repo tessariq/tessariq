@@ -3,50 +3,12 @@ id: TASK-089-resolve-symlinks-in-evidence-path-validation
 title: Resolve symlinks in evidence path validation
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#core-workflow
 dependencies:
     - TASK-047-promote-repo-local-evidence-path-validation
     - TASK-051-attach-repo-local-evidence-path-validation
     - TASK-052-attach-run-id-evidence-path-consistency
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#core-workflow
-spec_refs:
-    - specs/tessariq-v0.1.0.md#core-workflow
-    - specs/tessariq-v0.1.0.md#tessariq-attach-run-ref
-    - specs/tessariq-v0.1.0.md#tessariq-promote-run-ref
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-14T16:27:24Z"
-areas:
-    - runref
-    - attach
-    - promote
-    - security
-    - evidence
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Path validation should begin with deterministic real-path coverage, including symlink leaf and intermediate cases.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Attach and promote both consume evidence paths and should reject forged symlink escapes through real command paths.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: The repo-local evidence guarantee is a core user-facing safety contract for both attach and promote.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Prefix-check logic is easy to weaken while still passing happy-path tests.
-    manual_test:
-        required: true
-        commands: []
-        rationale: A built CLI check should confirm that symlinked evidence directories cannot be used to redirect attach or promote outside repo-local storage.
 ---
 
 ## Summary

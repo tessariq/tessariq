@@ -3,49 +3,12 @@ id: TASK-086-make-diff-artifact-writes-all-or-nothing
 title: Make diff artifact writes all-or-nothing for promotable runs
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
 dependencies:
     - TASK-013-diff-log-and-evidence-artifacts
     - TASK-049-promote-require-diffstat-for-changed-runs
     - TASK-057-surface-diff-artifact-write-errors
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
-spec_refs:
-    - specs/tessariq-v0.1.0.md#tessariq-run-task-path
-    - specs/tessariq-v0.1.0.md#tessariq-promote-run-ref
-    - specs/tessariq-v0.1.0.md#evidence-contract
-    - specs/tessariq-v0.1.0.md#success-metrics
 updated_at: "2026-04-14T14:35:51Z"
-areas:
-    - runner
-    - evidence
-    - promote
-    - lifecycle
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: The smallest regression here is deterministic diff-artifact writer behavior and run-result shaping.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: The bug spans real git diff generation, evidence writes, and promote completeness checks.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: The user-visible regression is a successful run that later cannot be promoted.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Partial-write and terminal-state branches are easy to weaken with a superficial fix.
-    manual_test:
-        required: true
-        commands: []
-        rationale: A built CLI check should confirm that a changed run never ends in a misleadingly promotable success shape.
 ---
 
 ## Summary

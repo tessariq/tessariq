@@ -3,6 +3,7 @@ id: TASK-016-v0-1-0-spec-conformity-verification
 title: Harden tracked-work validation and active-spec verification gates
 status: completed
 priority: high
+spec_ref: specs/tessariq-v0.1.0.md#product-intent
 dependencies:
     - TASK-001-init-skeleton-and-gitignore
     - TASK-002-run-cli-flags-and-manifest-bootstrap
@@ -31,49 +32,7 @@ dependencies:
     - TASK-037-prestart-agent-binary-validation
     - TASK-038-guaranteed-worktree-cleanup-on-run-failure
     - TASK-039-capped-log-writers-and-truncation-markers
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#product-intent
-spec_refs:
-    - specs/tessariq-v0.1.0.md#product-intent
-    - specs/tessariq-v0.1.0.md#host-prerequisites
-    - specs/tessariq-v0.1.0.md#tessariq-run-task-path
-    - specs/tessariq-v0.1.0.md#agent-and-runtime-contract
-    - specs/tessariq-v0.1.0.md#tessariq-attach-run-ref
-    - specs/tessariq-v0.1.0.md#tessariq-promote-run-ref
-    - specs/tessariq-v0.1.0.md#evidence-contract
-    - specs/tessariq-v0.1.0.md#compatibility-rules
-    - specs/tessariq-v0.1.0.md#acceptance-scenarios
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-01T19:05:03Z"
-areas:
-    - verification
-    - spec
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Add unit tests for spec-coverage and task-coverage verification helpers.
-    integration:
-        required: false
-        commands:
-            - go test -tags=integration ./...
-        rationale: Integration coverage is optional unless the conformity verifier starts real collaborators.
-    e2e:
-        required: false
-        commands:
-            - go test -tags=e2e ./...
-        rationale: This task hardens verification tooling rather than introducing a new runtime user flow.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Verification logic and acceptance-scenario mapping should hold the mutation threshold too.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Validates CLI behavior and evidence artifacts through direct execution against acceptance criteria.
 ---
 
 ## Summary

@@ -3,42 +3,9 @@ id: TASK-070-user-visible-changes-missing-changelog-update
 title: user-visible changes missing changelog update
 status: completed
 priority: medium
-dependencies: []
-milestone: v0.1.0
-spec_version: v0.1.0
 spec_ref: specs/tessariq-v0.1.0.md#failure-ux
-spec_refs:
-    - specs/tessariq-v0.1.0.md#failure-ux
-    - specs/tessariq-v0.1.0.md#acceptance-scenarios
+dependencies: []
 updated_at: "2026-04-03T10:27:46Z"
-areas:
-    - workflow
-    - verification
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Follow-up items start by adding the smallest failing unit test possible.
-    integration:
-        required: false
-        commands:
-            - go test -tags=integration ./...
-        rationale: Add only if the follow-up crosses a real process boundary and use Testcontainers only.
-    e2e:
-        required: false
-        commands:
-            - go test -tags=e2e ./...
-        rationale: Add only if the fix changes a critical CLI workflow end to end.
-    mutation:
-        required: false
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Use when the follow-up changes non-trivial logic.
-    manual_test:
-        required: false
-        commands: []
-        rationale: Run manual checks only if verification cannot confirm the user-visible changelog update deterministically.
 ---
 
 ## Summary

@@ -3,48 +3,11 @@ id: TASK-015-promote-branch-commit-trailers-and-zero-diff-guard
 title: Implement promote branch creation commit trailers and zero-diff protection
 status: completed
 priority: high
+spec_ref: specs/tessariq-v0.1.0.md#host-prerequisites
 dependencies:
     - TASK-013-diff-log-and-evidence-artifacts
     - TASK-014-run-index-and-run-ref-resolution
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#host-prerequisites
-spec_refs:
-    - specs/tessariq-v0.1.0.md#host-prerequisites
-    - specs/tessariq-v0.1.0.md#tessariq-promote-run-ref
-    - specs/tessariq-v0.1.0.md#lifecycle-rules
-    - specs/tessariq-v0.1.0.md#evidence-contract
-    - specs/tessariq-v0.1.0.md#acceptance-scenarios
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-01T15:35:06Z"
-areas:
-    - git
-    - promote
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Branch-name selection, commit-message fallback, and trailer rendering should begin with unit tests.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Promote creates real git side effects and requires Testcontainers-backed integration coverage only.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: '`run -> promote` is a primary user journey and deserves thin end-to-end coverage.'
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Guardrails around zero-diff and trailer emission should survive mutation testing.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Validates CLI behavior and evidence artifacts through direct execution against acceptance criteria.
 ---
 
 ## Summary

@@ -3,49 +3,10 @@ id: TASK-028-container-session-streaming-and-cleanup-hardening
 title: Fix container session streaming and workspace cleanup hardening gaps
 status: completed
 priority: high
+spec_ref: specs/tessariq-v0.1.0.md#workspace-guarantees
 dependencies:
     - TASK-027-container-lifecycle-and-mount-isolation
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#workspace-guarantees
-spec_refs:
-    - specs/tessariq-v0.1.0.md#workspace-guarantees
-    - specs/tessariq-v0.1.0.md#tessariq-run-task-path
-    - specs/tessariq-v0.1.0.md#agent-and-runtime-contract
-    - specs/tessariq-v0.1.0.md#evidence-contract
-    - specs/tessariq-v0.1.0.md#acceptance-scenarios
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-03-31T16:37:29Z"
-areas:
-    - container
-    - tmux
-    - workspace
-    - security
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Runner output wiring and tmux command construction should start with focused unit tests.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Container log streaming and worktree cleanup cross real process boundaries and need integration coverage.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: Detached run UX and cleanup behavior are user-visible and need thin end-to-end verification.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Session lifecycle and cleanup repair logic are safety-critical and branch-heavy.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Real tmux and container behavior must be exercised manually against the acceptance criteria.
 ---
 
 ## Summary

@@ -3,45 +3,11 @@ id: TASK-033-opencode-interactive-request-recording
 title: Allow OpenCode interactive requests and record not-applied semantics in agent evidence
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#agent-and-runtime-contract
 dependencies:
     - TASK-025-opencode-agent-runtime-integration
     - TASK-029-interactive-runtime-mode-independent-of-attach
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#agent-and-runtime-contract
-spec_refs:
-    - specs/tessariq-v0.1.0.md#agent-and-runtime-contract
-    - specs/tessariq-v0.1.0.md#evidence-contract
 updated_at: "2026-04-01T11:04:41Z"
-areas:
-    - cli
-    - opencode
-    - evidence
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Request/applied option semantics are easiest to pin with unit tests around config and agent info generation.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Run-level evidence generation must be validated end-to-end with containerized collaborators.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: User-visible CLI behavior changed for a previously rejected flag combination.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Guard logic around requested/applied fields is branchy and regression-prone.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Verify final UX and evidence files with a real local run invocation.
 ---
 
 ## Summary

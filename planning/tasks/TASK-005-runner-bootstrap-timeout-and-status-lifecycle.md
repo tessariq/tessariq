@@ -3,45 +3,10 @@ id: TASK-005-runner-bootstrap-timeout-and-status-lifecycle
 title: Implement runner bootstrap timeout handling and status lifecycle
 status: completed
 priority: high
+spec_ref: specs/tessariq-v0.1.0.md#core-workflow
 dependencies:
     - TASK-004-worktree-provisioning-and-workspace-metadata
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#core-workflow
-spec_refs:
-    - specs/tessariq-v0.1.0.md#core-workflow
-    - specs/tessariq-v0.1.0.md#tessariq-run-task-path
-    - specs/tessariq-v0.1.0.md#lifecycle-rules
-    - specs/tessariq-v0.1.0.md#evidence-contract
 updated_at: "2026-03-29T20:09:22Z"
-areas:
-    - runner
-    - evidence
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: State transitions, timeout bookkeeping, and artifact shaping belong in unit tests first.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Runner lifecycle needs real process coordination and integration coverage must use Testcontainers only.
-    e2e:
-        required: false
-        commands:
-            - go test -tags=e2e ./...
-        rationale: End-to-end flow should wait until attach and promote are connected.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Timeout and terminal-state transitions are important mutation-test targets.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Validates CLI behavior and evidence artifacts through direct execution against acceptance criteria.
 ---
 
 ## Summary

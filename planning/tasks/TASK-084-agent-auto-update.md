@@ -3,6 +3,7 @@ id: TASK-084-agent-auto-update
 title: Agent auto-update via cache-aware init container
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
 dependencies:
     - TASK-008-adapter-contract-and-adapter-json
     - TASK-009-claude-code-adapter
@@ -12,45 +13,7 @@ dependencies:
     - TASK-025-opencode-agent-runtime-integration
     - TASK-027-container-lifecycle-and-mount-isolation
     - TASK-037-prestart-agent-binary-validation
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
-spec_refs:
-    - specs/tessariq-v0.1.0.md#tessariq-run-task-path
-    - specs/tessariq-v0.1.0.md#agent-and-runtime-contract
-    - specs/tessariq-v0.1.0.md#evidence-contract
 updated_at: "2026-04-08T13:31:13Z"
-areas:
-    - adapters
-    - container
-    - evidence
-    - cli
-    - spec
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Adapter contract methods, runtime evidence serialization, and init container orchestration logic all need unit-level coverage.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Init container lifecycle, cache volume mounting, and PATH layering involve real Docker operations.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: End-to-end tests must verify that runtime.json contains agent_update evidence and that the updated agent binary is used.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Init container skip/fallback logic is branchy and must survive mutation testing.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Real run should demonstrate agent update output, runtime.json evidence, and fallback behavior.
 ---
 
 ## Summary

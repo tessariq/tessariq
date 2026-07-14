@@ -3,48 +3,12 @@ id: TASK-071-implement-run-attach-live-session
 title: Make `tessariq run --attach` attach to the live tmux session
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
 dependencies:
     - TASK-006-tmux-session-and-detached-attach-guidance
     - TASK-007-attach-command-live-run-resolution
     - TASK-029-interactive-runtime-mode-independent-of-attach
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
-spec_refs:
-    - specs/tessariq-v0.1.0.md#tessariq-run-task-path
-    - specs/tessariq-v0.1.0.md#tessariq-attach-run-ref
-    - specs/tessariq-v0.1.0.md#acceptance-scenarios
 updated_at: "2026-04-05T11:17:44Z"
-areas:
-    - cli
-    - tmux
-    - runner
-    - interactive
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Attach control flow and sequencing should start with focused unit coverage.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Session creation and foreground attach cross real tmux and process boundaries.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: '`run --attach` is a primary user-visible CLI workflow and needs thin end-to-end coverage.'
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Runner and attach branching are easy to partially wire and regress.
-    manual_test:
-        required: true
-        commands: []
-        rationale: A live terminal attach flow must be exercised manually to confirm the real UX.
 ---
 
 ## Summary

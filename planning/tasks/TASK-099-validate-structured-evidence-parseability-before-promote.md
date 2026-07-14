@@ -3,52 +3,14 @@ id: TASK-099-validate-structured-evidence-parseability-before-promote
 title: Reject malformed structured evidence before promote
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#evidence-contract
 dependencies:
     - TASK-004-worktree-provisioning-and-workspace-metadata
     - TASK-012-proxy-topology-and-egress-artifacts
     - TASK-015-promote-branch-commit-trailers-and-zero-diff-guard
     - TASK-022-agent-and-runtime-evidence-migration
     - TASK-088-require-proxy-evidence-completeness-before-promote
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#evidence-contract
-spec_refs:
-    - specs/tessariq-v0.1.0.md#evidence-contract
-    - specs/tessariq-v0.1.0.md#compatibility-rules
-    - specs/tessariq-v0.1.0.md#tessariq-promote-run-ref
-    - specs/tessariq-v0.1.0.md#failure-ux
-    - specs/tessariq-v0.1.0.md#success-metrics
 updated_at: "2026-04-24T08:46:25Z"
-areas:
-    - promote
-    - evidence
-    - reliability
-    - proxy
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Artifact parsing and minimum-shape validation are deterministic and should be pinned with focused unit coverage.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Promote must reject malformed non-empty evidence in a real repository before any git side effects occur.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: Evidence parseability is part of the user-visible promote contract and should hold on the real CLI path.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Parse-and-shape validation branches are easy to weaken accidentally while keeping existence-only tests green.
-    manual_test:
-        required: true
-        commands: []
-        rationale: A built CLI check should show that non-empty malformed evidence is rejected with intact-evidence guidance before branch creation.
 ---
 
 ## Summary

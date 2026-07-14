@@ -3,44 +3,12 @@ id: TASK-068-make-manifest-writes-atomic
 title: Write manifest.json atomically to avoid crash-corrupted evidence
 status: completed
 priority: low
+spec_ref: specs/tessariq-v0.1.0.md#evidence-contract
 dependencies:
     - TASK-002-run-cli-flags-and-manifest-bootstrap
     - TASK-022-agent-and-runtime-evidence-migration
     - TASK-032-container-security-hardening
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#evidence-contract
-spec_refs:
-    - specs/tessariq-v0.1.0.md#evidence-contract
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-03T08:50:48Z"
-areas:
-    - evidence
-    - reliability
-    - filesystem
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Atomic file-writing behavior is deterministic and should be covered with focused unit tests.
-    integration:
-        required: false
-        commands: []
-        rationale: The change is a local file-write pattern rather than a collaborator boundary.
-    e2e:
-        required: false
-        commands: []
-        rationale: Unit coverage is sufficient for this write-path hardening.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Evidence-write failure handling is branchy enough to benefit from mutation coverage.
-    manual_test:
-        required: false
-        commands: []
-        rationale: The atomic-write pattern is better validated by automated filesystem tests than by ad-hoc manual interruption.
 ---
 
 ## Summary

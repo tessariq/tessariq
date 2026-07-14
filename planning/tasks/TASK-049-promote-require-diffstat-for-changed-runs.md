@@ -3,45 +3,11 @@ id: TASK-049-promote-require-diffstat-for-changed-runs
 title: Require diffstat.txt when promoting changed runs
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#evidence-contract
 dependencies:
     - TASK-013-diff-log-and-evidence-artifacts
     - TASK-015-promote-branch-commit-trailers-and-zero-diff-guard
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#evidence-contract
-spec_refs:
-    - specs/tessariq-v0.1.0.md#evidence-contract
-    - specs/tessariq-v0.1.0.md#acceptance-scenarios
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-02T07:37:01Z"
-areas:
-    - promote
-    - evidence
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Evidence completeness rules should be tightened with focused unit tests.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Promote evidence checks should be verified against real finished-run fixtures.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: Missing-artifact behavior is user-visible on the promote command.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Required-artifact branching is safety-critical and easy to weaken accidentally.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Confirms changed runs with missing `diffstat.txt` are rejected with actionable guidance.
 ---
 
 ## Summary

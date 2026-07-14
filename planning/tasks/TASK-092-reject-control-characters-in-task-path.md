@@ -3,50 +3,13 @@ id: TASK-092-reject-control-characters-in-task-path
 title: Reject control characters in task path to prevent commit trailer injection
 status: completed
 priority: low
+spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
 dependencies:
     - TASK-002-run-cli-flags-and-manifest-bootstrap
     - TASK-015-promote-branch-commit-trailers-and-zero-diff-guard
     - TASK-054-reject-symlinked-external-task-paths
     - TASK-058-reject-control-characters-in-allowlist-hosts
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
-spec_refs:
-    - specs/tessariq-v0.1.0.md#tessariq-run-task-path
-    - specs/tessariq-v0.1.0.md#tessariq-promote-run-ref
-    - specs/tessariq-v0.1.0.md#evidence-contract
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-15T12:08:51Z"
-areas:
-    - run
-    - promote
-    - evidence
-    - security
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Path validation and trailer assembly are both table-driven and belong under deterministic unit coverage.
-    integration:
-        required: false
-        commands:
-            - go test -tags=integration ./...
-        rationale: The fix is pure validation plus string escaping; integration coverage is not required unless the promote pipeline changes.
-    e2e:
-        required: true
-        commands:
-            - go test -tags=e2e ./...
-        rationale: Promote commit message composition is a user-visible contract and must be verified end to end.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Control-character predicates are trivial to weaken to a single-character check that still passes happy-path tests.
-    manual_test:
-        required: true
-        commands: []
-        rationale: A built CLI check should confirm that a task file whose name contains a newline is rejected at `tessariq run` and cannot produce forged commit trailers.
 ---
 
 ## Summary

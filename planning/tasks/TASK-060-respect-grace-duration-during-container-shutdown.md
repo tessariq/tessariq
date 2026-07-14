@@ -3,44 +3,11 @@ id: TASK-060-respect-grace-duration-during-container-shutdown
 title: Respect configured grace periods during container shutdown escalation
 status: completed
 priority: high
+spec_ref: specs/tessariq-v0.1.0.md#agent-and-runtime-contract
 dependencies:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
     - TASK-030-fix-timeout-signal-escalation
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#agent-and-runtime-contract
-spec_refs:
-    - specs/tessariq-v0.1.0.md#agent-and-runtime-contract
-    - specs/tessariq-v0.1.0.md#failure-ux
 updated_at: "2026-04-03T08:55:06Z"
-areas:
-    - runner
-    - container
-    - timeouts
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Signal-to-docker command mapping and grace-timer behavior are deterministic and heavily branch-driven.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Real container behavior is needed to prove SIGTERM then SIGKILL timing works as intended.
-    e2e:
-        required: false
-        commands: []
-        rationale: Focused integration coverage should be sufficient for the shutdown path.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Timeout and escalation logic is branch-heavy and safety-critical.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Confirms user-facing `--grace` values match observed shutdown behavior.
 ---
 
 ## Summary

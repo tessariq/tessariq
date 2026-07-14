@@ -3,48 +3,12 @@ id: TASK-100-represent-zero-denied-proxy-telemetry-without-empty-events-file
 title: Represent zero-denied proxy telemetry without an empty events file
 status: completed
 priority: medium
+spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
 dependencies:
     - TASK-012-proxy-topology-and-egress-artifacts
     - TASK-088-require-proxy-evidence-completeness-before-promote
     - TASK-096-make-proxy-telemetry-extraction-fail-closed
-milestone: v0.1.0
-spec_version: v0.1.0
-spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
-spec_refs:
-    - specs/tessariq-v0.1.0.md#networking-and-egress
-    - specs/tessariq-v0.1.0.md#evidence-contract
-    - specs/tessariq-v0.1.0.md#tessariq-promote-run-ref
-    - specs/tessariq-v0.1.0.md#success-metrics
 updated_at: "2026-04-24T09:17:04Z"
-areas:
-    - proxy
-    - evidence
-    - promote
-    - reliability
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: The empty-vs-zero-events representation is deterministic and belongs under focused writer/completeness coverage.
-    integration:
-        required: true
-        commands:
-            - go test -tags=integration ./...
-        rationale: Real proxy teardown coverage should prove that a run with no denied events still emits promotable evidence.
-    e2e:
-        required: false
-        commands: []
-        rationale: Focused proxy integration plus promote coverage should be sufficient if they prove the no-denied-events contract.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Empty-artifact and no-events branches are easy to conflate or weaken.
-    manual_test:
-        required: true
-        commands: []
-        rationale: A built CLI check should confirm that a clean proxy run with no blocked destinations is promotable and still distinguishable from telemetry extraction failure.
 ---
 
 ## Summary

@@ -3,43 +3,9 @@ id: TASK-019-inline-prompt-support
 title: Support inline text prompts via --prompt flag
 status: blocked
 priority: low
-dependencies: []
-milestone: v0.2.0
-spec_version: v0.2.0
 spec_ref: specs/tessariq-v0.2.0.md#release-intent
-spec_refs:
-    - specs/tessariq-v0.2.0.md#release-intent
-    - specs/tessariq-v0.2.0.md#scope
-    - specs/tessariq-v0.2.0.md#acceptance-scenarios
+dependencies: []
 updated_at: "2026-03-30T22:28:00Z"
-areas:
-    - cli
-    - evidence
-verification:
-    unit:
-        required: true
-        commands:
-            - go test ./...
-        rationale: Prompt-vs-taskpath mutual exclusivity and synthesized task.md content should be unit-tested.
-    integration:
-        required: false
-        commands:
-            - go test -tags=integration ./...
-        rationale: Deferred until integrated into the full run pipeline.
-    e2e:
-        required: false
-        commands:
-            - go test -tags=e2e ./...
-        rationale: Deferred until the feature is part of a releasable workflow.
-    mutation:
-        required: true
-        commands:
-            - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
-        rationale: Mutual exclusivity and input synthesis logic are branchy.
-    manual_test:
-        required: true
-        commands: []
-        rationale: Validates the inline prompt UX end-to-end.
 ---
 
 ## Summary
