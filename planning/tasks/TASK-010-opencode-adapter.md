@@ -1,12 +1,13 @@
 ---
 id: TASK-010-opencode-adapter
 title: Implement the OpenCode adapter
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-008-adapter-contract-and-adapter-json
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#adapter-contract
 spec_refs:
     - specs/tessariq-v0.1.0.md#adapter-contract
     - specs/tessariq-v0.1.0.md#evidence-contract

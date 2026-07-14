@@ -1,12 +1,13 @@
 ---
 id: TASK-003-dirty-repo-gate-and-task-ingest
 title: Enforce clean-repo gating and ingest task metadata
-status: done
-priority: p0
-depends_on:
+status: completed
+priority: high
+dependencies:
     - TASK-002-run-cli-flags-and-manifest-bootstrap
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#repository-model
 spec_refs:
     - specs/tessariq-v0.1.0.md#repository-model
     - specs/tessariq-v0.1.0.md#user-authored-inputs

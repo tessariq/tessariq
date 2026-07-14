@@ -1,13 +1,14 @@
 ---
 id: TASK-046-unique-run-aware-last-run-resolution
 title: Resolve last and last-N by unique runs instead of raw index lines
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-014-run-index-and-run-ref-resolution
     - TASK-045-validate-index-entry-shape-before-resolution
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#lifecycle-rules
 spec_refs:
     - specs/tessariq-v0.1.0.md#lifecycle-rules
     - specs/tessariq-v0.1.0.md#evidence-contract

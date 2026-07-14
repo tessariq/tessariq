@@ -1,9 +1,9 @@
 ---
 id: TASK-027-container-lifecycle-and-mount-isolation
 title: Implement Docker container lifecycle and mount isolation for agent execution
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
     - TASK-006-tmux-session-and-detached-attach-guidance
     - TASK-021-reference-runtime-image-and-docs
@@ -14,6 +14,7 @@ depends_on:
     - TASK-026-mount-agent-config-flag-and-config-dir-mounts
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#workspace-guarantees
 spec_refs:
     - specs/tessariq-v0.1.0.md#workspace-guarantees
     - specs/tessariq-v0.1.0.md#tessariq-run-task-path

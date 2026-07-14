@@ -1,12 +1,13 @@
 ---
 id: TASK-045-validate-index-entry-shape-before-resolution
 title: Reject semantically invalid index lines before run-ref resolution
-status: done
-priority: p0
-depends_on:
+status: completed
+priority: high
+dependencies:
     - TASK-014-run-index-and-run-ref-resolution
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#lifecycle-rules
 spec_refs:
     - specs/tessariq-v0.1.0.md#lifecycle-rules
     - specs/tessariq-v0.1.0.md#evidence-contract

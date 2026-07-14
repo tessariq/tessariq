@@ -1,13 +1,14 @@
 ---
 id: TASK-069-reject-egress-allow-with-egress-open
 title: Reject misleading --egress open plus --egress-allow combinations
-status: done
-priority: p2
-depends_on:
+status: completed
+priority: low
+dependencies:
     - TASK-011-egress-mode-resolution-and-manifest-recording
     - TASK-053-bypass-user-config-when-cli-egress-is-explicit
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
 spec_refs:
     - specs/tessariq-v0.1.0.md#networking-and-egress
     - specs/tessariq-v0.1.0.md#failure-ux

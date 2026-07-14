@@ -1,12 +1,13 @@
 ---
 id: TASK-044-spec-example-allowlist-source-consistency
 title: Align manifest example allowlist_source with normative values
-status: done
-priority: p2
-depends_on:
+status: completed
+priority: low
+dependencies:
     - TASK-011-egress-mode-resolution-and-manifest-recording
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#evidence-contract
 spec_refs:
     - specs/tessariq-v0.1.0.md#evidence-contract
 updated_at: "2026-04-01T17:35:54Z"

@@ -1,15 +1,16 @@
 ---
 id: TASK-098-reject-manifest-egress-mode-tampering-at-promote
 title: Reject manifest egress-mode tampering that suppresses proxy evidence requirements
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-011-egress-mode-resolution-and-manifest-recording
     - TASK-015-promote-branch-commit-trailers-and-zero-diff-guard
     - TASK-048-promote-manifest-run-identity-consistency
     - TASK-088-require-proxy-evidence-completeness-before-promote
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
 spec_refs:
     - specs/tessariq-v0.1.0.md#networking-and-egress
     - specs/tessariq-v0.1.0.md#evidence-contract

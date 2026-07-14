@@ -1,13 +1,14 @@
 ---
 id: TASK-042-opencode-auth-missing-actionable-error
 title: Surface actionable auth-missing guidance for OpenCode provider resolution
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-023-supported-agent-auth-mounts
     - TASK-041-opencode-proxy-user-config-allowlist-without-auth
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#failure-ux
 spec_refs:
     - specs/tessariq-v0.1.0.md#failure-ux
     - specs/tessariq-v0.1.0.md#tessariq-run-task-path

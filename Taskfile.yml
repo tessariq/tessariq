@@ -47,36 +47,36 @@ tasks:
       - go run ./cmd/tessariq --help
 
   workflow:validate:
-    desc: Validate tracked-work state, scope metadata, and live spec refs
+    desc: Validate Taskrail tracked-work state, task schema, and live spec refs
     cmds:
-      - go run ./cmd/tessariq-workflow validate-state
+      - taskrail validate
 
   workflow:check:
-    desc: Run tracked-work validation, active-spec verification, and skill parity checks
+    desc: Run Taskrail validation, advisory spec coverage, and skill parity checks
     cmds:
-      - go run ./cmd/tessariq-workflow validate-state
-      - go run ./cmd/tessariq-workflow verify --profile spec --disposition report --json
-      - go run ./cmd/tessariq-workflow check-skills
+      - taskrail validate
+      - taskrail coverage --json
+      - diff -rq .agents/skills .claude/skills
 
   workflow:next:
     desc: Select the next eligible tracked task
     cmds:
-      - go run ./cmd/tessariq-workflow next --json
+      - taskrail next --json
 
   workflow:refresh:
-    desc: Refresh derived tracked-work state
+    desc: Refresh derived tracked-work state (repair mechanical STATE.md drift)
     cmds:
-      - go run ./cmd/tessariq-workflow refresh-state
+      - taskrail repair --apply
 
   workflow:verify:spec:
-    desc: Verify tracked-work coverage against the active milestone spec
+    desc: Report advisory tracked-work coverage against the active milestone spec
     cmds:
-      - go run ./cmd/tessariq-workflow verify --profile spec --disposition report --json
+      - taskrail coverage --json
 
   workflow:check-skills:
     desc: Verify mirrored agent skill directories stay in sync
     cmds:
-      - go run ./cmd/tessariq-workflow check-skills
+      - diff -rq .agents/skills .claude/skills
 
   release:check:
     desc: Validate goreleaser configuration

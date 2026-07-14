@@ -1,14 +1,15 @@
 ---
 id: TASK-029-interactive-runtime-mode-independent-of-attach
 title: Implement interactive runtime mode independently of attach
-status: done
-priority: p0
-depends_on:
+status: completed
+priority: high
+dependencies:
     - TASK-018-replace-yolo-with-interactive-and-cli-polish
     - TASK-027-container-lifecycle-and-mount-isolation
     - TASK-028-container-session-streaming-and-cleanup-hardening
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
 spec_refs:
     - specs/tessariq-v0.1.0.md#tessariq-run-task-path
     - specs/tessariq-v0.1.0.md#lifecycle-rules

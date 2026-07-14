@@ -19,7 +19,7 @@ Skill catalog for deterministic tracked-work execution in Tessariq.
 
 ## Required Behavior
 
-- skills must route all state transitions through `go run ./cmd/tessariq-workflow ...`
+- skills must route all state transitions through `taskrail <cmd>`
 - implementation skills must enforce TDD
 - all skills must respect the testing pyramid
 - integration and e2e guidance must require Testcontainers for Go and reject custom local servers

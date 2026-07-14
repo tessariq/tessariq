@@ -4,7 +4,7 @@ Prompt guidance for deterministic tracked-work execution in Tessariq.
 
 ## Baseline Rules
 
-- Use `go run ./cmd/tessariq-workflow ...` for all tracked-work transitions.
+- Use `taskrail <cmd>` for all tracked-work transitions.
 - Do not hand-edit `planning/STATE.md` frontmatter.
 - Do not hand-edit task status fields in `planning/tasks/`.
 - Follow TDD for code changes.
@@ -24,7 +24,7 @@ Prompt guidance for deterministic tracked-work execution in Tessariq.
 5. Run the appropriate test tiers.
 6. Run task-scoped verification.
 7. Create follow-up items for unresolved findings when needed.
-8. Finish as `blocked` if unresolved high-severity findings remain; otherwise `done`.
+8. Finish as `blocked` if unresolved high-severity findings remain; otherwise `completed`.
 9. Refresh state and report evidence.
 
 ## Directed Task
@@ -33,7 +33,7 @@ Prompt guidance for deterministic tracked-work execution in Tessariq.
 2. Read the requested task file.
 3. Start that task only.
 4. Implement only the requested scope.
-5. Verify it and finish it through the workflow CLI.
+5. Verify it and finish it through the taskrail CLI.
 
 ## Verification Runs
 

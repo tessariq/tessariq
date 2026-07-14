@@ -1,13 +1,14 @@
 ---
 id: TASK-079-forward-model-flag-and-adapter-interface
 title: Forward --model flag to OpenCode and introduce adapter Agent interface
-status: done
-priority: p2
-depends_on:
+status: completed
+priority: low
+dependencies:
     - TASK-010-opencode-adapter
     - TASK-008-adapter-contract-and-adapter-json
 milestone: v0.2.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
 spec_refs:
     - specs/tessariq-v0.1.0.md#tessariq-run-task-path
 updated_at: "2026-04-05T20:41:35Z"

@@ -1,14 +1,15 @@
 ---
 id: TASK-012-proxy-topology-and-egress-artifacts
 title: Implement proxy topology and provider-aware egress evidence artifacts
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
     - TASK-011-egress-mode-resolution-and-manifest-recording
     - TASK-027-container-lifecycle-and-mount-isolation
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#host-prerequisites
 spec_refs:
     - specs/tessariq-v0.1.0.md#host-prerequisites
     - specs/tessariq-v0.1.0.md#agent-and-runtime-contract

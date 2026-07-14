@@ -1,14 +1,15 @@
 ---
 id: TASK-100-represent-zero-denied-proxy-telemetry-without-empty-events-file
 title: Represent zero-denied proxy telemetry without an empty events file
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-012-proxy-topology-and-egress-artifacts
     - TASK-088-require-proxy-evidence-completeness-before-promote
     - TASK-096-make-proxy-telemetry-extraction-fail-closed
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
 spec_refs:
     - specs/tessariq-v0.1.0.md#networking-and-egress
     - specs/tessariq-v0.1.0.md#evidence-contract

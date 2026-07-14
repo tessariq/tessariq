@@ -1,13 +1,14 @@
 ---
 id: TASK-040-interactive-note-only-when-requested
 title: Gate interactive-without-attach note on explicit user request
-status: done
-priority: p2
-depends_on:
+status: completed
+priority: low
+dependencies:
     - TASK-018-replace-yolo-with-interactive-and-cli-polish
     - TASK-029-interactive-runtime-mode-independent-of-attach
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
 spec_refs:
     - specs/tessariq-v0.1.0.md#tessariq-run-task-path
     - specs/tessariq-v0.1.0.md#acceptance-scenarios

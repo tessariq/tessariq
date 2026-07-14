@@ -1,14 +1,15 @@
 ---
 id: TASK-053-bypass-user-config-when-cli-egress-is-explicit
 title: Skip user-config loading when CLI egress fully determines resolution
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-011-egress-mode-resolution-and-manifest-recording
     - TASK-041-opencode-proxy-user-config-allowlist-without-auth
     - TASK-042-opencode-auth-missing-actionable-error
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#generated-runtime-state
 spec_refs:
     - specs/tessariq-v0.1.0.md#generated-runtime-state
     - specs/tessariq-v0.1.0.md#networking-and-egress

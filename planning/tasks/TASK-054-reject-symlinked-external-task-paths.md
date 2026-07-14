@@ -1,13 +1,14 @@
 ---
 id: TASK-054-reject-symlinked-external-task-paths
 title: Reject symlinked task files whose real target escapes the repository
-status: done
-priority: p0
-depends_on:
+status: completed
+priority: high
+dependencies:
     - TASK-002-run-cli-flags-and-manifest-bootstrap
     - TASK-003-dirty-repo-gate-and-task-ingest
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#repository-model
 spec_refs:
     - specs/tessariq-v0.1.0.md#repository-model
     - specs/tessariq-v0.1.0.md#user-authored-inputs

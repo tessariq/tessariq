@@ -1,14 +1,15 @@
 ---
 id: TASK-071-implement-run-attach-live-session
 title: Make `tessariq run --attach` attach to the live tmux session
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-006-tmux-session-and-detached-attach-guidance
     - TASK-007-attach-command-live-run-resolution
     - TASK-029-interactive-runtime-mode-independent-of-attach
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
 spec_refs:
     - specs/tessariq-v0.1.0.md#tessariq-run-task-path
     - specs/tessariq-v0.1.0.md#tessariq-attach-run-ref
@@ -78,4 +79,4 @@ verification:
 
 - Likely files: `cmd/tessariq/run.go`, `internal/runner/runner.go`, and `internal/tmux/tmux.go`.
 - Prefer the smallest change that preserves detached runs and existing `tessariq attach` behavior.
-- 2026-04-05T11:17:44Z: Wired --attach flag into run lifecycle via SessionReady channel on Runner; runner signals after tmux session creation, cmd layer attaches terminal concurrently. Unit tests: 3 SessionReady + 4 runWithAttach + 1 output suppression. Integration test: 1 real tmux session ready. E2e test: 1 container-mode attach path. Manual tests: 4/4 pass. Mutation efficacy: 85.87%. Evidence: planning/artifacts/manual-test/TASK-071-implement-run-attach-live-session/20260405T131500Z/
+- 2026-04-05T11:17:44Z: Wired --attach flag into run lifecycle via SessionReady channel on Runner; runner signals after tmux session creation, cmd layer attaches terminal concurrently. Unit tests: 3 SessionReady + 4 runWithAttach + 1 output suppression. Integration test: 1 real tmux session ready. E2e test: 1 container-mode attach path. Manual tests: 4/4 pass. Mutation efficacy: 85.87%. Evidence: (evidence artifacts; path omitted)

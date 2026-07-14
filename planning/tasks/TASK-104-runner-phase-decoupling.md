@@ -2,11 +2,12 @@
 id: TASK-104-runner-phase-decoupling
 title: Reduce Runner.Run phase coupling with typed phase results
 status: blocked
-priority: p2
-depends_on:
+priority: low
+dependencies:
     - TASK-017-v0-1-0-spec-conformity-closeout
 milestone: v0.2.0
 spec_version: v0.2.0
+spec_ref: specs/tessariq-v0.2.0.md#runner-responsibilities
 spec_refs:
     - specs/tessariq-v0.2.0.md#runner-responsibilities
     - specs/tessariq-v0.2.0.md#lifecycle-rules

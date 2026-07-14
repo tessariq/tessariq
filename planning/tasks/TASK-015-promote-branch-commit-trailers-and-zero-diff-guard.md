@@ -1,13 +1,14 @@
 ---
 id: TASK-015-promote-branch-commit-trailers-and-zero-diff-guard
 title: Implement promote branch creation commit trailers and zero-diff protection
-status: done
-priority: p0
-depends_on:
+status: completed
+priority: high
+dependencies:
     - TASK-013-diff-log-and-evidence-artifacts
     - TASK-014-run-index-and-run-ref-resolution
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#host-prerequisites
 spec_refs:
     - specs/tessariq-v0.1.0.md#host-prerequisites
     - specs/tessariq-v0.1.0.md#tessariq-promote-run-ref

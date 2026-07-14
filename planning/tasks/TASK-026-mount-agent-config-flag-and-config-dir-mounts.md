@@ -1,14 +1,15 @@
 ---
 id: TASK-026-mount-agent-config-flag-and-config-dir-mounts
 title: Add --mount-agent-config and read-only default config-dir mounts
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-002-run-cli-flags-and-manifest-bootstrap
     - TASK-022-agent-and-runtime-evidence-migration
     - TASK-023-supported-agent-auth-mounts
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
 spec_refs:
     - specs/tessariq-v0.1.0.md#tessariq-run-task-path
     - specs/tessariq-v0.1.0.md#agent-and-runtime-contract

@@ -1,13 +1,14 @@
 ---
 id: TASK-060-respect-grace-duration-during-container-shutdown
 title: Respect configured grace periods during container shutdown escalation
-status: done
-priority: p0
-depends_on:
+status: completed
+priority: high
+dependencies:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
     - TASK-030-fix-timeout-signal-escalation
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#agent-and-runtime-contract
 spec_refs:
     - specs/tessariq-v0.1.0.md#agent-and-runtime-contract
     - specs/tessariq-v0.1.0.md#failure-ux

@@ -4,8 +4,8 @@ How a human developer should work when Tessariq tracked-work state exists.
 
 ## Normal Flow
 
-1. Run `go run ./cmd/tessariq-workflow validate-state`.
-2. Claim a tracked item with `start`.
+1. Run `taskrail validate`.
+2. Claim a tracked item with `taskrail start <id>`.
 3. Implement in a TDD loop.
 4. Run the required test tiers according to the testing pyramid.
 5. Run manual testing against the task's acceptance criteria.
@@ -21,13 +21,13 @@ How a human developer should work when Tessariq tracked-work state exists.
 - Do not spin up custom HTTP or TCP servers in integration or e2e tests.
 - Mutation testing is required for non-trivial logic changes and CI enforces a 70% threshold.
 - `planning/artifacts/` is local-only workflow evidence and is gitignored.
-- If `followups` cannot find a local verification report for the recorded validation run, rerun `verify` before creating follow-up tasks.
+- Create follow-up items for unresolved findings as part of `taskrail verify <id> --create-followup`.
 
 ## Recovery
 
 If state is stale or inconsistent:
 
-1. Run `validate-state --json`.
-2. Run `next --json` once to apply deterministic recovery.
-3. Run `validate-state --json` again.
-4. If state is still invalid, stop and fix the workflow tooling instead of editing files by hand.
+1. Run `taskrail validate --json`.
+2. Run `taskrail repair --apply` once to apply deterministic recovery.
+3. Run `taskrail validate --json` again.
+4. If state is still invalid, stop and resolve it through `taskrail` instead of editing files by hand.

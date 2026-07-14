@@ -1,12 +1,13 @@
 ---
 id: TASK-032-container-security-hardening
 title: Add container capability dropping, privilege escalation prevention, and evidence permission hardening
-status: done
-priority: p0
-depends_on:
+status: completed
+priority: high
+dependencies:
     - TASK-027-container-lifecycle-and-mount-isolation
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
 spec_refs:
     - specs/tessariq-v0.1.0.md#tessariq-run-task-path
     - specs/tessariq-v0.1.0.md#evidence-permissions

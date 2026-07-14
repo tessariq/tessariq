@@ -1,14 +1,15 @@
 ---
 id: TASK-066-preserve-binary-file-changes-in-diff-and-promote
 title: Preserve binary file changes in diff artifacts and promote
-status: done
-priority: p0
-depends_on:
+status: completed
+priority: high
+dependencies:
     - TASK-013-diff-log-and-evidence-artifacts
     - TASK-015-promote-branch-commit-trailers-and-zero-diff-guard
     - TASK-049-promote-require-diffstat-for-changed-runs
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#evidence-contract
 spec_refs:
     - specs/tessariq-v0.1.0.md#evidence-contract
     - specs/tessariq-v0.1.0.md#tessariq-promote-run-ref

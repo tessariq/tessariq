@@ -1,14 +1,15 @@
 ---
 id: TASK-080-opencode-interactive-support
 title: Support --interactive flag for OpenCode adapter
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-033-opencode-interactive-request-recording
     - TASK-078-fix-interactive-attach-double-pty-and-task-passthrough
     - TASK-079-forward-model-flag-and-adapter-interface
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
 spec_refs:
     - specs/tessariq-v0.1.0.md#tessariq-run-task-path
     - specs/tessariq-v0.1.0.md#agent-and-runtime-contract

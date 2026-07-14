@@ -1,12 +1,13 @@
 ---
 id: TASK-072-run-hooks-from-repo-root
 title: Run pre and verify hooks from the repository root
-status: done
-priority: p2
-depends_on:
+status: completed
+priority: low
+dependencies:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
 spec_refs:
     - specs/tessariq-v0.1.0.md#tessariq-run-task-path
     - specs/tessariq-v0.1.0.md#failure-ux

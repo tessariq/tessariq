@@ -1,12 +1,13 @@
 ---
 id: TASK-018-replace-yolo-with-interactive-and-cli-polish
 title: Replace --yolo with --interactive and polish CLI flags
-status: done
-priority: p0
-depends_on:
+status: completed
+priority: high
+dependencies:
     - TASK-002-run-cli-flags-and-manifest-bootstrap
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
 spec_refs:
     - specs/tessariq-v0.1.0.md#tessariq-run-task-path
     - specs/tessariq-v0.1.0.md#adapter-contract

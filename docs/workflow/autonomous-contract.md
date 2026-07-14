@@ -8,26 +8,26 @@ Deterministic tracked-work contract for Tessariq repository planning and impleme
 - `planning/tasks/` contains tracked work item metadata and acceptance criteria.
 - `docs/workflow/` contains the human-readable workflow contract.
 - `.agents/skills/` and `.claude/skills/` contain mirrored agent skills and must stay byte-identical.
-- `go run ./cmd/tessariq-workflow ...` is the only valid transition path for tracked-work state.
+- `taskrail <cmd>` is the only valid transition path for tracked-work state.
 
 ## Lifecycle
 
 Recommended task status lifecycle:
 
 - `todo`
-- `in_progress`
-- terminal: `done`, `blocked`, `cancelled`
+- `active`
+- terminal: `completed`, `blocked`
 
 Rules:
 
-- At most one tracked item may be `in_progress`.
+- At most one tracked item may be `active`.
 - `planning/STATE.md` must point at the same active task.
-- A stale active task is invalid until deterministic recovery runs through `next`.
+- A stale active task is invalid until deterministic recovery runs through `taskrail repair`.
 - Human or agent users must not hand-edit machine-managed state or status transitions.
 
 ## Deterministic Selection
 
-`go run ./cmd/tessariq-workflow next --json` selects work in this order:
+`taskrail next --json` selects work in this order:
 
 1. Continue the non-stale active task, if present.
 2. Otherwise recover a stale task deterministically.
@@ -37,16 +37,12 @@ Rules:
 
 ## Verification Contract
 
-- Run verification through `go run ./cmd/tessariq-workflow verify ...`.
-- `task` profile checks one tracked item.
-- `task` profile also emits a medium-severity finding when user-visible code changes are present without a `CHANGELOG.md` update; workflow-tooling-only changes (`cmd/tessariq-workflow/`, `internal/workflow/`) are excluded.
-- `implemented` profile checks completed items for retained verification metadata.
-- `spec` profile checks seeded task coverage against `specs/tessariq-v0.1.0.md`.
-- Verification writes local gitignored plan and report artifacts under `planning/artifacts/verify/`.
-- Unresolved medium-or-higher findings can be converted into tracked follow-up items through `followups --mode create`.
-- Manual test artifacts (plan and report) must exist locally under `planning/artifacts/manual-test/<task-id>/` before a task can be finished as `done`.
-- `finish --status done` validates the presence of these artifacts.
-- `followups --mode create` reads the last validation report from local artifacts for `validation_last_run`; rerun `verify` if they are missing.
+- Run task verification through `taskrail verify <id> --result pass|fail --summary "<s>" [--details "<d>"]`.
+- `taskrail verify <id>` checks one tracked item and records its verification result.
+- Run advisory spec coverage through `taskrail coverage --json`; it is read-only and reports seeded task coverage against `specs/tessariq-v0.1.0.md`.
+- Unresolved findings can be converted into tracked follow-up items through `taskrail verify <id> --create-followup --followup-title "<t>" --followup-description "<d>" [--followup-priority high|medium|low]`.
+- Manual test artifacts (plan and report) must exist locally under `planning/artifacts/manual-test/<task-id>/` before a task can be finished as `completed`.
+- `taskrail complete` validates the presence of these artifacts.
 
 ## Safety Rules
 

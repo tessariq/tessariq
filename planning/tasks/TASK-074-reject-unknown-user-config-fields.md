@@ -1,13 +1,14 @@
 ---
 id: TASK-074-reject-unknown-user-config-fields
 title: Reject unknown keys in user config instead of silently ignoring them
-status: done
-priority: p3
-depends_on:
+status: completed
+priority: low
+dependencies:
     - TASK-011-egress-mode-resolution-and-manifest-recording
     - TASK-053-bypass-user-config-when-cli-egress-is-explicit
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
 spec_refs:
     - specs/tessariq-v0.1.0.md#networking-and-egress
     - specs/tessariq-v0.1.0.md#failure-ux
@@ -72,4 +73,4 @@ verification:
 
 - Likely files: `internal/run/userconfig.go` and `internal/run/userconfig_test.go`.
 - Prefer the built-in strict decoder path from `gopkg.in/yaml.v3` over custom key validation.
-- 2026-04-04T07:19:12Z: Switched LoadUserConfig from yaml.Unmarshal to yaml.NewDecoder with KnownFields(true). Unknown YAML keys now fail with actionable error identifying config path and invalid key. Unit tests for camelCase typo, misspelled key, and extra key. E2e test for typoed config failing loudly. All existing behavior (valid config, missing file, malformed YAML, explicit CLI bypass) preserved. Manual test report: planning/artifacts/manual-test/TASK-074-reject-unknown-user-config-fields/20260404T071540Z/report.md
+- 2026-04-04T07:19:12Z: Switched LoadUserConfig from yaml.Unmarshal to yaml.NewDecoder with KnownFields(true). Unknown YAML keys now fail with actionable error identifying config path and invalid key. Unit tests for camelCase typo, misspelled key, and extra key. E2e test for typoed config failing loudly. All existing behavior (valid config, missing file, malformed YAML, explicit CLI bypass) preserved. Manual test report: (evidence artifacts; path omitted)

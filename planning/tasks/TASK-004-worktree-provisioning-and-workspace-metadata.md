@@ -1,12 +1,13 @@
 ---
 id: TASK-004-worktree-provisioning-and-workspace-metadata
 title: Provision detached worktrees and record workspace metadata
-status: done
-priority: p0
-depends_on:
+status: completed
+priority: high
+dependencies:
     - TASK-003-dirty-repo-gate-and-task-ingest
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#workspace-guarantees
 spec_refs:
     - specs/tessariq-v0.1.0.md#workspace-guarantees
     - specs/tessariq-v0.1.0.md#evidence-contract

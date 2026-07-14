@@ -1,14 +1,15 @@
 ---
 id: TASK-097-make-agent-runtime-and-workspace-evidence-writes-atomic
 title: Write agent.json runtime.json and workspace.json atomically to avoid crash-corrupted evidence
-status: done
-priority: p2
-depends_on:
+status: completed
+priority: low
+dependencies:
     - TASK-004-worktree-provisioning-and-workspace-metadata
     - TASK-022-agent-and-runtime-evidence-migration
     - TASK-068-make-manifest-writes-atomic
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#evidence-contract
 spec_refs:
     - specs/tessariq-v0.1.0.md#evidence-contract
     - specs/tessariq-v0.1.0.md#failure-ux

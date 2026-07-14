@@ -1,14 +1,15 @@
 ---
 id: TASK-093-restrict-worktree-permissions-to-host-and-container-user
 title: Restrict worktree permissions to the host and container user only
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-004-worktree-provisioning-and-workspace-metadata
     - TASK-027-container-lifecycle-and-mount-isolation
     - TASK-061-cleanup-worktrees-even-when-ownership-repair-fails
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#agent-and-runtime-contract
 spec_refs:
     - specs/tessariq-v0.1.0.md#agent-and-runtime-contract
     - specs/tessariq-v0.1.0.md#evidence-contract
@@ -85,5 +86,5 @@ Stop opening live worktrees to every local user on the host. `container.Process.
 - Do not re-grant world access through any intermediate `chmod` step — the entire lifecycle must keep the worktree contained.
 - Coordinate with the runtime-state layer (TASK-087): both paths now create per-run, non-world-readable scratch trees, and should follow consistent permission discipline.
 - Prefer a mechanism that works without host-level root privileges, since tessariq runs as an unprivileged user on developer machines.
-- 2026-04-15T18:53:14Z: Implemented TASK-093 worktree hardening and runtime-state scratch hardening. Manual test pass: planning/artifacts/manual-test/TASK-093-restrict-worktree-permissions-to-host-and-container-user/20260415T185042Z/report.md. Automated checks rerun: go test ./..., go test -tags=integration ./..., go test -tags=e2e ./..., go vet ./..., go run ./cmd/tessariq --help, go run ./cmd/tessariq-workflow verify --profile spec --disposition report --json, gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70.
-- 2026-04-15T19:51:26Z: Reworked TASK-093 after PR review: runtime image compatibility now probes the numeric identity of the named tessariq user, worktree and runtime-state hardening use owner-only mode bits plus exact-principal POSIX ACLs on Linux, Provision and runtime-state setup clean up on hardening failure, and custom images without uid 1000 now work while images missing tessariq fail fast. Manual test pass: planning/artifacts/manual-test/TASK-093-restrict-worktree-permissions-to-host-and-container-user/20260415T194735Z/report.md. Automated checks rerun: gofmt -l ., go vet ./..., go test ./..., go test -tags=integration ./..., go test -tags=e2e ./..., go run ./cmd/tessariq --help, go run ./cmd/tessariq-workflow check-skills, go run ./cmd/tessariq-workflow verify --profile task --task TASK-093-restrict-worktree-permissions-to-host-and-container-user --disposition report --json, go run ./cmd/tessariq-workflow verify --profile spec --disposition report --json, gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70.
+- 2026-04-15T18:53:14Z: Implemented TASK-093 worktree hardening and runtime-state scratch hardening. Manual test pass: (evidence artifacts; path omitted) Automated checks rerun: go test ./..., go test -tags=integration ./..., go test -tags=e2e ./..., go vet ./..., go run ./cmd/tessariq --help, go run ./cmd/tessariq-workflow verify --profile spec --disposition report --json, gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70.
+- 2026-04-15T19:51:26Z: Reworked TASK-093 after PR review: runtime image compatibility now probes the numeric identity of the named tessariq user, worktree and runtime-state hardening use owner-only mode bits plus exact-principal POSIX ACLs on Linux, Provision and runtime-state setup clean up on hardening failure, and custom images without uid 1000 now work while images missing tessariq fail fast. Manual test pass: (evidence artifacts; path omitted) Automated checks rerun: gofmt -l ., go vet ./..., go test ./..., go test -tags=integration ./..., go test -tags=e2e ./..., go run ./cmd/tessariq --help, go run ./cmd/tessariq-workflow check-skills, go run ./cmd/tessariq-workflow verify --profile task --task TASK-093-restrict-worktree-permissions-to-host-and-container-user --disposition report --json, go run ./cmd/tessariq-workflow verify --profile spec --disposition report --json, gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70.

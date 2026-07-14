@@ -1,13 +1,14 @@
 ---
 id: TASK-035-init-evidence-parent-directory-permissions
 title: Harden init-created evidence parent directories to owner-only permissions
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-001-init-skeleton-and-gitignore
     - TASK-032-container-security-hardening
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#evidence-permissions
 spec_refs:
     - specs/tessariq-v0.1.0.md#evidence-permissions
     - specs/tessariq-v0.1.0.md#evidence-contract

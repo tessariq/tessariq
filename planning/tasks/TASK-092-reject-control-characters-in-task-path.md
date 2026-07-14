@@ -1,15 +1,16 @@
 ---
 id: TASK-092-reject-control-characters-in-task-path
 title: Reject control characters in task path to prevent commit trailer injection
-status: done
-priority: p2
-depends_on:
+status: completed
+priority: low
+dependencies:
     - TASK-002-run-cli-flags-and-manifest-bootstrap
     - TASK-015-promote-branch-commit-trailers-and-zero-diff-guard
     - TASK-054-reject-symlinked-external-task-paths
     - TASK-058-reject-control-characters-in-allowlist-hosts
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
 spec_refs:
     - specs/tessariq-v0.1.0.md#tessariq-run-task-path
     - specs/tessariq-v0.1.0.md#tessariq-promote-run-ref

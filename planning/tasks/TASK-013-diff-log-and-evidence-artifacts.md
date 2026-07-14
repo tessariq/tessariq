@@ -1,15 +1,16 @@
 ---
 id: TASK-013-diff-log-and-evidence-artifacts
 title: Emit diff, log, agent, and runtime evidence artifacts
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
     - TASK-012-proxy-topology-and-egress-artifacts
     - TASK-022-agent-and-runtime-evidence-migration
     - TASK-027-container-lifecycle-and-mount-isolation
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#evidence-contract
 spec_refs:
     - specs/tessariq-v0.1.0.md#evidence-contract
     - specs/tessariq-v0.1.0.md#acceptance-scenarios

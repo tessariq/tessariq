@@ -1,14 +1,15 @@
 ---
 id: TASK-014-run-index-and-run-ref-resolution
 title: Maintain the run index and resolve repository-scoped run refs
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
     - TASK-013-diff-log-and-evidence-artifacts
     - TASK-022-agent-and-runtime-evidence-migration
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#lifecycle-rules
 spec_refs:
     - specs/tessariq-v0.1.0.md#lifecycle-rules
     - specs/tessariq-v0.1.0.md#evidence-contract

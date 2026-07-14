@@ -1,15 +1,16 @@
 ---
 id: TASK-094-reconcile-terminal-status-with-container-cleanup-outcome
 title: Reconcile terminal status with container cleanup outcome
-status: done
-priority: p2
-depends_on:
+status: completed
+priority: low
+dependencies:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
     - TASK-028-container-session-streaming-and-cleanup-hardening
     - TASK-077-treat-terminal-non-success-run-outcomes-as-cli-failures
     - TASK-085-harden-run-finalization-and-orphaned-run-recovery
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#lifecycle-rules
 spec_refs:
     - specs/tessariq-v0.1.0.md#lifecycle-rules
     - specs/tessariq-v0.1.0.md#evidence-contract

@@ -1,13 +1,14 @@
 ---
 id: TASK-058-reject-control-characters-in-allowlist-hosts
 title: Reject control characters in allowlist hosts before Squid config generation
-status: done
-priority: p0
-depends_on:
+status: completed
+priority: high
+dependencies:
     - TASK-011-egress-mode-resolution-and-manifest-recording
     - TASK-012-proxy-topology-and-egress-artifacts
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
 spec_refs:
     - specs/tessariq-v0.1.0.md#networking-and-egress
     - specs/tessariq-v0.1.0.md#failure-ux

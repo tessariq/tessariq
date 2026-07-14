@@ -1,15 +1,16 @@
 ---
 id: TASK-024-claude-code-agent-runtime-integration
 title: Integrate Claude Code with the v0.1.0 agent and runtime model
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-021-reference-runtime-image-and-docs
     - TASK-022-agent-and-runtime-evidence-migration
     - TASK-023-supported-agent-auth-mounts
     - TASK-026-mount-agent-config-flag-and-config-dir-mounts
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
 spec_refs:
     - specs/tessariq-v0.1.0.md#tessariq-run-task-path
     - specs/tessariq-v0.1.0.md#agent-and-runtime-contract

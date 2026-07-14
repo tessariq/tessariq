@@ -1,14 +1,15 @@
 ---
 id: TASK-075-keep-log-streaming-alive-through-timeout
 title: Keep run log streaming alive through timeout and grace-period shutdown
-status: done
-priority: p3
-depends_on:
+status: completed
+priority: low
+dependencies:
     - TASK-013-diff-log-and-evidence-artifacts
     - TASK-028-container-session-streaming-and-cleanup-hardening
     - TASK-060-respect-grace-duration-during-container-shutdown
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#required-artifacts
 spec_refs:
     - specs/tessariq-v0.1.0.md#required-artifacts
     - specs/tessariq-v0.1.0.md#failure-ux

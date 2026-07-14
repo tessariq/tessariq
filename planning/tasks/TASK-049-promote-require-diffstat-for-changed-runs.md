@@ -1,13 +1,14 @@
 ---
 id: TASK-049-promote-require-diffstat-for-changed-runs
 title: Require diffstat.txt when promoting changed runs
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-013-diff-log-and-evidence-artifacts
     - TASK-015-promote-branch-commit-trailers-and-zero-diff-guard
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#evidence-contract
 spec_refs:
     - specs/tessariq-v0.1.0.md#evidence-contract
     - specs/tessariq-v0.1.0.md#acceptance-scenarios

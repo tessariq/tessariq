@@ -1,12 +1,13 @@
 ---
 id: TASK-006-tmux-session-and-detached-attach-guidance
 title: Start tmux sessions and print detached attach guidance
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#product-intent
 spec_refs:
     - specs/tessariq-v0.1.0.md#product-intent
     - specs/tessariq-v0.1.0.md#core-workflow

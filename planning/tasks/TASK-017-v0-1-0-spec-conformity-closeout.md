@@ -2,8 +2,8 @@
 id: TASK-017-v0-1-0-spec-conformity-closeout
 title: Run the final v0.1.0 spec conformity closeout sweep
 status: todo
-priority: p0
-depends_on:
+priority: high
+dependencies:
     - TASK-001-init-skeleton-and-gitignore
     - TASK-002-run-cli-flags-and-manifest-bootstrap
     - TASK-003-dirty-repo-gate-and-task-ingest
@@ -86,6 +86,7 @@ depends_on:
     - TASK-100-represent-zero-denied-proxy-telemetry-without-empty-events-file
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#release-intent
 spec_refs:
     - specs/tessariq-v0.1.0.md#release-intent
     - specs/tessariq-v0.1.0.md#product-intent
@@ -136,10 +137,10 @@ Run the final v0.1.0 conformity sweep against the normative spec after the stren
 
 ## Acceptance Criteria
 
-- `go run ./cmd/tessariq-workflow verify --profile spec --disposition report --json` passes with no unresolved high-severity findings.
+- `taskrail validate` passes (state valid) and `taskrail coverage --json` reports no uncovered normative areas for the active v0.1.0 spec.
 - Every normative contract, acceptance scenario, failure-UX row, host-prerequisite contract, and evidence-compatibility rule in the active v0.1.0 spec is covered by tasks and implemented behavior.
 - The closeout explicitly records each v0.1.0 success metric as met, not yet measurable, or follow-up required; it must not silently ignore the section.
-- Regenerated verification artifacts and `planning/STATE.md` validation metadata point at the final passing sweep.
+- `planning/STATE.md` (`status_summary`, `next_action`) reflects the final passing closeout, and task verification is recorded via `taskrail verify`.
 - The closeout sweep explicitly covers the v0.1.0 runtime-image contract, read-only supported-agent auth reuse, `--mount-agent-config`, agent-aware `auto` egress, and the `agent.json` plus `runtime.json` evidence split.
 - The closeout sweep explicitly covers `tessariq version` and root `--version` as repository-independent CLI behavior.
 

@@ -1,12 +1,13 @@
 ---
 id: TASK-081-model-aware-opencode-egress
 title: Include model provider host in OpenCode proxy allowlist
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-079-forward-model-flag-and-adapter-interface
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
 spec_refs:
     - specs/tessariq-v0.1.0.md#networking-and-egress
     - specs/tessariq-v0.1.0.md#failure-ux

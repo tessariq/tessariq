@@ -1,14 +1,15 @@
 ---
 id: TASK-051-attach-repo-local-evidence-path-validation
 title: Reject non-repo evidence paths during attach resolution
-status: done
-priority: p0
-depends_on:
+status: completed
+priority: high
+dependencies:
     - TASK-007-attach-command-live-run-resolution
     - TASK-014-run-index-and-run-ref-resolution
     - TASK-045-validate-index-entry-shape-before-resolution
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#core-workflow
 spec_refs:
     - specs/tessariq-v0.1.0.md#core-workflow
     - specs/tessariq-v0.1.0.md#generated-runtime-state
@@ -78,4 +79,4 @@ verification:
 
 - Likely files: `internal/attach/attach.go` and attach integration/e2e tests.
 - Prefer reusing the same repo-local evidence validation rules as promote hardening where practical.
-- 2026-04-02T10:31:36Z: Implemented repo-local attach evidence-path validation before liveness checks; verified with go test ./..., go test -tags=integration ./..., go test -tags=e2e ./..., gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70 (85.63% efficacy), and manual test artifacts under planning/artifacts/manual-test/TASK-051-attach-repo-local-evidence-path-validation/20260402T102743Z.
+- 2026-04-02T10:31:36Z: Implemented repo-local attach evidence-path validation before liveness checks; verified with go test ./..., go test -tags=integration ./..., go test -tags=e2e ./..., gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70 (85.63% efficacy), and manual test artifacts under (evidence artifacts; path omitted)

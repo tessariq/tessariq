@@ -2,12 +2,13 @@
 id: TASK-105-run-lifecycle-architecture-note
 title: Add an architecture note for the run lifecycle and evidence ownership
 status: blocked
-priority: p3
-depends_on:
+priority: low
+dependencies:
     - TASK-101-extract-run-orchestrator
     - TASK-102-evidence-package-and-atomic-json
 milestone: v0.2.0
 spec_version: v0.2.0
+spec_ref: specs/tessariq-v0.2.0.md#shared-runtime-sketch
 spec_refs:
     - specs/tessariq-v0.2.0.md#shared-runtime-sketch
     - specs/tessariq-v0.2.0.md#runner-responsibilities

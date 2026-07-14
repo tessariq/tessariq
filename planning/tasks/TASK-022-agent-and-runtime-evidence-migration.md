@@ -1,13 +1,14 @@
 ---
 id: TASK-022-agent-and-runtime-evidence-migration
 title: Replace adapter evidence with agent and runtime evidence
-status: done
-priority: p0
-depends_on:
+status: completed
+priority: high
+dependencies:
     - TASK-002-run-cli-flags-and-manifest-bootstrap
     - TASK-008-adapter-contract-and-adapter-json
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#agent-and-runtime-contract
 spec_refs:
     - specs/tessariq-v0.1.0.md#agent-and-runtime-contract
     - specs/tessariq-v0.1.0.md#adapter-contract

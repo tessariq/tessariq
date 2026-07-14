@@ -1,12 +1,13 @@
 ---
 id: TASK-095-idempotent-reconcile-when-worktree-already-removed
 title: Keep reconcile cleanup idempotent when the canonical worktree has already been removed
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-090-validate-workspace-path-before-reconcile-cleanup
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#lifecycle-rules
 spec_refs:
     - specs/tessariq-v0.1.0.md#lifecycle-rules
     - specs/tessariq-v0.1.0.md#tessariq-attach-run-ref

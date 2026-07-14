@@ -1,12 +1,13 @@
 ---
 id: TASK-005-runner-bootstrap-timeout-and-status-lifecycle
 title: Implement runner bootstrap timeout handling and status lifecycle
-status: done
-priority: p0
-depends_on:
+status: completed
+priority: high
+dependencies:
     - TASK-004-worktree-provisioning-and-workspace-metadata
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#core-workflow
 spec_refs:
     - specs/tessariq-v0.1.0.md#core-workflow
     - specs/tessariq-v0.1.0.md#tessariq-run-task-path

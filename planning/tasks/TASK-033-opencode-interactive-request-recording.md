@@ -1,13 +1,14 @@
 ---
 id: TASK-033-opencode-interactive-request-recording
 title: Allow OpenCode interactive requests and record not-applied semantics in agent evidence
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-025-opencode-agent-runtime-integration
     - TASK-029-interactive-runtime-mode-independent-of-attach
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#agent-and-runtime-contract
 spec_refs:
     - specs/tessariq-v0.1.0.md#agent-and-runtime-contract
     - specs/tessariq-v0.1.0.md#evidence-contract

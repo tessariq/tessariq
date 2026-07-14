@@ -1,14 +1,15 @@
 ---
 id: TASK-076-pin-default-agent-images-by-digest
 title: Pin default agent images by digest
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-024-claude-code-agent-runtime-integration
     - TASK-025-opencode-agent-runtime-integration
     - TASK-063-pin-squid-proxy-image-by-digest
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
 spec_refs:
     - specs/tessariq-v0.1.0.md#tessariq-run-task-path
     - specs/tessariq-v0.1.0.md#agent-and-runtime-contract

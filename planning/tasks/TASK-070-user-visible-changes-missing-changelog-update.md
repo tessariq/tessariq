@@ -1,11 +1,12 @@
 ---
 id: TASK-070-user-visible-changes-missing-changelog-update
 title: user-visible changes missing changelog update
-status: done
-priority: p1
-depends_on: []
+status: completed
+priority: medium
+dependencies: []
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#failure-ux
 spec_refs:
     - specs/tessariq-v0.1.0.md#failure-ux
     - specs/tessariq-v0.1.0.md#acceptance-scenarios

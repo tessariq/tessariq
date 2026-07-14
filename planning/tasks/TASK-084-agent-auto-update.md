@@ -1,9 +1,9 @@
 ---
 id: TASK-084-agent-auto-update
 title: Agent auto-update via cache-aware init container
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-008-adapter-contract-and-adapter-json
     - TASK-009-claude-code-adapter
     - TASK-010-opencode-adapter
@@ -14,6 +14,7 @@ depends_on:
     - TASK-037-prestart-agent-binary-validation
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
 spec_refs:
     - specs/tessariq-v0.1.0.md#tessariq-run-task-path
     - specs/tessariq-v0.1.0.md#agent-and-runtime-contract

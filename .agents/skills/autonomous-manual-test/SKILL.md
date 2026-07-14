@@ -10,7 +10,7 @@ Generate and execute a manual test plan against task acceptance criteria, then p
 
 ## Required Flow
 
-1. Run `go run ./cmd/tessariq-workflow validate-state`.
+1. Run `taskrail validate`.
 2. Read the target task file and extract acceptance criteria.
 3. Create a local-only manual test plan at `planning/artifacts/manual-test/<task-id>/<timestamp>/plan.md`.
    - Each acceptance criterion becomes one or more numbered test steps (MT-001, MT-002, ...).
@@ -119,7 +119,7 @@ Container mode rules:
 ## Rules
 
 - The agent classifies each failure's severity and decides autonomously how to proceed.
-- If a critical test cannot be fixed, the agent must not finish the task as `done`.
+- If a critical test cannot be fixed, the agent must not finish the task as `completed`.
 - Fixes apply to product code only; never mutate test expectations to force a pass.
 - Re-run only the specific failing step after a fix, not the entire plan.
 - Do not auto-select another task after manual testing completes.

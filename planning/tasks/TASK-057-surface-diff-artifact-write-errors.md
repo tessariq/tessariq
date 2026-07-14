@@ -1,12 +1,13 @@
 ---
 id: TASK-057-surface-diff-artifact-write-errors
 title: Surface WriteDiffArtifacts errors as warnings instead of silent discard
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-013-diff-log-and-evidence-artifacts
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#required-artifacts
 spec_refs:
     - specs/tessariq-v0.1.0.md#required-artifacts
     - specs/tessariq-v0.1.0.md#failure-ux

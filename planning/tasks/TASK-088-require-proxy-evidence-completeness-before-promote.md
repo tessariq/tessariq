@@ -1,14 +1,15 @@
 ---
 id: TASK-088-require-proxy-evidence-completeness-before-promote
 title: Require proxy evidence completeness before promote
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-012-proxy-topology-and-egress-artifacts
     - TASK-015-promote-branch-commit-trailers-and-zero-diff-guard
     - TASK-047-promote-repo-local-evidence-path-validation
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
 spec_refs:
     - specs/tessariq-v0.1.0.md#networking-and-egress
     - specs/tessariq-v0.1.0.md#evidence-contract

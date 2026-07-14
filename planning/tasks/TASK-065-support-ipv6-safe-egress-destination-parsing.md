@@ -1,13 +1,14 @@
 ---
 id: TASK-065-support-ipv6-safe-egress-destination-parsing
 title: Parse IPv6 egress destinations without corrupting host and port values
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-011-egress-mode-resolution-and-manifest-recording
     - TASK-012-proxy-topology-and-egress-artifacts
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
 spec_refs:
     - specs/tessariq-v0.1.0.md#networking-and-egress
     - specs/tessariq-v0.1.0.md#failure-ux

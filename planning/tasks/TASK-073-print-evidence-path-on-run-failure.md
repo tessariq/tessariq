@@ -1,14 +1,15 @@
 ---
 id: TASK-073-print-evidence-path-on-run-failure
 title: Print failed run evidence details before returning run errors
-status: done
-priority: p2
-depends_on:
+status: completed
+priority: low
+dependencies:
     - TASK-002-run-cli-flags-and-manifest-bootstrap
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
     - TASK-006-tmux-session-and-detached-attach-guidance
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
 spec_refs:
     - specs/tessariq-v0.1.0.md#tessariq-run-task-path
     - specs/tessariq-v0.1.0.md#failure-ux

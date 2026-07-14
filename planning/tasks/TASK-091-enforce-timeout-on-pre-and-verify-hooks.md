@@ -1,15 +1,16 @@
 ---
 id: TASK-091-enforce-timeout-on-pre-and-verify-hooks
 title: Enforce run timeout and grace on pre and verify hooks
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
     - TASK-030-fix-timeout-signal-escalation
     - TASK-060-respect-grace-duration-during-container-shutdown
     - TASK-072-run-hooks-from-repo-root
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
 spec_refs:
     - specs/tessariq-v0.1.0.md#tessariq-run-task-path
     - specs/tessariq-v0.1.0.md#lifecycle-rules

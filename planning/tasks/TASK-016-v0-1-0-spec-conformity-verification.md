@@ -1,9 +1,9 @@
 ---
 id: TASK-016-v0-1-0-spec-conformity-verification
 title: Harden tracked-work validation and active-spec verification gates
-status: done
-priority: p0
-depends_on:
+status: completed
+priority: high
+dependencies:
     - TASK-001-init-skeleton-and-gitignore
     - TASK-002-run-cli-flags-and-manifest-bootstrap
     - TASK-003-dirty-repo-gate-and-task-ingest
@@ -33,6 +33,7 @@ depends_on:
     - TASK-039-capped-log-writers-and-truncation-markers
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#product-intent
 spec_refs:
     - specs/tessariq-v0.1.0.md#product-intent
     - specs/tessariq-v0.1.0.md#host-prerequisites

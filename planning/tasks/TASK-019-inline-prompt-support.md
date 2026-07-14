@@ -2,10 +2,11 @@
 id: TASK-019-inline-prompt-support
 title: Support inline text prompts via --prompt flag
 status: blocked
-priority: p2
-depends_on: []
+priority: low
+dependencies: []
 milestone: v0.2.0
 spec_version: v0.2.0
+spec_ref: specs/tessariq-v0.2.0.md#release-intent
 spec_refs:
     - specs/tessariq-v0.2.0.md#release-intent
     - specs/tessariq-v0.2.0.md#scope

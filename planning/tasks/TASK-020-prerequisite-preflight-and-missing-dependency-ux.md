@@ -1,14 +1,15 @@
 ---
 id: TASK-020-prerequisite-preflight-and-missing-dependency-ux
 title: Add prerequisite preflight and missing dependency guidance
-status: done
-priority: p0
-depends_on:
+status: completed
+priority: high
+dependencies:
     - TASK-002-run-cli-flags-and-manifest-bootstrap
     - TASK-003-dirty-repo-gate-and-task-ingest
     - TASK-006-tmux-session-and-detached-attach-guidance
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#host-prerequisites
 spec_refs:
     - specs/tessariq-v0.1.0.md#host-prerequisites
     - specs/tessariq-v0.1.0.md#tessariq-init

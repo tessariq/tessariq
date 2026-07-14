@@ -1,12 +1,13 @@
 ---
 id: TASK-064-enforce-host-port-pair-acls-in-squid-conf
 title: Enforce exact host-port pairs in generated Squid ACLs
-status: done
-priority: p0
-depends_on:
+status: completed
+priority: high
+dependencies:
     - TASK-012-proxy-topology-and-egress-artifacts
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
 spec_refs:
     - specs/tessariq-v0.1.0.md#networking-and-egress
     - specs/tessariq-v0.1.0.md#acceptance-scenarios

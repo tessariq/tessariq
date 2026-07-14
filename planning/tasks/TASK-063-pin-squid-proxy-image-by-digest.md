@@ -1,12 +1,13 @@
 ---
 id: TASK-063-pin-squid-proxy-image-by-digest
 title: Pin the default Squid proxy image by digest
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-012-proxy-topology-and-egress-artifacts
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
 spec_refs:
     - specs/tessariq-v0.1.0.md#networking-and-egress
     - specs/tessariq-v0.1.0.md#failure-ux

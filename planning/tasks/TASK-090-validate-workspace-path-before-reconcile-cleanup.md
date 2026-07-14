@@ -1,15 +1,16 @@
 ---
 id: TASK-090-validate-workspace-path-before-reconcile-cleanup
 title: Validate workspace path before reconcile triggers cleanup
-status: done
-priority: p0
-depends_on:
+status: completed
+priority: high
+dependencies:
     - TASK-004-worktree-provisioning-and-workspace-metadata
     - TASK-051-attach-repo-local-evidence-path-validation
     - TASK-061-cleanup-worktrees-even-when-ownership-repair-fails
     - TASK-085-harden-run-finalization-and-orphaned-run-recovery
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#evidence-contract
 spec_refs:
     - specs/tessariq-v0.1.0.md#evidence-contract
     - specs/tessariq-v0.1.0.md#lifecycle-rules

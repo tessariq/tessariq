@@ -1,14 +1,15 @@
 ---
 id: TASK-023-supported-agent-auth-mounts
 title: Implement supported-agent auth discovery and read-only mounts
-status: done
-priority: p0
-depends_on:
+status: completed
+priority: high
+dependencies:
     - TASK-002-run-cli-flags-and-manifest-bootstrap
     - TASK-021-reference-runtime-image-and-docs
     - TASK-022-agent-and-runtime-evidence-migration
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#product-intent
 spec_refs:
     - specs/tessariq-v0.1.0.md#product-intent
     - specs/tessariq-v0.1.0.md#tessariq-run-task-path

@@ -1,14 +1,15 @@
 ---
 id: TASK-037-prestart-agent-binary-validation
 title: Validate selected agent binary in runtime image before agent start
-status: done
-priority: p0
-depends_on:
+status: completed
+priority: high
+dependencies:
     - TASK-024-claude-code-agent-runtime-integration
     - TASK-025-opencode-agent-runtime-integration
     - TASK-027-container-lifecycle-and-mount-isolation
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#acceptance-scenarios
 spec_refs:
     - specs/tessariq-v0.1.0.md#acceptance-scenarios
     - specs/tessariq-v0.1.0.md#failure-ux

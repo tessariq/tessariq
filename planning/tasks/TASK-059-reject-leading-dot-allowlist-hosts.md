@@ -1,13 +1,14 @@
 ---
 id: TASK-059-reject-leading-dot-allowlist-hosts
 title: Reject leading-dot allowlist hosts that widen Squid matching
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-011-egress-mode-resolution-and-manifest-recording
     - TASK-012-proxy-topology-and-egress-artifacts
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
 spec_refs:
     - specs/tessariq-v0.1.0.md#networking-and-egress
     - specs/tessariq-v0.1.0.md#failure-ux

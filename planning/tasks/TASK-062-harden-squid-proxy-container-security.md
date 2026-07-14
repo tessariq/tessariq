@@ -1,13 +1,14 @@
 ---
 id: TASK-062-harden-squid-proxy-container-security
 title: Apply capability dropping and no-new-privileges to the Squid proxy container
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-012-proxy-topology-and-egress-artifacts
     - TASK-032-container-security-hardening
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
 spec_refs:
     - specs/tessariq-v0.1.0.md#networking-and-egress
     - specs/tessariq-v0.1.0.md#failure-ux

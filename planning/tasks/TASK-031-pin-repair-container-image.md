@@ -1,12 +1,13 @@
 ---
 id: TASK-031-pin-repair-container-image
 title: Pin workspace repair container image by digest
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-028-container-session-streaming-and-cleanup-hardening
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
 spec_refs:
     - specs/tessariq-v0.1.0.md#tessariq-run-task-path
     - specs/tessariq-v0.1.0.md#workspace-guarantees

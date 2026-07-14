@@ -1,9 +1,9 @@
 ---
 id: TASK-099-validate-structured-evidence-parseability-before-promote
 title: Reject malformed structured evidence before promote
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-004-worktree-provisioning-and-workspace-metadata
     - TASK-012-proxy-topology-and-egress-artifacts
     - TASK-015-promote-branch-commit-trailers-and-zero-diff-guard
@@ -11,6 +11,7 @@ depends_on:
     - TASK-088-require-proxy-evidence-completeness-before-promote
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#evidence-contract
 spec_refs:
     - specs/tessariq-v0.1.0.md#evidence-contract
     - specs/tessariq-v0.1.0.md#compatibility-rules

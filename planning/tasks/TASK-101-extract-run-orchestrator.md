@@ -2,11 +2,12 @@
 id: TASK-101-extract-run-orchestrator
 title: Extract run lifecycle orchestration out of the Cobra run command
 status: blocked
-priority: p1
-depends_on:
+priority: medium
+dependencies:
     - TASK-017-v0-1-0-spec-conformity-closeout
 milestone: v0.2.0
 spec_version: v0.2.0
+spec_ref: specs/tessariq-v0.2.0.md#shared-runtime-sketch
 spec_refs:
     - specs/tessariq-v0.2.0.md#shared-runtime-sketch
     - specs/tessariq-v0.2.0.md#workspace-guarantees

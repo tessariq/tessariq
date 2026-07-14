@@ -1,12 +1,13 @@
 ---
 id: TASK-067-cleanup-squid-resources-on-startup-failure
 title: Clean up Squid containers and networks when proxy startup fails mid-sequence
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-012-proxy-topology-and-egress-artifacts
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
 spec_refs:
     - specs/tessariq-v0.1.0.md#networking-and-egress
     - specs/tessariq-v0.1.0.md#evidence-contract

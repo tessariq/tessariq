@@ -1,11 +1,12 @@
 ---
 id: TASK-055-version-command-and-root-version-flag
 title: Add version command and root version flag
-status: done
-priority: p1
-depends_on: []
+status: completed
+priority: medium
+dependencies: []
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#tessariq-version
 spec_refs:
     - specs/tessariq-v0.1.0.md#tessariq-version
     - specs/tessariq-v0.1.0.md#acceptance-scenarios
@@ -67,4 +68,4 @@ Add a small version-reporting command so Tessariq exposes both `tessariq version
 
 - Keep the output intentionally minimal: `tessariq v<version>`.
 - The implementation should use Tessariq-native wording only and must not reference unrelated projects in repo-tracked files.
-- 2026-04-01T20:21:40Z: Implemented tessariq version and root --version; evidence: go vet ./..., go test ./..., go run ./cmd/tessariq --version, planning/artifacts/manual-test/TASK-055-version-command-and-root-version-flag/20260401T202035Z/report.md, planning/artifacts/verify/task/TASK-055-version-command-and-root-version-flag/20260401T202133Z/report.json, planning/artifacts/verify/spec/sweep/20260401T202059Z/report.json
+- 2026-04-01T20:21:40Z: Implemented tessariq version and root --version; evidence: go vet ./..., go test ./..., go run ./cmd/tessariq --version, (evidence artifacts; path omitted) (evidence artifacts; path omitted) (evidence artifacts; path omitted)

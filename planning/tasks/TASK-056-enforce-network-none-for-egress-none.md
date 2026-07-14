@@ -1,13 +1,14 @@
 ---
 id: TASK-056-enforce-network-none-for-egress-none
 title: Enforce Docker --net none for --egress none container runs
-status: done
-priority: p0
-depends_on:
+status: completed
+priority: high
+dependencies:
     - TASK-011-egress-mode-resolution-and-manifest-recording
     - TASK-032-container-security-hardening
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
 spec_refs:
     - specs/tessariq-v0.1.0.md#networking-and-egress
     - specs/tessariq-v0.1.0.md#acceptance-scenarios

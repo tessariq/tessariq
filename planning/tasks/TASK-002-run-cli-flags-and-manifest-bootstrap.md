@@ -1,12 +1,13 @@
 ---
 id: TASK-002-run-cli-flags-and-manifest-bootstrap
 title: Add run command flags and manifest bootstrap
-status: done
-priority: p0
-depends_on:
+status: completed
+priority: high
+dependencies:
     - TASK-001-init-skeleton-and-gitignore
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#product-intent
 spec_refs:
     - specs/tessariq-v0.1.0.md#product-intent
     - specs/tessariq-v0.1.0.md#core-workflow

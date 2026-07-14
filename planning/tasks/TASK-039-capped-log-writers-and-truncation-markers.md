@@ -1,14 +1,15 @@
 ---
 id: TASK-039-capped-log-writers-and-truncation-markers
 title: Enforce capped run logs with explicit truncation markers
-status: done
-priority: p0
-depends_on:
+status: completed
+priority: high
+dependencies:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
     - TASK-013-diff-log-and-evidence-artifacts
     - TASK-028-container-session-streaming-and-cleanup-hardening
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#evidence-contract
 spec_refs:
     - specs/tessariq-v0.1.0.md#evidence-contract
     - specs/tessariq-v0.1.0.md#acceptance-scenarios

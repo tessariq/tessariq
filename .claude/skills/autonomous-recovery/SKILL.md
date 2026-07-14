@@ -9,11 +9,10 @@ Recover Tessariq tracked-work state when it becomes stale or inconsistent.
 
 ## Required Flow
 
-1. Run `go run ./cmd/tessariq-workflow validate-state --json`.
-2. If stale or inconsistent state exists, run `go run ./cmd/tessariq-workflow next --json` once to apply deterministic recovery.
-3. Run `go run ./cmd/tessariq-workflow validate-state --json` again.
-4. If state is valid, run `go run ./cmd/tessariq-workflow refresh-state`.
-5. Report exact violations if state remains invalid.
+1. Run `taskrail validate`.
+2. If stale or inconsistent state exists, run `taskrail repair --apply` once to apply deterministic recovery.
+3. Run `taskrail validate` again.
+4. Report exact violations if state remains invalid.
 
 ## Rules
 

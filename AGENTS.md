@@ -77,13 +77,16 @@ Use these defaults unless a task requires otherwise.
 - Install gremlins: `go install github.com/go-gremlins/gremlins/cmd/gremlins@v0.6.0`
 
 ### Tracked-work workflow commands
-- Validate state: `go run ./cmd/tessariq-workflow validate-state`
-- Select next task: `go run ./cmd/tessariq-workflow next --json`
-- Start task: `go run ./cmd/tessariq-workflow start --mode user_request --agent-id <agent> --model <model> <task-id>`
-- Finish task: `go run ./cmd/tessariq-workflow finish --status done --note "<evidence>" <task-id>`
-- Refresh state: `go run ./cmd/tessariq-workflow refresh-state`
-- Verify spec coverage: `go run ./cmd/tessariq-workflow verify --profile spec --disposition report --json`
-- Check mirrored skills: `go run ./cmd/tessariq-workflow check-skills`
+Tracked work is managed by the external `taskrail` binary (`github.com/tessariq/taskrail`), installed via `go install github.com/tessariq/taskrail@v0.3.0` or `brew install tessariq/tap/taskrail`. The former in-repo `cmd/tessariq-workflow` tool has been removed.
+- Validate state: `taskrail validate`
+- Select next task: `taskrail next --json`
+- Start task: `taskrail start <task-id>`
+- Finish task: `taskrail complete --note "<evidence>" <task-id>`
+- Block task: `taskrail block --reason "<reason>" <task-id>` (return to todo with `taskrail unblock <task-id>`)
+- Refresh state: `taskrail repair --apply` (conservatively repairs mechanical STATE.md drift; dry-run without `--apply`)
+- Record task verification: `taskrail verify <task-id> --result pass|fail --summary "<summary>"`
+- Report spec coverage (advisory): `taskrail coverage --json`
+- Check mirrored skills: `diff -rq .agents/skills .claude/skills`
 - See `docs/workflow/` for the full deterministic workflow contract.
 
 ### License compliance check used in CI
@@ -247,7 +250,7 @@ When tessariq itself creates Docker containers (via `docker create` / `docker st
 - If integration paths changed, run `go test -tags=integration ./...`.
 - If e2e paths changed, run `go test -tags=e2e ./...`.
 - If non-trivial logic changed, run `gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70`.
-- If tracked-work tooling or skills changed, run `go run ./cmd/tessariq-workflow validate-state`, `go run ./cmd/tessariq-workflow check-skills`, and `go run ./cmd/tessariq-workflow verify --profile spec --disposition report --json`.
+- If tracked-work tooling or skills changed, run `taskrail validate`, `diff -rq .agents/skills .claude/skills`, and `taskrail coverage --json`.
 - Update `README.md` when CLI flags/commands/behavior change.
 - Update `CHANGELOG.md` for user-visible behavior changes; keep entries user-facing and skip internal-only maintenance noise.
 - Verify evidence file contracts are maintained when changing run or promote logic.

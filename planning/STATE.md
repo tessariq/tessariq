@@ -1,44 +1,56 @@
 ---
 schema_version: 1
-updated_at: "2026-07-14T09:05:09Z"
-mode: user_request
-run_id: wf-20260424T090050Z
-agent_id: claude-code
-model: claude-opus-4-6
-active_task: ""
-active_task_started_at: ""
-attempt: 0
-last_completed: TASK-100-represent-zero-denied-proxy-telemetry-without-empty-events-file
-next_tasks:
-    - TASK-017-v0-1-0-spec-conformity-closeout
-repo_state: idle
-last_transition: finish
-last_transition_at: "2026-04-24T09:17:04Z"
-selection_reason: next eligible todo by priority
-validation_last_run: "2026-07-14T09:05:09Z"
-validation_status: passed
-validation_scope: spec:v0.1.0
-validation_checked_at: "2026-07-14T09:05:09Z"
-milestone_focus: v0.1.0
+updated_at: "2026-07-14T11:26:06Z"
 active_spec_version: v0.1.0
 active_spec_path: specs/tessariq-v0.1.0.md
-stale_after_minutes: 180
-max_retries: 2
+current_task: ""
+current_task_title: ""
+status_summary: 'v0.1.0 closeout pending: 98 completed, 1 todo (TASK-017 spec-conformity closeout), 5 blocked (v0.2.0 scope)'
+blockers: []
+next_action: 'Start task TASK-017-v0-1-0-spec-conformity-closeout: Run the final v0.1.0 spec conformity closeout sweep'
+last_verification_result: ""
+relevant_artifacts: []
+continuation_notes: []
 ---
 
-## Machine Snapshot
+# STATE
 
-- Active task: none
-- Last completed: TASK-100-represent-zero-denied-proxy-telemetry-without-empty-events-file
-- Validation status: passed
-- Active spec: v0.1.0 (specs/tessariq-v0.1.0.md)
-- Next tasks:
-  - TASK-017-v0-1-0-spec-conformity-closeout
+## Active Spec
+
+- `specs/tessariq-v0.1.0.md`
+
+## Current Focus
+
+- Task: none
+
+## Status
+
+- v0.1.0 closeout pending: 98 completed, 1 todo (TASK-017 spec-conformity closeout), 5 blocked (v0.2.0 scope)
+
+## Blockers
+
+- None
+
+## Last Verification
+
+- 
+
+## Next Action
+
+- Start task TASK-017-v0-1-0-spec-conformity-closeout: Run the final v0.1.0 spec conformity closeout sweep
+
+## Relevant Artifacts
+
+- None
+
+## Notes
+
+- None
 
 ## Task Counts
 
 - todo: 1
 - in_progress: 0
-- done: 98
-- blocked: 1
+- completed: 98
+- blocked: 5
 - cancelled: 0

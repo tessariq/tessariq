@@ -1,12 +1,13 @@
 ---
 id: TASK-043-index-append-error-visibility
 title: Make run index append failures visible to users
-status: done
-priority: p0
-depends_on:
+status: completed
+priority: high
+dependencies:
     - TASK-014-run-index-and-run-ref-resolution
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#evidence-contract
 spec_refs:
     - specs/tessariq-v0.1.0.md#evidence-contract
     - specs/tessariq-v0.1.0.md#tessariq-attach-run-ref

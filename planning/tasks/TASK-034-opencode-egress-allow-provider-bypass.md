@@ -1,13 +1,14 @@
 ---
 id: TASK-034-opencode-egress-allow-provider-bypass
 title: Honor --egress-allow precedence when OpenCode provider host auto-resolution fails
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-011-egress-mode-resolution-and-manifest-recording
     - TASK-025-opencode-agent-runtime-integration
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#networking-and-egress
 spec_refs:
     - specs/tessariq-v0.1.0.md#networking-and-egress
     - specs/tessariq-v0.1.0.md#failure-ux

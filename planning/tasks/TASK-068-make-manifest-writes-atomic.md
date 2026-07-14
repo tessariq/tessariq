@@ -1,14 +1,15 @@
 ---
 id: TASK-068-make-manifest-writes-atomic
 title: Write manifest.json atomically to avoid crash-corrupted evidence
-status: done
-priority: p2
-depends_on:
+status: completed
+priority: low
+dependencies:
     - TASK-002-run-cli-flags-and-manifest-bootstrap
     - TASK-022-agent-and-runtime-evidence-migration
     - TASK-032-container-security-hardening
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#evidence-contract
 spec_refs:
     - specs/tessariq-v0.1.0.md#evidence-contract
     - specs/tessariq-v0.1.0.md#failure-ux

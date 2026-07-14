@@ -1,13 +1,14 @@
 ---
 id: TASK-078-fix-interactive-attach-double-pty-and-task-passthrough
 title: Fix interactive attach double-PTY hang and pass task content
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-071-implement-run-attach-live-session
     - TASK-029-interactive-runtime-mode-independent-of-attach
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
 spec_refs:
     - specs/tessariq-v0.1.0.md#tessariq-run-task-path
     - specs/tessariq-v0.1.0.md#acceptance-scenarios

@@ -1,13 +1,14 @@
 ---
 id: TASK-030-fix-timeout-signal-escalation
 title: Fix timeout signal escalation to send SIGTERM before SIGKILL
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
     - TASK-028-container-session-streaming-and-cleanup-hardening
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#lifecycle-rules
 spec_refs:
     - specs/tessariq-v0.1.0.md#lifecycle-rules
     - specs/tessariq-v0.1.0.md#runner-responsibilities

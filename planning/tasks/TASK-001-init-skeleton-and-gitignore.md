@@ -1,11 +1,12 @@
 ---
 id: TASK-001-init-skeleton-and-gitignore
 title: Initialize repository skeleton and ignore generated runtime state
-status: done
-priority: p0
-depends_on: []
+status: completed
+priority: high
+dependencies: []
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#release-intent
 spec_refs:
     - specs/tessariq-v0.1.0.md#release-intent
     - specs/tessariq-v0.1.0.md#repository-model

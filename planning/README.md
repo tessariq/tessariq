@@ -16,9 +16,9 @@ Rules:
 
 - `planning/STATE.md` declares the current default milestone/spec scope
 - milestone-scoped tasks must match that declared scope
-- exception tasks must still declare correct `spec_refs` and should only diverge from the default scope intentionally
+- exception tasks must still declare a correct `spec_ref` (and may retain the legacy `spec_refs` list) and should only diverge from the default scope intentionally
 - every task `spec_ref` must point to a live heading in the referenced spec
-- `go run ./cmd/tessariq-workflow validate-state` is the hard structural gate for task metadata and spec links
-- `go run ./cmd/tessariq-workflow verify --profile spec --disposition report --json` verifies coverage for the active milestone spec only
+- `taskrail validate` is the hard structural gate for task metadata and spec links
+- `taskrail coverage --json` reports advisory coverage for the active milestone spec
 
 When the default milestone changes, update `planning/STATE.md`, reseed milestone tasks as needed, and regenerate verification artifacts.

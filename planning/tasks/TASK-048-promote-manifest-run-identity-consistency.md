@@ -1,13 +1,14 @@
 ---
 id: TASK-048-promote-manifest-run-identity-consistency
 title: Verify promote evidence identity matches the resolved run
-status: done
-priority: p0
-depends_on:
+status: completed
+priority: high
+dependencies:
     - TASK-015-promote-branch-commit-trailers-and-zero-diff-guard
     - TASK-047-promote-repo-local-evidence-path-validation
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#core-workflow
 spec_refs:
     - specs/tessariq-v0.1.0.md#core-workflow
     - specs/tessariq-v0.1.0.md#lifecycle-rules

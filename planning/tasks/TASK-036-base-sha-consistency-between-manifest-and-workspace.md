@@ -1,13 +1,14 @@
 ---
 id: TASK-036-base-sha-consistency-between-manifest-and-workspace
 title: Eliminate base_sha race between manifest and workspace evidence
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-004-worktree-provisioning-and-workspace-metadata
     - TASK-022-agent-and-runtime-evidence-migration
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#workspace-guarantees
 spec_refs:
     - specs/tessariq-v0.1.0.md#workspace-guarantees
     - specs/tessariq-v0.1.0.md#evidence-contract

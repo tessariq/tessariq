@@ -1,13 +1,14 @@
 ---
 id: TASK-007-attach-command-live-run-resolution
 title: Implement attach command and live run resolution
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-006-tmux-session-and-detached-attach-guidance
     - TASK-014-run-index-and-run-ref-resolution
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#host-prerequisites
 spec_refs:
     - specs/tessariq-v0.1.0.md#host-prerequisites
     - specs/tessariq-v0.1.0.md#tessariq-attach-run-ref
@@ -74,4 +75,4 @@ Implement `tessariq attach <run-ref>` on top of the shared repository-scoped run
 - Shared run-ref parsing and index semantics are intentionally owned by `TASK-014`.
 - This task is not materially changed by the v0.1.0 agent/runtime spec shift; it remains in the v0.1.0 backlog unchanged except for refreshed planning metadata.
 - 2026-04-01T17:10:00Z: Change note: include a minimal user-facing tmux detach hint (`Ctrl-b d`) in the attach UX/help text so attached users can leave the live session without stopping the run.
-- 2026-04-01T17:16:44Z: Implemented attach live-run resolution; evidence: go vet ./..., go test ./..., go test -tags=integration ./..., go test -tags=e2e ./..., gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70, planning/artifacts/manual-test/TASK-007-attach-command-live-run-resolution/20260401T171343Z/report.md, planning/artifacts/verify/task/TASK-007-attach-command-live-run-resolution/20260401T171633Z/report.json
+- 2026-04-01T17:16:44Z: Implemented attach live-run resolution; evidence: go vet ./..., go test ./..., go test -tags=integration ./..., go test -tags=e2e ./..., gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70, (evidence artifacts; path omitted) (evidence artifacts; path omitted)

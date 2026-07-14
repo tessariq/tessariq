@@ -1,14 +1,15 @@
 ---
 id: TASK-061-cleanup-worktrees-even-when-ownership-repair-fails
 title: Continue worktree cleanup when ownership repair fails
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-004-worktree-provisioning-and-workspace-metadata
     - TASK-031-pin-repair-container-image
     - TASK-038-guaranteed-worktree-cleanup-on-run-failure
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#workspace-guarantees
 spec_refs:
     - specs/tessariq-v0.1.0.md#workspace-guarantees
     - specs/tessariq-v0.1.0.md#failure-ux

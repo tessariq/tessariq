@@ -1,13 +1,14 @@
 ---
 id: TASK-050-attach-preflight-git-prerequisite
 title: Preflight git as an attach prerequisite
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-007-attach-command-live-run-resolution
     - TASK-020-prerequisite-preflight-and-missing-dependency-ux
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#generated-runtime-state
 spec_refs:
     - specs/tessariq-v0.1.0.md#generated-runtime-state
     - specs/tessariq-v0.1.0.md#acceptance-scenarios

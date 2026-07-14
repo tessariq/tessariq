@@ -1,13 +1,14 @@
 ---
 id: TASK-083-rename-agent-json-applied-to-supported
 title: Rename agent.json applied field to supported
-status: done
-priority: p0
-depends_on:
+status: completed
+priority: high
+dependencies:
     - TASK-022-agent-and-runtime-evidence-migration
     - TASK-082-clarify-applied-field-semantics
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#agent-and-runtime-contract
 spec_refs:
     - specs/tessariq-v0.1.0.md#agent-and-runtime-contract
     - specs/tessariq-v0.1.0.md#compatibility-rules

@@ -1,14 +1,15 @@
 ---
 id: TASK-089-resolve-symlinks-in-evidence-path-validation
 title: Resolve symlinks in evidence path validation
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-047-promote-repo-local-evidence-path-validation
     - TASK-051-attach-repo-local-evidence-path-validation
     - TASK-052-attach-run-id-evidence-path-consistency
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#core-workflow
 spec_refs:
     - specs/tessariq-v0.1.0.md#core-workflow
     - specs/tessariq-v0.1.0.md#tessariq-attach-run-ref

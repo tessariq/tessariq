@@ -1,14 +1,15 @@
 ---
 id: TASK-086-make-diff-artifact-writes-all-or-nothing
 title: Make diff artifact writes all-or-nothing for promotable runs
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-013-diff-log-and-evidence-artifacts
     - TASK-049-promote-require-diffstat-for-changed-runs
     - TASK-057-surface-diff-artifact-write-errors
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#tessariq-run-task-path
 spec_refs:
     - specs/tessariq-v0.1.0.md#tessariq-run-task-path
     - specs/tessariq-v0.1.0.md#tessariq-promote-run-ref
@@ -80,4 +81,4 @@ Fix the diff-artifact write path so a changed run never finishes with only one o
 
 - Keep this task focused on pairwise diff-artifact integrity; do not fold unrelated proxy evidence completeness changes into the same fix.
 - A valid implementation may use tmp+rename, best-effort rollback of the first file on second-write failure, or terminal failure escalation, as long as successful runs no longer carry self-contradictory diff evidence.
-- 2026-04-14T14:35:51Z: Atomic tmp+rename writer with rollback (internal/runner/diff.go); Runner.DiffArtifactWriter hook escalates diff write failure to StateFailed; CLI wires closure; manual test report: planning/artifacts/manual-test/TASK-086-make-diff-artifact-writes-all-or-nothing/2026-04-14T143249Z/report.md; verify clean (hybrid)
+- 2026-04-14T14:35:51Z: Atomic tmp+rename writer with rollback (internal/runner/diff.go); Runner.DiffArtifactWriter hook escalates diff write failure to StateFailed; CLI wires closure; manual test report: (evidence artifacts; path omitted) verify clean (hybrid)

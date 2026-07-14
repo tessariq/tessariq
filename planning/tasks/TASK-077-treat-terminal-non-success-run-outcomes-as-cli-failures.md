@@ -1,13 +1,14 @@
 ---
 id: TASK-077-treat-terminal-non-success-run-outcomes-as-cli-failures
 title: Treat terminal non-success run outcomes as CLI failures
-status: done
-priority: p1
-depends_on:
+status: completed
+priority: medium
+dependencies:
     - TASK-005-runner-bootstrap-timeout-and-status-lifecycle
     - TASK-038-guaranteed-worktree-cleanup-on-run-failure
 milestone: v0.1.0
 spec_version: v0.1.0
+spec_ref: specs/tessariq-v0.1.0.md#core-workflow
 spec_refs:
     - specs/tessariq-v0.1.0.md#core-workflow
     - specs/tessariq-v0.1.0.md#tessariq-run-task-path

@@ -17,10 +17,10 @@ Contributor and coding-agent workflow for tracked work in Tessariq.
 - Integration tests: `go test -tags=integration ./...`
 - End-to-end tests: `go test -tags=e2e ./...`
 - Mutation tests: `gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70`
-- Workflow validation: `go run ./cmd/tessariq-workflow validate-state`
+- Workflow validation: `taskrail validate`
 - Workflow validation bundle: `task workflow:check`
-- Skill parity: `go run ./cmd/tessariq-workflow check-skills`
-- Spec verification: `go run ./cmd/tessariq-workflow verify --profile spec --disposition report --json` (active milestone spec only)
+- Skill parity: `diff -rq .agents/skills .claude/skills`
+- Spec verification: `taskrail coverage --json` (active milestone spec only)
 
 ## TDD Default
 
@@ -93,22 +93,24 @@ Cleanup (critical):
 - Never commit manual test code.
 - Never commit files under `planning/artifacts/`.
 
-Manual testing is required before running verification and before finishing a task as `done`.
+Manual testing is required before running verification and before finishing a task as `completed`.
 
 ## Tracked-Work Commands
 
-- `go run ./cmd/tessariq-workflow validate-state`
-- `go run ./cmd/tessariq-workflow next --json`
-- `go run ./cmd/tessariq-workflow start --mode user_request --agent-id <agent> --model <model> <task-id>`
-- `go run ./cmd/tessariq-workflow finish --status done --note "<evidence>" <task-id>`
-- `go run ./cmd/tessariq-workflow refresh-state`
-- `go run ./cmd/tessariq-workflow verify --profile task|implemented|spec --disposition report|hybrid --json`
-- `go run ./cmd/tessariq-workflow followups --mode create --min-severity medium --json`
+- `taskrail validate`
+- `taskrail next --json`
+- `taskrail start <task-id>`
+- `taskrail complete --note "<evidence>" <task-id>`
+- `taskrail block --reason "<reason>" <task-id>`
+- `taskrail repair --apply`
+- `taskrail verify <task-id> --result pass|fail --summary "<s>" [--details "<d>"]`
+- `taskrail coverage --json`
+- `taskrail verify <task-id> --create-followup --followup-title "<t>" --followup-description "<d>" [--followup-priority high|medium|low]`
 
 Notes:
 
-- `verify --profile task` now includes a medium-severity reminder finding when user-visible code changes are detected without updating `CHANGELOG.md`; workflow-tooling-only changes (`cmd/tessariq-workflow/`, `internal/workflow/`) are excluded.
-- `followups` resolves the last verification report from local gitignored artifacts; rerun `verify` first if those local artifacts are missing.
+- `taskrail coverage` is read-only advisory spec coverage; gate on `--min <pct>` only when a threshold is required.
+- Follow-up items are created inline as part of `taskrail verify <task-id> --create-followup`.
 
 ## Commit Policy For Tracked Tasks
 
@@ -130,6 +132,6 @@ Notes:
 - Tracked-work system changes:
   workflow validation, skill parity check, and spec verification
 - Spec or planning edits:
-  `validate-state` and `verify --profile spec` are hard failure gates in CI; any violation or high-severity finding causes a non-zero exit and blocks the pipeline
+  `taskrail validate` and `taskrail coverage --min <pct>` are hard failure gates in CI; any violation or coverage below threshold causes a non-zero exit and blocks the pipeline
 - All code changes:
   manual testing against task acceptance criteria before verification
