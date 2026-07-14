@@ -1,6 +1,6 @@
 ---
 schema_version: 1
-updated_at: "2026-05-29T10:50:52Z"
+updated_at: "2026-07-14T09:05:09Z"
 mode: user_request
 run_id: wf-20260424T090050Z
 agent_id: claude-code
@@ -10,15 +10,15 @@ active_task_started_at: ""
 attempt: 0
 last_completed: TASK-100-represent-zero-denied-proxy-telemetry-without-empty-events-file
 next_tasks:
-    - TASK-098-reject-manifest-egress-mode-tampering-at-promote
+    - TASK-017-v0-1-0-spec-conformity-closeout
 repo_state: idle
 last_transition: finish
 last_transition_at: "2026-04-24T09:17:04Z"
 selection_reason: next eligible todo by priority
-validation_last_run: "2026-04-24T09:16:21Z"
-validation_status: warnings
-validation_scope: task:v0.1.0
-validation_checked_at: "2026-04-24T09:16:21Z"
+validation_last_run: "2026-07-14T09:05:09Z"
+validation_status: passed
+validation_scope: spec:v0.1.0
+validation_checked_at: "2026-07-14T09:05:09Z"
 milestone_focus: v0.1.0
 active_spec_version: v0.1.0
 active_spec_path: specs/tessariq-v0.1.0.md
@@ -30,15 +30,15 @@ max_retries: 2
 
 - Active task: none
 - Last completed: TASK-100-represent-zero-denied-proxy-telemetry-without-empty-events-file
-- Validation status: warnings
+- Validation status: passed
 - Active spec: v0.1.0 (specs/tessariq-v0.1.0.md)
 - Next tasks:
-  - TASK-098-reject-manifest-egress-mode-tampering-at-promote
+  - TASK-017-v0-1-0-spec-conformity-closeout
 
 ## Task Counts
 
-- todo: 2
+- todo: 1
 - in_progress: 0
-- done: 97
+- done: 98
 - blocked: 1
 - cancelled: 0
