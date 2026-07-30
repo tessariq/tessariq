@@ -8,7 +8,7 @@ Automated adversarial testing against done tasks.
 | Iteration | 43 |
 | Last bug found | iteration 43 |
 | Clean iterations | 6 / 42 |
-| Status | In progress |
+| Status | Closed for v0.1.0 |
 
 ---
 
@@ -25,6 +25,8 @@ BUG-041 was fixed by TASK-075.
 BUG-048 through BUG-051 were fixed by TASK-085 through TASK-088.
 
 BUG-054 through BUG-059 and BUG-061 were fixed by TASK-089 through TASK-095.
+
+BUG-053 and BUG-062 through BUG-064 were fixed by TASK-097 through TASK-100.
 
 BUG-043 through BUG-046 were reviewed against the current code and marked not reproducible.
 
@@ -82,7 +84,7 @@ BUG-043 through BUG-046 were reviewed against the current code and marked not re
 | BUG-050 | HIGH | `internal/authmount/authmount.go:66-70`, `internal/adapter/runtime.go:39` | `~/.claude.json` auth mount is **read-write** despite spec requiring read-only auth mounts; agent inside container can persist arbitrary settings (including MCP server entries) on the host — later Claude Code sessions can then execute attacker-planted commands | **Fixed** (TASK-087) |
 | BUG-051 | MEDIUM | `internal/runner/completeness.go:12-21`, `cmd/tessariq/promote.go` | `CheckEvidenceCompleteness` never requires proxy-mode conditional evidence (`egress.compiled.yaml`, `egress.events.jsonl`); a proxy-mode run missing those artifacts still passes completeness and promotes | **Fixed** (TASK-088) |
 | BUG-052 | MEDIUM | `internal/proxy/topology.go:105-109` | `Topology.Teardown` silently discards `CopyAccessLog` errors and unconditionally writes an empty `egress.events.jsonl` + `squid.log`, producing misleading "zero blocked destinations" evidence when telemetry extraction actually failed | **Fixed** (TASK-096) |
-| BUG-053 | LOW | `internal/workspace/metadata.go:46`, `internal/adapter/agent.go:42`, `internal/adapter/runtime.go:58` | `workspace.json`, `agent.json`, and `runtime.json` are written with plain `os.WriteFile` (no tmp+rename); crashes mid-write leave partial/empty evidence — the BUG-035 atomic-write fix was applied only to `manifest.json` and `status.json` | **Open** |
+| BUG-053 | LOW | `internal/workspace/metadata.go:46`, `internal/adapter/agent.go:42`, `internal/adapter/runtime.go:58` | `workspace.json`, `agent.json`, and `runtime.json` are written with plain `os.WriteFile` (no tmp+rename); crashes mid-write leave partial/empty evidence — the BUG-035 atomic-write fix was applied only to `manifest.json` and `status.json` | **Fixed** (TASK-097) |
 | BUG-054 | LOW | `internal/run/evidencepath.go:21-34` | `ValidateEvidencePath` does not resolve symlinks; a symlink planted at `.tessariq/runs/<run-id>` whose target points outside the repo passes the prefix check, letting `promote`/`attach` read forged evidence and bypass the BUG-013 containment fix | **Fixed** (TASK-089) |
 | BUG-055 | CRITICAL | `internal/lifecycle/reconcile.go:145-156,187-200`, `internal/workspace/provision.go:55-82` | `lifecycle.cleanupTerminalRun` reads `workspace_path` from an untrusted `workspace.json` and passes it to `workspace.Cleanup`, which runs `docker run -v <path>:/work chown -R`, host-side `chmod -R u+rwX <path>`, and `os.RemoveAll(<path>)`; a tampered evidence artifact can trigger arbitrary directory deletion and ownership rewrite during `promote`/`attach` reconcile | **Fixed** (TASK-090) |
 | BUG-056 | MEDIUM | `internal/runner/runner.go:118-126,145-153`, `internal/runner/hooks.go:45-61` | `RunPreHooks` / `RunVerifyHooks` execute on the top-level CLI context with no independent deadline; a hung pre/verify command ignores `--timeout` entirely and blocks the run indefinitely | **Fixed** (TASK-091) |
@@ -90,9 +92,9 @@ BUG-043 through BUG-046 were reviewed against the current code and marked not re
 | BUG-058 | MEDIUM | `internal/container/process.go:141-152`, `internal/workspace/provision.go:31` | `prepareWritableMounts` runs `chmod -R a+rwX` on every writable bind-mount source (the worktree), and the worktree parent dirs are created 0o755; during the run, all local users on the host can read and modify the worktree files | **Fixed** (TASK-093) |
 | BUG-059 | MEDIUM | `internal/runner/runner.go:161-170,443-457`, `internal/container/process.go:102-105` | `Runner.writeTerminalStatus` calls `Process.Cleanup` AFTER the terminal `status.json` is written; if `docker rm -f` fails, the run returns a Go error while `status.json` already records `success`, and the caller CLI path maps the error to a generic failure — leaving the recorded terminal state and the CLI exit disagreeing about outcome | **Fixed** (TASK-094) |
 | BUG-061 | MEDIUM | `internal/workspace/validatepath.go:51-65`, `internal/lifecycle/reconcile.go:166-169` | TASK-090 regression: `ValidateWorkspacePath` calls `filepath.EvalSymlinks` on the stored `workspace_path` and returns `ErrWorkspacePathOutsideTree` when the canonical worktree has already been removed (prior reconcile, manual cleanup, or idempotent re-entry); `tessariq attach` / `tessariq promote` then fail even though there is nothing to clean and the stored path matches the trusted-input canonical lexically. `workspace.Cleanup` itself is idempotent for missing paths, but `cleanupTerminalRun` errors out before it is reached. | **Fixed** (TASK-095) |
-| BUG-062 | HIGH | `internal/runner/completeness.go`, `internal/promote/promote.go`, `internal/run/index.go` | Manifest `resolved_egress_mode` tampering suppresses required proxy evidence checks | **Open** |
-| BUG-063 | HIGH | `internal/runner/completeness.go`, `internal/promote/promote.go` | `promote` accepts non-empty malformed structured evidence as complete | **Open** |
-| BUG-064 | MEDIUM | `internal/proxy/events.go`, `internal/runner/completeness.go`, `internal/promote/promote.go` | Honest zero-denied proxy runs emit empty `egress.events.jsonl` and become unpromotable | **Open** |
+| BUG-062 | HIGH | `internal/runner/completeness.go`, `internal/promote/promote.go`, `internal/run/index.go` | Manifest `resolved_egress_mode` tampering suppresses required proxy evidence checks | **Fixed** (TASK-098) |
+| BUG-063 | HIGH | `internal/runner/completeness.go`, `internal/promote/promote.go` | `promote` accepts non-empty malformed structured evidence as complete | **Fixed** (TASK-099) |
+| BUG-064 | MEDIUM | `internal/proxy/events.go`, `internal/runner/completeness.go`, `internal/promote/promote.go` | Honest zero-denied proxy runs emit empty `egress.events.jsonl` and become unpromotable | **Fixed** (TASK-100) |
 
 ---
 
