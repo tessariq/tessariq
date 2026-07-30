@@ -161,7 +161,7 @@ func TestE2E_AttachReconcilesExitedOrphanedRun(t *testing.T) {
 	binPath := filepath.Join(hostDir, "tessariq")
 	ctx := context.Background()
 
-	imgFlag := fmt.Sprintf("--image tessariq-test-agent-%s-%s", "claude", testImageTag(t))
+	imgFlag := testAgentImageFlag(t, "claude")
 	launchCmd := fmt.Sprintf("cd %s && HOME=%s %s run %s --no-update-agent --egress open tasks/sample.md >/work/orphan-run.log 2>&1 & echo $! >/work/orphan-run.pid", repoPath, homeDir, binPath, imgFlag)
 	execCmd(t, env, ctx, launchCmd, "launch orphanable run")
 
@@ -203,7 +203,7 @@ func startBackgroundRun(t *testing.T, env *containers.RunEnv, repoPath, homeDir,
 	t.Helper()
 
 	ctx := context.Background()
-	imgFlag := fmt.Sprintf("--image tessariq-test-agent-%s-%s", binaryName, testImageTag(t))
+	imgFlag := testAgentImageFlag(t, binaryName)
 	// --no-update-agent skips the agent-update init container. Without this
 	// flag, the fake claude script is invoked once by the version probe
 	// (which ignores --version and runs the full `sleep N; exit 0` body),

@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -95,6 +96,13 @@ func testImageTag(t *testing.T) string {
 	t.Helper()
 	h := sha256.Sum256([]byte(t.Name()))
 	return hex.EncodeToString(h[:6])
+}
+
+// testAgentImageFlag renders the --image flag pointing at the per-test agent
+// image built by setupRunEnvCustom.
+func testAgentImageFlag(t *testing.T, binaryName string) string {
+	t.Helper()
+	return fmt.Sprintf("--image tessariq-test-agent-%s-%s", binaryName, testImageTag(t))
 }
 
 // e2eSetupOpts controls which parts of the standard e2e setup are executed.
@@ -307,8 +315,7 @@ func runTessariqWithUpdate(t *testing.T, env *containers.RunEnv, binaryName, ext
 // --no-update-agent. Prefer runTessariq or runTessariqWithUpdate.
 func runTessariqRaw(t *testing.T, env *containers.RunEnv, binaryName, flags string) (int, string) {
 	t.Helper()
-	imgFlag := fmt.Sprintf("--image tessariq-test-agent-%s-%s", binaryName, testImageTag(t))
-	return runTessariqNoImage(t, env, joinFlags(imgFlag, flags))
+	return runTessariqNoImage(t, env, joinFlags(testAgentImageFlag(t, binaryName), flags))
 }
 
 // runTessariqNoImage assembles and runs `tessariq run <flags> tasks/sample.md`
@@ -2326,4 +2333,208 @@ func TestE2E_AgentUpdate_FallbackRecordsEvidence(t *testing.T) {
 		"update must fail in test environment (no npm)")
 	require.NotEmpty(t, runtimeInfo.AgentUpdate.Error)
 	require.Greater(t, runtimeInfo.AgentUpdate.ElapsedMs, int64(0))
+}
+
+// interruptedRun holds the observations collected while interrupting a live
+// run: the CLI exit code, the run id resolved from the evidence tree, and the
+// combined CLI output.
+type interruptedRun struct {
+	exitCode int
+	runID    string
+	output   string
+}
+
+// interruptAgentMarker is printed by the fake agent before it sleeps so the
+// test can prove the agent container really was live (and its output really
+// was captured into run.log) before the interrupt is delivered.
+const interruptAgentMarker = "AGENT_RUNNING_MARKER"
+
+// runTessariqAndInterrupt starts `tessariq run` inside the e2e container,
+// waits until the per-run agent container is live and its output has reached
+// run.log, then delivers SIGINT to the CLI process and reports its exit code.
+//
+// The signal targets the CLI process inside the container (not the test
+// process), and the wait loop keys off the deterministic
+// tessariq-<run_id> container name so the interrupt window cannot be hit
+// vacuously before the container exists.
+func runTessariqAndInterrupt(t *testing.T, env *containers.RunEnv, binaryName, extraFlags string) interruptedRun {
+	t.Helper()
+
+	hostDir := env.Dir()
+	repoPath := filepath.Join(hostDir, "repo")
+	homeDir := filepath.Join(hostDir, "home")
+	binPath := filepath.Join(hostDir, "tessariq")
+	runsDir := filepath.Join(repoPath, ".tessariq", "runs")
+	flags := joinFlags(testAgentImageFlag(t, binaryName), "--no-update-agent", extraFlags)
+
+	// The wait after SIGINT is bounded so a CLI that ignores the signal
+	// surfaces as a clean assertion failure instead of hanging the harness
+	// (and with it the whole go test run) until the package timeout. The
+	// bound is 240s, comfortably above the worst-case shutdown budget:
+	// --grace (3s here) + the 5s SIGKILL wait + the 30s container-cleanup
+	// bound (runner.cleanupTimeout) + the 60s proxy-teardown bound
+	// (proxyTeardownTimeout). Keeping the slack wide matters because this
+	// test shares the host Docker daemon with the rest of the parallel e2e
+	// suite.
+	script := fmt.Sprintf(`
+cd %[1]s
+HOME=%[2]s %[3]s run %[4]s tasks/sample.md > /work/interrupt.out 2>&1 &
+pid=$!
+rid=""
+live=no
+i=0
+while [ $i -lt 600 ]; do
+  if [ -z "$rid" ]; then
+    rid=$(ls -1 %[5]s 2>/dev/null | while read -r n; do [ -d %[5]s/"$n" ] && echo "$n"; done | head -n 1)
+  fi
+  if [ -n "$rid" ] &&
+     [ "$(docker inspect -f '{{.State.Running}}' tessariq-$rid 2>/dev/null)" = "true" ] &&
+     grep -q %[6]s %[5]s/"$rid"/run.log 2>/dev/null; then
+    live=yes
+    break
+  fi
+  sleep 0.2
+  i=$((i+1))
+done
+echo "RUN_ID: $rid"
+echo "CONTAINER_LIVE: $live"
+kill -INT $pid
+j=0
+while kill -0 $pid 2>/dev/null && [ $j -lt 1200 ]; do
+  sleep 0.2
+  j=$((j+1))
+done
+if kill -0 $pid 2>/dev/null; then
+  echo "CLI_EXITED: no"
+  echo "EXIT_CODE: 0"
+  kill -KILL $pid 2>/dev/null
+  wait $pid 2>/dev/null
+else
+  wait $pid
+  rc=$?
+  echo "CLI_EXITED: yes"
+  echo "EXIT_CODE: $rc"
+fi
+exit 0
+`, repoPath, homeDir, binPath, flags, runsDir, interruptAgentMarker)
+
+	ctx := context.Background()
+	code, out, err := env.Exec(ctx, []string{"sh", "-c", script})
+	require.NoError(t, err)
+	require.Equal(t, 0, code, "interrupt harness must complete: %s", out)
+
+	require.Equal(t, "yes", extractField(out, "CONTAINER_LIVE"),
+		"agent container never became live before the interrupt: %s", out)
+	require.Equal(t, "yes", extractField(out, "CLI_EXITED"),
+		"CLI must exit after SIGINT instead of ignoring it: %s", out)
+
+	runID := extractField(out, "RUN_ID")
+	require.NotEmpty(t, runID, "run id must be resolvable from the evidence tree: %s", out)
+
+	exitCode, err := strconv.Atoi(extractField(out, "EXIT_CODE"))
+	require.NoError(t, err, "interrupt harness must report a CLI exit code: %s", out)
+
+	return interruptedRun{
+		exitCode: exitCode,
+		runID:    runID,
+		output:   readFileInEnv(t, env, "/work/interrupt.out"),
+	}
+}
+
+// TestE2E_InterruptedProxyRunCleansUpAndRecordsTerminalState covers manual
+// case T4.22 and guards the BUG-048 regression: a Ctrl-C on `tessariq run`
+// must leave no agent container, no Squid container, no per-run network, and
+// no worktree behind, and must record a terminal, non-running state that
+// agrees with the non-zero CLI exit code.
+func TestE2E_InterruptedProxyRunCleansUpAndRecordsTerminalState(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+
+	// The agent announces itself and then sleeps well past the interrupt
+	// window so the SIGINT lands while the container is genuinely running.
+	env := setupRunEnvWithScript(t, bin, "claude",
+		fmt.Sprintf("echo %s\nsleep 600", interruptAgentMarker))
+
+	// A short grace keeps the SIGTERM -> SIGKILL escalation quick; the
+	// default 30s would only pad the test.
+	res := runTessariqAndInterrupt(t, env, "claude", "--egress proxy --grace 3s")
+	require.NotEqual(t, 0, res.exitCode,
+		"interrupted run must exit non-zero: %s", res.output)
+
+	ctx := context.Background()
+	hostDir := env.Dir()
+	repoPath := filepath.Join(hostDir, "repo")
+	homeDir := filepath.Join(hostDir, "home")
+	evidencePath := filepath.Join(repoPath, ".tessariq", "runs", res.runID)
+
+	// status.json must record a terminal, non-running state consistent with
+	// the non-zero CLI exit code (BUG-048 regression).
+	statusData := readFileInEnv(t, env, filepath.Join(evidencePath, "status.json"))
+
+	var status runner.Status
+	require.NoError(t, json.Unmarshal([]byte(statusData), &status))
+	require.NotEqual(t, runner.StateRunning, status.State,
+		"interrupted run must not stay running (BUG-048)")
+	require.True(t, status.State.IsTerminal(), "recorded state must be terminal, got %q", status.State)
+	require.NotEqual(t, runner.StateSuccess, status.State,
+		"non-zero CLI exit must not be paired with a success state")
+	require.Equal(t, runner.StateInterrupted, status.State,
+		"SIGINT must map to the interrupted state")
+	require.NotEmpty(t, status.FinishedAt, "terminal status must record finished_at")
+
+	// No leftover agent container, Squid container, or per-run network.
+	for _, name := range []string{"tessariq-" + res.runID, "tessariq-squid-" + res.runID} {
+		_, out, err := env.Exec(ctx, []string{"sh", "-c",
+			fmt.Sprintf("docker ps -a --format '{{.Names}}' --filter name=^%s$", name)})
+		require.NoError(t, err)
+		require.Empty(t, strings.TrimSpace(out), "container %s must not survive the interrupt", name)
+	}
+	netName := "tessariq-net-" + res.runID
+	_, netOut, err := env.Exec(ctx, []string{"sh", "-c",
+		fmt.Sprintf("docker network ls --format '{{.Name}}' --filter name=^%s$", netName)})
+	require.NoError(t, err)
+	require.Empty(t, strings.TrimSpace(netOut), "network %s must not survive the interrupt", netName)
+
+	// Catch-all for any other container this run's environment produced —
+	// the name-based checks above only cover the two anticipated names.
+	requireNoContainerForEnv(t, env)
+
+	// The worktree must be gone from disk and from git's worktree list.
+	_, findOut, err := env.Exec(ctx, []string{"sh", "-c",
+		fmt.Sprintf("find %s/.tessariq/worktrees -mindepth 2 -maxdepth 2 -type d 2>/dev/null || true", homeDir)})
+	require.NoError(t, err)
+	require.Empty(t, strings.TrimSpace(findOut),
+		"no worktree directories should remain after an interrupted run, found: %s", findOut)
+
+	wtCode, wtOut, err := env.Exec(ctx, []string{"sh", "-c",
+		fmt.Sprintf("git -C %s worktree list", repoPath)})
+	require.NoError(t, err)
+	require.Equal(t, 0, wtCode)
+	require.NotContains(t, wtOut, res.runID, "git worktree list must have no stale entry")
+	require.Len(t, nonEmptyLines(wtOut), 1, "only the main worktree should remain: %s", wtOut)
+
+	// Terminal evidence must survive container removal. Note the direction
+	// of the guarantee: the runner deliberately runs container cleanup
+	// (docker rm -f) *before* writing the final status.json — see the
+	// comment at internal/runner/runner.go:219 and
+	// TestRunner_CleanupCalledBeforeStatusWrite — so this is not an
+	// evidence-then-removal ordering check. What it proves is that removing
+	// the container destroys none of the evidence: the full artifact set is
+	// on disk afterwards, and run.log still holds the agent output that was
+	// streamed out of the container while it was alive.
+	for _, name := range []string{
+		"manifest.json", "status.json", "agent.json", "runtime.json",
+		"workspace.json", "run.log", "runner.log", "task.md",
+		"egress.compiled.yaml", "egress.events.jsonl",
+	} {
+		code, out, execErr := env.Exec(ctx, []string{"sh", "-c",
+			fmt.Sprintf("test -s %s", filepath.Join(evidencePath, name))})
+		require.NoError(t, execErr)
+		require.Equal(t, 0, code,
+			"%s must exist and be non-empty after container removal: %s", name, out)
+	}
+
+	logData := readFileInEnv(t, env, filepath.Join(evidencePath, "run.log"))
+	require.Contains(t, logData, interruptAgentMarker,
+		"agent output captured before the interrupt must persist after container removal")
 }
