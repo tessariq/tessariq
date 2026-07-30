@@ -468,3 +468,57 @@ func TestIntegration_Teardown_ExtractionFailure_SkipsEvidence_CleansUpInfra(t *t
 	out, inspectErr := exec.CommandContext(ctx, "docker", "network", "inspect", netName).CombinedOutput()
 	require.Error(t, inspectErr, "network should be removed after Teardown: %s", string(out))
 }
+
+// TestIntegration_Teardown_TimedOutFirstCallIsRetryable pins the interaction
+// between the tornDown latch and the bounded teardown context introduced in
+// cmd/tessariq/run.go. run.go calls Teardown twice — once explicitly, once via
+// defer — and relies on the second call being a harmless no-op. That is only
+// safe if a *failed* first call leaves the topology retryable: latching on
+// entry would turn a transient docker stall into a permanently orphaned Squid
+// container and per-run network.
+func TestIntegration_Teardown_TimedOutFirstCallIsRetryable(t *testing.T) {
+	t.Parallel()
+	testutil.RequireDocker(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+
+	squidImage := buildSquidTestImage(t)
+	runID := testutil.UniqueName(t)
+	evidenceDir := t.TempDir()
+	forceCleanup(t, runID)
+
+	topo := &proxy.Topology{
+		RunID:           runID,
+		EvidenceDir:     evidenceDir,
+		Destinations:    []string{"example.com:443"},
+		AllowlistSource: "cli",
+		SquidImage:      squidImage,
+	}
+
+	_, err := topo.Setup(ctx)
+	require.NoError(t, err, "Setup must succeed")
+	t.Cleanup(func() { forceCleanup(t, runID) })
+
+	// First call with an already-expired context: every docker step fails
+	// the way a stalled daemon would when the bound expires.
+	expired, cancelExpired := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+	defer cancelExpired()
+	require.Error(t, topo.Teardown(expired), "expired-context teardown must report failure")
+
+	squidName := proxy.SquidContainerName(runID)
+	netName := proxy.NetworkName(runID)
+	_, inspectErr := exec.CommandContext(ctx, "docker", "container", "inspect", squidName).CombinedOutput()
+	require.NoError(t, inspectErr, "guard: the failed teardown must leave the squid container behind")
+
+	// Second call on a healthy context must actually retry, not no-op.
+	require.NoError(t, topo.Teardown(ctx), "retry after a timed-out teardown must succeed")
+
+	out, inspectErr := exec.CommandContext(ctx, "docker", "container", "inspect", squidName).CombinedOutput()
+	require.Error(t, inspectErr, "squid container must be removed by the retry: %s", string(out))
+	out, inspectErr = exec.CommandContext(ctx, "docker", "network", "inspect", netName).CombinedOutput()
+	require.Error(t, inspectErr, "per-run network must be removed by the retry: %s", string(out))
+
+	// A third call is the real no-op: everything already succeeded.
+	require.NoError(t, topo.Teardown(ctx), "teardown must be idempotent once it has succeeded")
+}

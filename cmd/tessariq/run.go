@@ -24,6 +24,38 @@ import (
 	"github.com/tessariq/tessariq/internal/workspace"
 )
 
+// proxyTeardownTimeout bounds proxy topology teardown. Teardown runs on a
+// context derived from Background so a cancelled command context (Ctrl+C,
+// parent timeout) still allows the topology to be dismantled — but without a
+// bound, a hung docker daemon or socket stall would pin the CLI indefinitely
+// on exactly the path a user reaches for when they want out.
+//
+// The budget is double runner.cleanupTimeout, which bounds container cleanup
+// the same way, because it is shared by three sequential docker operations
+// rather than one: extracting the Squid access log (up to maxSquidLogBytes
+// over docker exec), docker rm of the Squid container, and docker network rm.
+// Sizing it like the single-operation bound would let slow log extraction
+// starve the two cleanup steps that actually prevent leaks.
+const proxyTeardownTimeout = 60 * time.Second
+
+// teardownProxyTopology runs td on a Background-derived context bounded by
+// proxyTeardownTimeout, reporting any failure as a warning on w. Teardown is
+// best-effort: the run's terminal state and evidence are already settled by
+// the time it runs, so a failure here must not change the exit path.
+func teardownProxyTopology(w io.Writer, td func(context.Context) error) {
+	teardownProxyTopologyWithTimeout(w, proxyTeardownTimeout, td)
+}
+
+// teardownProxyTopologyWithTimeout is teardownProxyTopology with an explicit
+// bound, so tests can exercise the deadline path without waiting a minute.
+func teardownProxyTopologyWithTimeout(w io.Writer, timeout time.Duration, td func(context.Context) error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	if err := td(ctx); err != nil {
+		fmt.Fprintf(w, "warning: proxy topology teardown: %s\n", err)
+	}
+}
+
 type runOutput struct {
 	RunID         string
 	EvidencePath  string
@@ -155,12 +187,12 @@ func newRunCmd() *cobra.Command {
 					return fmt.Errorf("proxy topology setup: %w", err)
 				}
 				// Teardown extracts the egress telemetry, so it must also run on
-				// error paths. It is idempotent, so the explicit call after the
-				// run completes turns this into a no-op.
+				// error paths. Once it has fully succeeded it latches, so the
+				// explicit call after the run completes turns this into a
+				// no-op; a first attempt that failed or hit
+				// proxyTeardownTimeout stays retryable and is retried here.
 				teardownProxy = func() {
-					if tdErr := topo.Teardown(context.Background()); tdErr != nil {
-						fmt.Fprintf(cmd.ErrOrStderr(), "warning: proxy topology teardown: %s\n", tdErr)
-					}
+					teardownProxyTopology(cmd.ErrOrStderr(), topo.Teardown)
 				}
 				defer teardownProxy()
 			}

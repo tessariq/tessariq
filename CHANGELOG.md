@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Proxy mode now prints the "Blocked egress destinations" guidance for the run that was just executed. The proxy was torn down — and its egress telemetry extracted — only after the guidance was printed, so blocked destinations and the `--egress-allow` hint never appeared.
+- Proxy topology teardown is now bounded by a 30-second timeout. An unresponsive Docker daemon could previously hang `tessariq run` indefinitely while dismantling the Squid container and per-run network — including after Ctrl+C, which is exactly when a user wants out. Teardown failures are still reported as a warning and never change the run's terminal state.
 
 ## [0.1.0] - 2026-07-30
 

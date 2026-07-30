@@ -26,7 +26,18 @@ type Topology struct {
 	// internal state
 	networkName string
 	squidName   string
-	tornDown    bool // prevents double teardown
+	// tornDown is set only once Teardown has fully succeeded, so a failed
+	// or timed-out attempt stays retryable. Callers bound Teardown with a
+	// deadline (see proxyTeardownTimeout in cmd/tessariq/run.go) and call it
+	// twice — explicitly and via defer — so latching on entry would turn a
+	// transient docker stall into a permanently orphaned Squid container
+	// and per-run network.
+	tornDown bool
+	// evidenceExtracted records that the Squid access log has already been
+	// turned into evidence, so a retry does not re-extract against a
+	// container the previous attempt may have removed and report a
+	// misleading extraction failure for an otherwise clean teardown.
+	evidenceExtracted bool
 }
 
 // Setup creates the proxy topology:
@@ -94,7 +105,11 @@ const maxSquidLogBytes = 10 * 1024 * 1024 // 10 MB
 //  5. StopSquid (remove container)
 //  6. RemoveNetwork
 //
-// Safe to call multiple times (idempotent via tornDown flag).
+// Safe to call multiple times: once every step has succeeded the tornDown
+// flag makes further calls a no-op, while a failed or timed-out attempt
+// stays retryable so a caller that bounds Teardown with a deadline can call
+// it again without orphaning the Squid container or the per-run network.
+// Successful evidence extraction is never repeated.
 //
 // Evidence extraction (steps 1-4) is fail-closed: if any extraction
 // step fails, no evidence files are written so the completeness check
@@ -104,18 +119,23 @@ func (t *Topology) Teardown(ctx context.Context) error {
 	if t.tornDown {
 		return nil
 	}
-	t.tornDown = true
 
-	// Steps 1-4: Evidence extraction (fail-closed).
+	// Steps 1-4: Evidence extraction (fail-closed, attempted at most once
+	// successfully; StopSquid below destroys the log it reads from).
 	var extractionErr error
-	logData, err := CopyAccessLog(ctx, t.squidName)
-	if err != nil {
-		extractionErr = fmt.Errorf("telemetry extraction: %w", err)
-	} else if err := WriteExtractedEvidence(t.EvidenceDir, logData, maxSquidLogBytes); err != nil {
-		extractionErr = fmt.Errorf("telemetry extraction: %w", err)
+	if !t.evidenceExtracted {
+		logData, err := CopyAccessLog(ctx, t.squidName)
+		if err != nil {
+			extractionErr = fmt.Errorf("telemetry extraction: %w", err)
+		} else if err := WriteExtractedEvidence(t.EvidenceDir, logData, maxSquidLogBytes); err != nil {
+			extractionErr = fmt.Errorf("telemetry extraction: %w", err)
+		} else {
+			t.evidenceExtracted = true
+		}
 	}
 
-	// Steps 5-6: Infrastructure cleanup (always runs).
+	// Steps 5-6: Infrastructure cleanup (always runs; both steps are
+	// idempotent, so a retry after a partial teardown is safe).
 	var cleanupErrs []string
 	if err := StopSquid(ctx, t.squidName); err != nil {
 		cleanupErrs = append(cleanupErrs, fmt.Sprintf("stop squid: %s", err))
@@ -130,8 +150,11 @@ func (t *Topology) Teardown(ctx context.Context) error {
 	}
 	errs = append(errs, cleanupErrs...)
 	if len(errs) > 0 {
+		// tornDown stays false so the caller's second call retries.
 		return fmt.Errorf("%s", strings.Join(errs, "; "))
 	}
+
+	t.tornDown = true
 	return nil
 }
 

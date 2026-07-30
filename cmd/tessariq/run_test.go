@@ -892,3 +892,47 @@ func TestAppendRunningIndexEntry_Warnings(t *testing.T) {
 		})
 	}
 }
+
+func TestTeardownProxyTopology_BoundsTeardownWithTimeout(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	var deadline time.Time
+	var hasDeadline bool
+
+	teardownProxyTopology(&buf, func(ctx context.Context) error {
+		deadline, hasDeadline = ctx.Deadline()
+		return nil
+	})
+
+	require.True(t, hasDeadline, "teardown context must carry a deadline so a hung docker daemon cannot pin the CLI")
+	require.InDelta(t, proxyTeardownTimeout.Seconds(), time.Until(deadline).Seconds(), 5,
+		"teardown deadline must be bounded by proxyTeardownTimeout")
+	require.Empty(t, buf.String(), "successful teardown must not warn")
+}
+
+func TestTeardownProxyTopology_CancelsTeardownOnDeadline(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	teardownProxyTopologyWithTimeout(&buf, 10*time.Millisecond, func(ctx context.Context) error {
+		<-ctx.Done()
+		return ctx.Err()
+	})
+
+	require.Contains(t, buf.String(), "proxy topology teardown",
+		"a teardown that outlives the bound must be reported")
+	require.Contains(t, buf.String(), context.DeadlineExceeded.Error(),
+		"the warning must name the deadline as the cause")
+}
+
+func TestTeardownProxyTopology_WarnsOnTeardownError(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	teardownProxyTopology(&buf, func(context.Context) error {
+		return errors.New("stop squid: boom")
+	})
+
+	require.Equal(t, "warning: proxy topology teardown: stop squid: boom\n", buf.String())
+}
