@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -18,9 +19,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/tessariq/tessariq/internal/adapter"
+	"github.com/tessariq/tessariq/internal/proxy"
+	"github.com/tessariq/tessariq/internal/run"
 	"github.com/tessariq/tessariq/internal/runner"
 	"github.com/tessariq/tessariq/internal/testutil"
 	"github.com/tessariq/tessariq/internal/testutil/containers"
+	"gopkg.in/yaml.v3"
 )
 
 // sharedBinaryDir holds the temp directory for the shared binary so TestMain
@@ -98,6 +102,7 @@ func testImageTag(t *testing.T) string {
 type e2eSetupOpts struct {
 	binaryName string                        // agent binary name; defaults to "claude"
 	scriptBody string                        // fake agent script body; defaults to "exit 0"
+	extraPkgs  string                        // extra apk packages for the agent image (e.g. "curl")
 	runtimeUID int                           // runtime image tessariq uid; defaults to 1000
 	runtimeGID int                           // runtime image tessariq gid; defaults to runtimeUID
 	skipAuth   bool                          // skip creating auth files (for auth-failure tests)
@@ -175,14 +180,14 @@ DEOF`, opts.runtimeGID, opts.runtimeUID),
 			buildCmds := []string{
 				fmt.Sprintf(`cat > /work/Dockerfile.test <<'DEOF'
 FROM alpine:latest
-RUN apk add --no-cache coreutils \
+RUN apk add --no-cache coreutils %s \
     && addgroup -g %d tessariq \
     && adduser -D -u %d -G tessariq -h /home/tessariq tessariq
 COPY fake-agent.sh /usr/local/bin/%s
 RUN chmod +x /usr/local/bin/%s
 USER tessariq
 WORKDIR /work
-DEOF`, opts.runtimeGID, opts.runtimeUID, opts.binaryName, opts.binaryName),
+DEOF`, opts.extraPkgs, opts.runtimeGID, opts.runtimeUID, opts.binaryName, opts.binaryName),
 				fmt.Sprintf(`printf '#!/bin/sh\n%s\n' > /work/fake-agent.sh && chmod +x /work/fake-agent.sh`,
 					strings.ReplaceAll(opts.scriptBody, "'", "'\\''")),
 				fmt.Sprintf("DOCKER_BUILDKIT=1 docker build -t %s -f /work/Dockerfile.test /work", imgName),
@@ -1141,6 +1146,227 @@ func TestE2E_ProxyModeMultipleDestinations(t *testing.T) {
 	require.Contains(t, compiledData, "port: 443")
 	require.Contains(t, compiledData, "host: example.com")
 	require.Contains(t, compiledData, "port: 8443")
+}
+
+// readFileInEnv reads a file from inside the e2e container and fails the test
+// when it is missing or unreadable.
+func readFileInEnv(t *testing.T, env *containers.RunEnv, path string) string {
+	t.Helper()
+	code, data, err := env.Exec(context.Background(), []string{"cat", path})
+	require.NoError(t, err)
+	require.Equal(t, 0, code, "%s must exist: %s", path, data)
+	return data
+}
+
+// readCompiledAllowlist reads and parses egress.compiled.yaml from an evidence
+// directory inside the e2e container.
+func readCompiledAllowlist(t *testing.T, env *containers.RunEnv, evidencePath string) *proxy.CompiledAllowlist {
+	t.Helper()
+	data := readFileInEnv(t, env, filepath.Join(evidencePath, "egress.compiled.yaml"))
+
+	var compiled proxy.CompiledAllowlist
+	require.NoError(t, yaml.Unmarshal([]byte(data), &compiled), "egress.compiled.yaml must parse: %s", data)
+	require.NoError(t, compiled.Validate(), "egress.compiled.yaml must satisfy the spec contract: %s", data)
+	return &compiled
+}
+
+// compiledHostPorts renders a compiled allowlist as a sorted "host:port" slice
+// so tests can assert exact set equality rather than mere containment. Exact
+// equality is what makes a silently widened allowlist a test failure.
+func compiledHostPorts(c *proxy.CompiledAllowlist) []string {
+	out := make([]string, 0, len(c.Destinations))
+	for _, d := range c.Destinations {
+		out = append(out, fmt.Sprintf("%s:%d", d.Host, d.Port))
+	}
+	sort.Strings(out)
+	return out
+}
+
+// builtInClaudeCodeHostPorts is the full built-in profile for Claude Code:
+// the shared baseline endpoints plus the Claude Code agent endpoints.
+//
+// The expectation is derived from the adapter rather than hardcoded on purpose:
+// this test guards the compile path (profile -> egress.compiled.yaml), while the
+// contents of the profile itself are pinned exactly at unit level by
+// TestBaselineEndpoints_Count/_RequiredHosts and
+// TestClaudeCodeEndpoints_Count/_RequiredHosts, where count plus
+// all-required-present together forbid both added and substituted hosts.
+// Restating the list here would duplicate that guard, not strengthen it.
+func builtInClaudeCodeHostPorts() []string {
+	dests := adapter.FullBuiltInAllowlist(adapter.ClaudeCodeEndpoints())
+	out := make([]string, 0, len(dests))
+	for _, d := range dests {
+		out = append(out, d.String())
+	}
+	sort.Strings(out)
+	return out
+}
+
+// readManifestAllowlistSource reads allowlist_source from manifest.json, so
+// tests can check that the manifest and egress.compiled.yaml agree.
+func readManifestAllowlistSource(t *testing.T, env *containers.RunEnv, evidencePath string) string {
+	t.Helper()
+	data := readFileInEnv(t, env, filepath.Join(evidencePath, "manifest.json"))
+
+	var manifest run.Manifest
+	require.NoError(t, json.Unmarshal([]byte(data), &manifest), "manifest.json must parse: %s", data)
+	require.NotEmpty(t, manifest.AllowlistSource, "manifest.json must record allowlist_source: %s", data)
+	return manifest.AllowlistSource
+}
+
+// TestE2E_EgressAutoCompilesBuiltInProfile covers manual case T3.1: under the
+// default --egress auto, the compiled allowlist must be exactly the built-in
+// Claude Code profile and its provenance must be recorded as built_in.
+func TestE2E_EgressAutoCompilesBuiltInProfile(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+	env := setupRunEnv(t, bin, 0)
+
+	code, output := runTessariq(t, env, "claude", "--egress auto")
+	require.Equal(t, 0, code, "run failed: %s", output)
+
+	evidencePath := extractField(output, "evidence_path")
+	require.NotEmpty(t, evidencePath, "evidence_path must be in output")
+
+	compiled := readCompiledAllowlist(t, env, evidencePath)
+	require.Equal(t, "built_in", compiled.AllowlistSource,
+		"auto egress with no CLI or user-config entries must record built_in provenance")
+	require.Equal(t, builtInClaudeCodeHostPorts(), compiledHostPorts(compiled),
+		"compiled allowlist must be exactly the built-in Claude Code profile")
+
+	require.Equal(t, "built_in", readManifestAllowlistSource(t, env, evidencePath),
+		"manifest.json must agree with egress.compiled.yaml on provenance")
+}
+
+// TestE2E_EgressNoDefaultsDropsBuiltInProfile covers manual case T3.7:
+// --egress-no-defaults with explicit --egress-allow entries must compile only
+// those entries, and the agent must be unable to reach its own API — the
+// reachability probe is what proves the flag took effect rather than merely
+// being recorded in evidence.
+func TestE2E_EgressNoDefaultsDropsBuiltInProfile(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+
+	// The fake agent probes its own API host through the injected proxy. Squid
+	// denies the CONNECT because api.anthropic.com is no longer allowlisted, so
+	// curl exits non-zero without any real network egress.
+	script := "curl -sS --max-time 15 https://api.anthropic.com/ -o /dev/null 2>/work/probe.txt; " +
+		"echo curl_exit=$? >> /work/probe.txt; exit 0"
+	env := setupRunEnvCustom(t, bin, e2eSetupOpts{
+		scriptBody: script,
+		extraPkgs:  "curl",
+	})
+
+	code, output := runTessariq(t, env, "claude",
+		"--egress-no-defaults --egress-allow allowed.example.com:443")
+	require.Equal(t, 0, code, "run should succeed (agent exits 0): %s", output)
+
+	evidencePath := extractField(output, "evidence_path")
+	require.NotEmpty(t, evidencePath, "evidence_path must be in output")
+
+	compiled := readCompiledAllowlist(t, env, evidencePath)
+	require.Equal(t, "cli", compiled.AllowlistSource,
+		"CLI entries must be recorded as the allowlist source")
+	require.Equal(t, []string{"allowed.example.com:443"}, compiledHostPorts(compiled),
+		"--egress-no-defaults must discard the built-in profile entirely")
+
+	// The agent could not reach api.anthropic.com.
+	wsPath := extractField(output, "workspace_path")
+	require.NotEmpty(t, wsPath, "workspace_path must be in output")
+	probe := readFileInEnv(t, env, filepath.Join(wsPath, "probe.txt"))
+	require.NotContains(t, probe, "curl_exit=0",
+		"api.anthropic.com must be unreachable once the built-in profile is dropped: %s", probe)
+
+	// The denial is recorded as a blocked egress event.
+	eventsData := readFileInEnv(t, env, filepath.Join(evidencePath, "egress.events.jsonl"))
+
+	var blocked bool
+	for _, line := range strings.Split(strings.TrimSpace(eventsData), "\n") {
+		if line == "" {
+			continue
+		}
+		var event proxy.Event
+		require.NoError(t, json.Unmarshal([]byte(line), &event), "event line must parse: %s", line)
+		if event.Host == "api.anthropic.com" && event.Port == 443 && event.Action == "blocked" {
+			blocked = true
+			require.Equal(t, "not_in_allowlist", event.Reason)
+		}
+	}
+	require.True(t, blocked,
+		"a blocked event for api.anthropic.com:443 must be recorded, got: %s", eventsData)
+}
+
+// TestE2E_EgressNoDefaultsWithoutEntriesRejected covers the empty-allowlist
+// corner of manual case T3.7: proxy mode with no destination at all leaves the
+// agent nothing to reach, so the run is refused before any evidence is written.
+func TestE2E_EgressNoDefaultsWithoutEntriesRejected(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+	env := setupRunEnvCustom(t, bin, e2eSetupOpts{skipImage: true})
+
+	code, output := runTessariqNoImage(t, env, "--egress-no-defaults --no-update-agent")
+	require.NotEqual(t, 0, code,
+		"proxy mode with an empty allowlist must be refused: %s", output)
+	require.Contains(t, output, "proxy mode requires at least one allowlist destination",
+		"error must explain that proxy mode has no reachable destination: %s", output)
+	require.Contains(t, output, "--egress-allow",
+		"error must point at --egress-allow: %s", output)
+
+	require.NotContains(t, output, "run_id:", "must fail before evidence bootstrap: %s", output)
+	requireNoRunDirectory(t, env)
+	requireNoContainerForEnv(t, env)
+}
+
+// TestE2E_EgressOpenWithAllowRejected covers manual case T3.6: an allowlist is
+// meaningless without the proxy, so combining it with --egress open must fail
+// validation and steer the operator toward proxy mode.
+func TestE2E_EgressOpenWithAllowRejected(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+	env := setupRunEnvCustom(t, bin, e2eSetupOpts{skipImage: true})
+
+	code, output := runTessariqNoImage(t, env,
+		"--egress open --egress-allow api.example.com:443 --no-update-agent")
+	require.NotEqual(t, 0, code,
+		"--egress open with --egress-allow must be rejected: %s", output)
+	require.Contains(t, output, "allowlists require proxy mode",
+		"error must steer toward proxy mode: %s", output)
+
+	require.NotContains(t, output, "run_id:", "must fail before evidence bootstrap: %s", output)
+	requireNoRunDirectory(t, env)
+	requireNoContainerForEnv(t, env)
+}
+
+// TestE2E_CLIEgressAllowOverridesUserConfig asserts the CLI > user_config leg of
+// allowlist precedence: user-config entries must not leak into the compiled
+// allowlist when --egress-allow is present, and provenance must read cli.
+func TestE2E_CLIEgressAllowOverridesUserConfig(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+
+	env := setupRunEnvCustom(t, bin, e2eSetupOpts{
+		extraFn: func(homeDir string) []string {
+			return []string{
+				fmt.Sprintf("mkdir -p %s/.config/tessariq", homeDir),
+				fmt.Sprintf(`printf 'egress_allow:\n  - from-config.example.com:443\n' > %s/.config/tessariq/config.yaml`, homeDir),
+			}
+		},
+	})
+
+	code, output := runTessariq(t, env, "claude", "--egress-allow from-cli.example.com:443")
+	require.Equal(t, 0, code, "run failed: %s", output)
+
+	evidencePath := extractField(output, "evidence_path")
+	require.NotEmpty(t, evidencePath, "evidence_path must be in output")
+
+	compiled := readCompiledAllowlist(t, env, evidencePath)
+	require.Equal(t, "cli", compiled.AllowlistSource,
+		"CLI entries must be recorded as the allowlist source")
+	require.Equal(t, []string{"from-cli.example.com:443"}, compiledHostPorts(compiled),
+		"CLI entries must fully replace user-config entries")
+
+	require.Equal(t, "cli", readManifestAllowlistSource(t, env, evidencePath),
+		"manifest.json must agree with egress.compiled.yaml on provenance")
 }
 
 func TestE2E_DiffArtifactsWrittenWhenChangesExist(t *testing.T) {
