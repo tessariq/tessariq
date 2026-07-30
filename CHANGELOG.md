@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Proxy mode now prints the "Blocked egress destinations" guidance for the run that was just executed. The proxy was torn down — and its egress telemetry extracted — only after the guidance was printed, so blocked destinations and the `--egress-allow` hint never appeared.
+
 ## [0.1.0] - 2026-07-30
 
 First release. Tessariq runs a coding agent against a Markdown task in an

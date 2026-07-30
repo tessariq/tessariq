@@ -1148,6 +1148,161 @@ func TestE2E_ProxyModeMultipleDestinations(t *testing.T) {
 	require.Contains(t, compiledData, "port: 8443")
 }
 
+// TestE2E_BlockedDestinationIsReportedAndCanBeAllowed covers manual case T3.3:
+// when the agent reaches for a host outside the compiled allowlist, Squid must
+// deny it, the denial must be recorded in egress.events.jsonl as a blocked
+// event, and the CLI must name the flag that allows it. Re-running with the
+// destination on --egress-allow must clear both the denial and the guidance.
+func TestE2E_BlockedDestinationIsReportedAndCanBeAllowed(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+
+	const deniedHost = "denied.example.com"
+	const deniedHostPort = deniedHost + ":443"
+
+	// The fake agent probes a host that is not in the built-in profile. Squid
+	// denies the CONNECT, so curl reports the proxy's 403 and no real network
+	// egress happens.
+	script := fmt.Sprintf("curl -sS --max-time 15 https://%s/ -o /dev/null 2>/work/probe.txt; "+
+		"echo curl_exit=$? >> /work/probe.txt; exit 0", deniedHost)
+	env := setupRunEnvCustom(t, bin, e2eSetupOpts{scriptBody: script, extraPkgs: "curl"})
+
+	// Default egress is "auto", which resolves to proxy.
+	code, output := runTessariq(t, env, "claude", "")
+	require.Equal(t, 0, code, "run should succeed (agent exits 0): %s", output)
+
+	evidencePath := extractField(output, "evidence_path")
+	require.NotEmpty(t, evidencePath, "evidence_path must be in output")
+	wsPath := extractField(output, "workspace_path")
+	require.NotEmpty(t, wsPath, "workspace_path must be in output")
+
+	// The proxy refused the CONNECT rather than letting curl reach the network.
+	probe := readFileInEnv(t, env, filepath.Join(wsPath, "probe.txt"))
+	require.NotContains(t, probe, "curl_exit=0",
+		"%s must be unreachable while it is outside the allowlist: %s", deniedHostPort, probe)
+	require.Contains(t, probe, "403",
+		"the proxy must refuse the CONNECT with 403: %s", probe)
+
+	// The denial is recorded with its host:port and a reason.
+	blocked := readBlockedEvents(t, env, evidencePath)
+	event, ok := blocked[deniedHostPort]
+	require.True(t, ok, "a blocked event for %s must be recorded, got %v", deniedHostPort, blocked)
+	require.Equal(t, "blocked", event.Action)
+	require.Equal(t, "not_in_allowlist", event.Reason)
+	require.Contains(t, event.SquidResult, "TCP_DENIED",
+		"the event must carry the Squid result that proves the denial")
+	require.NotEmpty(t, event.Timestamp, "the event must be timestamped")
+
+	// The CLI tells the operator which destination was blocked and how to allow it.
+	require.Contains(t, output, "Blocked egress destinations:")
+	require.Contains(t, output, deniedHostPort,
+		"guidance must name the blocked destination: %s", output)
+	require.Contains(t, output, "--egress-allow",
+		"guidance must name the flag that allows the destination: %s", output)
+
+	// Allowing the destination clears both the denial and the guidance.
+	code, output = runTessariq(t, env, "claude", "--egress-allow "+deniedHostPort)
+	require.Equal(t, 0, code, "run should succeed (agent exits 0): %s", output)
+
+	evidencePath = extractField(output, "evidence_path")
+	require.NotEmpty(t, evidencePath, "evidence_path must be in output")
+	wsPath = extractField(output, "workspace_path")
+	require.NotEmpty(t, wsPath, "workspace_path must be in output")
+
+	require.Contains(t, compiledHostPorts(readCompiledAllowlist(t, env, evidencePath)), deniedHostPort,
+		"--egress-allow must add the destination to the compiled allowlist")
+
+	probe = readFileInEnv(t, env, filepath.Join(wsPath, "probe.txt"))
+	require.NotContains(t, probe, "403",
+		"the proxy must no longer refuse the CONNECT once the destination is allowed: %s", probe)
+
+	blocked = readBlockedEvents(t, env, evidencePath)
+	require.NotContains(t, blocked, deniedHostPort,
+		"an allowed destination must not be recorded as blocked, got %v", blocked)
+	require.NotContains(t, output, "Blocked egress destinations:",
+		"no guidance may be printed when nothing was blocked: %s", output)
+}
+
+// TestE2E_ProxyZeroDeniedRunEmitsSummaryAndPromotes covers manual case T3.4 and
+// guards the BUG-064 regression: a proxy run that had nothing denied must still
+// write an explicit zero-events summary to egress.events.jsonl. A 0-byte file is
+// indistinguishable from a truncated telemetry write, so the promote
+// completeness gate rejects it and an honest run becomes unpromotable.
+func TestE2E_ProxyZeroDeniedRunEmitsSummaryAndPromotes(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+
+	// The agent makes no network calls at all, so Squid denies nothing. It does
+	// change a file so the run has a diff to promote.
+	env := setupRunEnvWithScript(t, bin, "claude", "echo promoted > /work/promoted.txt; exit 0")
+
+	// Default egress is "auto", which resolves to proxy.
+	code, output := runTessariq(t, env, "claude", "")
+	require.Equal(t, 0, code, "run failed: %s", output)
+
+	runID := extractField(output, "run_id")
+	require.NotEmpty(t, runID, "run_id must be in output")
+	evidencePath := extractField(output, "evidence_path")
+	require.NotEmpty(t, evidencePath, "evidence_path must be in output")
+
+	var manifest run.Manifest
+	manifestData := readFileInEnv(t, env, filepath.Join(evidencePath, "manifest.json"))
+	require.NoError(t, json.Unmarshal([]byte(manifestData), &manifest), "manifest.json must parse: %s", manifestData)
+	require.Equal(t, "proxy", manifest.ResolvedEgressMode,
+		"the zero-denied case is only meaningful when the proxy was actually in front of the agent")
+
+	// egress.events.jsonl is an explicit zero-events summary, not a 0-byte file.
+	raw := readFileInEnv(t, env, filepath.Join(evidencePath, "egress.events.jsonl"))
+	lines := nonEmptyLines(raw)
+	require.Len(t, lines, 1, "a zero-denied run must write exactly one summary line: %q", raw)
+
+	var summary proxy.EventsSummary
+	require.NoError(t, json.Unmarshal([]byte(lines[0]), &summary), "summary line must parse: %s", lines[0])
+	require.Equal(t, 1, summary.SchemaVersion, "summary must carry the events schema version: %s", lines[0])
+	require.Equal(t, 0, summary.EventCount, "summary must state that zero destinations were denied: %s", lines[0])
+
+	require.Empty(t, readBlockedEvents(t, env, evidencePath), "no destination was denied")
+	require.NotContains(t, output, "Blocked egress destinations:",
+		"no guidance may be printed when nothing was blocked: %s", output)
+
+	// The honest zero-denied run is promotable.
+	promoteCode, promoteOutput := runPromote(t, env, runID, "")
+	require.Equal(t, 0, promoteCode, "a zero-denied proxy run must be promotable: %s", promoteOutput)
+	require.Contains(t, promoteOutput, "branch: tessariq/"+runID)
+}
+
+// nonEmptyLines splits raw evidence text into its non-blank lines.
+func nonEmptyLines(raw string) []string {
+	var out []string
+	for _, line := range strings.Split(raw, "\n") {
+		if strings.TrimSpace(line) != "" {
+			out = append(out, line)
+		}
+	}
+	return out
+}
+
+// readBlockedEvents parses egress.events.jsonl from an evidence directory inside
+// the e2e container and indexes the blocked events by "host:port" so tests can
+// assert on presence and absence of a specific destination. The zero-events
+// summary line carries no host, so it is skipped rather than decoded as a
+// blocked event.
+func readBlockedEvents(t *testing.T, env *containers.RunEnv, evidencePath string) map[string]proxy.Event {
+	t.Helper()
+	raw := readFileInEnv(t, env, filepath.Join(evidencePath, "egress.events.jsonl"))
+
+	blocked := make(map[string]proxy.Event)
+	for _, line := range nonEmptyLines(raw) {
+		var event proxy.Event
+		require.NoError(t, json.Unmarshal([]byte(line), &event), "event line must parse: %s", line)
+		if event.Host == "" {
+			continue
+		}
+		blocked[fmt.Sprintf("%s:%d", event.Host, event.Port)] = event
+	}
+	return blocked
+}
+
 // readFileInEnv reads a file from inside the e2e container and fails the test
 // when it is missing or unreadable.
 func readFileInEnv(t *testing.T, env *containers.RunEnv, path string) string {
@@ -1278,22 +1433,12 @@ func TestE2E_EgressNoDefaultsDropsBuiltInProfile(t *testing.T) {
 		"api.anthropic.com must be unreachable once the built-in profile is dropped: %s", probe)
 
 	// The denial is recorded as a blocked egress event.
-	eventsData := readFileInEnv(t, env, filepath.Join(evidencePath, "egress.events.jsonl"))
-
-	var blocked bool
-	for _, line := range strings.Split(strings.TrimSpace(eventsData), "\n") {
-		if line == "" {
-			continue
-		}
-		var event proxy.Event
-		require.NoError(t, json.Unmarshal([]byte(line), &event), "event line must parse: %s", line)
-		if event.Host == "api.anthropic.com" && event.Port == 443 && event.Action == "blocked" {
-			blocked = true
-			require.Equal(t, "not_in_allowlist", event.Reason)
-		}
-	}
-	require.True(t, blocked,
-		"a blocked event for api.anthropic.com:443 must be recorded, got: %s", eventsData)
+	blocked := readBlockedEvents(t, env, evidencePath)
+	event, ok := blocked["api.anthropic.com:443"]
+	require.True(t, ok,
+		"a blocked event for api.anthropic.com:443 must be recorded, got: %v", blocked)
+	require.Equal(t, "blocked", event.Action)
+	require.Equal(t, "not_in_allowlist", event.Reason)
 }
 
 // TestE2E_EgressNoDefaultsWithoutEntriesRejected covers the empty-allowlist

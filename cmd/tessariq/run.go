@@ -142,6 +142,7 @@ func newRunCmd() *cobra.Command {
 
 			// Set up proxy topology in proxy mode.
 			var proxyEnv *proxy.ProxyEnv
+			teardownProxy := func() {}
 			if resolvedEgress == "proxy" {
 				topo := &proxy.Topology{
 					RunID:           runID,
@@ -153,11 +154,15 @@ func newRunCmd() *cobra.Command {
 				if err != nil {
 					return fmt.Errorf("proxy topology setup: %w", err)
 				}
-				defer func() {
+				// Teardown extracts the egress telemetry, so it must also run on
+				// error paths. It is idempotent, so the explicit call after the
+				// run completes turns this into a no-op.
+				teardownProxy = func() {
 					if tdErr := topo.Teardown(context.Background()); tdErr != nil {
 						fmt.Fprintf(cmd.ErrOrStderr(), "warning: proxy topology teardown: %s\n", tdErr)
 					}
-				}()
+				}
+				defer teardownProxy()
 			}
 
 			authResult, err := authmount.Discover(cfg.Agent, homeDir, runtime.GOOS, authmount.FileExists)
@@ -347,8 +352,12 @@ func newRunCmd() *cobra.Command {
 			// Append index entry after run completes (even on failure).
 			appendIndexEntry(cmd.ErrOrStderr(), root, evidenceDir)
 
-			// Print blocked egress destinations if proxy mode was active.
+			// Print blocked egress destinations if proxy mode was active. The
+			// proxy is torn down first because that is what extracts the egress
+			// telemetry into egress.events.jsonl; reading before teardown would
+			// always report nothing blocked.
 			if proxyEnv != nil {
+				teardownProxy()
 				printBlockedDestinations(cmd.ErrOrStderr(), evidenceDir)
 			}
 
