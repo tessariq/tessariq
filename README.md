@@ -62,14 +62,27 @@ To run Tessariq locally, you need:
 - `tmux`
 - `docker`
 - Go `1.26` if you want to build the CLI from source
-- a compatible runtime image containing the selected agent binary
 - supported local auth state for the selected agent
 
-Tessariq checks required host prerequisites before it starts a run.
+Tessariq checks required host prerequisites before it starts a run. A runtime
+image containing the selected agent binary is supplied by default, so there is
+nothing to build before your first run.
 
 ## Install
 
-Build from source:
+Download a prebuilt archive for your platform from the
+[releases page](https://github.com/tessariq/tessariq/releases), verify it against
+the published `checksums.txt`, and put `tessariq` on your `PATH`.
+
+With a Go toolchain:
+
+```sh
+go install github.com/tessariq/tessariq/cmd/tessariq@v0.1.0
+tessariq version
+tessariq --help
+```
+
+Or build from source:
 
 ```sh
 git clone https://github.com/tessariq/tessariq.git
@@ -101,25 +114,14 @@ task test        # run the unit suite (see `task --list` for all targets)
 mise and Task are optional convenience — the direct `go` commands above work
 without them.
 
-## Prepare a Runtime Image
+## Runtime Images
 
-Tessariq runs agents inside Docker containers. The official reference runtime image includes a broad development toolchain, but it does not bundle third-party agent binaries. You derive your own image by adding the agent you want to run.
-
-Example for Claude Code:
-
-```dockerfile
-FROM ghcr.io/tessariq/reference-runtime:v0.1.0
-
-USER root
-RUN npm install -g @anthropic-ai/claude-code@latest
-USER tessariq
-```
-
-Build it:
-
-```sh
-docker build -t my-claude-runtime:v1 .
-```
+Tessariq runs agents inside Docker containers. When `--image` is omitted it pulls
+a published quickstart image for the selected agent —
+`ghcr.io/tessariq/claude-code:v0.1.0` or `ghcr.io/tessariq/opencode:v0.1.0` — so
+you can start without building anything. These images exist for onboarding and
+experimentation; for production, build your own from the reference runtime as
+shown [below](#bring-your-own-image-recommended-for-production).
 
 For more on runtime images, supported auth mounts, and OpenCode setup, see [`docs/runtime-images.md`](docs/runtime-images.md).
 
@@ -142,7 +144,7 @@ Tighten the introduction, fix stale examples, and keep the tone technical and di
 Assuming that file is saved as `tasks/improve-readme.md`, start a run:
 
 ```sh
-tessariq run tasks/improve-readme.md --image my-claude-runtime:v1
+tessariq run tasks/improve-readme.md
 ```
 
 Successful runs print script-friendly output:
@@ -170,6 +172,30 @@ Typical flow:
 3. Inspect the evidence under `.tessariq/runs/<run_id>/`.
 4. Attach if you want to observe or interact with the live session.
 5. Promote the result into one branch and one commit when it is ready.
+
+### Bring Your Own Image (recommended for production)
+
+The published quickstart images track the agent versions baked in at release
+time. For production use, derive your own image from the official reference
+runtime, which includes a broad development toolchain but bundles no third-party
+agent binaries.
+
+Example for Claude Code:
+
+```dockerfile
+FROM ghcr.io/tessariq/reference-runtime:v0.1.0
+
+USER root
+RUN npm install -g @anthropic-ai/claude-code@latest
+USER tessariq
+```
+
+Build it and point a run at it:
+
+```sh
+docker build -t my-claude-runtime:v1 .
+tessariq run tasks/improve-readme.md --image my-claude-runtime:v1
+```
 
 ## What a Run Leaves Behind
 
