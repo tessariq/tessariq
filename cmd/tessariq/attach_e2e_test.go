@@ -46,7 +46,7 @@ func TestE2E_AttachLastJoinsLiveRun(t *testing.T) {
 	}, 5*time.Second, 200*time.Millisecond)
 
 	// Tear the live run down explicitly and wait for host-side cleanup before
-	// t.TempDir() cleanup runs. Under TASK-093 hardening the worktree is no
+	// t.TempDir() cleanup runs. Under T-093 hardening the worktree is no
 	// longer world-accessible, so relying on permissive leftovers here flakes.
 	_, _, _ = env.Exec(context.Background(), []string{"sh", "-c", fmt.Sprintf("docker rm -f tessariq-%s 2>/dev/null || true", runID)})
 	require.Eventually(t, func() bool {

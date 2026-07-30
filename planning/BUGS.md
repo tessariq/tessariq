@@ -14,31 +14,31 @@ Automated adversarial testing against done tasks.
 
 ## Bug Summary
 
-BUG-001 through BUG-007 were all fixed by TASK-030 through TASK-039 (done).
+BUG-001 through BUG-007 were all fixed by T-030 through T-039 (done).
 
-BUG-037 was fixed by TASK-071.
+BUG-037 was fixed by T-071.
 
-BUG-042 was fixed by TASK-076. BUG-047 was fixed by TASK-077.
+BUG-042 was fixed by T-076. BUG-047 was fixed by T-077.
 
-BUG-041 was fixed by TASK-075.
+BUG-041 was fixed by T-075.
 
-BUG-048 through BUG-051 were fixed by TASK-085 through TASK-088.
+BUG-048 through BUG-051 were fixed by T-085 through T-088.
 
-BUG-054 through BUG-059 and BUG-061 were fixed by TASK-089 through TASK-095.
+BUG-054 through BUG-059 and BUG-061 were fixed by T-089 through T-095.
 
-BUG-053 and BUG-062 through BUG-064 were fixed by TASK-097 through TASK-100.
+BUG-053 and BUG-062 through BUG-064 were fixed by T-097 through T-100.
 
 BUG-043 through BUG-046 were reviewed against the current code and marked not reproducible.
 
 | Bug | Severity | File | One-liner | Status |
 |-----|----------|------|-----------|--------|
-| BUG-001 | HIGH | `run.go:71-73` | OpenCode `--interactive` hard-rejected instead of recorded | **Fixed** (TASK-033) |
-| BUG-002 | HIGH | `run.go:231-237` | `--egress-allow` doesn't bypass provider resolution | **Fixed** (TASK-034) |
-| BUG-003 | HIGH | `initialize.go:16` | Init creates evidence parent dirs with 0o755 not 0o700 | **Fixed** (TASK-035) |
-| BUG-004 | MEDIUM | `run.go:87,113` | base_sha TOCTOU between manifest and workspace | **Fixed** (TASK-036) |
-| BUG-005 | HIGH | `factory.go:67` | Agent binary not validated before container start | **Fixed** (TASK-037) |
-| BUG-006 | CRITICAL | `run.go:113-179` | No cleanup defer — worktree leaked on post-provision errors | **Fixed** (TASK-038) |
-| BUG-007 | HIGH | `logs.go:16-29` | Logs not capped, no truncation marker | **Fixed** (TASK-039) |
+| BUG-001 | HIGH | `run.go:71-73` | OpenCode `--interactive` hard-rejected instead of recorded | **Fixed** (T-033) |
+| BUG-002 | HIGH | `run.go:231-237` | `--egress-allow` doesn't bypass provider resolution | **Fixed** (T-034) |
+| BUG-003 | HIGH | `initialize.go:16` | Init creates evidence parent dirs with 0o755 not 0o700 | **Fixed** (T-035) |
+| BUG-004 | MEDIUM | `run.go:87,113` | base_sha TOCTOU between manifest and workspace | **Fixed** (T-036) |
+| BUG-005 | HIGH | `factory.go:67` | Agent binary not validated before container start | **Fixed** (T-037) |
+| BUG-006 | CRITICAL | `run.go:113-179` | No cleanup defer — worktree leaked on post-provision errors | **Fixed** (T-038) |
+| BUG-007 | HIGH | `logs.go:16-29` | Logs not capped, no truncation marker | **Fixed** (T-039) |
 | BUG-008 | HIGH | `run.go:200` | Spurious "interactive mode without --attach" note on every default claude-code run | **Fixed** |
 | BUG-009 | HIGH | `run.go:288` | OpenCode + proxy + user_config allowlist fails if auth.json missing | **Fixed** |
 | BUG-010 | MEDIUM | `run.go:288` | OpenCode auth-missing produces raw I/O error instead of actionable message | **Fixed** |
@@ -46,55 +46,55 @@ BUG-043 through BUG-046 were reviewed against the current code and marked not re
 | BUG-012 | LOW | `specs/tessariq-v0.1.0.md` | Manifest example uses `"allowlist_source": "auto"` which contradicts normative text | **Fixed (spec doc)** |
 | BUG-013 | CRITICAL | `index.go`, `promote.go` | `promote` trusts forged `evidence_path` entries and can promote out-of-repo evidence | **Fixed** |
 | BUG-014 | HIGH | `completeness.go`, `promote.go` | `promote` ignores missing `diffstat.txt` even though spec requires it when changes exist | **Fixed** |
-| BUG-015 | HIGH | `promote.go` | `promote` allows manifest tampering to rewrite branch identity and commit trailers | **Fixed** (TASK-048) |
+| BUG-015 | HIGH | `promote.go` | `promote` allows manifest tampering to rewrite branch identity and commit trailers | **Fixed** (T-048) |
 | BUG-016 | HIGH | `attach.go` | `attach` trusts forged `evidence_path` entries from outside the repo | **Fixed** |
-| BUG-017 | HIGH | `attach.go` | `attach` does not verify evidence directory belongs to the same `run_id` | **Fixed** (TASK-052) |
-| BUG-018 | HIGH | `preflight.go` | `attach` depends on `git` but does not preflight it as a required prerequisite | **Fixed** (TASK-050) |
-| BUG-019 | HIGH | `run.go` | `run` loads user config even when explicit CLI egress settings should bypass it | **Fixed** (TASK-053) |
+| BUG-017 | HIGH | `attach.go` | `attach` does not verify evidence directory belongs to the same `run_id` | **Fixed** (T-052) |
+| BUG-018 | HIGH | `preflight.go` | `attach` depends on `git` but does not preflight it as a required prerequisite | **Fixed** (T-050) |
+| BUG-019 | HIGH | `run.go` | `run` loads user config even when explicit CLI egress settings should bypass it | **Fixed** (T-053) |
 | BUG-020 | HIGH | `runref.go` | `last-N` resolves index lines, not runs; duplicate entries break previous-run selection | **Fixed** |
 | BUG-021 | HIGH | `index.go`, `runref.go` | `ReadIndex` accepts partial JSON objects as valid runs | **Fixed** |
 | BUG-022 | HIGH | `taskpath.go` | `run` accepts symlinked task path whose real target is outside the repository | **Fixed** |
 | BUG-023 | CRITICAL | `run.go`, `factory.go`, `process.go` | `--egress none` does not disable networking; container gets full internet access | **Fixed** |
 | BUG-024 | MEDIUM | `run.go:216` | `WriteDiffArtifacts` error silently discarded; run completes without diff evidence | **Fixed** |
-| BUG-025 | HIGH | `allowlist.go:39`, `squidconf.go:47` | Newline/control char injection in allowlist host corrupts Squid config | **Fixed** (TASK-058) |
-| BUG-026 | MEDIUM | `allowlist.go:35-43` | Leading-dot hosts enable Squid wildcard subdomain matching | **Fixed** (TASK-059) |
-| BUG-027 | HIGH | `process.go:104`, `runner.go:176` | `docker stop --time=10` makes `--grace` flag dead code | **Fixed** (TASK-060) |
-| BUG-028 | MEDIUM | `provision.go:53-69` | Worktree and git ref leak when Docker unavailable during cleanup | **Fixed** (TASK-061) |
-| BUG-029 | MEDIUM | `squid.go:56-59` | Squid proxy container lacks security hardening (no cap-drop, no-new-privileges) | **Fixed** (TASK-062) |
-| BUG-030 | MEDIUM | `squid.go:16` | Squid proxy image uses unpinned `:latest` tag | **Fixed** (TASK-063) |
-| BUG-031 | HIGH | `squidconf.go:52` | Squid ACL cross-product allows unintended host:port combinations | **Fixed** (TASK-064) |
-| BUG-032 | MEDIUM | `allowlist.go:22` | IPv6 address misparse in ParseDestination | **Fixed** (TASK-065) |
-| BUG-033 | MEDIUM | `diff.go:27` | Binary file changes silently dropped during promote (missing `--binary`) | **Fixed** (TASK-066) |
-| BUG-034 | MEDIUM | `squid.go:49-103`, `topology.go:71` | Squid container and network leak on partial StartSquid failure | **Fixed** (TASK-067) |
-| BUG-035 | LOW | `manifest.go:80` | WriteManifest not atomic; partial write on crash corrupts evidence | **Fixed** (TASK-068) |
-| BUG-036 | LOW | `config.go:72` | `--egress open` silently discards `--egress-allow` without warning | **Fixed** (TASK-069) |
-| BUG-037 | HIGH | `cmd/tessariq/run.go:255`, `internal/runner/runner.go` | `run --attach` flag declared but never implemented; tmux session not attached | **Fixed** (TASK-071) |
-| BUG-038 | MEDIUM | `internal/runner/hooks.go:46`, `internal/runner/runner.go:88,110` | Pre/verify hooks run with CWD set to evidence directory, not repository root | **Fixed** (TASK-072) |
-| BUG-039 | MEDIUM | `cmd/tessariq/run.go:226-238` | Run failure output omits evidence path; contradicts spec failure-UX contract | **Fixed** (TASK-073) |
-| BUG-040 | LOW | `internal/run/userconfig.go:52` | UserConfig YAML silently ignores unknown fields; config typos cause undetected fallback | **Fixed** (TASK-074) |
-| BUG-041 | LOW | `internal/container/process.go:179`, `internal/runner/runner.go:130` | `docker logs --follow` cancelled by timeout context, truncating final agent output in `run.log` | **Fixed** (TASK-075) |
-| BUG-042 | MEDIUM | `internal/adapter/claudecode/claudecode.go:8`, `internal/adapter/opencode/opencode.go:8` | Default agent images use unpinned `:latest` tags | **Fixed** (TASK-076) |
+| BUG-025 | HIGH | `allowlist.go:39`, `squidconf.go:47` | Newline/control char injection in allowlist host corrupts Squid config | **Fixed** (T-058) |
+| BUG-026 | MEDIUM | `allowlist.go:35-43` | Leading-dot hosts enable Squid wildcard subdomain matching | **Fixed** (T-059) |
+| BUG-027 | HIGH | `process.go:104`, `runner.go:176` | `docker stop --time=10` makes `--grace` flag dead code | **Fixed** (T-060) |
+| BUG-028 | MEDIUM | `provision.go:53-69` | Worktree and git ref leak when Docker unavailable during cleanup | **Fixed** (T-061) |
+| BUG-029 | MEDIUM | `squid.go:56-59` | Squid proxy container lacks security hardening (no cap-drop, no-new-privileges) | **Fixed** (T-062) |
+| BUG-030 | MEDIUM | `squid.go:16` | Squid proxy image uses unpinned `:latest` tag | **Fixed** (T-063) |
+| BUG-031 | HIGH | `squidconf.go:52` | Squid ACL cross-product allows unintended host:port combinations | **Fixed** (T-064) |
+| BUG-032 | MEDIUM | `allowlist.go:22` | IPv6 address misparse in ParseDestination | **Fixed** (T-065) |
+| BUG-033 | MEDIUM | `diff.go:27` | Binary file changes silently dropped during promote (missing `--binary`) | **Fixed** (T-066) |
+| BUG-034 | MEDIUM | `squid.go:49-103`, `topology.go:71` | Squid container and network leak on partial StartSquid failure | **Fixed** (T-067) |
+| BUG-035 | LOW | `manifest.go:80` | WriteManifest not atomic; partial write on crash corrupts evidence | **Fixed** (T-068) |
+| BUG-036 | LOW | `config.go:72` | `--egress open` silently discards `--egress-allow` without warning | **Fixed** (T-069) |
+| BUG-037 | HIGH | `cmd/tessariq/run.go:255`, `internal/runner/runner.go` | `run --attach` flag declared but never implemented; tmux session not attached | **Fixed** (T-071) |
+| BUG-038 | MEDIUM | `internal/runner/hooks.go:46`, `internal/runner/runner.go:88,110` | Pre/verify hooks run with CWD set to evidence directory, not repository root | **Fixed** (T-072) |
+| BUG-039 | MEDIUM | `cmd/tessariq/run.go:226-238` | Run failure output omits evidence path; contradicts spec failure-UX contract | **Fixed** (T-073) |
+| BUG-040 | LOW | `internal/run/userconfig.go:52` | UserConfig YAML silently ignores unknown fields; config typos cause undetected fallback | **Fixed** (T-074) |
+| BUG-041 | LOW | `internal/container/process.go:179`, `internal/runner/runner.go:130` | `docker logs --follow` cancelled by timeout context, truncating final agent output in `run.log` | **Fixed** (T-075) |
+| BUG-042 | MEDIUM | `internal/adapter/claudecode/claudecode.go:8`, `internal/adapter/opencode/opencode.go:8` | Default agent images use unpinned `:latest` tags | **Fixed** (T-076) |
 | BUG-043 | MEDIUM | `cmd/tessariq/run.go:216`, `internal/runner/diff.go:15`, `internal/git/diff.go:22` | `WriteDiffArtifacts` called with cancelled CLI context after Ctrl+C; diff evidence silently lost | **Not reproducible** |
 | BUG-044 | MEDIUM | `cmd/tessariq/run.go:230` | Workspace not cleaned up after successful run; no prune mechanism; worktrees accumulate indefinitely | **Not reproducible** |
 | BUG-045 | LOW | `internal/container/probe.go:30` | `ProbeImageBinary` uses `fmt.Sprintf` inside `sh -c` for binary name; latent shell injection risk | **Not reproducible** |
 | BUG-046 | HIGH | `internal/runner/runner.go:169`, `cmd/tessariq/run.go:226-230` | `runDetachedProcess` misclassifies Ctrl+C as timeout; success output printed for cancelled runs | **Not reproducible** |
-| BUG-047 | HIGH | `cmd/tessariq/run.go:226-237`, `internal/runner/runner.go:81-118` | `tessariq run` treats terminal non-success outcomes as successful command completion | **Fixed** (TASK-077) |
-| BUG-048 | HIGH | `cmd/tessariq/main.go:11-17` | No SIGINT/SIGTERM handler; Ctrl+C during run leaks worktree, agent container, squid container, and Docker network | **Fixed** (TASK-085) |
-| BUG-049 | MEDIUM | `internal/runner/diff.go:30-36`, `cmd/tessariq/run.go:306,468-472` | `WriteDiffArtifacts` partial-write can leave orphan `diff.patch` without `diffstat.txt`; successful run produces evidence that `promote` later rejects | **Fixed** (TASK-086) |
-| BUG-050 | HIGH | `internal/authmount/authmount.go:66-70`, `internal/adapter/runtime.go:39` | `~/.claude.json` auth mount is **read-write** despite spec requiring read-only auth mounts; agent inside container can persist arbitrary settings (including MCP server entries) on the host — later Claude Code sessions can then execute attacker-planted commands | **Fixed** (TASK-087) |
-| BUG-051 | MEDIUM | `internal/runner/completeness.go:12-21`, `cmd/tessariq/promote.go` | `CheckEvidenceCompleteness` never requires proxy-mode conditional evidence (`egress.compiled.yaml`, `egress.events.jsonl`); a proxy-mode run missing those artifacts still passes completeness and promotes | **Fixed** (TASK-088) |
-| BUG-052 | MEDIUM | `internal/proxy/topology.go:105-109` | `Topology.Teardown` silently discards `CopyAccessLog` errors and unconditionally writes an empty `egress.events.jsonl` + `squid.log`, producing misleading "zero blocked destinations" evidence when telemetry extraction actually failed | **Fixed** (TASK-096) |
-| BUG-053 | LOW | `internal/workspace/metadata.go:46`, `internal/adapter/agent.go:42`, `internal/adapter/runtime.go:58` | `workspace.json`, `agent.json`, and `runtime.json` are written with plain `os.WriteFile` (no tmp+rename); crashes mid-write leave partial/empty evidence — the BUG-035 atomic-write fix was applied only to `manifest.json` and `status.json` | **Fixed** (TASK-097) |
-| BUG-054 | LOW | `internal/run/evidencepath.go:21-34` | `ValidateEvidencePath` does not resolve symlinks; a symlink planted at `.tessariq/runs/<run-id>` whose target points outside the repo passes the prefix check, letting `promote`/`attach` read forged evidence and bypass the BUG-013 containment fix | **Fixed** (TASK-089) |
-| BUG-055 | CRITICAL | `internal/lifecycle/reconcile.go:145-156,187-200`, `internal/workspace/provision.go:55-82` | `lifecycle.cleanupTerminalRun` reads `workspace_path` from an untrusted `workspace.json` and passes it to `workspace.Cleanup`, which runs `docker run -v <path>:/work chown -R`, host-side `chmod -R u+rwX <path>`, and `os.RemoveAll(<path>)`; a tampered evidence artifact can trigger arbitrary directory deletion and ownership rewrite during `promote`/`attach` reconcile | **Fixed** (TASK-090) |
-| BUG-056 | MEDIUM | `internal/runner/runner.go:118-126,145-153`, `internal/runner/hooks.go:45-61` | `RunPreHooks` / `RunVerifyHooks` execute on the top-level CLI context with no independent deadline; a hung pre/verify command ignores `--timeout` entirely and blocks the run indefinitely | **Fixed** (TASK-091) |
-| BUG-057 | LOW | `internal/run/taskpath.go:10-43`, `internal/promote/promote.go:193-204` | `ValidateTaskPath` does not reject newline or other control characters in the task-file path; the value is stored verbatim in `manifest.task_path` and later interpolated into the `Tessariq-Task:` commit trailer, allowing trailer/body injection on promote | **Fixed** (TASK-092) |
-| BUG-058 | MEDIUM | `internal/container/process.go:141-152`, `internal/workspace/provision.go:31` | `prepareWritableMounts` runs `chmod -R a+rwX` on every writable bind-mount source (the worktree), and the worktree parent dirs are created 0o755; during the run, all local users on the host can read and modify the worktree files | **Fixed** (TASK-093) |
-| BUG-059 | MEDIUM | `internal/runner/runner.go:161-170,443-457`, `internal/container/process.go:102-105` | `Runner.writeTerminalStatus` calls `Process.Cleanup` AFTER the terminal `status.json` is written; if `docker rm -f` fails, the run returns a Go error while `status.json` already records `success`, and the caller CLI path maps the error to a generic failure — leaving the recorded terminal state and the CLI exit disagreeing about outcome | **Fixed** (TASK-094) |
-| BUG-061 | MEDIUM | `internal/workspace/validatepath.go:51-65`, `internal/lifecycle/reconcile.go:166-169` | TASK-090 regression: `ValidateWorkspacePath` calls `filepath.EvalSymlinks` on the stored `workspace_path` and returns `ErrWorkspacePathOutsideTree` when the canonical worktree has already been removed (prior reconcile, manual cleanup, or idempotent re-entry); `tessariq attach` / `tessariq promote` then fail even though there is nothing to clean and the stored path matches the trusted-input canonical lexically. `workspace.Cleanup` itself is idempotent for missing paths, but `cleanupTerminalRun` errors out before it is reached. | **Fixed** (TASK-095) |
-| BUG-062 | HIGH | `internal/runner/completeness.go`, `internal/promote/promote.go`, `internal/run/index.go` | Manifest `resolved_egress_mode` tampering suppresses required proxy evidence checks | **Fixed** (TASK-098) |
-| BUG-063 | HIGH | `internal/runner/completeness.go`, `internal/promote/promote.go` | `promote` accepts non-empty malformed structured evidence as complete | **Fixed** (TASK-099) |
-| BUG-064 | MEDIUM | `internal/proxy/events.go`, `internal/runner/completeness.go`, `internal/promote/promote.go` | Honest zero-denied proxy runs emit empty `egress.events.jsonl` and become unpromotable | **Fixed** (TASK-100) |
+| BUG-047 | HIGH | `cmd/tessariq/run.go:226-237`, `internal/runner/runner.go:81-118` | `tessariq run` treats terminal non-success outcomes as successful command completion | **Fixed** (T-077) |
+| BUG-048 | HIGH | `cmd/tessariq/main.go:11-17` | No SIGINT/SIGTERM handler; Ctrl+C during run leaks worktree, agent container, squid container, and Docker network | **Fixed** (T-085) |
+| BUG-049 | MEDIUM | `internal/runner/diff.go:30-36`, `cmd/tessariq/run.go:306,468-472` | `WriteDiffArtifacts` partial-write can leave orphan `diff.patch` without `diffstat.txt`; successful run produces evidence that `promote` later rejects | **Fixed** (T-086) |
+| BUG-050 | HIGH | `internal/authmount/authmount.go:66-70`, `internal/adapter/runtime.go:39` | `~/.claude.json` auth mount is **read-write** despite spec requiring read-only auth mounts; agent inside container can persist arbitrary settings (including MCP server entries) on the host — later Claude Code sessions can then execute attacker-planted commands | **Fixed** (T-087) |
+| BUG-051 | MEDIUM | `internal/runner/completeness.go:12-21`, `cmd/tessariq/promote.go` | `CheckEvidenceCompleteness` never requires proxy-mode conditional evidence (`egress.compiled.yaml`, `egress.events.jsonl`); a proxy-mode run missing those artifacts still passes completeness and promotes | **Fixed** (T-088) |
+| BUG-052 | MEDIUM | `internal/proxy/topology.go:105-109` | `Topology.Teardown` silently discards `CopyAccessLog` errors and unconditionally writes an empty `egress.events.jsonl` + `squid.log`, producing misleading "zero blocked destinations" evidence when telemetry extraction actually failed | **Fixed** (T-096) |
+| BUG-053 | LOW | `internal/workspace/metadata.go:46`, `internal/adapter/agent.go:42`, `internal/adapter/runtime.go:58` | `workspace.json`, `agent.json`, and `runtime.json` are written with plain `os.WriteFile` (no tmp+rename); crashes mid-write leave partial/empty evidence — the BUG-035 atomic-write fix was applied only to `manifest.json` and `status.json` | **Fixed** (T-097) |
+| BUG-054 | LOW | `internal/run/evidencepath.go:21-34` | `ValidateEvidencePath` does not resolve symlinks; a symlink planted at `.tessariq/runs/<run-id>` whose target points outside the repo passes the prefix check, letting `promote`/`attach` read forged evidence and bypass the BUG-013 containment fix | **Fixed** (T-089) |
+| BUG-055 | CRITICAL | `internal/lifecycle/reconcile.go:145-156,187-200`, `internal/workspace/provision.go:55-82` | `lifecycle.cleanupTerminalRun` reads `workspace_path` from an untrusted `workspace.json` and passes it to `workspace.Cleanup`, which runs `docker run -v <path>:/work chown -R`, host-side `chmod -R u+rwX <path>`, and `os.RemoveAll(<path>)`; a tampered evidence artifact can trigger arbitrary directory deletion and ownership rewrite during `promote`/`attach` reconcile | **Fixed** (T-090) |
+| BUG-056 | MEDIUM | `internal/runner/runner.go:118-126,145-153`, `internal/runner/hooks.go:45-61` | `RunPreHooks` / `RunVerifyHooks` execute on the top-level CLI context with no independent deadline; a hung pre/verify command ignores `--timeout` entirely and blocks the run indefinitely | **Fixed** (T-091) |
+| BUG-057 | LOW | `internal/run/taskpath.go:10-43`, `internal/promote/promote.go:193-204` | `ValidateTaskPath` does not reject newline or other control characters in the task-file path; the value is stored verbatim in `manifest.task_path` and later interpolated into the `Tessariq-Task:` commit trailer, allowing trailer/body injection on promote | **Fixed** (T-092) |
+| BUG-058 | MEDIUM | `internal/container/process.go:141-152`, `internal/workspace/provision.go:31` | `prepareWritableMounts` runs `chmod -R a+rwX` on every writable bind-mount source (the worktree), and the worktree parent dirs are created 0o755; during the run, all local users on the host can read and modify the worktree files | **Fixed** (T-093) |
+| BUG-059 | MEDIUM | `internal/runner/runner.go:161-170,443-457`, `internal/container/process.go:102-105` | `Runner.writeTerminalStatus` calls `Process.Cleanup` AFTER the terminal `status.json` is written; if `docker rm -f` fails, the run returns a Go error while `status.json` already records `success`, and the caller CLI path maps the error to a generic failure — leaving the recorded terminal state and the CLI exit disagreeing about outcome | **Fixed** (T-094) |
+| BUG-061 | MEDIUM | `internal/workspace/validatepath.go:51-65`, `internal/lifecycle/reconcile.go:166-169` | T-090 regression: `ValidateWorkspacePath` calls `filepath.EvalSymlinks` on the stored `workspace_path` and returns `ErrWorkspacePathOutsideTree` when the canonical worktree has already been removed (prior reconcile, manual cleanup, or idempotent re-entry); `tessariq attach` / `tessariq promote` then fail even though there is nothing to clean and the stored path matches the trusted-input canonical lexically. `workspace.Cleanup` itself is idempotent for missing paths, but `cleanupTerminalRun` errors out before it is reached. | **Fixed** (T-095) |
+| BUG-062 | HIGH | `internal/runner/completeness.go`, `internal/promote/promote.go`, `internal/run/index.go` | Manifest `resolved_egress_mode` tampering suppresses required proxy evidence checks | **Fixed** (T-098) |
+| BUG-063 | HIGH | `internal/runner/completeness.go`, `internal/promote/promote.go` | `promote` accepts non-empty malformed structured evidence as complete | **Fixed** (T-099) |
+| BUG-064 | MEDIUM | `internal/proxy/events.go`, `internal/runner/completeness.go`, `internal/promote/promote.go` | Honest zero-denied proxy runs emit empty `egress.events.jsonl` and become unpromotable | **Fixed** (T-100) |
 
 ---
 
@@ -134,7 +134,7 @@ This error fires **before** the adapter is constructed, so `agent.json` never re
 
 ### Out-of-scope findings (TODO tasks, not bugs in done tasks)
 
-- Repair container uses `alpine:latest` instead of digest-pinned image — tracked as TASK-031 (TODO)
+- Repair container uses `alpine:latest` instead of digest-pinned image — tracked as T-031 (TODO)
 
 ---
 
@@ -174,14 +174,14 @@ But passing `--egress-allow api.openai.com:443` still fails because provider res
 
 | Area | Probe | Result |
 |------|-------|--------|
-| Timeout/grace handling | SIGTERM/SIGKILL, timeout.flag, status field | CLEAN (TASK-030 out of scope) |
+| Timeout/grace handling | SIGTERM/SIGKILL, timeout.flag, status field | CLEAN (T-030 out of scope) |
 | Auth/config mounts | All paths, RO enforcement, HOME isolation, runtime.json | CLEAN |
 | Interactive runtime mode | Activity timer, TTY flags, CLI args, warnings | CLEAN |
 | Acceptance scenarios | Init, dirty-repo, prereqs, container naming, evidence | CLEAN |
 
 ### Out-of-scope findings (TODO tasks, not bugs in done tasks)
 
-- Timeout signal escalation sends SIGKILL directly instead of SIGTERM first — tracked as TASK-030 (TODO)
+- Timeout signal escalation sends SIGKILL directly instead of SIGTERM first — tracked as T-030 (TODO)
 
 ---
 
@@ -218,8 +218,8 @@ Creates `.tessariq/` and `.tessariq/runs/` with `0o755` (world-readable and worl
 
 ### Out-of-scope findings (TODO tasks, not bugs in done tasks)
 
-- `--attach` auto-attach after start not implemented — tracked as TASK-007 (TODO)
-- `tessariq attach` command referenced in run output not yet implemented — TASK-007 (TODO)
+- `--attach` auto-attach after start not implemented — tracked as T-007 (TODO)
+- `tessariq attach` command referenced in run output not yet implemented — T-007 (TODO)
 - Tmux sessions not cleaned up after run — no task currently tracks this
 
 ---
@@ -247,14 +247,14 @@ Between these calls (~10-50ms window), another process could commit to the repo.
 
 **File:** `cmd/tessariq/run.go:87,113`, `internal/workspace/provision.go:24`
 
-### BUG-005: Agent binary pre-start validation not implemented (TASK-024/025 acceptance criteria)
+### BUG-005: Agent binary pre-start validation not implemented (T-024/025 acceptance criteria)
 
 **Severity:** HIGH
 
-**Spec says** (TASK-024 acceptance criteria, line 60):
+**Spec says** (T-024 acceptance criteria, line 60):
 > Tessariq validates that the `claude` binary is present in the resolved runtime image before agent start.
 
-And (TASK-025 acceptance criteria, line 60):
+And (T-025 acceptance criteria, line 60):
 > Tessariq validates that the `opencode` binary is present in the resolved runtime image before agent start.
 
 Also (spec failure UX, line 531):
@@ -337,7 +337,7 @@ Each of these leaves a dangling worktree directory at `~/.tessariq/worktrees/<re
 
 ## Iteration 7
 
-Scope: post-TASK-039 codebase. All previous bugs confirmed fixed. Four new bugs found.
+Scope: post-T-039 codebase. All previous bugs confirmed fixed. Four new bugs found.
 
 ### BUG-008: Spurious "interactive mode without --attach" note fires on every default claude-code run
 
@@ -1205,17 +1205,17 @@ Scope: status verification for all previously open bugs (BUG-025 through BUG-036
 ### Previously open bugs — status update
 
 Confirmed fixed by code review and commit history:
-- **BUG-025**: `allowlist.go` now calls `containsControlOrSpace` which rejects any byte ≤ 0x20 or 0x7F (TASK-058).
-- **BUG-026**: `ParseDestination` now rejects hosts starting with `.` with a clear error (TASK-059).
-- **BUG-027**: `Process.Signal` now uses `docker kill --signal=SIGTERM` (non-blocking); the runner's grace timer handles SIGKILL escalation (TASK-060).
-- **BUG-028**: `workspace.Cleanup` now calls `git.RemoveWorktree` and `os.RemoveAll` even when `repairWorkspaceOwnership` fails; a host-side `chmod` fallback was added (TASK-061).
-- **BUG-029**: `buildSquidCreateArgs` now includes `--cap-drop ALL`, `--cap-add SETGID`, `--cap-add SETUID`, `--security-opt no-new-privileges` (TASK-062).
-- **BUG-031**: `GenerateSquidConf` now groups hosts by port into per-port named ACLs (`acl hosts_443 dstdomain ...`) and emits one `http_access allow CONNECT port_N hosts_N` rule per port group, enforcing exact host:port pairs (TASK-064).
-- **BUG-033**: `git.Diff` now passes `--binary` to `git diff`, preserving binary hunks in `diff.patch` (TASK-066).
-- **BUG-035**: `WriteManifest` now uses a tmp+rename pattern identical to `WriteStatus` (TASK-068).
-- **BUG-036**: `Config.Validate()` now returns an error when `--egress-allow` is combined with `--egress open` (TASK-069).
+- **BUG-025**: `allowlist.go` now calls `containsControlOrSpace` which rejects any byte ≤ 0x20 or 0x7F (T-058).
+- **BUG-026**: `ParseDestination` now rejects hosts starting with `.` with a clear error (T-059).
+- **BUG-027**: `Process.Signal` now uses `docker kill --signal=SIGTERM` (non-blocking); the runner's grace timer handles SIGKILL escalation (T-060).
+- **BUG-028**: `workspace.Cleanup` now calls `git.RemoveWorktree` and `os.RemoveAll` even when `repairWorkspaceOwnership` fails; a host-side `chmod` fallback was added (T-061).
+- **BUG-029**: `buildSquidCreateArgs` now includes `--cap-drop ALL`, `--cap-add SETGID`, `--cap-add SETUID`, `--security-opt no-new-privileges` (T-062).
+- **BUG-031**: `GenerateSquidConf` now groups hosts by port into per-port named ACLs (`acl hosts_443 dstdomain ...`) and emits one `http_access allow CONNECT port_N hosts_N` rule per port group, enforcing exact host:port pairs (T-064).
+- **BUG-033**: `git.Diff` now passes `--binary` to `git diff`, preserving binary hunks in `diff.patch` (T-066).
+- **BUG-035**: `WriteManifest` now uses a tmp+rename pattern identical to `WriteStatus` (T-068).
+- **BUG-036**: `Config.Validate()` now returns an error when `--egress-allow` is combined with `--egress open` (T-069).
 
-Still open at iteration time (since fixed by TASK-063, TASK-065, and TASK-067):
+Still open at iteration time (since fixed by T-063, T-065, and T-067):
 - **BUG-030**: `DefaultSquidImage = "ubuntu/squid:latest"` — still unpinned.
 - **BUG-032**: `ParseDestination` still uses `strings.LastIndex(s, ":")` — still IPv6-unaware.
 - **BUG-034**: `StartSquid` still has no cleanup path for partial failures; `Topology.Setup` still only calls `RemoveNetwork` (not `StopSquid`) on `StartSquid` error.
@@ -1521,11 +1521,11 @@ Scope: status verification for the remaining open bugs and backlog synchronizati
 ### Previously open bugs - status update
 
 Confirmed still reproducible by code review and now tracked as explicit backlog items:
-- **BUG-037**: `cfg.Attach` is only used to suppress the interactive note in `cmd/tessariq/run.go`; `Runner.Run` never reads it and `tmux.AttachSession` is only wired through `tessariq attach`. Tracked by `TASK-071-implement-run-attach-live-session`.
-- **BUG-038**: ~~`RunPreHooks` and `RunVerifyHooks` are still called with `r.EvidenceDir` as `workDir`, so host-side hooks execute from `.tessariq/runs/<run_id>/` instead of the repository root.~~ **Fixed** by TASK-072: `Runner` now carries a `RepoRoot` field and passes it to hook calls instead of `EvidenceDir`.
-- **BUG-039**: `printRunOutput` still runs only on the success path; any `runErr` returns before printing `run_id` or `evidence_path` for failed runs. Tracked by `TASK-073-print-evidence-path-on-run-failure`.
-- **BUG-040**: **Fixed.** `LoadUserConfig` now uses `yaml.NewDecoder` with `KnownFields(true)` to reject unknown YAML keys. Tracked by `TASK-074-reject-unknown-user-config-fields`.
-- **BUG-041**: ~~`Process.Start` still binds `docker logs --follow` to the timeout context, so timeout cancellation kills the log follower before the grace-period shutdown output can be drained.~~ **Fixed** by TASK-075: `streamLogs` now uses `exec.Command` instead of `exec.CommandContext`, so the log follower exits naturally when the container stops.
+- **BUG-037**: `cfg.Attach` is only used to suppress the interactive note in `cmd/tessariq/run.go`; `Runner.Run` never reads it and `tmux.AttachSession` is only wired through `tessariq attach`. Tracked by `T-071`.
+- **BUG-038**: ~~`RunPreHooks` and `RunVerifyHooks` are still called with `r.EvidenceDir` as `workDir`, so host-side hooks execute from `.tessariq/runs/<run_id>/` instead of the repository root.~~ **Fixed** by T-072: `Runner` now carries a `RepoRoot` field and passes it to hook calls instead of `EvidenceDir`.
+- **BUG-039**: `printRunOutput` still runs only on the success path; any `runErr` returns before printing `run_id` or `evidence_path` for failed runs. Tracked by `T-073`.
+- **BUG-040**: **Fixed.** `LoadUserConfig` now uses `yaml.NewDecoder` with `KnownFields(true)` to reject unknown YAML keys. Tracked by `T-074`.
+- **BUG-041**: ~~`Process.Start` still binds `docker logs --follow` to the timeout context, so timeout cancellation kills the log follower before the grace-period shutdown output can be drained.~~ **Fixed** by T-075: `streamLogs` now uses `exec.Command` instead of `exec.CommandContext`, so the log follower exits naturally when the container stops.
 
 No new product bugs were identified in this iteration.
 
@@ -1535,7 +1535,7 @@ No new product bugs were identified in this iteration.
 |------|-------|--------|
 | Open-bug status audit | Re-read BUG-037 through BUG-041 against current code paths | CLEAN |
 | Existing follow-up coverage | Checked `planning/tasks/` for matching tracked tasks | CLEAN |
-| Historical fix status | Confirmed TASK-063/TASK-065/TASK-067 task files are `done` and match BUG summary | CLEAN |
+| Historical fix status | Confirmed T-063/T-065/T-067 task files are `done` and match BUG summary | CLEAN |
 
 ---
 
@@ -1555,7 +1555,7 @@ Scope: adversarial review of default agent image pinning against the existing Sq
 
 **Why this is a bug:** The default agent images are the last first-party runtime images still resolved through mutable tags. That leaves the normal `tessariq run` path exposed to the same supply-chain drift pattern already fixed for Squid and the repair helper.
 
-**Task:** `TASK-076-pin-default-agent-images-by-digest`
+**Task:** `T-076`
 
 ### Areas tested (clean)
 
@@ -1596,7 +1596,7 @@ Scope: review of the proposed pruning bug against the v0.1.0 and v0.2.0 product 
 
 **Disposition:** Not reproducible
 
-**Why:** Successful runs intentionally preserve the workspace today. That behavior is documented in completed task history (`TASK-038`) and aligns with the current product shape where `clean`/`prune` is explicitly out of scope. The absence of a cleanup command is a product gap worth noting in future specs, but it is not a verified v0.1.0 implementation defect.
+**Why:** Successful runs intentionally preserve the workspace today. That behavior is documented in completed task history (`T-038`) and aligns with the current product shape where `clean`/`prune` is explicitly out of scope. The absence of a cleanup command is a product gap worth noting in future specs, but it is not a verified v0.1.0 implementation defect.
 
 ### Areas tested (clean)
 
@@ -1664,7 +1664,7 @@ Scope: review of terminal non-success CLI behavior for `tessariq run` after vali
 
 **Impact:** A run whose agent exits non-zero, whose pre-hook fails, whose verify hook fails, or that times out can still exit through the success-style CLI path. That makes exit status, printed output, and workspace retention semantics inconsistent with the actual terminal run state.
 
-**Task:** `TASK-077-treat-terminal-non-success-run-outcomes-as-cli-failures`
+**Task:** `T-077`
 
 ### Areas tested (clean)
 
@@ -1672,7 +1672,7 @@ Scope: review of terminal non-success CLI behavior for `tessariq run` after vali
 |------|-------|--------|
 | Runner terminal status writes | `failed` and `timeout` paths return nil after writing status | CLEAN |
 | Run command success gate | Only `runErr != nil` prevents success-style output | CLEAN |
-| Existing failure-output follow-up | BUG-039 / TASK-073 still covers evidence-path output on actual error returns | CLEAN |
+| Existing failure-output follow-up | BUG-039 / T-073 still covers evidence-path output on actual error returns | CLEAN |
 
 ---
 
@@ -1747,7 +1747,7 @@ Scope: diff artifact generation and completeness contract between `run` and `pro
 > `diff.patch` when there are changes
 > `diffstat.txt` when there are changes
 
-Both files are required together. `promote` enforces this via `completeness.go` (see historical BUG-014 / TASK-047): if the worktree has changes, both artifacts must exist.
+Both files are required together. `promote` enforces this via `completeness.go` (see historical BUG-014 / T-047): if the worktree has changes, both artifacts must exist.
 
 **What was verified:**
 
@@ -1795,7 +1795,7 @@ If `diff.patch` writes successfully but `diffstat.txt` fails (ENOSPC, EDQUOT, EA
 | Area | Probe | Result |
 |------|-------|--------|
 | No-changes path | `WriteDiffArtifacts` early-returns before any write when `len(patch) == 0` | CLEAN |
-| `--binary` flag regression | `git diff --binary` is still passed (BUG-033 / TASK-066 fix holds) | CLEAN |
+| `--binary` flag regression | `git diff --binary` is still passed (BUG-033 / T-066 fix holds) | CLEAN |
 | `base_sha` injection surface | `baseSHA` is always sourced from `git.HeadSHA` — never attacker-controlled in current wiring | CLEAN |
 | File mode | Both artifacts written with `0o600` matching evidence ACL | CLEAN |
 
@@ -1814,7 +1814,7 @@ Scope: index append safety, proxy topology cleanup, git diff arg injection surfa
 | Area | Probe | Result |
 |------|-------|--------|
 | `AppendIndex` concurrent safety | `Open → Flock EX → Seek end → Write → Unlock` ordering is correct for POSIX advisory locks | CLEAN |
-| `ReadIndex` malformed-line resilience | Scanner silently skips unmarshal failures and `isComplete()`-fail entries; partial index still readable (BUG-021 / TASK-056 holds) | CLEAN |
+| `ReadIndex` malformed-line resilience | Scanner silently skips unmarshal failures and `isComplete()`-fail entries; partial index still readable (BUG-021 / T-056 holds) | CLEAN |
 | `git diff` baseSHA arg injection | `baseSHA` is sourced only from `git.HeadSHA`; `Diff` / `DiffStat` pass it after `--binary` / `--stat` and before `--`, which is safe for 40-char SHAs | CLEAN |
 | `Topology.Setup` cleanup on `StartSquid` error | Teardown uses the same `ctx` but `cmd.Context()` is never cancelled in current CLI wiring (BUG-046 review still applies), so the `_ = StopSquid` / `_ = RemoveNetwork` path executes against a live context | CLEAN |
 | Proxy teardown-after-success | `defer topo.Teardown(context.Background())` correctly uses a fresh background context so teardown always completes | CLEAN |
@@ -1950,7 +1950,7 @@ BUG-014 historically addressed the same class of gap for `diffstat.txt` (conditi
 | Area | Probe | Result |
 |------|-------|--------|
 | Unconditional-evidence file set | Eight always-required files enumerated and each stat-checked for size > 0 | CLEAN |
-| `diff.patch` / `diffstat.txt` gate | `promote.go:69-85` still enforces both when changes exist (BUG-014/TASK-047 holds) | CLEAN |
+| `diff.patch` / `diffstat.txt` gate | `promote.go:69-85` still enforces both when changes exist (BUG-014/T-047 holds) | CLEAN |
 | File-size check | `info.Size() == 0` correctly flags zero-byte artifacts as missing | CLEAN |
 
 ---
@@ -2009,7 +2009,7 @@ Both files end up present and readable — zero events, zero log lines — with 
 
 ## Iteration 34
 
-Scope: atomic-write contract for evidence artifacts. BUG-035 / TASK-068 fixed `manifest.json`; verified whether the same pattern was applied to every evidence writer.
+Scope: atomic-write contract for evidence artifacts. BUG-035 / T-068 fixed `manifest.json`; verified whether the same pattern was applied to every evidence writer.
 
 ### BUG-053: BUG-035 atomic-write fix is incomplete — `workspace.json`, `agent.json`, and `runtime.json` are still written non-atomically
 
@@ -2018,7 +2018,7 @@ Scope: atomic-write contract for evidence artifacts. BUG-035 / TASK-068 fixed `m
 
 **What was verified:**
 
-After BUG-035 / TASK-068, `WriteManifest` in `internal/run/manifest.go:70-93` and `WriteStatus` in `internal/runner/status.go:64-83` both follow the atomic tmp+rename pattern:
+After BUG-035 / T-068, `WriteManifest` in `internal/run/manifest.go:70-93` and `WriteStatus` in `internal/runner/status.go:64-83` both follow the atomic tmp+rename pattern:
 
 ```go
 if err := os.WriteFile(tmp, data, 0o600); err != nil { ... }
@@ -2087,7 +2087,7 @@ func ValidateEvidencePath(repoRoot, evidencePath string) (string, error) {
 
 `filepath.Clean` operates purely on the string form of the path — it does not resolve symlinks. A symlink located at `.tessariq/runs/<run-id>` whose target is `/tmp/forged-evidence/` has a **logical** path that starts with `<repoRoot>/.tessariq/runs/`, so the prefix check passes. Subsequent `os.ReadFile(...)` calls inside `promote.Run` and `attach.ResolveLiveRun` follow the symlink, reading forged `manifest.json`, `status.json`, `diff.patch`, `task.md`, etc. from the attacker-chosen target.
 
-Contrast with `ValidateTaskPath` (`internal/run/taskpath.go:28-37`), which explicitly resolves symlinks on both the path and the repository root using `filepath.EvalSymlinks` before comparing the real locations. That stricter discipline was introduced by BUG-022 / TASK-057 but was never back-ported to `ValidateEvidencePath`.
+Contrast with `ValidateTaskPath` (`internal/run/taskpath.go:28-37`), which explicitly resolves symlinks on both the path and the repository root using `filepath.EvalSymlinks` before comparing the real locations. That stricter discipline was introduced by BUG-022 / T-057 but was never back-ported to `ValidateEvidencePath`.
 
 `BUGS.md:1064` previously listed "Evidence path validation — Absolute paths, `../`, symlinks, out-of-repo" as `CLEAN`, citing BUG-013/016. The symlink portion of that sweep was not actually enforced in code.
 
@@ -2113,7 +2113,7 @@ Contrast with `ValidateTaskPath` (`internal/run/taskpath.go:28-37`), which expli
 | Absolute-path rejection | `filepath.IsAbs(evidencePath)` still returns an error (BUG-013 fix holds) | CLEAN |
 | `../` traversal rejection | Prefix check still catches `..` components after `filepath.Clean` | CLEAN |
 | Empty-string rejection | Explicit empty-string guard in the opening `if` block | CLEAN |
-| Task-path symlink guard | `ValidateTaskPath` still calls `filepath.EvalSymlinks` (BUG-022 / TASK-057 fix holds) | CLEAN |
+| Task-path symlink guard | `ValidateTaskPath` still calls `filepath.EvalSymlinks` (BUG-022 / T-057 fix holds) | CLEAN |
 | Run-ID/evidence-dir cross-check | `ValidateEvidenceRunID` rejects mismatched directory names (BUG-017 fix holds) | CLEAN |
 
 ---
@@ -2236,7 +2236,7 @@ Actual: the CLI sits for an hour inside `RunPreHooks` before the pre-hook's `sle
 - Users relying on `--timeout` as an SLA for unattended automation (CI jobs, scheduled agent runs) get unbounded stalls when their own hooks misbehave.
 - Evidence artifacts (`status.json`, `timeout.flag`, `diff.patch`) are never produced, because the terminal-status write-path never executes.
 - A compromised hook definition planted via CI config or a shared shell alias becomes a DoS primitive against any tessariq run on that host.
-- The BUG-030/TASK-030 SIGTERM-escalation policy only applies to the agent process; there is no symmetric escalation for hooks.
+- The BUG-030/T-030 SIGTERM-escalation policy only applies to the agent process; there is no symmetric escalation for hooks.
 
 **Fix direction:** Wrap each hook invocation in its own `context.WithTimeout(ctx, remainingBudget)`, where `remainingBudget` is derived from `cfg.Timeout` minus the time already consumed since `startedAt`. On timeout, `exec.CommandContext` will terminate the hook; the runner should then write `StateTimeout` with a `runner.log` note identifying the offending hook. Optionally introduce a dedicated `--hook-timeout` flag for operators that want a different budget for hooks.
 
@@ -2311,7 +2311,7 @@ The resulting commit carries an injected `Signed-off-by` trailer that the promot
 **Impact:**
 
 - Forged provenance metadata on promoted commits — any tooling that filters or audits by commit trailers is deceivable.
-- BUG-015 / TASK-048 hardened manifest tampering, but the fix did not reject control characters in fields that are later interpolated into commit messages.
+- BUG-015 / T-048 hardened manifest tampering, but the fix did not reject control characters in fields that are later interpolated into commit messages.
 - Practical exploitability is limited: the attacker must control the task file's filename. Realistic scenarios include CI jobs that read task filenames from a repository (one branch plants the file, another runs tessariq) or multi-user shared repositories.
 
 **Fix direction:** Reject task-path strings containing any byte in `0x00..0x1F` or `0x7F` in `ValidateTaskPathLogic`. For defence in depth, also strip / reject newlines in `ExtractTaskTitle`'s filename fallback and in `buildCommitMessage` before interpolation — encode the trailer value or refuse to promote if it contains a newline.
@@ -2322,7 +2322,7 @@ The resulting commit carries an injected `Signed-off-by` trailer that the promot
 |------|-------|--------|
 | Task-path absolute rejection | `filepath.IsAbs` check still fires | CLEAN |
 | Task-path `.md` suffix | Case-insensitive suffix check still fires | CLEAN |
-| Task-path symlink containment | `EvalSymlinks` + prefix check (BUG-022/TASK-057) | CLEAN |
+| Task-path symlink containment | `EvalSymlinks` + prefix check (BUG-022/T-057) | CLEAN |
 | Manifest run-id identity | `validateManifestIdentity` rejects mismatches | CLEAN |
 
 ---
@@ -2383,7 +2383,7 @@ Tessariq's threat model (per AGENTS.md "Container user and bind-mount permission
 | Area | Probe | Result |
 |------|-------|--------|
 | Evidence-dir permissions | `0o700` on `.tessariq/runs/<run_id>/` still enforced (BUG-003 fix holds) | CLEAN |
-| Auth-mount read-only contract | `authmount.ValidateContract` still rejects writable specs (BUG-050/TASK-087) | CLEAN |
+| Auth-mount read-only contract | `authmount.ValidateContract` still rejects writable specs (BUG-050/T-087) | CLEAN |
 | Runtime-state scratch permissions | `os.MkdirAll(scratchRoot, 0o700)` still enforced | CLEAN |
 
 ---
@@ -2475,7 +2475,7 @@ This is the inverse of BUG-046's historical concern: there, non-success was misc
 
 ## Iteration 41
 
-Scope: follow-up review of TASK-091 (`internal/runner/hooks.go`). Probed whether the new per-hook deadline path fully closes the budget boundary it claims to enforce.
+Scope: follow-up review of T-091 (`internal/runner/hooks.go`). Probed whether the new per-hook deadline path fully closes the budget boundary it claims to enforce.
 
 ### BUG-060: `runHook` starts the shell process even when the shared deadline is already exhausted; a select race can still record the result as non-timeout
 
@@ -2484,7 +2484,7 @@ Scope: follow-up review of TASK-091 (`internal/runner/hooks.go`). Probed whether
 
 **What was verified:**
 
-TASK-091's `runHook` derives `hookCtx` from the shared deadline but unconditionally calls `cmd.Start()` without first checking `hookCtx.Err()`:
+T-091's `runHook` derives `hookCtx` from the shared deadline but unconditionally calls `cmd.Start()` without first checking `hookCtx.Err()`:
 
 ```go
 if !deadline.IsZero() {
@@ -2532,7 +2532,7 @@ Actual (pre-fix): first hook exhausts the budget, second hook starts anyway, `/t
 
 ## Iteration 42
 
-Scope: PR #96 Codex code review follow-up on TASK-090 (BUG-055 fix). Inspected the new `workspace.ValidateWorkspacePath` helper for behavioral regressions around idempotent reconcile.
+Scope: PR #96 Codex code review follow-up on T-090 (BUG-055 fix). Inspected the new `workspace.ValidateWorkspacePath` helper for behavioral regressions around idempotent reconcile.
 
 ### BUG-061: `ValidateWorkspacePath` rejects a missing canonical worktree, regressing idempotent reconcile cleanup
 
@@ -2541,9 +2541,9 @@ Scope: PR #96 Codex code review follow-up on TASK-090 (BUG-055 fix). Inspected t
 
 **What was verified:**
 
-Codex's PR #96 review (`https://github.com/tessariq/tessariq/pull/96#discussion_r3087680616`, P2) pointed out that TASK-090's new validator breaks `workspace.Cleanup`'s long-standing idempotent contract for already-removed worktrees.
+Codex's PR #96 review (`https://github.com/tessariq/tessariq/pull/96#discussion_r3087680616`, P2) pointed out that T-090's new validator breaks `workspace.Cleanup`'s long-standing idempotent contract for already-removed worktrees.
 
-Before TASK-090, `workspace.Cleanup` opened with:
+Before T-090, `workspace.Cleanup` opened with:
 
 ```go
 if _, err := os.Stat(workspacePath); os.IsNotExist(err) {
@@ -2551,7 +2551,7 @@ if _, err := os.Stat(workspacePath); os.IsNotExist(err) {
 }
 ```
 
-so any re-entry (prior reconcile, manual `rm -rf`, pruned daemon state) was a safe no-op. TASK-090 inserts `workspace.ValidateWorkspacePath` in front of `Cleanup` inside `lifecycle.cleanupTerminalRun`:
+so any re-entry (prior reconcile, manual `rm -rf`, pruned daemon state) was a safe no-op. T-090 inserts `workspace.ValidateWorkspacePath` in front of `Cleanup` inside `lifecycle.cleanupTerminalRun`:
 
 ```go
 canonical, err := workspace.ValidateWorkspacePath(deps.homeDir, repoRoot, manifest.RunID, stored)
@@ -2648,7 +2648,7 @@ A real proxy-mode run can therefore be relabeled to `"direct"` in `manifest.json
 **Impact:**
 
 - A proxy-mode run can present as complete and promotable even when its required proxy evidence is missing.
-- This weakens the BUG-051 / TASK-088 fix: proxy evidence completeness is only enforced while the mutable manifest says the run was proxy mode.
+- This weakens the BUG-051 / T-088 fix: proxy evidence completeness is only enforced while the mutable manifest says the run was proxy mode.
 - The resulting evidence can look clean while omitting the exact proxy artifacts `promote` is supposed to require.
 
 **Fix direction:** Persist resolved egress mode in a second trusted record and drive proxy-evidence requirements from that trusted value, rejecting any mismatch with `manifest.json` before promote side effects.

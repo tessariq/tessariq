@@ -725,12 +725,12 @@ Bootstrap is expected to:
 
 1. **Implementation notes — disposable runtime-state mechanism clarified**
    - The "Supported auth and config paths" informative note now describes the mechanism as a disposable per-run runtime-state file under `~/.tessariq/runtime-state/<run_id>/`, not a tmpfs-backed runtime path.
-   - Rationale: TASK-087 implementation of the disposable layer uses a host-side per-run scratch file (seeded from the read-only host source and bind-mounted read-write at the agent's expected container path) rather than a tmpfs-plus-wrapper-entrypoint mechanism. Both satisfy the normative rule that host auth/state/config paths MUST NOT be writable from inside the container; the scratch-file approach reuses the existing read-write bind infrastructure and makes the disposable property obvious at the filesystem level.
+   - Rationale: T-087 implementation of the disposable layer uses a host-side per-run scratch file (seeded from the read-only host source and bind-mounted read-write at the agent's expected container path) rather than a tmpfs-plus-wrapper-entrypoint mechanism. Both satisfy the normative rule that host auth/state/config paths MUST NOT be writable from inside the container; the scratch-file approach reuses the existing read-write bind infrastructure and makes the disposable property obvious at the filesystem level.
    - The normative rule in "Agent and Runtime Contract" is unchanged: host paths MUST NOT be writable from inside the container, and writes that the agent needs MUST go through a disposable per-run runtime-state layer.
 
 **Tasks affected:**
 
-- TASK-087 implementation landed; the informative note now reflects the as-built mechanism.
+- T-087 implementation landed; the informative note now reflects the as-built mechanism.
 
 ### 2026-04-13: Disposable writable runtime-state layer for agent auth and config
 
@@ -754,7 +754,7 @@ Bootstrap is expected to:
 
 **Tasks affected:**
 
-- New task TASK-087 for implementing the disposable runtime-state layer and restoring the read-only host auth mount contract across all supported agents.
+- New task T-087 for implementing the disposable runtime-state layer and restoring the read-only host auth mount contract across all supported agents.
 
 ### 2026-04-07: Agent auto-update via cache-aware init container
 
@@ -789,7 +789,7 @@ Bootstrap is expected to:
 
 **Tasks affected:**
 
-- New task TASK-084 for agent auto-update implementation.
+- New task T-084 for agent auto-update implementation.
 
 ### 2026-04-06: Model-aware provider resolution for OpenCode egress
 
@@ -799,7 +799,7 @@ Bootstrap is expected to:
    - When the `--model` flag contains a provider prefix that maps to a known API host, that host is included in the built-in allowlist alongside the configured provider host.
    - When the prefix is not recognized and the built-in allowlist is the active source, tessariq fails before container start with guidance to use `--egress-allow`.
    - When the configured provider is unresolvable from config/auth but `--model` provides a known provider, the model provider is used as a fallback for allowlist construction.
-   - Rationale: TASK-079 forwarded `--model` to OpenCode but did not update egress resolution. Choosing a model from a different provider than the configured one caused silent egress denial under the default secure networking mode.
+   - Rationale: T-079 forwarded `--model` to OpenCode but did not update egress resolution. Choosing a model from a different provider than the configured one caused silent egress denial under the default secure networking mode.
 
 2. **Failure UX table updated with model-provider edge case**
    - New row for unknown `--model` provider prefix.
@@ -807,7 +807,7 @@ Bootstrap is expected to:
 
 **Tasks affected:**
 
-- New task TASK-081 for model-aware OpenCode egress.
+- New task T-081 for model-aware OpenCode egress.
 
 ### 2026-04-01: Add version command contract to v0.1.0
 
@@ -850,9 +850,9 @@ Bootstrap is expected to:
 
 **Tasks affected:**
 
-- New task TASK-030 for timeout signal escalation fix (SIGTERM before SIGKILL, per TASK-005 acceptance criteria).
-- New task TASK-031 for pinning the workspace repair container image by digest.
-- New task TASK-032 for container security hardening (`--cap-drop=ALL`, `--security-opt=no-new-privileges`, evidence file permissions).
+- New task T-030 for timeout signal escalation fix (SIGTERM before SIGKILL, per T-005 acceptance criteria).
+- New task T-031 for pinning the workspace repair container image by digest.
+- New task T-032 for container security hardening (`--cap-drop=ALL`, `--security-opt=no-new-privileges`, evidence file permissions).
 
 ### 2026-03-30: Shift v0.1.0 to the agent and runtime model
 
@@ -930,4 +930,4 @@ Bootstrap is expected to:
 4. **Agent-option evidence example updated**
    - The minimum requested/supported option shape now uses `interactive` instead of `yolo`.
 
-**Tasks affected:** TASK-002 (done, code update tracked in TASK-018), TASK-009, TASK-010, TASK-011. New tasks created: TASK-018 (v0.1.0, code changes), TASK-019 (v0.2.0, `--prompt` backlog).
+**Tasks affected:** T-002 (done, code update tracked in T-018), T-009, T-010, T-011. New tasks created: T-018 (v0.1.0, code changes), T-019 (v0.2.0, `--prompt` backlog).

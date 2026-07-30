@@ -367,7 +367,7 @@ func TestPrintNonSuccessOutput_ContainsStateAndEvidence(t *testing.T) {
 }
 
 // TestPrintNonSuccessOutput_IncludesCleanupCauseWhenPresent verifies the
-// TASK-094 CLI surface: a TerminalStateError carrying a cleanup cause
+// T-094 CLI surface: a TerminalStateError carrying a cleanup cause
 // renders a cleanup_error line so operators see why an otherwise-clean
 // run was downgraded.
 func TestPrintNonSuccessOutput_IncludesCleanupCauseWhenPresent(t *testing.T) {

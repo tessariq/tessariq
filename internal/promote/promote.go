@@ -23,7 +23,7 @@ var (
 	// failed after the primary work finished. The runner downgrades
 	// such runs to StateFailed and stamps status.cleanup_error; promote
 	// honors that marker so it never promotes a run the CLI reported as
-	// failed due to cleanup error (TASK-094).
+	// failed due to cleanup error (T-094).
 	ErrCleanupFailed = errors.New("run cleanup failed; the run cannot be promoted")
 )
 

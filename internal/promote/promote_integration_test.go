@@ -616,7 +616,7 @@ func createEvidenceFixture(t *testing.T, repoDir, runID, baseSHA, patch, diffsta
 	require.NoError(t, run.AppendIndex(filepath.Join(repoDir, ".tessariq", "runs"), entry))
 }
 
-// TestRun_RejectsRunWithCleanupError pins the TASK-094 acceptance criterion:
+// TestRun_RejectsRunWithCleanupError pins the T-094 acceptance criterion:
 // a run whose status.json carries a non-empty cleanup_error must not be
 // promotable, even when every other evidence check (terminal state, diff,
 // diffstat, manifest identity) passes. This keeps promote aligned with

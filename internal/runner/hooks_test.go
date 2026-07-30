@@ -95,7 +95,7 @@ func TestRunPreHooks_ContextCancellation(t *testing.T) {
 	require.Error(t, err)
 }
 
-// TASK-091: pre-hook exceeds the budget => timeout-tagged result + sentinel error.
+// T-091: pre-hook exceeds the budget => timeout-tagged result + sentinel error.
 func TestRunPreHooks_TimesOutOnBudget(t *testing.T) {
 	t.Parallel()
 

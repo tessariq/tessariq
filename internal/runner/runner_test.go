@@ -1188,7 +1188,7 @@ func TestRunner_VerifyHookRunsFromRepoRoot(t *testing.T) {
 	require.Equal(t, StateSuccess, s.State, "verify-hook should find Makefile in repo root")
 }
 
-// TestRunner_CleanupFailureOnSuccess_DowngradesToFailed pins the TASK-094
+// TestRunner_CleanupFailureOnSuccess_DowngradesToFailed pins the T-094
 // acceptance criterion: when the primary run is successful but container
 // cleanup (docker rm -f) fails, the recorded terminal state, exit code,
 // and returned error must all agree that the run failed. The CLI already

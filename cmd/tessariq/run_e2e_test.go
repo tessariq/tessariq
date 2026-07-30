@@ -941,7 +941,7 @@ func TestE2E_ContainerSecurityHardening(t *testing.T) {
 			"%s must be 0600", f)
 	}
 
-	// Verify worktree perms — TASK-093 hardening. The worktree parent chain
+	// Verify worktree perms — T-093 hardening. The worktree parent chain
 	// and the worktree root itself must be owner-only at the mode-bit layer,
 	// with the runtime uid granted exact access via ACL instead of host gid
 	// membership.
@@ -1705,7 +1705,7 @@ func TestE2E_TimedOutRunExitsNonZero(t *testing.T) {
 	require.Equal(t, true, status["timed_out"])
 }
 
-// TASK-091: a hung pre-hook must not outlive the run --timeout. The CLI
+// T-091: a hung pre-hook must not outlive the run --timeout. The CLI
 // must exit non-zero, status.json must record StateTimeout, timeout.flag
 // must be present, and the wall-clock duration must stay within the
 // budget plus the grace period.

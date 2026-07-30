@@ -266,7 +266,7 @@ func TestBuildArgs_YAMLFrontmatterNotParsedAsFlag(t *testing.T) {
 	t.Parallel()
 
 	cfg := run.DefaultConfig()
-	task := "---\nid: TASK-001\ntitle: Fix the bug\n---\n\nDo the thing."
+	task := "---\nid: T-001\ntitle: Fix the bug\n---\n\nDo the thing."
 	args := buildArgs(cfg, task)
 
 	require.Equal(t, []string{"run", "--format", "json", "--", task}, args,

@@ -77,7 +77,7 @@ func TestRunPreHooksIntegration_WorkDirUsed(t *testing.T) {
 	require.Contains(t, buf.String(), dir)
 }
 
-// TASK-091: integration coverage proving real shell children are actually
+// T-091: integration coverage proving real shell children are actually
 // killed when the run --timeout budget is exhausted, not just marked
 // cancelled in Go state. The marker file is written by a backgrounded
 // shell that should never get a chance to run because the parent shell is
