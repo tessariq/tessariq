@@ -1,13 +1,14 @@
 ---
 schema_version: 1
-updated_at: "2026-07-14T14:01:44Z"
+updated_at: "2026-07-30T08:28:44Z"
 active_spec_version: v0.1.0
 active_spec_path: specs/tessariq-v0.1.0.md
 current_task: ""
 current_task_title: ""
-status_summary: idle
-blockers: []
-next_action: Select the next eligible task
+status_summary: blocked
+blockers:
+    - 'TASK-106-couple-runtime-image-tags-to-the-release-tag: Deferred to v0.2.0; v0.1.0 image tags are correct by construction and touching the image workflow on the release path rotates published digests'
+next_action: Resolve blocker on TASK-106-couple-runtime-image-tags-to-the-release-tag
 last_verification_result: pass for TASK-017-v0-1-0-spec-conformity-closeout at 2026-07-14T14:01:35Z
 relevant_artifacts: []
 continuation_notes: []
@@ -25,11 +26,11 @@ continuation_notes: []
 
 ## Status
 
-- idle
+- blocked
 
 ## Blockers
 
-- None
+- TASK-106-couple-runtime-image-tags-to-the-release-tag: Deferred to v0.2.0; v0.1.0 image tags are correct by construction and touching the image workflow on the release path rotates published digests
 
 ## Last Verification
 
@@ -37,7 +38,7 @@ continuation_notes: []
 
 ## Next Action
 
-- Select the next eligible task
+- Resolve blocker on TASK-106-couple-runtime-image-tags-to-the-release-tag
 
 ## Relevant Artifacts
 
@@ -52,5 +53,5 @@ continuation_notes: []
 - todo: 0
 - in_progress: 0
 - completed: 99
-- blocked: 5
+- blocked: 6
 - cancelled: 0
