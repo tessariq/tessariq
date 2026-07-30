@@ -1,6 +1,6 @@
 ---
 schema_version: 1
-updated_at: "2026-07-30T08:36:42Z"
+updated_at: "2026-07-30T10:52:23Z"
 active_spec_version: v0.1.0
 active_spec_path: specs/tessariq-v0.1.0.md
 current_task: ""
@@ -50,7 +50,7 @@ continuation_notes: []
 
 ## Task Counts
 
-- todo: 0
+- todo: 11
 - in_progress: 0
 - completed: 99
 - blocked: 6
