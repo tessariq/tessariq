@@ -302,13 +302,23 @@ func runTessariqWithUpdate(t *testing.T, env *containers.RunEnv, binaryName, ext
 // --no-update-agent. Prefer runTessariq or runTessariqWithUpdate.
 func runTessariqRaw(t *testing.T, env *containers.RunEnv, binaryName, flags string) (int, string) {
 	t.Helper()
+	imgFlag := fmt.Sprintf("--image tessariq-test-agent-%s-%s", binaryName, testImageTag(t))
+	return runTessariqNoImage(t, env, joinFlags(imgFlag, flags))
+}
+
+// runTessariqNoImage assembles and runs `tessariq run <flags> tasks/sample.md`
+// inside the e2e container with HOME set to the host-absolute home dir. It adds
+// no flags of its own, so tests that set skipImage in e2eSetupOpts (the failure
+// under test lands before any image is needed) call it directly and pass
+// --no-update-agent explicitly.
+func runTessariqNoImage(t *testing.T, env *containers.RunEnv, flags string) (int, string) {
+	t.Helper()
 	ctx := context.Background()
 	hostDir := env.Dir()
 	repoPath := filepath.Join(hostDir, "repo")
 	homeDir := filepath.Join(hostDir, "home")
 	binPath := filepath.Join(hostDir, "tessariq")
-	imgFlag := fmt.Sprintf("--image tessariq-test-agent-%s-%s", binaryName, testImageTag(t))
-	cmd := fmt.Sprintf("cd %s && HOME=%s %s run %s %s tasks/sample.md", repoPath, homeDir, binPath, imgFlag, flags)
+	cmd := fmt.Sprintf("cd %s && HOME=%s %s run %s tasks/sample.md", repoPath, homeDir, binPath, flags)
 	code, output, err := env.Exec(ctx, []string{"sh", "-c", cmd})
 	require.NoError(t, err)
 	return code, output
@@ -1312,16 +1322,8 @@ func TestE2E_PostBootstrapFailurePrintsEvidencePath(t *testing.T) {
 		skipImage: true,
 	})
 
-	hostDir := env.Dir()
-	repoPath := filepath.Join(hostDir, "repo")
-	homeDir := filepath.Join(hostDir, "home")
-	binPath := filepath.Join(hostDir, "tessariq")
-
 	ctx := context.Background()
-	code, output, err := env.Exec(ctx, []string{"sh", "-c",
-		fmt.Sprintf("cd %s && HOME=%s %s run --egress none tasks/sample.md",
-			repoPath, homeDir, binPath)})
-	require.NoError(t, err)
+	code, output := runTessariqNoImage(t, env, "--egress none")
 	require.NotEqual(t, 0, code, "run should fail when auth files are missing")
 
 	// Post-bootstrap failure must print run_id and evidence_path.
@@ -1508,12 +1510,10 @@ func TestE2E_ControlCharTaskPathRejected(t *testing.T) {
 		execCmd(t, env, ctx, cmd, "control-char setup")
 	}
 
-	// Capture runs directory listing before the attempt.
-	_, runsBefore, err := env.Exec(ctx, []string{"sh", "-c",
-		fmt.Sprintf("ls -1 %s/.tessariq/runs 2>/dev/null | grep -v '^index.jsonl$' || true", repoPath)})
-	require.NoError(t, err)
-
-	// Run tessariq with the tampered task path — must fail before container start.
+	// Run tessariq with the tampered task path — must fail before container
+	// start. The invocation stays hand-rolled because the dollar-quoted task
+	// path is the subject of the test; runTessariqNoImage hardcodes
+	// tasks/sample.md.
 	code, output, err := env.Exec(ctx, []string{"sh", "-c",
 		fmt.Sprintf("cd %s && HOME=%s %s run --egress none $'tasks/bad\\nname.md'",
 			repoPath, homeDir, binPath)})
@@ -1523,11 +1523,7 @@ func TestE2E_ControlCharTaskPathRejected(t *testing.T) {
 	require.NotContains(t, output, "run_id:",
 		"must fail before evidence bootstrap: %s", output)
 
-	// Verify no new run directory was created.
-	_, runsAfter, err := env.Exec(ctx, []string{"sh", "-c",
-		fmt.Sprintf("ls -1 %s/.tessariq/runs 2>/dev/null | grep -v '^index.jsonl$' || true", repoPath)})
-	require.NoError(t, err)
-	require.Equal(t, runsBefore, runsAfter, "no evidence directory should be created")
+	requireNoRunDirectory(t, env)
 }
 
 func TestE2E_DirtyRepoRejectedBeforeContainerStart(t *testing.T) {
@@ -1540,36 +1536,184 @@ func TestE2E_DirtyRepoRejectedBeforeContainerStart(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	hostDir := env.Dir()
-	repoPath := filepath.Join(hostDir, "repo")
-	homeDir := filepath.Join(hostDir, "home")
-	binPath := filepath.Join(hostDir, "tessariq")
+	repoPath := filepath.Join(env.Dir(), "repo")
 
 	// Dirty the repository with an uncommitted change after init.
 	execCmd(t, env, ctx,
 		fmt.Sprintf("printf 'uncommitted\\n' > %s/dirty.txt", repoPath),
 		"dirty repo setup")
 
-	// Capture runs directory listing before the attempt.
-	_, runsBefore, err := env.Exec(ctx, []string{"sh", "-c",
-		fmt.Sprintf("ls -1 %s/.tessariq/runs 2>/dev/null | grep -v '^index.jsonl$' || true", repoPath)})
-	require.NoError(t, err)
-
 	// Run tessariq against the dirty repo — must fail before container start.
-	code, output, err := env.Exec(ctx, []string{"sh", "-c",
-		fmt.Sprintf("cd %s && HOME=%s %s run --egress none tasks/sample.md",
-			repoPath, homeDir, binPath)})
-	require.NoError(t, err)
+	code, output := runTessariqNoImage(t, env, "--egress none")
 	require.NotEqual(t, 0, code, "run should reject a dirty repository: %s", output)
 	require.Contains(t, output, "repository is dirty")
 	require.NotContains(t, output, "run_id:",
 		"must fail before evidence bootstrap: %s", output)
 
 	// Verify no new run directory was created.
-	_, runsAfter, err := env.Exec(ctx, []string{"sh", "-c",
+	requireNoRunDirectory(t, env)
+}
+
+// requireNoContainerForEnv asserts that no tessariq-* container is left on the
+// Docker daemon with a mount pointing into this test environment's host
+// directory. Scoping by host directory keeps the assertion correct while e2e
+// tests run in parallel, and it works for pre-bootstrap failures that never mint
+// a run id.
+//
+// This is a leak detector, not a proof that nothing was ever created. It runs
+// after the tessariq process has exited, so any container the process created
+// and then removed via `docker rm -f` is invisible; so is any container without
+// bind mounts, which includes the Squid proxy container. Callers therefore must
+// both:
+//
+//   - pin how far the run progressed — via requireNoRunDirectory (no run id
+//     minted, so no tessariq-<run_id> name can exist) or via
+//     requireEvidenceFileAbsent on runtime.json, which run.go writes immediately
+//     before creating the agent container; and
+//   - avoid --egress proxy/auto, because proxy topology setup creates a
+//     tessariq-squid-<run_id> container before auth discovery runs.
+func requireNoContainerForEnv(t *testing.T, env *containers.RunEnv) {
+	t.Helper()
+	ctx := context.Background()
+	// `docker ps` failure exits non-zero so daemon trouble fails the test loudly
+	// instead of reading as "nothing found". A `docker inspect` failure means the
+	// container vanished mid-scan, which is a benign race, so it is skipped. The
+	// loop's own status comes from `case`, which succeeds whether or not it
+	// matches.
+	script := fmt.Sprintf(
+		"names=$(docker ps -a --filter name=tessariq- --format '{{.Names}}') || exit 1\n"+
+			"for c in $names; do\n"+
+			"  src=$(docker inspect --format '{{range .Mounts}}{{.Source}} {{end}}' \"$c\" 2>/dev/null) || continue\n"+
+			"  case \"$src\" in *'%s'*) echo \"$c\" ;; esac\n"+
+			"done\n", env.Dir())
+	code, out, err := env.Exec(ctx, []string{"sh", "-c", script})
+	require.NoError(t, err)
+	require.Equal(t, 0, code, "container scan failed: %s", out)
+	require.Empty(t, strings.TrimSpace(out),
+		"no tessariq container should have been left behind, found: %s", out)
+}
+
+// requireEvidenceFileAbsent asserts an evidence artifact was never written,
+// which pins how far a failed run progressed.
+func requireEvidenceFileAbsent(t *testing.T, env *containers.RunEnv, evidenceDir, name string) {
+	t.Helper()
+	ctx := context.Background()
+	code, out, err := env.Exec(ctx, []string{"sh", "-c",
+		fmt.Sprintf("test -e %s", filepath.Join(evidenceDir, name))})
+	require.NoError(t, err)
+	require.NotEqual(t, 0, code, "%s must not exist: %s", name, out)
+}
+
+// requireNoRunDirectory asserts the repository holds no evidence run directory,
+// proving the failure landed before evidence bootstrap minted a run id.
+// `tessariq init` leaves .tessariq/runs empty, so any entry other than
+// index.jsonl means a run id was minted.
+func requireNoRunDirectory(t *testing.T, env *containers.RunEnv) {
+	t.Helper()
+	ctx := context.Background()
+	repoPath := filepath.Join(env.Dir(), "repo")
+	_, out, err := env.Exec(ctx, []string{"sh", "-c",
 		fmt.Sprintf("ls -1 %s/.tessariq/runs 2>/dev/null | grep -v '^index.jsonl$' || true", repoPath)})
 	require.NoError(t, err)
-	require.Equal(t, runsBefore, runsAfter, "no evidence directory should be created")
+	require.Empty(t, strings.TrimSpace(out),
+		"no evidence directory should be created, found: %s", out)
+}
+
+// TestE2E_ClaudeCodeMissingCredentialsFailsBeforeContainerStart covers manual
+// case T4.8: Claude Code selected with no local credentials must name the
+// missing auth and the fix instead of surfacing a raw I/O error.
+func TestE2E_ClaudeCodeMissingCredentialsFailsBeforeContainerStart(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+
+	// No ~/.claude/.credentials.json and no ~/.claude.json.
+	env := setupRunEnvCustom(t, bin, e2eSetupOpts{skipAuth: true, skipImage: true})
+
+	// --egress none: proxy topology setup precedes auth discovery in run.go and
+	// would create a tessariq-squid-<run_id> container, so the no-container
+	// assertion below only holds for a non-proxy mode. The missing-credentials
+	// failure is independent of the egress mode.
+	code, output := runTessariqNoImage(t, env, "--egress none --no-update-agent")
+	require.NotEqual(t, 0, code, "run must fail without Claude Code credentials: %s", output)
+
+	// Failure UX: name the problem and the fix, not a raw filesystem error.
+	require.Contains(t, output, "auth files or directories for claude-code were not found")
+	require.Contains(t, output, "authenticate claude-code locally first")
+	require.NotContains(t, output, "no such file or directory")
+
+	// Auth discovery runs after evidence bootstrap but before the image probe,
+	// so runtime.json must be absent and no container may exist.
+	evidencePath := extractField(output, "evidence_path")
+	require.NotEmpty(t, evidencePath, "post-bootstrap failure must print evidence_path")
+	requireEvidenceFileAbsent(t, env, evidencePath, "runtime.json")
+	requireNoContainerForEnv(t, env)
+}
+
+// TestE2E_OpenCodeMissingAuthFileFailsWithActionableGuidance covers manual case
+// T4.9 and regresses BUG-010: an absent OpenCode auth.json must not leak the
+// raw read error from provider resolution under --egress auto.
+func TestE2E_OpenCodeMissingAuthFileFailsWithActionableGuidance(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+
+	// No ~/.local/share/opencode/auth.json.
+	env := setupRunEnvCustom(t, bin, e2eSetupOpts{
+		binaryName: "opencode",
+		skipAuth:   true,
+		skipImage:  true,
+	})
+
+	code, output := runTessariqNoImage(t, env, "--agent opencode --egress auto --no-update-agent")
+	require.NotEqual(t, 0, code, "run must fail without OpenCode auth.json: %s", output)
+
+	require.Contains(t, output, "auth files or directories for opencode were not found")
+	require.Contains(t, output, "authenticate opencode locally first")
+	require.NotContains(t, output, "no such file or directory",
+		"BUG-010 regression: raw filesystem error must not surface: %s", output)
+	require.NotContains(t, output, "read auth file",
+		"BUG-010 regression: provider-resolution internals must not surface: %s", output)
+
+	// Provider resolution runs before evidence bootstrap, so no run id exists
+	// and therefore no tessariq-<run_id> container can have been created.
+	require.NotContains(t, output, "run_id:",
+		"must fail before evidence bootstrap: %s", output)
+	requireNoRunDirectory(t, env)
+	requireNoContainerForEnv(t, env)
+}
+
+// TestE2E_UnknownModelProviderFailsWithEgressGuidance covers manual case T4.12:
+// an unrecognized --model provider prefix under --egress auto must name the
+// prefix and point at the two escape hatches.
+func TestE2E_UnknownModelProviderFailsWithEgressGuidance(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+
+	// auth.json present but carrying no provider, so resolution falls through to
+	// the --model prefix.
+	env := setupRunEnvCustom(t, bin, e2eSetupOpts{
+		binaryName: "opencode",
+		skipImage:  true,
+		authFn: func(homeDir string) []string {
+			return []string{
+				fmt.Sprintf("mkdir -p %s/.local/share/opencode", homeDir),
+				fmt.Sprintf(`printf '{"token":"fake"}' > %s/.local/share/opencode/auth.json`, homeDir),
+			}
+		},
+	})
+
+	code, output := runTessariqNoImage(t, env,
+		"--agent opencode --model notaprovider/x --egress auto --no-update-agent")
+	require.NotEqual(t, 0, code, "run must fail for an unknown model provider: %s", output)
+
+	require.Contains(t, output, `unknown model provider "notaprovider"`,
+		"error must name the unrecognized prefix: %s", output)
+	require.Contains(t, output, "--egress-allow", "error must suggest --egress-allow: %s", output)
+	require.Contains(t, output, "--egress open", "error must suggest --egress open: %s", output)
+
+	require.NotContains(t, output, "run_id:",
+		"must fail before evidence bootstrap: %s", output)
+	requireNoRunDirectory(t, env)
+	requireNoContainerForEnv(t, env)
 }
 
 func TestE2E_EgressNone_NoNetworkAccess(t *testing.T) {

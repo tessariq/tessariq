@@ -1,6 +1,6 @@
 ---
 schema_version: 1
-updated_at: "2026-07-30T10:52:23Z"
+updated_at: "2026-07-30T11:38:44Z"
 active_spec_version: v0.1.0
 active_spec_path: specs/tessariq-v0.1.0.md
 current_task: ""
@@ -9,7 +9,7 @@ status_summary: blocked
 blockers:
     - 'T-106: Deferred to v0.2.0; v0.1.0 image tags are correct by construction and touching the image workflow on the release path rotates published digests'
 next_action: Resolve blocker on T-106
-last_verification_result: pass for T-017 at 2026-07-14T14:01:35Z
+last_verification_result: pass for T-108 at 2026-07-30T11:38:36Z
 relevant_artifacts: []
 continuation_notes: []
 ---
@@ -34,7 +34,7 @@ continuation_notes: []
 
 ## Last Verification
 
-- pass for T-017 at 2026-07-14T14:01:35Z
+- pass for T-108 at 2026-07-30T11:38:36Z
 
 ## Next Action
 
@@ -50,8 +50,8 @@ continuation_notes: []
 
 ## Task Counts
 
-- todo: 11
+- todo: 10
 - in_progress: 0
-- completed: 99
+- completed: 100
 - blocked: 6
 - cancelled: 0
