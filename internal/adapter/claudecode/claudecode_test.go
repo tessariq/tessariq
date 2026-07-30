@@ -11,8 +11,7 @@ import (
 func TestDefaultImage_UsesVersionTag(t *testing.T) {
 	t.Parallel()
 	img := DefaultImage()
-	require.Contains(t, img, "ghcr.io/tessariq/claude-code:")
-	require.Contains(t, img, version.Version)
+	require.Equal(t, "ghcr.io/tessariq/claude-code:v"+version.Version, img)
 }
 
 func TestBuildArgs_DefaultNonInteractive(t *testing.T) {

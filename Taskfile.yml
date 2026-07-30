@@ -29,9 +29,9 @@ tasks:
       - go build -trimpath -o bin/tessariq{{if eq OS "windows"}}.exe{{end}} ./cmd/tessariq
 
   release:
-    desc: Build tessariq with an injected release version (VERSION=v0.1.0 task release)
+    desc: Build tessariq with an injected release version (VERSION=0.1.0 task release)
     vars:
-      VERSION: '{{.VERSION | default "0.0.0-dev"}}'
+      VERSION: '{{.VERSION | default "0.0.0-dev" | trimPrefix "v"}}'
     env:
       CGO_ENABLED: "0"
     cmds:
