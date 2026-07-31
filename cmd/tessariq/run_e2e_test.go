@@ -263,11 +263,14 @@ DEOF`, opts.extraPkgs, opts.runtimeGID, opts.runtimeUID, opts.binaryName, opts.b
 }
 
 // execCmd runs a shell command inside the RunEnv and fails the test on error.
-func execCmd(t *testing.T, env *containers.RunEnv, ctx context.Context, cmd, label string) {
+// It returns the command output for callers that assert on it; setup callers
+// invoke it as a statement and ignore the result.
+func execCmd(t *testing.T, env *containers.RunEnv, ctx context.Context, cmd, label string) string {
 	t.Helper()
 	code, out, err := env.Exec(ctx, []string{"sh", "-c", cmd})
 	require.NoError(t, err, "%s %q: %s", label, cmd, out)
 	require.Equal(t, 0, code, "%s %q exited %d: %s", label, cmd, code, out)
+	return out
 }
 
 // setupRunEnv creates a RunEnv with the standard setup for the given agent exit code.
@@ -1650,6 +1653,137 @@ func TestE2E_MissingOpenCodeBinaryFailsWithGuidance(t *testing.T) {
 	require.NotContains(t, output, "promote:", "success-only field must not appear on failure")
 }
 
+// requireRunResourcesCleanedUp is the post-run resource hygiene sweep for the
+// resources a run must always release, whatever its outcome: the agent
+// container, the Squid sidecar, the per-run Docker network, and the disposable
+// runtime-state layer that holds a copy of the host auth file.
+//
+// The worktree is deliberately excluded: a successful run keeps it as the
+// promotable workspace, so its lifecycle is asserted separately by
+// requireWorktreeRemoved and requireWorktreeRetained.
+//
+// Every check filters on the deterministic per-run name rather than counting
+// resources, so an unrelated container or network on the runner can neither
+// mask a leak nor cause a false failure.
+func requireRunResourcesCleanedUp(t *testing.T, env *containers.RunEnv, runID string) {
+	t.Helper()
+	require.NotEmpty(t, runID, "hygiene sweep needs the run id")
+
+	ctx := context.Background()
+
+	for _, name := range []string{"tessariq-" + runID, "tessariq-squid-" + runID} {
+		out := execCmd(t, env, ctx,
+			fmt.Sprintf("docker ps -a --format '{{.Names}}' --filter name=^%s$", name), "docker ps")
+		require.Empty(t, strings.TrimSpace(out), "container %s must not survive the run", name)
+	}
+
+	netName := "tessariq-net-" + runID
+	netOut := execCmd(t, env, ctx,
+		fmt.Sprintf("docker network ls --format '{{.Name}}' --filter name=^%s$", netName), "docker network ls")
+	require.Empty(t, strings.TrimSpace(netOut), "network %s must not survive the run", netName)
+
+	// Catch-all for any container this environment produced under a name the
+	// deterministic checks above do not anticipate.
+	requireNoContainerForEnv(t, env)
+
+	// The disposable runtime-state layer holds a copy of host credentials, so
+	// its removal is a security guarantee rather than mere tidiness.
+	stateRoot := filepath.Join(env.Dir(), "home", ".tessariq", "runtime-state")
+	stateDir := filepath.Join(stateRoot, runID)
+	stateCode, stateOut, err := env.Exec(ctx, []string{"sh", "-c", fmt.Sprintf("test -e %s", stateDir)})
+	require.NoError(t, err)
+	require.NotEqual(t, 0, stateCode,
+		"runtime-state directory %s must be removed after the run: %s", stateDir, stateOut)
+
+	// Nothing may survive anywhere under the runtime-state root either, which
+	// catches a copied auth file stranded outside this run's directory.
+	leftoverOut := execCmd(t, env, ctx,
+		fmt.Sprintf("find %s -type f 2>/dev/null || true", stateRoot), "find runtime-state files")
+	require.Empty(t, strings.TrimSpace(leftoverOut),
+		"no copied host auth or state file may remain under runtime-state, found: %s", leftoverOut)
+}
+
+// requireWorktreeRemoved asserts a non-success run left no worktree behind,
+// neither on disk nor in git's own bookkeeping.
+func requireWorktreeRemoved(t *testing.T, env *containers.RunEnv, runID string) {
+	t.Helper()
+
+	worktreeRoot := filepath.Join(env.Dir(), "home", ".tessariq", "worktrees")
+	findOut := execCmd(t, env, context.Background(),
+		fmt.Sprintf("find %s -mindepth 2 -maxdepth 2 -type d 2>/dev/null || true", worktreeRoot),
+		"find worktree dirs")
+	require.Empty(t, strings.TrimSpace(findOut),
+		"no worktree directory should remain, found: %s", findOut)
+
+	wtOut := gitWorktreeList(t, env)
+	require.NotContains(t, wtOut, runID, "git worktree list must have no stale entry for %s", runID)
+	require.Len(t, nonEmptyLines(wtOut), 1, "only the main worktree should remain: %s", wtOut)
+}
+
+// requireWorktreeRetained asserts the opposite for a successful run: the
+// workspace the CLI advertised is still there, both on disk and in git's
+// bookkeeping, because `tessariq promote` commits from it. Removing it would
+// break the run -> attach -> promote flow, so this pins the retention as
+// intended behavior rather than a leak the hygiene sweep missed.
+func requireWorktreeRetained(t *testing.T, env *containers.RunEnv, runID, workspacePath string) {
+	t.Helper()
+	require.NotEmpty(t, workspacePath, "successful run must advertise workspace_path")
+	require.Contains(t, workspacePath, runID, "workspace path must be per-run")
+
+	execCmd(t, env, context.Background(), fmt.Sprintf("test -d %s", workspacePath),
+		"successful run must retain its promotable workspace")
+
+	wtOut := gitWorktreeList(t, env)
+	require.Contains(t, wtOut, runID, "git worktree list must still track the promotable workspace: %s", wtOut)
+	require.Len(t, nonEmptyLines(wtOut), 2, "main worktree plus the run workspace: %s", wtOut)
+}
+
+// gitWorktreeList returns `git worktree list` output for the e2e repo.
+func gitWorktreeList(t *testing.T, env *containers.RunEnv) string {
+	t.Helper()
+	return execCmd(t, env, context.Background(),
+		fmt.Sprintf("git -C %s worktree list", filepath.Join(env.Dir(), "repo")),
+		"git worktree list")
+}
+
+// TestE2E_SuccessfulRunLeavesNoResources is the success-path counterpart to
+// TestE2E_FailedRunCleansUpWorktree. A leak on the happy path is the worst
+// kind: nothing looks wrong to the user while containers, networks, and copies
+// of host credentials accumulate run after run. The worktree is the one
+// resource a successful run keeps on purpose — it is the workspace `tessariq
+// promote` commits from.
+func TestE2E_SuccessfulRunLeavesNoResources(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+	env := setupRunEnv(t, bin, 0)
+
+	// Default egress ("auto") resolves to proxy, so this run really does
+	// create a Squid container and a per-run network for the sweep to check.
+	code, output := runTessariq(t, env, "claude", "")
+	require.Equal(t, 0, code, "run failed: %s", output)
+
+	runID := extractField(output, "run_id")
+	requireRunResourcesCleanedUp(t, env, runID)
+	requireWorktreeRetained(t, env, runID, extractField(output, "workspace_path"))
+}
+
+// TestE2E_TimedOutRunLeavesNoResources proves cleanup on more than the happy
+// path: a run killed by its own timeout budget releases everything, worktree
+// included, since there is no promotable result to keep.
+func TestE2E_TimedOutRunLeavesNoResources(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+	env := setupRunEnvWithScript(t, bin, "claude", "sleep 300")
+
+	code, output := runTessariq(t, env, "claude", "--timeout 3s --grace 1s")
+	require.NotEqual(t, 0, code, "timed-out run must exit non-zero: %s", output)
+	require.Contains(t, output, "state: timeout")
+
+	runID := extractField(output, "run_id")
+	requireRunResourcesCleanedUp(t, env, runID)
+	requireWorktreeRemoved(t, env, runID)
+}
+
 func TestE2E_FailedRunCleansUpWorktree(t *testing.T) {
 	t.Parallel()
 	bin := buildBinary(t)
@@ -2547,10 +2681,7 @@ func TestE2E_InterruptedProxyRunCleansUpAndRecordsTerminalState(t *testing.T) {
 		"interrupted run must exit non-zero: %s", res.output)
 
 	ctx := context.Background()
-	hostDir := env.Dir()
-	repoPath := filepath.Join(hostDir, "repo")
-	homeDir := filepath.Join(hostDir, "home")
-	evidencePath := filepath.Join(repoPath, ".tessariq", "runs", res.runID)
+	evidencePath := filepath.Join(env.Dir(), "repo", ".tessariq", "runs", res.runID)
 
 	// status.json must record a terminal, non-running state consistent with
 	// the non-zero CLI exit code (BUG-048 regression).
@@ -2585,18 +2716,7 @@ func TestE2E_InterruptedProxyRunCleansUpAndRecordsTerminalState(t *testing.T) {
 	requireNoContainerForEnv(t, env)
 
 	// The worktree must be gone from disk and from git's worktree list.
-	_, findOut, err := env.Exec(ctx, []string{"sh", "-c",
-		fmt.Sprintf("find %s/.tessariq/worktrees -mindepth 2 -maxdepth 2 -type d 2>/dev/null || true", homeDir)})
-	require.NoError(t, err)
-	require.Empty(t, strings.TrimSpace(findOut),
-		"no worktree directories should remain after an interrupted run, found: %s", findOut)
-
-	wtCode, wtOut, err := env.Exec(ctx, []string{"sh", "-c",
-		fmt.Sprintf("git -C %s worktree list", repoPath)})
-	require.NoError(t, err)
-	require.Equal(t, 0, wtCode)
-	require.NotContains(t, wtOut, res.runID, "git worktree list must have no stale entry")
-	require.Len(t, nonEmptyLines(wtOut), 1, "only the main worktree should remain: %s", wtOut)
+	requireWorktreeRemoved(t, env, res.runID)
 
 	// Terminal evidence must survive container removal. Note the direction
 	// of the guarantee: the runner deliberately runs container cleanup
