@@ -90,6 +90,67 @@ Container mode manual tests:
 - Build CLI binaries with `CGO_ENABLED=0` for Alpine containers.
 - Never substitute automated e2e test results for manual test evidence.
 
+### Artifact Templates
+
+The skill writes both artifacts under `planning/artifacts/manual-test/<task-id>/<timestamp>/`. These
+templates are the repository contract; the skill itself is vendored and repo-agnostic, so the exact
+shape lives here.
+
+`plan.md` — one entry per test step, numbered `MT-001`, `MT-002`, …:
+
+```
+# Manual Test Plan
+
+- Task: <task-id>
+- Generated: <ISO-8601 timestamp>
+
+## MT-001: <description derived from acceptance criterion>
+
+- Severity: critical | major | minor
+- Mode: sandbox | container
+- Derived from: <quoted or paraphrased acceptance criterion>
+- Setup: <preconditions or fixture creation>
+- Command: `<shell command to execute>`
+- Expected: <observable outcome: exit code, file existence, output content>
+```
+
+`report.md` — one entry per executed step, plus a summary:
+
+```
+# Manual Test Report
+
+- Task: <task-id>
+- Executed: <ISO-8601 timestamp>
+- Verdict: pass | pass-with-fixes | fail
+
+## Results
+
+### MT-001: <description>
+
+- Status: pass | fail | fixed | skipped
+- Observation: <what actually happened>
+- Fix: <if status is "fixed", the code change with file:line>
+- Re-run: <pass | fail, only if a fix was applied>
+
+## Summary
+
+- Total: N | Pass: N | Fixed: N | Failed: N | Skipped: N
+```
+
+Severity drives failure handling:
+- **critical** — fix the code and re-run the step. If the fix fails after one attempt, stop testing
+  and write the report. A task with an unfixed critical step must not finish as `completed`.
+- **major** — attempt one fix and re-run. If the fix fails, log it and continue to the next step.
+- **minor** — log the observation and continue.
+
+Verdict rules:
+- **pass** — all steps passed on first run.
+- **pass-with-fixes** — all steps passed, but one or more required a code fix.
+- **fail** — one or more critical or major steps failed and could not be fixed.
+
+Fixes apply to product code only; never mutate test expectations to force a pass. Re-run only the
+specific failing step after a fix, not the entire plan.
+
 Cleanup (critical):
 - Manual test code is **ephemeral** and `planning/artifacts/` is gitignored.
 - After the report is written, delete all `_manual_test.go` files and `cmd/manual-test-*/` directories.

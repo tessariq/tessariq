@@ -43,6 +43,8 @@ Rules:
 - Unresolved findings can be converted into tracked follow-up items through `taskrail verify <id> --create-followup --followup-title "<t>" --followup-description "<d>" [--followup-priority high|medium|low]`.
 - Manual test artifacts (plan and report) must exist locally under `planning/artifacts/manual-test/<task-id>/` before a task can be finished as `completed`.
 - `taskrail complete` validates the presence of these artifacts.
+- During a verification-only run, auto-fix only deterministic low-risk issues, such as regenerated machine-owned outputs. Anything requiring judgement becomes a follow-up item, never an inline fix.
+- After a run that drove state transitions, run `taskrail repair --apply` (wrapped as `task workflow:refresh`) as a mechanical refresh of derived `STATE.md` fields. This is distinct from recovery: when state is already inconsistent, use the `autonomous-recovery` skill and dry-run `taskrail repair` first.
 
 ## Safety Rules
 

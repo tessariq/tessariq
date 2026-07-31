@@ -1,21 +1,48 @@
 ---
 name: autonomous-recovery
-description: Recover Tessariq tracked-work state when it becomes stale or inconsistent
+description: Recover deterministic tracked-work state when Taskrail planning files are inconsistent
 ---
 
 # autonomous-recovery
 
-Recover Tessariq tracked-work state when it becomes stale or inconsistent.
+Recover deterministic tracked-work state when Taskrail planning files are
+inconsistent, routing every correction through the CLI — never by hand-editing
+authoritative state.
+
+Requires the installed `taskrail` binary on `PATH`. Run it from the managed
+repository's root.
+
+## Source Checkout Guard
+
+Before every command that can write tracked state, check whether the repository
+is the Taskrail source checkout (it contains both `Taskfile.yml` and
+`internal/toolchain/cmd/freshcheck`). If so, run `task taskrail:check`
+immediately before the writer. This checks the exact `${TASKRAIL:-taskrail}`
+binary the workflow will invoke. If it fails, stop, apply the remedy it names,
+and rerun the guard; do not run the writer first. Installed adopter repositories
+do not contain the source helper and skip this source-only guard.
 
 ## Required Flow
 
-1. Run `taskrail validate`.
-2. If stale or inconsistent state exists, run `taskrail repair --apply` once to apply deterministic recovery.
-3. Run `taskrail validate` again.
-4. Report exact violations if state remains invalid.
+1. **Inspect.** Run `${TASKRAIL:-taskrail} validate --json` and read the
+   violations.
+2. **Dry-run.** Run `${TASKRAIL:-taskrail} repair` to preview the conservative,
+   mechanical corrections (a stale `current_task` pointer, a `status_summary`
+   stale against a single `in_progress` task, stale rendered task counts). This
+   defaults to a dry run: review the proposed frontmatter changes and the
+   `STATE.md` body diff before applying.
+3. **Apply.** Run `${TASKRAIL:-taskrail} repair --apply` to write the reconciled
+   `STATE.md` and re-run validation.
+4. **Re-validate.** Run `${TASKRAIL:-taskrail} validate --json` again.
+5. If violations remain, they are outside repair's mechanical scope (a missing
+   `spec_ref`, a dependency cycle, more than one `in_progress` task). Resolve them
+   through the tracked-work commands, never by editing `STATE.md` or task status
+   fields by hand.
 
 ## Rules
 
-- never implement product code during recovery-only runs unless explicitly requested
-- never hand-edit machine-managed state
-- never hand-edit task status
+- never hand-edit `planning/STATE.md` frontmatter or task status fields; route
+  every correction through `${TASKRAIL:-taskrail} repair`
+- never force progress by casual state mutation
+- repair the underlying inconsistency instead of hiding it
+- do not implement unrelated product changes during recovery-only runs

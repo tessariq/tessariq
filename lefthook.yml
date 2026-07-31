@@ -27,7 +27,9 @@ pre-commit:
       glob: "{planning/**,specs/**,.taskrail/**}"
       run: task workflow:validate
     skill-parity:
-      glob: "{.agents/skills/**,.claude/skills/**}"
+      # The manifest, the vendor script and the toolchain pin are all inputs to
+      # the same check, so editing any of them alone must still run it.
+      glob: "{.agents/skills/**,.claude/skills/**,docs/workflow/skills-manifest.yml,scripts/vendor-skills.sh,mise.toml}"
       run: task workflow:check-skills
 
 commit-msg:

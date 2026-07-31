@@ -128,7 +128,7 @@ tasks:
     cmds:
       - taskrail validate
       - taskrail coverage --json
-      - diff -rq .agents/skills .claude/skills
+      - task: workflow:check-skills
 
   workflow:next:
     desc: Select the next eligible tracked task
@@ -146,9 +146,27 @@ tasks:
       - taskrail coverage --json
 
   workflow:check-skills:
-    desc: Verify mirrored agent skill directories stay in sync
+    desc: Verify mirrored agent skills stay in sync and match the pinned taskrail release
+    # The Go guard runs from here rather than from a workflow step on purpose.
+    # internal/toolchain tests belong to the code lane, whose paths-ignore covers
+    # .agents/skills/**, .claude/skills/** and docs/** — so a skills-only change
+    # triggers the planning lane and would never run them. Both lanes already call
+    # this target, so wiring it here is what puts the guard on the pull requests
+    # that can actually break it.
     cmds:
       - diff -rq .agents/skills .claude/skills
+      - go test ./internal/toolchain -run '^TestSkills' -count=1
+
+  workflow:skills:vendor:
+    desc: Re-vendor the agent skills from the taskrail release pinned in mise.toml
+    # Copies the embedded skill package out of the module cache and regenerates the
+    # digest manifest. Never run `taskrail init --with-skills --force` here: it
+    # stamps a version marker that forfeits taskrail's parity-copy skew exemption,
+    # and it writes SKILL.md.bak.<timestamp> siblings into both parity-checked
+    # trees. See the header of scripts/vendor-skills.sh.
+    cmds:
+      - ./scripts/vendor-skills.sh
+      - task: workflow:check-skills
 
   release:check:
     desc: Validate goreleaser configuration

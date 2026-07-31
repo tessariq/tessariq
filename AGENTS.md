@@ -19,7 +19,7 @@ Guidance for coding agents working in the Tessariq repository.
 - Release pipeline: `.goreleaser.yml` and `.github/workflows/release.yml`.
 - Product overview: `README.md`.
 - Tracked-work workflow and testing policy: `docs/workflow/`.
-- Mirrored agent skills: `.agents/skills/` and `.claude/skills/`.
+- Mirrored agent skills: `.agents/skills/` and `.claude/skills/`. Every skill is vendored verbatim from the pinned taskrail release and must never be hand-edited; provenance is recorded in `docs/workflow/skills-manifest.yml`. See `docs/workflow/skills-overview.md`.
 
 ## Toolchain and environment
 - Go version: `1.26` (`go.mod`).
@@ -93,7 +93,7 @@ Mutation testing runs **nightly in CI** (`.github/workflows/mutation.yml`, plus 
 - gremlins is pinned in `mise.toml`; `mise install` provides it.
 
 ### Tracked-work workflow commands
-Tracked work is managed by the external `taskrail` binary (`github.com/tessariq/taskrail`), pinned in `mise.toml` and provided by `mise install`. (Outside mise: `go install github.com/tessariq/taskrail/cmd/taskrail@v0.3.0` or `brew install tessariq/tap/taskrail`.) The former in-repo `cmd/tessariq-workflow` tool has been removed.
+Tracked work is managed by the external `taskrail` binary (`github.com/tessariq/taskrail`), pinned in `mise.toml` and provided by `mise install`. (Outside mise: `go install github.com/tessariq/taskrail/cmd/taskrail@v0.4.0` or `brew install tessariq/tap/taskrail`.) The former in-repo `cmd/tessariq-workflow` tool has been removed.
 - Validate state: `taskrail validate`
 - Select next task: `taskrail next --json`
 - Start task: `taskrail start <task-id>`
@@ -102,7 +102,8 @@ Tracked work is managed by the external `taskrail` binary (`github.com/tessariq/
 - Refresh state: `taskrail repair --apply` (conservatively repairs mechanical STATE.md drift; dry-run without `--apply`)
 - Record task verification: `taskrail verify <task-id> --result pass|fail --summary "<summary>"`
 - Report spec coverage (advisory): `taskrail coverage --json`
-- Check mirrored skills: `diff -rq .agents/skills .claude/skills`
+- Check mirrored skills and vendored provenance: `task workflow:check-skills`
+- Re-vendor skills after bumping the taskrail pin: `task workflow:skills:vendor` (never `taskrail init --with-skills --force`; it stamps a version marker and writes `.bak` siblings into both parity-checked trees)
 - See `docs/workflow/` for the full deterministic workflow contract.
 
 ### License compliance check used in CI
@@ -274,6 +275,7 @@ When tessariq itself creates Docker containers (via `docker create` / `docker st
 - If e2e paths changed, run `task test:e2e` (`go test -tags=e2e ./...`).
 - Do not run mutation testing as part of routine work; it runs nightly in CI.
 - If tracked-work tooling or skills changed, run `task workflow:validate`, `task workflow:check-skills`, and `task workflow:verify:spec`.
+- Never hand-edit a file under `.agents/skills/` or `.claude/skills/`; they are vendored copies of the pinned taskrail release. Change the upstream package, or put the repository-specific rule in `docs/workflow/` and this file. After bumping the taskrail pin in `mise.toml`, run `task workflow:skills:vendor`.
 - Update `README.md` when CLI flags/commands/behavior change.
 - Update `CHANGELOG.md` for user-visible behavior changes; keep entries user-facing and skip internal-only maintenance noise.
 - Verify evidence file contracts are maintained when changing run or promote logic.

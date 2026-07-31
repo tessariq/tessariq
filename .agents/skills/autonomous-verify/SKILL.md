@@ -1,25 +1,40 @@
 ---
 name: autonomous-verify
-description: Run deterministic verification against Tessariq tracked-work acceptance criteria and spec coverage
-argument-hint: "[profile]"
+description: Run deterministic verification against Taskrail tracked-work acceptance criteria and spec alignment
+argument-hint: "[task-id]"
 ---
 
 # autonomous-verify
 
-Run deterministic verification against Tessariq tracked-work acceptance criteria and spec coverage.
+Run deterministic verification against Taskrail tracked-work acceptance criteria and spec alignment.
+
+Requires the installed `taskrail` binary on `PATH`.
+
+## Source Checkout Guard
+
+Before every command that can write tracked state, check whether the repository
+is the Taskrail source checkout (it contains both `Taskfile.yml` and
+`internal/toolchain/cmd/freshcheck`). If so, run `task taskrail:check`
+immediately before the writer. This checks the exact `${TASKRAIL:-taskrail}`
+binary the workflow will invoke. If it fails, stop, apply the remedy it names,
+and rerun the guard; do not run the writer first. Installed adopter repositories
+do not contain the source helper and skip this source-only guard.
 
 ## Required Flow
 
-1. Run `taskrail validate`.
-2. Choose the verification scope: a specific task, or spec coverage across the backlog.
-3. For a task, run `taskrail verify <task-id> --result pass|fail --summary "<s>" [--details "<d>"]`. For spec coverage, run `taskrail coverage --json` (advisory, read-only).
-4. Review the reported result and any uncovered spec references.
+1. Run `${TASKRAIL:-taskrail} validate`.
+2. Choose the task to verify.
+3. Run `${TASKRAIL:-taskrail} verify <task-id> --result pass|fail --summary "..."`.
+4. Confirm plan and report artifacts were written under
+   `planning/artifacts/verify/`.
 5. Review unresolved findings.
-6. When findings deserve backlog treatment, create a follow-up with `taskrail verify <task-id> --create-followup --followup-title "<t>" --followup-description "<d>" [--followup-priority high|medium|low]`.
-7. Run `taskrail repair --apply`.
+6. Create a follow-up task with `${TASKRAIL:-taskrail} task new` (or
+   `${TASKRAIL:-taskrail} verify <task-id> --create-followup`) when unresolved work should
+   enter the backlog.
 
 ## Rules
 
-- verification-only runs must not mutate product code unless explicitly requested
-- do not run mutation testing; it runs nightly in CI against a 70% threshold
-- keep evidence paths in reports and notes
+- verification-only runs should not mutate unrelated product code
+- keep artifact paths in notes and reports
+- keep verification grounded in the active spec and the task acceptance criteria
+- create follow-up tasks with `${TASKRAIL:-taskrail} task new`, never by hand-authoring markdown

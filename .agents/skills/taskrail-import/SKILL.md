@@ -11,6 +11,16 @@ you, the agent, do the semantic lift between two deterministic binary steps.
 
 Requires the installed `taskrail` binary on `PATH`.
 
+## Source Checkout Guard
+
+Before every command that can write tracked state, check whether the repository
+is the Taskrail source checkout (it contains both `Taskfile.yml` and
+`internal/toolchain/cmd/freshcheck`). If so, run `task taskrail:check`
+immediately before the writer. This checks the exact `${TASKRAIL:-taskrail}`
+binary the workflow will invoke. If it fails, stop, apply the remedy it names,
+and rerun the guard; do not run the writer first. Installed adopter repositories
+do not contain the source helper and skip this source-only guard.
+
 ## Flow
 
 1. Emit the prompt for the source and target:
@@ -24,6 +34,13 @@ Requires the installed `taskrail` binary on `PATH`.
    and writes spec/task files, scaffolding each task through the same path as
    `${TASKRAIL:-taskrail} task new`.
 5. Review the created files. Run `${TASKRAIL:-taskrail} validate`.
+
+If apply fails during writing (`partial apply already wrote ...` or `partial
+apply may have written ...`, non-zero exit), it still reports what landed or may
+have been touched: the spec and task paths in text mode, the same envelope marked
+`"partial": true` with `--json`. Review those paths first — a failed spec write
+may leave an empty or truncated file, and re-applying the same draft creates any
+already-written tasks a second time under new ids.
 
 ## Rules
 
