@@ -17,11 +17,17 @@ pre-commit:
           echo "$unformatted" >&2
           exit 1
         fi
+    # Each command is scoped to the files it can actually be broken by, so a
+    # docs-only commit runs nothing but the message check. CI remains the
+    # authoritative gate and validates both lanes regardless.
     vet:
+      glob: "*.go"
       run: task vet
     workflow-validate:
+      glob: "{planning/**,specs/**,.taskrail/**}"
       run: task workflow:validate
     skill-parity:
+      glob: "{.agents/skills/**,.claude/skills/**}"
       run: task workflow:check-skills
 
 commit-msg:

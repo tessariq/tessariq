@@ -6,7 +6,7 @@ Contributor and coding-agent workflow for tracked work in Tessariq.
 
 - `mise.toml`
 - `Taskfile.yml`
-- `.github/workflows/ci.yml`
+- `.github/workflows/ci.yml` (code lane), `.github/workflows/planning.yml` (planning/docs lane), `.github/workflows/mutation.yml` (nightly)
 - `docs/workflow/`
 - `planning/STATE.md`
 - `planning/tasks/`
@@ -21,7 +21,7 @@ Direct `go` commands remain canonical.
 - Product tests: `task test` (`go test ./...`)
 - Integration tests: `task test:integration` (`go test -tags=integration ./...`)
 - End-to-end tests: `task test:e2e` (`go test -tags=e2e ./...`)
-- Mutation tests: `task test:mutate:gate` (`gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70`)
+- Mutation tests (nightly CI only; local runs are for investigating a nightly failure): `task test:mutate:gate` (`gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70`)
 - Workflow validation: `task workflow:validate` (`taskrail validate`)
 - Workflow validation bundle: `task workflow:check`
 - Skill parity: `task workflow:check-skills` (`diff -rq .agents/skills .claude/skills`)
@@ -66,9 +66,9 @@ Testcontainers standard:
 
 ## Mutation Testing
 
-- Gremlins is part of the normal verification ladder.
-- CI enforces `gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70`.
-- Use mutation testing for non-trivial logic changes and when logic-confidence evidence would otherwise be weak.
+- Gremlins runs **nightly** against `main` (`.github/workflows/mutation.yml`), plus on manual dispatch. It is not part of the pull-request path and not part of routine local work: it re-runs the whole unit suite once per mutant, which is too slow for the signal it gives per change.
+- The nightly run enforces `gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70`.
+- Run `task test:mutate:gate` locally only when investigating a nightly failure, or when you deliberately want mutation evidence for logic-heavy work.
 
 ## Manual Testing
 
@@ -127,11 +127,14 @@ Notes:
 ## Change-Type Matrix
 
 - Docs-only changes:
-  no code validation unless runnable examples changed
+  no code validation unless runnable examples changed; CI enforces this by routing
+  planning, spec, doc, and agent-skill paths to the planning lane
+  (`.github/workflows/planning.yml`) instead of the full pipeline
 - Small code changes:
   TDD plus targeted unit tests
 - Cross-package logic changes:
-  unit tests, integration tests if boundaries changed, and mutation tests
+  unit tests, and integration tests if boundaries changed; mutation coverage arrives
+  from the nightly run rather than from the change itself
 - CLI workflow changes:
   unit tests plus targeted e2e coverage
 - Tracked-work system changes:

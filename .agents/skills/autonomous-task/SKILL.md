@@ -16,7 +16,7 @@ Execute one specified Tessariq tracked task with deterministic workflow transiti
 4. Implement only the requested scope in a TDD loop.
 5. Follow the testing pyramid and keep unit tests dominant.
 6. Use Testcontainers for Go for integration and e2e collaborators; do not create custom local servers.
-7. Run mutation testing for non-trivial logic changes with the 70% threshold in mind.
+7. Skip mutation testing; it runs nightly in CI against a 70% threshold.
 8. Run manual testing using the `autonomous-manual-test` skill against the task's acceptance criteria.
 9. Run `taskrail verify <task-id> --result pass|fail --summary "<s>" [--details "<d>"]`.
 10. When unresolved medium-or-higher findings deserve backlog treatment, create a follow-up with `taskrail verify <task-id> --create-followup --followup-title "<t>" --followup-description "<d>" [--followup-priority high|medium|low]`.

@@ -10,7 +10,7 @@ Prompt guidance for deterministic tracked-work execution in Tessariq.
 - Follow TDD for code changes.
 - Follow the testing pyramid and repository testing rules.
 - Use Testcontainers for Go for integration and e2e collaborators; do not create custom local servers.
-- Treat mutation testing with a 70% threshold as part of normal CI-quality validation.
+- Do not run mutation testing as part of routine work; it runs nightly in CI against a 70% threshold.
 - Treat `planning/artifacts/` as local-only gitignored workflow evidence.
 - For implementation tasks, produce one conventional-commit commit per task that includes both code changes and required workflow/planning metadata updates.
 - Do not split a task into separate implementation and chore/workflow-update commits.

@@ -29,8 +29,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Provision toolchain (mise)
-        uses: jdx/mise-action@v4
+      - name: Setup toolchain
+        uses: ./.github/actions/setup
 
       - name: Log in to GHCR
         if: github.event_name != 'pull_request'

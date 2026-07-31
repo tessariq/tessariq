@@ -1,10 +1,41 @@
 name: CI
 
+# Full pipeline (checks + build/test matrix + Docker integration and e2e). Skips
+# changes that touch only planning, spec, doc, or agent-skill paths — those are
+# gated by the cheap fast lane in planning.yml, whose `paths:` set is the exact
+# mirror of the `paths-ignore` below. Keep the two lists identical; they are
+# guarded by TestWorkflowPathLanesAreExactMirrors. Mutation testing lives in
+# mutation.yml (nightly), never here. release.yml (tags-only) is unaffected.
 on:
+  # Manual trigger to run the full pipeline on demand — e.g. to force CI on a
+  # branch whose changes are all in the paths-ignore set below.
+  workflow_dispatch:
   pull_request:
+    paths-ignore:
+      - '.agents/skills/**'
+      - '.claude/skills/**'
+      - '.taskrail/**'
+      - 'planning/**'
+      - 'specs/**'
+      - 'docs/**'
+      - 'AGENTS.md'
+      - 'CHANGELOG.md'
+      - 'CLAUDE.md'
+      - 'README.md'
   push:
     branches:
       - main
+    paths-ignore:
+      - '.agents/skills/**'
+      - '.claude/skills/**'
+      - '.taskrail/**'
+      - 'planning/**'
+      - 'specs/**'
+      - 'docs/**'
+      - 'AGENTS.md'
+      - 'CHANGELOG.md'
+      - 'CLAUDE.md'
+      - 'README.md'
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -16,12 +47,13 @@ permissions:
 jobs:
   checks:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Provision toolchain (mise)
-        uses: jdx/mise-action@v4
+      - name: Setup toolchain
+        uses: ./.github/actions/setup
 
       - name: Verify formatting
         run: task fmt:check
@@ -47,16 +79,21 @@ jobs:
   unit-tests:
     needs: checks
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
     strategy:
       fail-fast: false
+      # Pull requests run Linux-only for fast feedback; pushes to main and manual
+      # dispatch run the full matrix, so cross-platform breaks are caught at merge.
       matrix:
-        runner: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
+        runner: ${{ github.event_name == 'pull_request'
+          && fromJSON('["ubuntu-latest"]')
+          || fromJSON('["ubuntu-latest","ubuntu-24.04-arm","macos-latest"]') }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Provision toolchain (mise)
-        uses: jdx/mise-action@v4
+      - name: Setup toolchain
+        uses: ./.github/actions/setup
 
       - name: Unit tests
         run: task test
@@ -64,16 +101,19 @@ jobs:
   smoke-tests:
     needs: checks
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
-        runner: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
+        runner: ${{ github.event_name == 'pull_request'
+          && fromJSON('["ubuntu-latest"]')
+          || fromJSON('["ubuntu-latest","ubuntu-24.04-arm","macos-latest"]') }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Provision toolchain (mise)
-        uses: jdx/mise-action@v4
+      - name: Setup toolchain
+        uses: ./.github/actions/setup
 
       - name: Build binary
         run: task build
@@ -84,12 +124,13 @@ jobs:
   integration-tests:
     needs: unit-tests
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Provision toolchain (mise)
-        uses: jdx/mise-action@v4
+      - name: Setup toolchain
+        uses: ./.github/actions/setup
 
       - name: Integration tests
         run: task test:integration
@@ -104,12 +145,13 @@ jobs:
   e2e-tests:
     needs: [unit-tests, smoke-tests]
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Provision toolchain (mise)
-        uses: jdx/mise-action@v4
+      - name: Setup toolchain
+        uses: ./.github/actions/setup
 
       - name: End-to-end tests
         run: task test:e2e
@@ -120,16 +162,3 @@ jobs:
           docker ps -aq --filter "name=tessariq-" | xargs -r docker rm -f || true
           docker network ls --filter "name=tessariq-" -q | xargs -r docker network rm || true
           docker images --filter "reference=tessariq-test-*" -q | xargs -r docker rmi -f || true
-
-  mutation-tests:
-    needs: unit-tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Provision toolchain (mise)
-        uses: jdx/mise-action@v4
-
-      - name: Run mutation tests
-        run: task test:mutate:gate

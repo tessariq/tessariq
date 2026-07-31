@@ -18,8 +18,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Provision toolchain (mise)
-        uses: jdx/mise-action@v4
+      - name: Setup toolchain
+        uses: ./.github/actions/setup
 
       # --- Tag push: real, published release ---
 

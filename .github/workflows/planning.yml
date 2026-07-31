@@ -1,0 +1,70 @@
+name: Planning checks
+
+# Fast lane for planning-, spec-, doc-, and agent-skill-only changes. The full
+# pipeline in ci.yml skips these paths (see paths-ignore there), so this workflow
+# preserves the gates that matter exactly when those files change — tracked-work
+# state validation, mirrored skill parity, and spec coverage — without spinning up
+# the build/test matrix or any Docker job. A gate guarding committed planning
+# content has to live here: ci.yml never runs for a change that touches only these
+# paths. The `paths:` set below is the exact mirror of the paths ignored by ci.yml;
+# keep them identical. Guarded by TestWorkflowPathLanesAreExactMirrors.
+#
+# main currently has no branch protection. If required status checks are ever
+# added, they must be satisfiable from both lanes — a check required from `CI`
+# alone would leave every docs-only pull request waiting forever for a status that
+# is never reported.
+on:
+  pull_request:
+    paths:
+      - '.agents/skills/**'
+      - '.claude/skills/**'
+      - '.taskrail/**'
+      - 'planning/**'
+      - 'specs/**'
+      - 'docs/**'
+      - 'AGENTS.md'
+      - 'CHANGELOG.md'
+      - 'CLAUDE.md'
+      - 'README.md'
+  push:
+    branches:
+      - main
+    paths:
+      - '.agents/skills/**'
+      - '.claude/skills/**'
+      - '.taskrail/**'
+      - 'planning/**'
+      - 'specs/**'
+      - 'docs/**'
+      - 'AGENTS.md'
+      - 'CHANGELOG.md'
+      - 'CLAUDE.md'
+      - 'README.md'
+
+concurrency:
+  group: planning-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Planning + docs checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup toolchain
+        uses: ./.github/actions/setup
+
+      - name: Validate Taskrail tracked-work state and live spec refs  # hard failure gate
+        run: task workflow:validate
+
+      - name: Verify mirrored workflow skills
+        run: task workflow:check-skills
+
+      - name: Report active milestone spec coverage  # advisory
+        run: task workflow:verify:spec

@@ -21,5 +21,5 @@ Run deterministic verification against Tessariq tracked-work acceptance criteria
 ## Rules
 
 - verification-only runs must not mutate product code unless explicitly requested
-- keep mutation testing in mind for logic-heavy changes and CI uses a 70% threshold
+- do not run mutation testing; it runs nightly in CI against a 70% threshold
 - keep evidence paths in reports and notes

@@ -1,0 +1,36 @@
+name: Mutation tests
+
+# gremlins re-runs the whole unit suite once per mutant, which makes it by far the
+# slowest job in the repository — too slow to sit on the pull-request path for the
+# signal it gives. It runs nightly against main instead, plus on demand. The 70%
+# efficacy threshold still fails the run; it just fails a nightly rather than
+# blocking a merge. Do not add a push or pull_request trigger here: that is guarded
+# by TestMutationWorkflowIsScheduledOnly, and the matching guard on the other side
+# is TestCIDoesNotRunMutationTests.
+#
+# Investigate a nightly failure locally with `task test:mutate:gate`.
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: mutation-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  mutation-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup toolchain
+        uses: ./.github/actions/setup
+
+      - name: Run mutation tests
+        run: task test:mutate:gate

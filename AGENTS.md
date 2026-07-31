@@ -14,7 +14,8 @@ Guidance for coding agents working in the Tessariq repository.
 - Spec reading order and versioning policy: `specs/README.md`.
 - Pinned developer toolchain: `mise.toml`.
 - Commands and local workflows: `Taskfile.yml`.
-- CI checks and required validations: `.github/workflows/ci.yml`.
+- CI checks and required validations: `.github/workflows/ci.yml` (code lane) and `.github/workflows/planning.yml` (planning/docs lane). The two lanes carry mirrored path lists — see "CI lanes" below.
+- Nightly mutation gate: `.github/workflows/mutation.yml`.
 - Release pipeline: `.goreleaser.yml` and `.github/workflows/release.yml`.
 - Product overview: `README.md`.
 - Tracked-work workflow and testing policy: `docs/workflow/`.
@@ -22,11 +23,21 @@ Guidance for coding agents working in the Tessariq repository.
 
 ## Toolchain and environment
 - Go version: `1.26` (`go.mod`).
-- The developer toolchain is pinned in `mise.toml` (go, task, goreleaser, trivy, lefthook, and the `go:`-backed gremlins/go-licenses/taskrail). It is the single source of truth for versions and is consumed identically in CI via `jdx/mise-action`.
+- The developer toolchain is pinned in `mise.toml` (go, task, goreleaser, trivy, lefthook, and the `go:`-backed gremlins/go-licenses/taskrail). It is the single source of truth for versions and is consumed identically in CI via the shared `.github/actions/setup` composite action, which wraps `jdx/mise-action` (pinned to a commit SHA) and restores the Go module and build caches. No workflow may call `jdx/mise-action` or `actions/setup-go` directly.
 - Provision a fresh clone with `mise install` (or `mise run setup` to also build `tessariq` onto PATH and install the opt-in git hooks). Install mise from https://mise.jdx.dev if needed.
 - `mise` and `task` are optional convenience; direct Go commands remain the source of truth and work without mise. Every operation has a `task <name>` wrapper, and CI runs those wrappers.
 - Prefer commands that mirror CI.
 - Docker is a runtime dependency for `tessariq run` and for `task images:*`; it is not needed for building or testing the CLI itself.
+
+## CI lanes
+CI is split into two lanes so that a change only pays for the validation it can actually break.
+
+- **Code lane** — `.github/workflows/ci.yml`: checks, unit and smoke matrix, Docker integration, Docker e2e. Runs on everything *except* the paths listed in its `paths-ignore`.
+- **Planning lane** — `.github/workflows/planning.yml`: `taskrail validate`, skill parity, spec coverage. Runs on exactly those same paths (planning, specs, docs, agent skills, root markdown).
+
+The two lists must stay byte-identical: a path present in one but not the other falls between the lanes and is validated by nothing. `internal/toolchain` fails the build when they diverge, so update both lists together.
+
+Pull requests run the unit and smoke matrix on `ubuntu-latest` only; pushes to `main` and `workflow_dispatch` run the full `[ubuntu-latest, ubuntu-24.04-arm, macos-latest]` matrix. Use `workflow_dispatch` on the CI workflow to force a full run for a branch whose diff sits entirely in the ignored paths.
 
 ## Build, lint, and test commands
 Use these defaults unless a task requires otherwise.
@@ -74,8 +85,9 @@ Use these defaults unless a task requires otherwise.
 - `go run ./cmd/tessariq --help` (or `task run:help`)
 
 ### Mutation tests
+Mutation testing runs **nightly in CI** (`.github/workflows/mutation.yml`, plus manual dispatch), not on pull requests and not as part of routine local work. Run it locally only when investigating a nightly failure.
 - Run mutation testing: `gremlins unleash` (or `task test:mutate`)
-- With quality gate (used in CI): `task test:mutate:gate` (`gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70`)
+- With the nightly quality gate: `task test:mutate:gate` (`gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70`)
 - gremlins is pinned in `mise.toml`; `mise install` provides it.
 
 ### Tracked-work workflow commands
@@ -158,7 +170,7 @@ Follow existing conventions and keep CLI UX stable.
 - Mark end-to-end tests with `//go:build e2e`.
 - Follow TDD for code changes: write the smallest failing test first, then make it pass, then refactor.
 - Follow the testing pyramid: default to unit tests, add integration tests for subsystem boundaries, and keep e2e tests sparse and high-signal.
-- Unit tests must not touch real filesystem paths, temp files, Docker, or network.
+- Unit tests must not touch real filesystem paths, temp files, Docker, or network. The one exception is `internal/toolchain`, whose tests read committed, immutable repository configuration (workflow YAML, `Taskfile.yml`, `mise.toml`) to assert build and CI invariants; they create nothing and touch no collaborator.
 - Integration and e2e tests may use `t.TempDir()` for local fixtures and workspaces, but must use Testcontainers for Go for real process or service collaborators.
 - Integration and e2e tests must not use custom HTTP/TCP servers or live external network services.
 - Keep tests deterministic; avoid live Docker or network unless integration-scoped and containerized.
@@ -258,7 +270,7 @@ When tessariq itself creates Docker containers (via `docker create` / `docker st
 - Run full `task test` (`go test ./...`) before handing off broad changes.
 - If integration paths changed, run `task test:integration` (`go test -tags=integration ./...`).
 - If e2e paths changed, run `task test:e2e` (`go test -tags=e2e ./...`).
-- If non-trivial logic changed, run `task test:mutate:gate` (`gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70`).
+- Do not run mutation testing as part of routine work; it runs nightly in CI.
 - If tracked-work tooling or skills changed, run `task workflow:validate`, `task workflow:check-skills`, and `task workflow:verify:spec`.
 - Update `README.md` when CLI flags/commands/behavior change.
 - Update `CHANGELOG.md` for user-visible behavior changes; keep entries user-facing and skip internal-only maintenance noise.
