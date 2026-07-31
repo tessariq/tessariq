@@ -2272,6 +2272,91 @@ func TestE2E_PreHookTimeoutWritesEvidence(t *testing.T) {
 		"runner.log must tag the timed-out phase")
 }
 
+// T-115: pre and verify hooks must execute with the repository root as their
+// working directory, not the evidence directory. T-072 fixed this; nothing
+// asserted it, so a regression would silently break every relative-path
+// project command (`go test ./...`, `ls tasks/sample.md`) and force callers
+// back to an inline `cd` workaround. Hook stdout/stderr must reach runner.log.
+func TestE2E_HooksRunFromRepoRootAndCaptureOutput(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+	env := setupRunEnv(t, bin, 0)
+
+	ctx := context.Background()
+	repoPath := filepath.Join(env.Dir(), "repo")
+
+	// Resolve the repo root the same way the hook shell will, so a symlinked
+	// TMPDIR cannot make the comparison fail for the wrong reason.
+	rootCode, wantRoot, err := env.Exec(ctx, []string{"sh", "-c",
+		fmt.Sprintf("cd %s && pwd -P", repoPath)})
+	require.NoError(t, err)
+	require.Equal(t, 0, rootCode, "resolve repo root")
+	require.NotEmpty(t, wantRoot)
+
+	code, output := runTessariq(t, env, "claude", joinFlags(
+		`--pre 'echo pre-cwd=$(pwd -P)'`,
+		`--pre 'ls tasks/sample.md && echo pre-relative-ok'`,
+		`--verify 'echo verify-cwd=$(pwd -P)'`,
+		`--verify 'ls tasks/sample.md && echo verify-relative-ok'`,
+	))
+	require.Equal(t, 0, code, "run with repo-root hooks must succeed: %s", output)
+
+	evidencePath := extractField(output, "evidence_path")
+	require.NotEmpty(t, evidencePath)
+
+	logCode, runnerLog, err := env.Exec(ctx, []string{"cat", filepath.Join(evidencePath, "runner.log")})
+	require.NoError(t, err)
+	require.Equal(t, 0, logCode, "runner.log must exist")
+
+	// Both phases carry the same contract; the trailing newline anchors the
+	// cwd match so a nested directory cannot satisfy it by prefix.
+	for _, phase := range []string{"pre", "verify"} {
+		require.Contains(t, runnerLog, phase+"-cwd="+wantRoot+"\n",
+			"%s-hook must run from the repository root", phase)
+		require.NotContains(t, runnerLog, phase+"-cwd="+evidencePath,
+			"%s-hook must not run from the evidence directory", phase)
+		require.Contains(t, runnerLog, phase+"-relative-ok",
+			"repo-relative path must resolve in a %s-hook without an inline cd", phase)
+	}
+}
+
+// T-115: a failing --verify hook must fail the run — the CLI exits non-zero,
+// status.json records StateFailed rather than success, and the failure is
+// attributable in runner.log. Without this, a green verify gate could be
+// silently ignored and a broken run would still look promotable.
+func TestE2E_VerifyHookFailureFailsRun(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+	env := setupRunEnv(t, bin, 0)
+
+	code, output := runTessariq(t, env, "claude", `--verify 'echo verify-hook-ran; exit 3'`)
+	require.NotEqual(t, 0, code, "failing verify hook must exit non-zero")
+	require.Contains(t, output, "state: failed")
+	require.NotContains(t, output, "promote:")
+
+	evidencePath := extractField(output, "evidence_path")
+	require.NotEmpty(t, evidencePath)
+
+	ctx := context.Background()
+	catCode, statusData, err := env.Exec(ctx, []string{"cat", filepath.Join(evidencePath, "status.json")})
+	require.NoError(t, err)
+	require.Equal(t, 0, catCode, "status.json must exist after verify-hook failure")
+
+	var status map[string]any
+	require.NoError(t, json.Unmarshal([]byte(statusData), &status))
+	require.Equal(t, "failed", status["state"])
+	require.Equal(t, float64(1), status["exit_code"])
+	require.Equal(t, false, status["timed_out"])
+
+	logCode, runnerLog, err := env.Exec(ctx, []string{"cat", filepath.Join(evidencePath, "runner.log")})
+	require.NoError(t, err)
+	require.Equal(t, 0, logCode, "runner.log must exist")
+	require.Contains(t, runnerLog, "verify-hook-ran",
+		"verify-hook output must be captured in runner.log")
+	require.Contains(t, runnerLog, "verify-hook failed",
+		"runner.log must attribute the failure to the verify phase")
+}
+
 func TestE2E_AgentUpdate_SkipFlagBypassesInitPhase(t *testing.T) {
 	t.Parallel()
 	bin := buildBinary(t)
