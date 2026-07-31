@@ -4,8 +4,12 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -44,6 +48,68 @@ func TestE2E_RunPromoteCreatesBranchAndCommit(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 0, code, "git show failed: %s", showOut)
 	require.Contains(t, showOut, "promoted.txt")
+}
+
+func TestE2E_RunPromoteBinaryFileKeepsContentIntact(t *testing.T) {
+	t.Parallel()
+
+	bin := buildBinary(t)
+
+	// A deterministic payload covering every octet value. The NUL bytes make git
+	// classify the file as binary, so the diff is only representable with
+	// `git diff --binary` (BUG-033).
+	payload := make([]byte, 256)
+	for i := range payload {
+		payload[i] = byte(i)
+	}
+
+	// The agent decodes the payload from base64 instead of writing escapes:
+	// the fake-agent script is materialised through a printf format string, so
+	// any backslash escape in the script body would be consumed before the
+	// agent ever runs.
+	script := fmt.Sprintf("echo %s | base64 -d > /work/asset.bin; exit 0",
+		base64.StdEncoding.EncodeToString(payload))
+	env := setupRunEnvWithScript(t, bin, "claude", script)
+
+	runCode, runOutput := runTessariq(t, env, "claude", "--egress open")
+	require.Equal(t, 0, runCode, "run failed: %s", runOutput)
+
+	runID := extractField(runOutput, "run_id")
+	require.NotEmpty(t, runID)
+	evidencePath := extractField(runOutput, "evidence_path")
+	require.NotEmpty(t, evidencePath)
+
+	// diff.patch must carry the binary content itself. Without --binary git
+	// degrades to an unappliable "Binary files ... differ" stub and the file
+	// is silently dropped at promote (BUG-033).
+	patch := readFileInEnv(t, env, filepath.Join(evidencePath, "diff.patch"))
+	require.Contains(t, patch, "asset.bin")
+	require.Contains(t, patch, "GIT binary patch",
+		"diff.patch must embed the binary payload, not a textual placeholder")
+	require.NotContains(t, patch, "Binary files",
+		"diff.patch must not degrade to an unappliable binary stub")
+
+	stat := readFileInEnv(t, env, filepath.Join(evidencePath, "diffstat.txt"))
+	require.Contains(t, stat, "asset.bin")
+	require.Contains(t, stat, "Bin", "diffstat.txt must report the binary change")
+
+	promoteCode, promoteOutput := runPromote(t, env, runID, "")
+	require.Equal(t, 0, promoteCode, "promote failed: %s", promoteOutput)
+
+	repoPath := filepath.Join(env.Dir(), "repo")
+	blobRef := fmt.Sprintf("tessariq/%s:asset.bin", runID)
+
+	// Size first: a patch that applies cleanly but truncates content would
+	// otherwise only show up as an opaque checksum mismatch.
+	size := gitOutput(t, env, repoPath, fmt.Sprintf("cat-file -s %s", blobRef))
+	require.Equal(t, strconv.Itoa(len(payload)), size,
+		"promoted blob must have the byte length the agent wrote")
+
+	sum := sha256.Sum256(payload)
+	promotedSum := gitOutput(t, env, repoPath,
+		fmt.Sprintf("show %s | sha256sum | awk '{print $1}'", blobRef))
+	require.Equal(t, hex.EncodeToString(sum[:]), promotedSum,
+		"promoted blob must be byte-for-byte what the agent wrote")
 }
 
 func TestE2E_PromoteZeroDiffFailsWithoutBranch(t *testing.T) {
@@ -426,20 +492,23 @@ func captureCleanBaseline(t *testing.T, env *containers.RunEnv, repoPath string)
 func captureGitState(t *testing.T, env *containers.RunEnv, repoPath string) gitState {
 	t.Helper()
 
-	ctx := context.Background()
-	git := func(args string) string {
-		cmd := fmt.Sprintf("git -C %s %s", repoPath, args)
-		code, out, err := env.Exec(ctx, []string{"sh", "-c", cmd})
-		require.NoError(t, err, "git %s: %s", args, out)
-		require.Equal(t, 0, code, "git %s exited %d: %s", args, code, out)
-		return strings.TrimSpace(out)
-	}
-
 	return gitState{
-		head:   git("rev-parse HEAD"),
-		refs:   git("for-each-ref --format='%(refname)' refs/heads/"),
-		status: git("status --porcelain"),
+		head:   gitOutput(t, env, repoPath, "rev-parse HEAD"),
+		refs:   gitOutput(t, env, repoPath, "for-each-ref --format='%(refname)' refs/heads/"),
+		status: gitOutput(t, env, repoPath, "status --porcelain"),
 	}
+}
+
+// gitOutput runs a git command against repoPath inside the e2e container and
+// returns its trimmed stdout. args is a shell fragment, so pipelines are allowed.
+func gitOutput(t *testing.T, env *containers.RunEnv, repoPath, args string) string {
+	t.Helper()
+
+	cmd := fmt.Sprintf("git -C %s %s", repoPath, args)
+	code, out, err := env.Exec(context.Background(), []string{"sh", "-c", cmd})
+	require.NoError(t, err, "git %s: %s", args, out)
+	require.Equal(t, 0, code, "git %s exited %d: %s", args, code, out)
+	return strings.TrimSpace(out)
 }
 
 func requireGitStateUnchanged(t *testing.T, env *containers.RunEnv, repoPath string, baseline gitState) {
