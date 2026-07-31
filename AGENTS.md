@@ -114,6 +114,7 @@ Tracked work is managed by the external `taskrail` binary (`github.com/tessariq/
 - Validate GoReleaser config: `task release:check` (`goreleaser check`)
 - Dry snapshot release: `task release:dry` (`goreleaser release --snapshot --clean`)
 - Publishing is automated by `.github/workflows/release.yml` on `v*` tags (GoReleaser with release notes extracted from `CHANGELOG.md`); goreleaser is pinned in `mise.toml`.
+- Release checklist: `docs/release-verification.md` lists the cases CI cannot prove (real-agent runs, PTY readability, human approval, macOS-only behavior), the reason each stays human-only, and the post-tag artifact checks. Work through it per release; it is version-independent.
 
 ### Container images
 - Build/test/scan/push runtime images: `task images:build`, `task images:test`, `task images:scan`, `task images:push` (requires Docker; trivy is pinned in `mise.toml`). The image tag defaults to `v0.1.0` via the `IMAGE_VERSION` Taskfile var. CI runs these in `.github/workflows/images.yml`.
