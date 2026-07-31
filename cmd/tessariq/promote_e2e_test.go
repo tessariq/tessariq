@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/tessariq/tessariq/internal/run"
 	"github.com/tessariq/tessariq/internal/testutil/containers"
 )
 
@@ -118,13 +119,9 @@ func TestE2E_PromoteLastFailsCleanlyWithIncompleteIndex(t *testing.T) {
 	bin := buildBinary(t)
 	env := setupRunEnvCustom(t, bin, e2eSetupOpts{skipImage: true})
 
-	hostDir := env.Dir()
-	repoPath := filepath.Join(hostDir, "repo")
-	ctx := context.Background()
-
-	// Write only incomplete index entries (missing required fields) inside the container.
-	cmd := fmt.Sprintf(`mkdir -p %s/.tessariq/runs && printf '{"run_id":"01ARZ3NDEKTSV4RRFFQ69G5FAV","state":"success"}\n' > %s/.tessariq/runs/index.jsonl`, repoPath, repoPath)
-	execCmd(t, env, ctx, cmd, "write corrupt index")
+	// Write only an incomplete index entry: every field except run_id and state
+	// is left at its zero value, so ReadIndex drops it as incomplete.
+	writeIndexEntries(t, env, run.IndexEntry{RunID: knownRunID, State: "success"})
 
 	code, output := runPromote(t, env, "last", "")
 	require.NotEqual(t, 0, code, "promote should fail with incomplete index")
@@ -137,17 +134,35 @@ func TestE2E_PromoteForgedEvidencePathShowsActionableGuidance(t *testing.T) {
 	bin := buildBinary(t)
 	env := setupRunEnvCustom(t, bin, e2eSetupOpts{skipImage: true})
 
-	hostDir := env.Dir()
-	repoPath := filepath.Join(hostDir, "repo")
-	ctx := context.Background()
-
 	// Write a forged index entry with an absolute external evidence path.
-	cmd := fmt.Sprintf(`mkdir -p %s/.tessariq/runs && printf '{"run_id":"01ARZ3NDEKTSV4RRFFQ69G5FAV","created_at":"2026-01-01T00:00:00Z","task_path":"tasks/sample.md","task_title":"Forged Task","agent":"claude-code","workspace_mode":"worktree","state":"success","evidence_path":"/tmp/evil-evidence"}\n' > %s/.tessariq/runs/index.jsonl`, repoPath, repoPath)
-	execCmd(t, env, ctx, cmd, "write forged index")
+	forged := indexEntryFixture(knownRunID, "success")
+	forged.EvidencePath = "/tmp/evil-evidence"
+	writeIndexEntries(t, env, forged)
 
 	code, output := runPromote(t, env, "last", "")
 	require.NotEqual(t, 0, code, "promote should fail with forged evidence path")
 	require.Contains(t, output, "outside the repository")
+}
+
+func TestE2E_PromoteUnknownRunIDFailsWithoutBranch(t *testing.T) {
+	t.Parallel()
+
+	bin := buildBinary(t)
+	env := setupRunEnvCustom(t, bin, e2eSetupOpts{skipImage: true})
+
+	repoPath := filepath.Join(env.Dir(), "repo")
+
+	// The known run's evidence directory is deliberately not created: resolving
+	// a different, unknown ref must fail before any evidence is touched.
+	writeIndexEntries(t, env, indexEntryFixture(knownRunID, "success"))
+	baseline := captureCleanBaseline(t, env, repoPath)
+
+	code, output := runPromote(t, env, unknownRunID, "")
+	require.NotEqual(t, 0, code, "promote must fail for a run id that is not in the index")
+	require.Contains(t, output, "run not found")
+	require.Contains(t, output, unknownRunID)
+	require.NotContains(t, output, "panic:", "an unresolvable ref must fail as an error, not a crash")
+	requireGitStateUnchanged(t, env, repoPath, baseline)
 }
 
 func TestE2E_PromoteLastNResolvesUniqueRuns(t *testing.T) {

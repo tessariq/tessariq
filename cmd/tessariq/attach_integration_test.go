@@ -65,16 +65,11 @@ func TestIntegration_AttachLastFailsCleanlyWithIncompleteIndex(t *testing.T) {
 	homeDir := filepath.Join(env.Dir(), "home")
 	binPath := filepath.Join(env.Dir(), "tessariq")
 
-	// Write only incomplete index entries (missing required fields).
-	ctx := context.Background()
-	incompleteIndex := `{"run_id":"01ARZ3NDEKTSV4RRFFQ69G5FAV","state":"running"}` + "\n"
-	indexPath := filepath.Join(repoPath, ".tessariq", "runs", "index.jsonl")
-	cmd := fmt.Sprintf("printf '%s' > %s", incompleteIndex, indexPath)
-	code, output, err := env.Exec(ctx, []string{"sh", "-c", cmd})
-	require.NoError(t, err)
-	require.Equal(t, 0, code, "write index: %s", output)
+	// Write only an incomplete index entry: every field except run_id and state
+	// is left at its zero value, so ReadIndex drops it as incomplete.
+	writeIndexEntries(t, env, run.IndexEntry{RunID: knownRunID, State: "running"})
 
-	code, output = runAttachInEnv(t, env, repoPath, homeDir, binPath, "last", "")
+	code, output := runAttachInEnv(t, env, repoPath, homeDir, binPath, "last", "")
 	require.NotEqual(t, 0, code)
 	require.Contains(t, output, "no matching run found")
 }

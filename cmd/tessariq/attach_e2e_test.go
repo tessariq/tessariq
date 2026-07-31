@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/tessariq/tessariq/internal/run"
 	"github.com/tessariq/tessariq/internal/testutil/containers"
 )
 
@@ -104,11 +105,10 @@ func TestE2E_AttachLastFailsCleanlyWithIncompleteIndex(t *testing.T) {
 	repoPath := filepath.Join(hostDir, "repo")
 	homeDir := filepath.Join(hostDir, "home")
 	binPath := filepath.Join(hostDir, "tessariq")
-	ctx := context.Background()
 
-	// Write only incomplete index entries (missing required fields) inside the container.
-	cmd := fmt.Sprintf(`mkdir -p %s/.tessariq/runs && printf '{"run_id":"01ARZ3NDEKTSV4RRFFQ69G5FAV","state":"running"}\n' > %s/.tessariq/runs/index.jsonl`, repoPath, repoPath)
-	execCmd(t, env, ctx, cmd, "write corrupt index")
+	// Write only an incomplete index entry: every field except run_id and state
+	// is left at its zero value, so ReadIndex drops it as incomplete.
+	writeIndexEntries(t, env, run.IndexEntry{RunID: knownRunID, State: "running"})
 
 	code, output := runAttachInEnv(t, env, repoPath, homeDir, binPath, "last", "")
 	require.NotEqual(t, 0, code, "attach should fail with incomplete index")
@@ -135,10 +135,9 @@ func TestE2E_AttachForgedCrossRunEvidenceRejectsBeforeAttaching(t *testing.T) {
 	execCmd(t, env, ctx, fmt.Sprintf(`printf '{"state":"running","started_at":"2026-01-01T00:00:00Z"}' > %s/status.json`, evidenceDir), "write status")
 
 	// Write RUN_B's own index entry and a forged entry for RUN_A pointing at RUN_B's evidence.
-	indexPath := filepath.Join(repoPath, ".tessariq", "runs", "index.jsonl")
-	entryB := fmt.Sprintf(`{"run_id":"%s","created_at":"2026-01-01T00:00:00Z","task_path":"tasks/sample.md","task_title":"B","agent":"claude-code","workspace_mode":"worktree","state":"running","evidence_path":".tessariq/runs/%s"}`, runB, runB)
-	entryA := fmt.Sprintf(`{"run_id":"%s","created_at":"2026-01-01T00:01:00Z","task_path":"tasks/sample.md","task_title":"Forged A","agent":"claude-code","workspace_mode":"worktree","state":"running","evidence_path":".tessariq/runs/%s"}`, runA, runB)
-	execCmd(t, env, ctx, fmt.Sprintf("printf '%s\\n%s\\n' > %s", entryB, entryA, indexPath), "write forged index")
+	forgedA := indexEntryFixture(runA, "running")
+	forgedA.EvidencePath = filepath.Join(".tessariq", "runs", runB)
+	writeIndexEntries(t, env, indexEntryFixture(runB, "running"), forgedA)
 
 	// Start a tmux session for RUN_B so the liveness check would pass if not for the guard.
 	execCmd(t, env, ctx, fmt.Sprintf("tmux new-session -d -s tessariq-%s 'sleep 30'", runB), "start tmux session")
@@ -150,6 +149,56 @@ func TestE2E_AttachForgedCrossRunEvidenceRejectsBeforeAttaching(t *testing.T) {
 	require.NotEqual(t, 0, code, "attach should fail for cross-run evidence forgery")
 	require.Contains(t, output, "run "+runA+" is not live")
 	require.Contains(t, output, "run_id mismatch")
+}
+
+func TestE2E_AttachFinishedRunRefusesWithoutAttaching(t *testing.T) {
+	t.Parallel()
+
+	bin := buildBinary(t)
+	env := setupRunEnv(t, bin, 0)
+	hostDir := env.Dir()
+	repoPath := filepath.Join(hostDir, "repo")
+	homeDir := filepath.Join(hostDir, "home")
+	binPath := filepath.Join(hostDir, "tessariq")
+
+	runCode, runOutput := runTessariq(t, env, "claude", "--egress open")
+	require.Equal(t, 0, runCode, "run failed: %s", runOutput)
+	runID := extractField(runOutput, "run_id")
+	require.NotEmpty(t, runID)
+
+	code, output := runAttachInEnv(t, env, repoPath, homeDir, binPath, runID, "")
+	require.NotEqual(t, 0, code, "attach must fail for a run that already finished")
+	require.Contains(t, output, "run "+runID+" is not live")
+	require.Contains(t, output, "state success")
+	require.Contains(t, output, filepath.Join(repoPath, ".tessariq", "runs", runID),
+		"refusal must print the evidence path so the operator can inspect the finished run")
+
+	// The refusal must land before the terminal is handed to tmux. A session
+	// for the finished run may still linger on the host, so the check is that
+	// no client got attached to it.
+	require.NotContains(t, listClients(t, env), "tessariq-"+runID, "attach must not join a tmux session for a finished run")
+}
+
+func TestE2E_AttachUnknownRunIDFailsCleanly(t *testing.T) {
+	t.Parallel()
+
+	bin := buildBinary(t)
+	env := setupRunEnvCustom(t, bin, e2eSetupOpts{skipImage: true})
+	hostDir := env.Dir()
+	repoPath := filepath.Join(hostDir, "repo")
+	homeDir := filepath.Join(hostDir, "home")
+	binPath := filepath.Join(hostDir, "tessariq")
+
+	// The known run's evidence directory is deliberately not created: resolving
+	// a different, unknown ref must fail before any evidence is touched.
+	writeIndexEntries(t, env, indexEntryFixture(knownRunID, "success"))
+
+	code, output := runAttachInEnv(t, env, repoPath, homeDir, binPath, unknownRunID, "")
+	require.NotEqual(t, 0, code, "attach must fail for a run id that is not in the index")
+	require.Contains(t, output, "run "+unknownRunID+" is not live")
+	require.Contains(t, output, "no matching run found")
+	require.NotContains(t, output, "panic:", "an unresolvable ref must fail as an error, not a crash")
+	require.NotContains(t, output, knownRunID, "an unknown ref must not fall through to another run")
 }
 
 func TestE2E_AttachReconcilesExitedOrphanedRun(t *testing.T) {
@@ -278,9 +327,17 @@ func listClients(t *testing.T, env *containers.RunEnv) string {
 	t.Helper()
 
 	ctx := context.Background()
-	code, output, err := env.Exec(ctx, []string{"sh", "-c", "tmux list-clients -F '#{client_tty} #{session_name}'"})
+	// tmux exits non-zero when no server is running, which is a legitimate
+	// "no clients" answer rather than a test failure. Any other failure must
+	// still surface: callers assert on this result, so silently returning an
+	// empty list for a broken tmux invocation would let those assertions pass
+	// vacuously.
+	code, output, err := env.Exec(ctx, []string{"sh", "-c", "tmux list-clients -F '#{client_tty} #{session_name}' 2>&1"})
 	require.NoError(t, err)
-	require.Equal(t, 0, code, "list clients failed: %s", output)
+	if code != 0 {
+		require.Contains(t, output, "no server running", "list clients failed: %s", output)
+		return ""
+	}
 	return output
 }
 
