@@ -1,12 +1,12 @@
 ---
 id: T-120-correct-t1-6-post-run-hygiene-expectations-for
 title: Correct T1.6 post-run hygiene expectations for retained worktrees
-status: todo
+status: completed
 priority: low
 spec_ref: specs/tessariq-v0.1.0.md#workspace-guarantees
 dependencies:
     - T-116
-updated_at: "2026-07-31T11:51:42Z"
+updated_at: "2026-07-31T21:27:31Z"
 ---
 
 # T-120-correct-t1-6-post-run-hygiene-expectations-for Correct T1.6 post-run hygiene expectations for retained worktrees
@@ -53,3 +53,5 @@ interrupt, failure).
 - Automated coverage already exists and needs no change:
   `TestE2E_SuccessfulRunLeavesNoResources` and `TestE2E_TimedOutRunLeavesNoResources`
   in `cmd/tessariq/run_e2e_test.go`.
+- 2026-07-31T21:27:11Z: verification pass
+- 2026-07-31T21:27:31Z: Docs-only: rewrote T1.6 worktree-hygiene expectation in docs/release-verification.md sec.3. Distinguishes success (worktree + git worktree list entry retained on purpose as inspectable run output; cmd/tessariq/run.go:409 sets cleanupWorktree=false) from non-success (timeout/interrupt/failure remove both). Names retention reason so testers do not 'fix' it; points at deferred clean/prune note (specs/tessariq-v0.2.0.md:55). No production change; behavior pinned by existing e2e requireWorktreeRetained/requireWorktreeRemoved in cmd/tessariq/run_e2e_test.go (T-116). code-reviewer HIGH corrected: task premise 'worktree is the workspace promote commits from' is false — internal/promote/promote.go:122-136 rebuilds a throwaway worktree from base_sha+diff.patch; doc now states promote does not depend on the retained worktree. Note: AC text names stale untracked docs/release-readiness-v0.1.0.md; fix correctly landed in tracked docs/release-verification.md. taskrail validate: state valid.

@@ -86,8 +86,21 @@ is meaningless without the proxy, so Tessariq fails closed and steers the operat
 toward proxy mode. The spec (`specs/tessariq-v0.1.0.md#networking-and-egress`) does
 not require warn-and-ignore, so rejection is the correct reading;
 `TestE2E_EgressOpenWithAllowRejected` and `TestConfig_Validate_EgressOpenWithAllow`
-are authoritative for the exact error. T1.6 post-run hygiene expectations differ
-for retained worktrees (tracked by T-120).
+are authoritative for the exact error. T1.6's worktree class had the same stale
+reading: the manual plan told the tester to expect the run's worktree and its
+`git worktree list` entry gone after **every** run, but on a **successful** run
+both are retained on purpose. `cmd/tessariq/run.go` sets `cleanupWorktree = false`
+once the run succeeds, leaving the isolated workspace on disk as the inspectable
+output of the run; a retained worktree after a green run is intended behavior, not
+a leak — do not "clean" it. `tessariq promote` does **not** depend on that
+directory: `internal/promote/promote.go` rebuilds a throwaway worktree from the
+manifest `base_sha` and the `diff.patch` evidence artifact, so promote still works
+after the run worktree is removed. Only non-success runs (timeout, interrupt,
+failure) remove the worktree and its `git worktree list` entry.
+`requireWorktreeRetained` (success) and `requireWorktreeRemoved` (non-success) in
+`cmd/tessariq/run_e2e_test.go` are authoritative, and a first-class `clean`/prune
+command is deliberately deferred past v0.2.0 (`specs/tessariq-v0.2.0.md`, the
+`clean`-out-of-scope note).
 
 ## 4. Automated earlier
 
