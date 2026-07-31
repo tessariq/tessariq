@@ -78,6 +78,16 @@ tasks:
     cmds:
       - go test ./...
 
+  test:images:pull:integration:
+    desc: Pre-pull the third-party images the integration suite needs (retries on registry failure)
+    cmds:
+      - scripts/pull-test-images.sh integration
+
+  test:images:pull:e2e:
+    desc: Pre-pull the third-party images the e2e suite needs (retries on registry failure)
+    cmds:
+      - scripts/pull-test-images.sh e2e
+
   test:integration:
     desc: Run integration tests
     cmds:

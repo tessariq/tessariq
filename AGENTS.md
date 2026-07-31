@@ -58,11 +58,13 @@ Use these defaults unless a task requires otherwise.
 ### Integration tests
 - Run integration-tag tests: `go test -tags=integration ./...`
 - Task wrapper: `task test:integration`
+- Pre-pull third-party test images: `task test:images:pull:integration` (`scripts/pull-test-images.sh integration`). CI runs this before `task test:integration` so a registry blip is retried once instead of costing a pull timeout in every container start. When a test starts a container from a new third-party image, add it to the script's `COMMON_IMAGES` or `INTEGRATION_IMAGES` list.
 - Integration and e2e tests must use Testcontainers for Go for service or process collaborators; do not use custom local servers.
 
 ### End-to-end tests
 - Run e2e-tag tests: `go test -tags=e2e ./...`
 - Task wrapper: `task test:e2e`
+- Pre-pull third-party test images: `task test:images:pull:e2e` (`scripts/pull-test-images.sh e2e`), run by CI before `task test:e2e` for the same reason as the integration lane. New third-party images go in the script's `COMMON_IMAGES` or `E2E_IMAGES` list.
 - E2E tests should stay thin, cover critical CLI flows only, and use Testcontainers when runtime collaborators are needed.
 
 ### Run a single test

@@ -132,6 +132,11 @@ jobs:
       - name: Setup toolchain
         uses: ./.github/actions/setup
 
+      # Testcontainers pulls lazily, so a registry outage costs one pull timeout
+      # per container start and reds the whole suite. Pull once, with retries.
+      - name: Pre-pull test images
+        run: task test:images:pull:integration
+
       - name: Integration tests
         run: task test:integration
 
@@ -152,6 +157,10 @@ jobs:
 
       - name: Setup toolchain
         uses: ./.github/actions/setup
+
+      # Same lazy-pull exposure as the integration lane: pull once, with retries.
+      - name: Pre-pull test images
+        run: task test:images:pull:e2e
 
       - name: End-to-end tests
         run: task test:e2e
