@@ -81,8 +81,13 @@ These cases need **no** human pass; do not re-run them by hand.
 
 Two of these had stale expectations in the v0.1.0 manual plan text; the automated
 tests are authoritative. T3.6 rejects `--egress open` combined with
-`--egress-allow` rather than warning and ignoring it (tracked by T-118), and T1.6
-post-run hygiene expectations differ for retained worktrees (tracked by T-120).
+`--egress-allow` at validation rather than warning and ignoring it: an allowlist
+is meaningless without the proxy, so Tessariq fails closed and steers the operator
+toward proxy mode. The spec (`specs/tessariq-v0.1.0.md#networking-and-egress`) does
+not require warn-and-ignore, so rejection is the correct reading;
+`TestE2E_EgressOpenWithAllowRejected` and `TestConfig_Validate_EgressOpenWithAllow`
+are authoritative for the exact error. T1.6 post-run hygiene expectations differ
+for retained worktrees (tracked by T-120).
 
 ## 4. Automated earlier
 
