@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- `promote` now rejects a manifest whose `task_path`, `task_title` or `base_sha` disagrees with the rest of the run's evidence, not just a forged `run_id`. The first two are cross-checked against the run index and the third against `workspace.json`; all three decide what the promoted commit claims, since `task_path` and `base_sha` become the `Tessariq-Task` and `Tessariq-Base` trailers and `task_title` the default commit subject. Rejection happens before any branch or commit is created. This is a consistency check, not an integrity boundary: all three files live in the same `.tessariq/runs/` tree with the same permissions, so it catches partial edits and evidence-writing bugs, not an actor who rewrites every file coherently.
+
 ### Fixed
+
+- The `--mount-agent-config` warning for an absent or unreadable agent config directory now names the host path that was skipped, not only the agent. The path is what an operator has to create or fix.
 
 - Proxy mode now prints the "Blocked egress destinations" guidance for the run that was just executed. The proxy was torn down — and its egress telemetry extracted — only after the guidance was printed, so blocked destinations and the `--egress-allow` hint never appeared.
 - Proxy topology teardown is now bounded by a 30-second timeout. An unresponsive Docker daemon could previously hang `tessariq run` indefinitely while dismantling the Squid container and per-run network — including after Ctrl+C, which is exactly when a user wants out. Teardown failures are still reported as a warning and never change the run's terminal state.

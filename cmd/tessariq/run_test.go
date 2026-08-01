@@ -936,3 +936,52 @@ func TestTeardownProxyTopology_WarnsOnTeardownError(t *testing.T) {
 
 	require.Equal(t, "warning: proxy topology teardown: stop squid: boom\n", buf.String())
 }
+
+// TestOptionalConfigWarning covers the T2.4 message contract: the warning that
+// --mount-agent-config could not mount the optional config directory must name
+// the host path the operator has to create or fix, not only the agent. It is
+// the operator's only pointer to the directory that was skipped.
+func TestOptionalConfigWarning(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		status   string
+		want     string
+		wantNone bool
+	}{
+		{
+			name:   "missing",
+			status: "missing_optional",
+			want:   "warning: optional config directory /home/user/.claude for claude-code not found; continuing with auth mounts only",
+		},
+		{
+			name:   "unreadable",
+			status: "unreadable_optional",
+			want:   "warning: optional config directory /home/user/.claude for claude-code is not readable; continuing with auth mounts only",
+		},
+		{
+			name:     "mounted emits nothing",
+			status:   "mounted",
+			wantNone: true,
+		},
+		{
+			name:     "disabled emits nothing",
+			status:   "disabled",
+			wantNone: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := optionalConfigWarning(tt.status, "claude-code", "/home/user/.claude")
+			if tt.wantNone {
+				require.Empty(t, got)
+				return
+			}
+			require.Equal(t, tt.want, got)
+		})
+	}
+}

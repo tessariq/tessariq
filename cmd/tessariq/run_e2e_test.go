@@ -113,6 +113,7 @@ type e2eSetupOpts struct {
 	extraPkgs  string                        // extra apk packages for the agent image (e.g. "curl")
 	runtimeUID int                           // runtime image tessariq uid; defaults to 1000
 	runtimeGID int                           // runtime image tessariq gid; defaults to runtimeUID
+	fakeNpm    string                        // body of a fake `npm` installed into the agent image (for agent-update tests)
 	skipAuth   bool                          // skip creating auth files (for auth-failure tests)
 	skipImage  bool                          // skip building test Docker image (for pre-container-failure tests)
 	bareImage  bool                          // build image WITHOUT agent binary (for missing-binary tests)
@@ -185,7 +186,19 @@ DEOF`, opts.runtimeGID, opts.runtimeUID),
 		} else {
 			// Standard image with fake agent binary.
 			imgName := fmt.Sprintf("tessariq-test-agent-%s-%s", opts.binaryName, testImageTag(t))
-			buildCmds := []string{
+			// A fake `npm` makes the agent-update init container succeed
+			// without a registry round-trip: the real UpdateCommand is
+			// `npm install --global --prefix /cache ...`, so whatever this
+			// script writes under /cache is what the update produced.
+			npmLayer := ""
+			var buildCmds []string
+			if opts.fakeNpm != "" {
+				npmLayer = "COPY fake-npm.sh /usr/local/bin/npm\nRUN chmod +x /usr/local/bin/npm"
+				buildCmds = append(buildCmds,
+					fmt.Sprintf(`printf '#!/bin/sh\n%s\n' > /work/fake-npm.sh && chmod +x /work/fake-npm.sh`,
+						strings.ReplaceAll(opts.fakeNpm, "'", "'\\''")))
+			}
+			buildCmds = append(buildCmds,
 				fmt.Sprintf(`cat > /work/Dockerfile.test <<'DEOF'
 FROM alpine:latest
 RUN apk add --no-cache coreutils %s \
@@ -193,13 +206,14 @@ RUN apk add --no-cache coreutils %s \
     && adduser -D -u %d -G tessariq -h /home/tessariq tessariq
 COPY fake-agent.sh /usr/local/bin/%s
 RUN chmod +x /usr/local/bin/%s
+%s
 USER tessariq
 WORKDIR /work
-DEOF`, opts.extraPkgs, opts.runtimeGID, opts.runtimeUID, opts.binaryName, opts.binaryName),
+DEOF`, opts.extraPkgs, opts.runtimeGID, opts.runtimeUID, opts.binaryName, opts.binaryName, npmLayer),
 				fmt.Sprintf(`printf '#!/bin/sh\n%s\n' > /work/fake-agent.sh && chmod +x /work/fake-agent.sh`,
 					strings.ReplaceAll(opts.scriptBody, "'", "'\\''")),
 				fmt.Sprintf("DOCKER_BUILDKIT=1 docker build -t %s -f /work/Dockerfile.test /work", imgName),
-			}
+			)
 			for _, cmd := range buildCmds {
 				execCmd(t, env, ctx, cmd, "image build")
 			}
@@ -736,6 +750,42 @@ func TestE2E_MountAgentConfigSetsClaudeConfigDir(t *testing.T) {
 		"agent config mount must be enabled")
 	require.Equal(t, "mounted", runtimeInfo.AgentConfigMountStatus,
 		"agent config mount status must be mounted when config dir exists")
+}
+
+// TestE2E_MountAgentConfigMissingDirWarnsWithPath covers manual case T2.4: when
+// --mount-agent-config finds no config directory the run continues on auth
+// mounts alone, and the warning names the host path that was skipped. The path
+// is the operator's only handle on the problem — the agent name does not say
+// which directory to create. OpenCode is the agent under test because its config
+// dir (~/.config/opencode) is independent of its auth file, so it can be absent
+// on an otherwise runnable setup.
+func TestE2E_MountAgentConfigMissingDirWarnsWithPath(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+	env := setupRunEnvForBinary(t, bin, "opencode", 0)
+
+	hostDir := env.Dir()
+	homeDir := filepath.Join(hostDir, "home")
+
+	code, output := runTessariq(t, env, "opencode", "--agent opencode --mount-agent-config")
+	require.Equal(t, 0, code, "run must continue without the optional config dir: %s", output)
+
+	require.Contains(t, output, fmt.Sprintf(
+		"warning: optional config directory %s for opencode not found; continuing with auth mounts only",
+		filepath.Join(homeDir, ".config", "opencode")))
+
+	evidencePath := extractField(output, "evidence_path")
+	require.NotEmpty(t, evidencePath)
+
+	catCode, runtimeData, err := env.Exec(context.Background(),
+		[]string{"cat", filepath.Join(evidencePath, "runtime.json")})
+	require.NoError(t, err)
+	require.Equal(t, 0, catCode, "runtime.json must exist")
+
+	var runtimeInfo adapter.RuntimeInfo
+	require.NoError(t, json.Unmarshal([]byte(runtimeData), &runtimeInfo))
+	require.Equal(t, "enabled", runtimeInfo.AgentConfigMount)
+	require.Equal(t, "missing_optional", runtimeInfo.AgentConfigMountStatus)
 }
 
 func TestE2E_RunFailsWithActionableGuidanceWhenTmuxMissing(t *testing.T) {
@@ -2552,6 +2602,163 @@ func TestE2E_AgentUpdate_FallbackRecordsEvidence(t *testing.T) {
 		"update must fail in test environment (no npm)")
 	require.NotEmpty(t, runtimeInfo.AgentUpdate.Error)
 	require.Greater(t, runtimeInfo.AgentUpdate.ElapsedMs, int64(0))
+}
+
+// bakedAgentScript is the fake agent baked into the test image for the
+// agent-update success case: it reports version 1.0.0 and marks its own
+// execution, so the run.log tells the two binaries apart.
+const bakedAgentScript = `if [ "$1" = "--version" ]; then echo 1.0.0; exit 0; fi` +
+	"\\n" + `echo BAKED_AGENT_RAN` + "\\n" + `exit 0`
+
+// fakeNpmScript stands in for the real `npm install --global --prefix /cache
+// @anthropic-ai/claude-code@latest`. It honors --prefix (failing loudly if
+// tessariq stops passing it) and derives the "updated" agent from the baked one
+// by bumping the version and the execution marker.
+const fakeNpmScript = `prefix=""` + "\\n" +
+	`while [ $# -gt 0 ]; do if [ "$1" = "--prefix" ]; then shift; prefix="$1"; fi; shift; done` + "\\n" +
+	`[ -n "$prefix" ] || exit 3` + "\\n" +
+	`mkdir -p "$prefix/bin"` + "\\n" +
+	`sed -e s/1.0.0/2.0.0/ -e s/BAKED_AGENT_RAN/UPDATED_AGENT_RAN/ /usr/local/bin/claude > "$prefix/bin/claude"` + "\\n" +
+	`chmod +x "$prefix/bin/claude"` + "\\n" +
+	`exit 0`
+
+// TestE2E_AgentUpdate_SuccessMountsUpdatedAgent covers manual case T2.7: a
+// successful agent auto-update must be recorded in runtime.json, must not
+// regress the version below the one baked into the image, and must actually put
+// the updated binary in front of the agent — not merely report success.
+func TestE2E_AgentUpdate_SuccessMountsUpdatedAgent(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+
+	env := setupRunEnvCustom(t, bin, e2eSetupOpts{
+		scriptBody: bakedAgentScript,
+		fakeNpm:    fakeNpmScript,
+	})
+
+	code, output := runTessariqWithUpdate(t, env, "claude", "")
+	require.Equal(t, 0, code, "run failed: %s", output)
+
+	evidencePath := extractField(output, "evidence_path")
+	require.NotEmpty(t, evidencePath)
+
+	ctx := context.Background()
+
+	catCode, runtimeData, err := env.Exec(ctx, []string{"cat", filepath.Join(evidencePath, "runtime.json")})
+	require.NoError(t, err)
+	require.Equal(t, 0, catCode, "runtime.json must exist")
+
+	var runtimeInfo adapter.RuntimeInfo
+	require.NoError(t, json.Unmarshal([]byte(runtimeData), &runtimeInfo))
+
+	require.NotNil(t, runtimeInfo.AgentUpdate, "agent_update must be present")
+	require.True(t, runtimeInfo.AgentUpdate.Attempted)
+	require.True(t, runtimeInfo.AgentUpdate.Success,
+		"update must succeed: %s", runtimeInfo.AgentUpdate.Error)
+	require.Empty(t, runtimeInfo.AgentUpdate.Error)
+	// The fake npm installs 2.0.0 over the image's baked 1.0.0, so pinning both
+	// versions also pins the T2.7 claim that a successful update never leaves
+	// the run on an older agent than the image already carried.
+	require.Equal(t, "1.0.0", runtimeInfo.AgentUpdate.BakedVersion)
+	require.Equal(t, "2.0.0", runtimeInfo.AgentUpdate.CachedVersion)
+
+	// The cache mount and PATH override only matter if the agent container
+	// really executed the updated binary.
+	logCode, runLog, err := env.Exec(ctx, []string{"cat", filepath.Join(evidencePath, "run.log")})
+	require.NoError(t, err)
+	require.Equal(t, 0, logCode, "run.log must exist")
+	require.Contains(t, runLog, "UPDATED_AGENT_RAN",
+		"the updated agent from /cache/bin must be the one that ran")
+	require.NotContains(t, runLog, "BAKED_AGENT_RAN")
+}
+
+// TestE2E_TaskPathOutsideRepositoryRejected covers manual case T4.2 at the CLI
+// boundary: a task path that escapes the repository, by traversal or by being
+// absolute, is refused before any evidence directory exists. The rejection is
+// unit tested in internal/run; this pins that `tessariq run` actually applies it.
+func TestE2E_TaskPathOutsideRepositoryRejected(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+
+	env := setupRunEnvCustom(t, bin, e2eSetupOpts{skipImage: true})
+
+	ctx := context.Background()
+	hostDir := env.Dir()
+	repoPath := filepath.Join(hostDir, "repo")
+	homeDir := filepath.Join(hostDir, "home")
+	binPath := filepath.Join(hostDir, "tessariq")
+
+	execCmd(t, env, ctx, fmt.Sprintf("printf '# External Task\\n' > %s/outside.md", hostDir),
+		"external task setup")
+
+	tests := []struct {
+		name     string
+		taskArg  string
+		contains string
+	}{
+		{
+			name:     "parent traversal",
+			taskArg:  "../outside.md",
+			contains: "task path is outside the repository",
+		},
+		{
+			name:     "absolute path",
+			taskArg:  filepath.Join(hostDir, "outside.md"),
+			contains: "task path must be relative to the repository",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			code, output, err := env.Exec(ctx, []string{"sh", "-c",
+				fmt.Sprintf("cd %s && HOME=%s %s run --egress none %s",
+					repoPath, homeDir, binPath, tt.taskArg)})
+			require.NoError(t, err)
+			require.NotEqual(t, 0, code, "run must reject %s: %s", tt.taskArg, output)
+			require.Contains(t, output, tt.contains)
+			require.NotContains(t, output, "run_id:",
+				"must fail before evidence bootstrap: %s", output)
+		})
+	}
+
+	requireNoRunDirectory(t, env)
+}
+
+// TestE2E_RunFailsWhenDockerDaemonUnreachable covers manual case T4.5's second
+// half: `docker` is on PATH but the daemon does not answer. That is a different
+// failure point from a missing binary and must produce daemon-specific guidance
+// rather than an install hint.
+func TestE2E_RunFailsWhenDockerDaemonUnreachable(t *testing.T) {
+	t.Parallel()
+	bin := buildBinary(t)
+
+	env := setupRunEnvCustom(t, bin, e2eSetupOpts{skipImage: true})
+
+	ctx := context.Background()
+	hostDir := env.Dir()
+	repoPath := filepath.Join(hostDir, "repo")
+	homeDir := filepath.Join(hostDir, "home")
+	binPath := filepath.Join(hostDir, "tessariq")
+
+	// A stub docker that resolves on PATH but fails every invocation, the way
+	// the real client behaves when the daemon socket is not accepting.
+	execCmd(t, env, ctx, "mkdir -p /work/stopped-bin"+
+		" && ln -sf $(command -v git) /work/stopped-bin/git"+
+		" && ln -sf $(command -v tmux) /work/stopped-bin/tmux"+
+		" && printf '#!/bin/sh\\necho \"Cannot connect to the Docker daemon at unix:///var/run/docker.sock.\" >&2\\nexit 1\\n'"+
+		" > /work/stopped-bin/docker && chmod +x /work/stopped-bin/docker",
+		"stopped-daemon setup")
+
+	code, output, err := env.Exec(ctx, []string{"sh", "-c",
+		fmt.Sprintf("cd %s && PATH=/work/stopped-bin HOME=%s %s run tasks/sample.md",
+			repoPath, homeDir, binPath)})
+	require.NoError(t, err)
+	require.NotEqual(t, 0, code, "run must fail when the daemon is unreachable: %s", output)
+	require.Contains(t, output, "docker daemon is not reachable; ensure Docker is running")
+	require.NotContains(t, output, "required host prerequisite \"docker\" is missing",
+		"a reachable binary must not be reported as a missing prerequisite: %s", output)
+	require.NotContains(t, output, "run_id:")
+
+	requireNoRunDirectory(t, env)
 }
 
 // interruptedRun holds the observations collected while interrupting a live

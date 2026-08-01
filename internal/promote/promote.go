@@ -12,6 +12,7 @@ import (
 	"github.com/tessariq/tessariq/internal/lifecycle"
 	"github.com/tessariq/tessariq/internal/run"
 	"github.com/tessariq/tessariq/internal/runner"
+	"github.com/tessariq/tessariq/internal/workspace"
 )
 
 var (
@@ -64,7 +65,12 @@ func Run(ctx context.Context, repoRoot string, opts Options) (Result, error) {
 		return Result{}, err
 	}
 
-	if err := validateManifestIdentity(entry, manifest, evidenceDir); err != nil {
+	workspaceMeta, err := workspace.ReadMetadata(evidenceDir)
+	if err != nil {
+		return Result{}, err
+	}
+
+	if err := validateManifestIdentity(entry, manifest, evidenceDir, workspaceMeta); err != nil {
 		return Result{}, err
 	}
 
@@ -167,15 +173,38 @@ func Run(ctx context.Context, repoRoot string, opts Options) (Result, error) {
 	return Result{RunID: manifest.RunID, Branch: branch, Commit: commitSHA}, nil
 }
 
-func validateManifestIdentity(entry run.IndexEntry, manifest run.Manifest, evidenceDir string) error {
-	if manifest.RunID != entry.RunID {
-		return fmt.Errorf("%w: manifest run_id %q does not match resolved run %q; evidence may be inconsistent or tampered",
-			ErrManifestIdentityMismatch, manifest.RunID, entry.RunID)
+// validateManifestIdentity cross-checks every manifest field that ends up in
+// the promoted commit — the message and the Tessariq-Run, Tessariq-Base and
+// Tessariq-Task trailers — against an independent record of the same run: the
+// run index for run_id, task_path and task_title, and workspace.json for
+// base_sha. Both records are written from the same values at run bootstrap, so
+// a divergence means the evidence was edited afterwards. It runs before any git
+// side effect so a tampered manifest cannot produce a branch or a commit.
+//
+// This is a consistency check, not an integrity boundary. Every source lives in
+// the same .tessariq/runs/ tree with the same permissions and no signature, so
+// it catches partial edits and evidence-writing bugs — not an actor who rewrites
+// all of them coherently. Real tamper-resistance would need a trust anchor
+// outside the evidence tree.
+func validateManifestIdentity(entry run.IndexEntry, manifest run.Manifest, evidenceDir string, ws workspace.Metadata) error {
+	checks := []struct {
+		field  string
+		got    string
+		want   string
+		source string
+	}{
+		{"run_id", manifest.RunID, entry.RunID, "resolved run"},
+		{"run_id", manifest.RunID, filepath.Base(evidenceDir), "evidence directory"},
+		{"task_path", manifest.TaskPath, entry.TaskPath, "run index task_path"},
+		{"task_title", manifest.TaskTitle, entry.TaskTitle, "run index task_title"},
+		{"base_sha", manifest.BaseSHA, ws.BaseSHA, "workspace.json base_sha"},
 	}
-	dirName := filepath.Base(evidenceDir)
-	if manifest.RunID != dirName {
-		return fmt.Errorf("%w: manifest run_id %q does not match evidence directory %q; evidence may be inconsistent or tampered",
-			ErrManifestIdentityMismatch, manifest.RunID, dirName)
+
+	for _, c := range checks {
+		if c.got != c.want {
+			return fmt.Errorf("%w: manifest %s %q does not match %s %q; evidence may be inconsistent or tampered",
+				ErrManifestIdentityMismatch, c.field, c.got, c.source, c.want)
+		}
 	}
 	return nil
 }

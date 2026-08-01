@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/tessariq/tessariq/internal/run"
+	"github.com/tessariq/tessariq/internal/workspace"
 )
 
 func TestDefaultBranchName(t *testing.T) {
@@ -159,24 +160,41 @@ func TestResolveCommitMessage_UsesManifestDefaults(t *testing.T) {
 	require.Equal(t, "tessariq: apply run RUN123", resolveCommitMessage(run.Manifest{RunID: "RUN123"}, ""))
 }
 
+// identityFixture returns an index entry, manifest, evidence dir and workspace
+// metadata that agree on every cross-checked field. Each identity test mutates
+// exactly one of them so the assertion names the field under test.
+func identityFixture() (run.IndexEntry, run.Manifest, string, workspace.Metadata) {
+	const runID = "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+	entry := run.IndexEntry{
+		RunID:     runID,
+		TaskPath:  "tasks/sample.md",
+		TaskTitle: "Sample Task",
+	}
+	manifest := run.Manifest{
+		RunID:     runID,
+		TaskPath:  "tasks/sample.md",
+		TaskTitle: "Sample Task",
+		BaseSHA:   "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+	}
+	ws := workspace.Metadata{BaseSHA: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+	return entry, manifest, "/repo/.tessariq/runs/" + runID, ws
+}
+
 func TestValidateManifestIdentity_Matching(t *testing.T) {
 	t.Parallel()
 
-	entry := run.IndexEntry{RunID: "01ARZ3NDEKTSV4RRFFQ69G5FAV"}
-	manifest := run.Manifest{RunID: "01ARZ3NDEKTSV4RRFFQ69G5FAV"}
-	evidenceDir := "/repo/.tessariq/runs/01ARZ3NDEKTSV4RRFFQ69G5FAV"
+	entry, manifest, evidenceDir, ws := identityFixture()
 
-	require.NoError(t, validateManifestIdentity(entry, manifest, evidenceDir))
+	require.NoError(t, validateManifestIdentity(entry, manifest, evidenceDir, ws))
 }
 
 func TestValidateManifestIdentity_ManifestRunIDMismatch(t *testing.T) {
 	t.Parallel()
 
-	entry := run.IndexEntry{RunID: "01ARZ3NDEKTSV4RRFFQ69G5FAV"}
-	manifest := run.Manifest{RunID: "01BBBBBBBBBBBBBBBBBBBBBBBBB"}
-	evidenceDir := "/repo/.tessariq/runs/01ARZ3NDEKTSV4RRFFQ69G5FAV"
+	entry, manifest, evidenceDir, ws := identityFixture()
+	manifest.RunID = "01BBBBBBBBBBBBBBBBBBBBBBBBB"
 
-	err := validateManifestIdentity(entry, manifest, evidenceDir)
+	err := validateManifestIdentity(entry, manifest, evidenceDir, ws)
 	require.ErrorIs(t, err, ErrManifestIdentityMismatch)
 	require.Contains(t, err.Error(), "01BBBBBBBBBBBBBBBBBBBBBBBBB")
 	require.Contains(t, err.Error(), "01ARZ3NDEKTSV4RRFFQ69G5FAV")
@@ -185,13 +203,58 @@ func TestValidateManifestIdentity_ManifestRunIDMismatch(t *testing.T) {
 func TestValidateManifestIdentity_EvidenceDirMismatch(t *testing.T) {
 	t.Parallel()
 
-	entry := run.IndexEntry{RunID: "01ARZ3NDEKTSV4RRFFQ69G5FAV"}
-	manifest := run.Manifest{RunID: "01ARZ3NDEKTSV4RRFFQ69G5FAV"}
+	entry, manifest, _, ws := identityFixture()
 	evidenceDir := "/repo/.tessariq/runs/01CCCCCCCCCCCCCCCCCCCCCCCCC"
 
-	err := validateManifestIdentity(entry, manifest, evidenceDir)
+	err := validateManifestIdentity(entry, manifest, evidenceDir, ws)
 	require.ErrorIs(t, err, ErrManifestIdentityMismatch)
 	require.Contains(t, err.Error(), "01CCCCCCCCCCCCCCCCCCCCCCCCC")
+}
+
+// TestValidateManifestIdentity_TamperedIdentityFields pins the fields that feed
+// the promote commit and its Tessariq-* trailers. A manifest whose task_path,
+// task_title or base_sha has been edited after the run no longer describes the
+// run the index recorded, so promoting it would attribute the diff to the wrong
+// task or the wrong base commit.
+func TestValidateManifestIdentity_TamperedIdentityFields(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		tamper   func(*run.Manifest)
+		contains []string
+	}{
+		{
+			name:     "task_path",
+			tamper:   func(m *run.Manifest) { m.TaskPath = "tasks/forged.md" },
+			contains: []string{"task_path", "tasks/forged.md", "tasks/sample.md"},
+		},
+		{
+			name:     "task_title",
+			tamper:   func(m *run.Manifest) { m.TaskTitle = "Forged Title" },
+			contains: []string{"task_title", "Forged Title", "Sample Task"},
+		},
+		{
+			name:     "base_sha",
+			tamper:   func(m *run.Manifest) { m.BaseSHA = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" },
+			contains: []string{"base_sha", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			entry, manifest, evidenceDir, ws := identityFixture()
+			tt.tamper(&manifest)
+
+			err := validateManifestIdentity(entry, manifest, evidenceDir, ws)
+			require.ErrorIs(t, err, ErrManifestIdentityMismatch)
+			for _, want := range tt.contains {
+				require.Contains(t, err.Error(), want)
+			}
+		})
+	}
 }
 
 func TestHasNonEmptyFile_Missing(t *testing.T) {

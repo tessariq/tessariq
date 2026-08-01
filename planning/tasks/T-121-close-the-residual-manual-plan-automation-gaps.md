@@ -1,12 +1,12 @@
 ---
 id: T-121-close-the-residual-manual-plan-automation-gaps
 title: Close the residual manual-plan automation gaps
-status: todo
+status: completed
 priority: low
 spec_ref: specs/tessariq-v0.1.0.md#acceptance-scenarios
 dependencies:
     - T-117
-updated_at: "2026-07-31T12:19:42Z"
+updated_at: "2026-08-01T08:00:53Z"
 ---
 
 # T-121-close-the-residual-manual-plan-automation-gaps Close the residual manual-plan automation gaps
@@ -35,3 +35,6 @@ Follow-up derived from T-117. Partitioning the v0.1.0 manual test plan surfaced 
 - Record evidence paths under `planning/artifacts/verify/<task-id>/`.
 
 ## Implementation Notes
+
+- 2026-08-01T08:00:32Z: verification pass
+- 2026-08-01T08:00:53Z: Closed all six residual manual-plan automation gaps. T2.4: the warning now names the host config directory (the manual plan's expectation was right, the message was wrong) via optionalConfigWarning and a new ConfigDirResult.ConfigDir field, covered by unit and e2e tests. T2.7: TestE2E_AgentUpdate_SuccessMountsUpdatedAgent proves a successful agent update, records 1.0.0 -> 2.0.0, and asserts the cached binary is the one that ran. T4.2, T4.5 and T4.24: new e2e coverage for task paths outside the repository, a present docker binary with an unreachable daemon, and version plus --version outside a git repository. T4.17: validateManifestIdentity now cross-checks task_path and task_title against the run index and base_sha against workspace.json, before any git side effect, with unit and integration coverage. docs/release-verification.md section 5 is emptied and the six cases moved into section 3 under T-121, with the T2.4 and T4.17 resolutions recorded in prose. Unit, integration and e2e suites all green; manual test verdict pass with a pre-change control binary confirming the promote check is not vacuous.

@@ -227,14 +227,11 @@ func newRunCmd() *cobra.Command {
 				}
 				agentConfigMountStatus = configResult.Status
 
-				switch configResult.Status {
-				case "mounted":
+				if configResult.Status == "mounted" {
 					containerEnvVars = configResult.EnvVars
 					configMounts = configResult.Mounts
-				case "missing_optional":
-					fmt.Fprintf(cmd.ErrOrStderr(), "warning: optional config directory for %s not found; continuing with auth mounts only\n", cfg.Agent)
-				case "unreadable_optional":
-					fmt.Fprintf(cmd.ErrOrStderr(), "warning: optional config directory for %s is not readable; continuing with auth mounts only\n", cfg.Agent)
+				} else if warning := optionalConfigWarning(configResult.Status, cfg.Agent, configResult.ConfigDir); warning != "" {
+					fmt.Fprintln(cmd.ErrOrStderr(), warning)
 				}
 			}
 
@@ -651,4 +648,23 @@ func printBlockedDestinations(w io.Writer, evidenceDir string) {
 	fmt.Fprintf(w, "\nTo allow these destinations, use --egress-allow <host:port>.\n")
 	fmt.Fprintf(w, "Or add them to ~/.config/tessariq/config.yaml under egress_allow.\n")
 	fmt.Fprintf(w, "Or rerun with --unsafe-egress to bypass proxy enforcement.\n")
+}
+
+// optionalConfigWarning renders the stderr warning for a --mount-agent-config
+// run whose optional config directory could not be mounted. It names configDir
+// because that host path is the only thing the operator can act on; the agent
+// name alone does not identify which directory was skipped. Statuses that need
+// no warning (notably "mounted") return the empty string.
+func optionalConfigWarning(status, agent, configDir string) string {
+	var reason string
+	switch status {
+	case "missing_optional":
+		reason = "not found"
+	case "unreadable_optional":
+		reason = "is not readable"
+	default:
+		return ""
+	}
+	return fmt.Sprintf("warning: optional config directory %s for %s %s; continuing with auth mounts only",
+		configDir, agent, reason)
 }

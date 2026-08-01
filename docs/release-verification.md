@@ -62,7 +62,7 @@ Human-only because they act on artifacts that only exist after publishing.
 | T6.5 | Follow the README quickstart verbatim on a fresh machine. Any step requiring knowledge not in the README is a documentation bug |
 | T6.6 | Confirm the published GitHub Release body matches the `## [<version>]` CHANGELOG section |
 
-## 3. No longer human — automated by T-107 through T-116
+## 3. No longer human — automated by T-107 through T-121
 
 These cases need **no** human pass; do not re-run them by hand.
 
@@ -78,6 +78,12 @@ These cases need **no** human pass; do not re-run them by hand.
 | T4.19, T4.20 — run-ref resolution errors | T-110 |
 | T4.22 — interrupt-driven cleanup | T-113 |
 | T4.23 — binary file changes in diff artifacts | T-114 |
+| T2.4 — optional agent-config directory absent under `--mount-agent-config` | T-121 |
+| T2.7 — successful agent auto-update | T-121 |
+| T4.2 — task path outside the repository | T-121 |
+| T4.5 — Docker daemon reachable binary but stopped daemon | T-121 |
+| T4.17 — manifest identity tampering across every promoted field | T-121 |
+| T4.24 — `version` and `--version` outside a git repository | T-121 |
 
 Two of these had stale expectations in the v0.1.0 manual plan text; the automated
 tests are authoritative. T3.6 rejects `--egress open` combined with
@@ -102,6 +108,19 @@ failure) remove the worktree and its `git worktree list` entry.
 command is deliberately deferred past v0.2.0 (`specs/tessariq-v0.2.0.md`, the
 `clean`-out-of-scope note).
 
+T-121 resolved two open questions the manual plan had left implicit. For T2.4 the
+plan's expectation was the correct one and the code was wrong: the warning named
+only the agent, which does not tell an operator which directory to create, so it
+now names the host path as well (`optionalConfigWarning` in
+`cmd/tessariq/run.go`, asserted by `TestOptionalConfigWarning` and
+`TestE2E_MountAgentConfigMissingDirWarnsWithPath`). For T4.17, `task_path`,
+`task_title` and `base_sha` **are** meant to be tamper-checked: `task_path` and
+`base_sha` are copied verbatim into the `Tessariq-Task` and `Tessariq-Base`
+commit trailers and `task_title` becomes the default commit subject, so an edit
+after the run would misattribute the promoted diff. `validateManifestIdentity`
+now cross-checks `run_id`, `task_path` and `task_title` against the run index and
+`base_sha` against `workspace.json`, before any branch or commit exists.
+
 ## 4. Automated earlier
 
 Covered by the suites before T-107 and likewise needing no human pass:
@@ -109,15 +128,7 @@ T1.4, T2.8, T3.5, T4.1, T4.3, T4.4, T4.6, T4.7, T4.11, T4.13, T4.16, T4.18, T4.2
 
 ## 5. Known automation gaps
 
-Mechanically automatable but currently thin: follow-up test work, **not**
-human-only cases. A release does not block on them, but a spot-check is cheap
-while running section 1.
-
-| Case | Gap |
-|---|---|
-| T2.4 | The optional-config warning is emitted but asserted by no test, and it names the agent rather than the unmountable path the manual plan expects |
-| T2.7 | No end-to-end proof of a *successful* agent update, or that the resulting version is at least the baked one; only the `--no-update-agent` and update-failure paths are covered |
-| T4.2 | Task-path rejection is unit tested only; no e2e invokes `tessariq run` with a path outside the repository |
-| T4.5 | Covers `docker` absent from `PATH`, not a running daemon that is stopped |
-| T4.17 | Manifest identity tampering is covered for `run_id`; `task_path`, `base_sha` and task-title trailer fields are not validated |
-| T4.24 | `version` and `--version` agree, but neither is exercised from a non-git directory |
+None. The six gaps recorded here after T-117 were closed by T-121 and moved into
+section 3. Add a row back only for a case that is mechanically automatable but
+left uncovered, and say why — a case that cannot be automated belongs in
+section 1 instead.

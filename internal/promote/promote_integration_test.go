@@ -553,6 +553,74 @@ func TestRun_TamperedManifestRunIDRejectedBeforeGitSideEffects(t *testing.T) {
 	require.Equal(t, "2", branchCount, "expected only the initial 2 commits, no promote commit")
 }
 
+// TestRun_TamperedManifestIdentityFieldsRejectedBeforeGitSideEffects covers the
+// manifest fields that decide what the promoted commit claims: task_path and
+// task_title (cross-checked against the run index) and base_sha (cross-checked
+// against workspace.json). task_path and base_sha land verbatim in the
+// Tessariq-Task and Tessariq-Base trailers, and task_title becomes the default
+// commit subject, so an edit after the run would misattribute the promoted diff.
+// Rejection must happen before any branch or commit exists.
+func TestRun_TamperedManifestIdentityFieldsRejectedBeforeGitSideEffects(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		tamper   func(m *run.Manifest)
+		contains string
+	}{
+		{
+			name:     "task_path",
+			tamper:   func(m *run.Manifest) { m.TaskPath = "tasks/forged.md" },
+			contains: "task_path",
+		},
+		{
+			name:     "task_title",
+			tamper:   func(m *run.Manifest) { m.TaskTitle = "Forged Title" },
+			contains: "task_title",
+		},
+		{
+			name:     "base_sha",
+			tamper:   func(m *run.Manifest) { m.BaseSHA = strings.Repeat("b", 40) },
+			contains: "base_sha",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			ctx := context.Background()
+			repo, err := containers.StartGitRepo(ctx, t)
+			require.NoError(t, err)
+
+			writeFile(t, filepath.Join(repo.Dir(), "tracked.txt"), "before\n")
+			gitRunTest(t, repo.Dir(), "add", "tracked.txt")
+			gitRunTest(t, repo.Dir(), "commit", "-m", "base")
+
+			baseSHA := gitOutputTest(t, repo.Dir(), "rev-parse", "HEAD")
+			patch, diffstat := buildDiffArtifacts(t, repo.Dir(), baseSHA, func(worktree string) {
+				writeFile(t, filepath.Join(worktree, "tracked.txt"), "after\n")
+			})
+			createEvidenceFixture(t, repo.Dir(), testRunID, baseSHA, patch, diffstat)
+
+			evidenceDir := filepath.Join(repo.Dir(), ".tessariq", "runs", testRunID)
+			manifest, err := run.ReadManifest(evidenceDir)
+			require.NoError(t, err)
+			tt.tamper(&manifest)
+			require.NoError(t, run.WriteManifest(evidenceDir, manifest))
+
+			_, err = Run(ctx, repo.Dir(), Options{RunRef: testRunID})
+			require.ErrorIs(t, err, ErrManifestIdentityMismatch)
+			require.Contains(t, err.Error(), tt.contains)
+			require.Contains(t, err.Error(), "tampered")
+
+			require.Empty(t, gitOutputAllowFailure(t, repo.Dir(), "branch", "--list", defaultBranchName(testRunID)))
+			require.Equal(t, "2", gitOutputTest(t, repo.Dir(), "rev-list", "--count", "--all"),
+				"expected only the initial 2 commits, no promote commit")
+		})
+	}
+}
+
 func buildDiffArtifacts(t *testing.T, repoDir, baseSHA string, mutate func(string)) (string, string) {
 	t.Helper()
 

@@ -202,10 +202,11 @@ func discoverOpenCodeState(homeDir string, fileExists func(string) bool) (*State
 
 // ConfigDirResult holds the outcome of optional config-dir discovery for one agent.
 type ConfigDirResult struct {
-	Agent   string
-	Mounts  []MountSpec
-	Status  string            // "mounted", "missing_optional", "unreadable_optional"
-	EnvVars map[string]string // container environment variables to set
+	Agent     string
+	ConfigDir string // host directory inspected, reported for every status
+	Mounts    []MountSpec
+	Status    string            // "mounted", "missing_optional", "unreadable_optional"
+	EnvVars   map[string]string // container environment variables to set
 }
 
 // DiscoverConfigDirs resolves optional config directories for the given agent.
@@ -225,7 +226,7 @@ func discoverClaudeCodeConfigDirs(homeDir string, dirExists, dirReadable func(st
 	configDir := filepath.Join(homeDir, ".claude")
 	containerDir := filepath.Join(ContainerHome, ".claude")
 
-	result := &ConfigDirResult{Agent: "claude-code"}
+	result := &ConfigDirResult{Agent: "claude-code", ConfigDir: configDir}
 
 	if !dirExists(configDir) {
 		result.Status = "missing_optional"
@@ -255,7 +256,7 @@ func discoverOpenCodeConfigDirs(homeDir string, dirExists, dirReadable func(stri
 	configDir := filepath.Join(homeDir, ".config", "opencode")
 	containerDir := filepath.Join(ContainerHome, ".config", "opencode")
 
-	result := &ConfigDirResult{Agent: "opencode"}
+	result := &ConfigDirResult{Agent: "opencode", ConfigDir: configDir}
 
 	if !dirExists(configDir) {
 		result.Status = "missing_optional"

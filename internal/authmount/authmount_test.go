@@ -372,6 +372,49 @@ func TestDiscoverConfigDirs_ClaudeCode(t *testing.T) {
 	}
 }
 
+// TestDiscoverConfigDirs_ReportsConfigDirForEveryStatus pins that the result
+// always names the host directory that was inspected, including the two
+// degraded statuses. The optional-config warning is only actionable if it can
+// tell the operator which path to create or fix.
+func TestDiscoverConfigDirs_ReportsConfigDirForEveryStatus(t *testing.T) {
+	t.Parallel()
+
+	home := "/home/user"
+
+	tests := []struct {
+		agent     string
+		configDir string
+	}{
+		{agent: "claude-code", configDir: filepath.Join(home, ".claude")},
+		{agent: "opencode", configDir: filepath.Join(home, ".config", "opencode")},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.agent, func(t *testing.T) {
+			t.Parallel()
+
+			for _, sc := range []struct {
+				status   string
+				exists   bool
+				readable bool
+			}{
+				{status: "mounted", exists: true, readable: true},
+				{status: "missing_optional"},
+				{status: "unreadable_optional", exists: true},
+			} {
+				result, err := DiscoverConfigDirs(tt.agent, home,
+					mockDirCheck(map[string]bool{tt.configDir: sc.exists}),
+					mockDirCheck(map[string]bool{tt.configDir: sc.readable}))
+
+				require.NoError(t, err)
+				require.Equal(t, sc.status, result.Status)
+				require.Equal(t, tt.configDir, result.ConfigDir,
+					"status %s must still report the inspected directory", sc.status)
+			}
+		})
+	}
+}
+
 func TestDiscoverConfigDirs_ClaudeCode_MountDetails(t *testing.T) {
 	t.Parallel()
 
