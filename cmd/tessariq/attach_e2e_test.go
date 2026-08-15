@@ -203,7 +203,7 @@ func TestE2E_AttachUnknownRunIDFailsCleanly(t *testing.T) {
 
 func TestE2E_AttachReconcilesExitedOrphanedRun(t *testing.T) {
 	bin := buildBinary(t)
-	env := setupRunEnvWithScript(t, bin, "claude", "sleep 2; echo orphan-recovered; exit 0")
+	env := setupRunEnvWithScript(t, bin, "claude", "sleep 10; echo orphan-recovered; exit 0")
 	hostDir := env.Dir()
 	repoPath := filepath.Join(hostDir, "repo")
 	homeDir := filepath.Join(hostDir, "home")
@@ -216,6 +216,11 @@ func TestE2E_AttachReconcilesExitedOrphanedRun(t *testing.T) {
 
 	runID := waitForRunningEvidence(t, env, repoPath)
 	containerName := "tessariq-" + runID
+	require.Eventually(t, func() bool {
+		code, output, err := env.Exec(context.Background(), []string{"docker", "inspect", "--format", "{{.State.Status}}", containerName})
+		return err == nil && code == 0 && output == "running"
+	}, 30*time.Second, 250*time.Millisecond, "agent container should start before supervisor loss")
+
 	execCmd(t, env, ctx, "kill -9 $(cat /work/orphan-run.pid)", "kill host tessariq process")
 
 	require.Eventually(t, func() bool {
