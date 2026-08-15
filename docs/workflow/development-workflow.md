@@ -12,7 +12,8 @@ through the repository's shared setup action. Direct `go` commands remain canoni
 - Product tests: `task test` (`go test ./...`)
 - Integration tests: `task test:integration` (`go test -tags=integration ./...`)
 - End-to-end tests: `task test:e2e` (`go test -tags=e2e ./...`)
-- Mutation tests (nightly CI only; local runs are for investigating a nightly failure): `task test:mutate:gate` (`gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70`)
+- Differential mutation tests for local changes: `task test:mutate` (compares with `main`; override with `BASE=<ref>`)
+- Full mutation gate (weekly CI and manual dispatch): `task test:mutate:gate`
 - Workflow validation: `task workflow:validate` (`taskrail validate`)
 - Skill provenance and parity: `task workflow:check-skills`
 - Spec verification: `task workflow:verify:spec` (`taskrail coverage --json`, active milestone spec only)
@@ -46,9 +47,10 @@ Testcontainers standard:
 
 ## Mutation Testing
 
-- Gremlins runs **nightly** against `main` (`.github/workflows/mutation.yml`), plus on manual dispatch. It is not part of the pull-request path and not part of routine local work: it re-runs the whole unit suite once per mutant, which is too slow for the signal it gives per change.
-- The nightly run enforces `gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70`.
-- Run `task test:mutate:gate` locally only when investigating a nightly failure, or when you deliberately want mutation evidence for logic-heavy work.
+- `task test:mutate` asks Gremlins to mutate only lines changed since `main`, making deliberate local checks practical. Set `BASE=<ref>` when the comparison base differs.
+- The full baseline runs **weekly** against `main` (`.github/workflows/mutation.yml`), plus on manual dispatch. It is not part of the pull-request path because it re-runs the unit suite once per covered mutant.
+- Weekly CI enforces 70% efficacy, uploads `mutation-results.json`, writes a metric summary, and maintains one `github_actions` issue until a full run recovers. Manually dispatch the workflow after a fix to close the issue immediately.
+- Gremlins v0.6.0 is pinned in the Taskfile and installed on demand through `go run`. Mutation tasks clear Go's test-result cache before Gremlins times the baseline and limit execution to two workers, preventing cached timings or high-core hosts from producing false timeouts. Routine `mise install` and ordinary CI jobs do not provision it.
 
 ## Manual Testing
 
@@ -165,8 +167,8 @@ Manual testing is required before running verification and before finishing a ta
 - Small code changes:
   TDD plus targeted unit tests
 - Cross-package logic changes:
-  unit tests, and integration tests if boundaries changed; mutation coverage arrives
-  from the nightly run rather than from the change itself
+  unit tests, and integration tests if boundaries changed; use differential mutation
+  testing when its extra logic-quality signal justifies the cost
 - CLI workflow changes:
   unit tests plus targeted e2e coverage
 - Tracked-work system changes:

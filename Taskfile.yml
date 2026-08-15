@@ -104,14 +104,18 @@ tasks:
       - go test -tags=e2e ./... -count=1 -timeout=15m
 
   test:mutate:
-    desc: Run mutation testing with gremlins
+    desc: Run mutation testing for changes since BASE (default main)
+    vars:
+      BASE: '{{.BASE | default "main"}}'
     cmds:
-      - gremlins unleash
+      - go clean -testcache
+      - go run github.com/go-gremlins/gremlins/cmd/gremlins@v0.6.0 unleash --diff '{{.BASE}}' --exclude-files 'cmd/.*|internal/testutil/.*' --output-statuses lt --workers 2
 
   test:mutate:gate:
-    desc: Run mutation testing with the nightly CI efficacy threshold (see .github/workflows/mutation.yml)
+    desc: Run the full mutation gate used by weekly CI (see .github/workflows/mutation.yml)
     cmds:
-      - gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70
+      - go clean -testcache
+      - go run github.com/go-gremlins/gremlins/cmd/gremlins@v0.6.0 unleash --exclude-files 'cmd/.*|internal/testutil/.*' --output-statuses lt --workers 2 --threshold-efficacy 70
 
   run:
     desc: Run tessariq with no arguments

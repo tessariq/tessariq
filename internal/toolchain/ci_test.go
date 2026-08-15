@@ -62,13 +62,13 @@ func TestCIDoesNotRunMutationTests(t *testing.T) {
 
 	for _, cmd := range stepValues(t, loadYAML(t, ciWorkflow), "run") {
 		require.NotContains(t, cmd, "test:mutate",
-			"mutation testing belongs in mutation.yml (nightly), not in the CI lane")
+			"full mutation testing belongs in mutation.yml (weekly), not in the CI lane")
 		require.NotContains(t, cmd, "gremlins",
-			"mutation testing belongs in mutation.yml (nightly), not in the CI lane")
+			"full mutation testing belongs in mutation.yml (weekly), not in the CI lane")
 	}
 }
 
-// TestMutationWorkflowIsScheduledOnly pins the nightly-only policy from the other
+// TestMutationWorkflowIsScheduledOnly pins the scheduled-only policy from the other
 // side: mutation.yml must never grow a push or pull_request trigger.
 func TestMutationWorkflowIsScheduledOnly(t *testing.T) {
 	t.Parallel()
@@ -76,6 +76,47 @@ func TestMutationWorkflowIsScheduledOnly(t *testing.T) {
 	triggers := mappingKeys(nodeAt(loadYAML(t, mutationWorkflow), "on"))
 	require.Equal(t, []string{"schedule", "workflow_dispatch"}, sorted(triggers),
 		"mutation.yml must run on a schedule and manual dispatch only")
+}
+
+// TestMutationWorkflowIsWeeklyAndActionable keeps the full baseline cheap and
+// ensures a failed scheduled gate leaves both durable evidence and owned work.
+func TestMutationWorkflowIsWeeklyAndActionable(t *testing.T) {
+	t.Parallel()
+
+	workflow := loadYAML(t, mutationWorkflow)
+	schedule := nodeAt(workflow, "on", "schedule")
+	require.NotNil(t, schedule)
+	require.Equal(t, yaml.SequenceNode, schedule.Kind)
+	require.Len(t, schedule.Content, 1, "mutation testing must have one weekly schedule")
+	require.Equal(t, "0 3 * * 1", child(schedule.Content[0], "cron").Value,
+		"full mutation testing must run weekly on Monday")
+	require.Equal(t, "write", nodeAt(workflow, "permissions", "issues").Value,
+		"mutation failures must be tracked through a GitHub issue")
+
+	uses := stepValues(t, workflow, "uses")
+	require.Contains(t, uses, "actions/upload-artifact@v6",
+		"mutation results must be retained as an artifact")
+}
+
+// TestGremlinsIsInstalledOnDemand prevents an occasional mutation tool from
+// increasing every local setup and every CI job's shared setup time.
+func TestGremlinsIsInstalledOnDemand(t *testing.T) {
+	t.Parallel()
+
+	mise, err := os.ReadFile(miseConfig)
+	require.NoError(t, err)
+	require.NotContains(t, string(mise), "go-gremlins",
+		"gremlins must not be installed by the shared mise toolchain")
+
+	tasks, err := os.ReadFile(taskfile)
+	require.NoError(t, err)
+	require.Contains(t, string(tasks),
+		"go run github.com/go-gremlins/gremlins/cmd/gremlins@v0.6.0 unleash",
+		"mutation tasks must install the pinned gremlins version on demand")
+	require.Contains(t, string(tasks), "--workers 2",
+		"mutation tasks must bound concurrency to avoid false timeouts on high-core hosts")
+	require.Contains(t, string(tasks), "go clean -testcache",
+		"mutation tasks must measure an uncached test baseline before deriving timeouts")
 }
 
 // TestCIDelegatesGoToTask keeps one command surface for local and CI: every build

@@ -4,8 +4,8 @@ name: CI
 # changes that touch only planning, spec, doc, or agent-skill paths — those are
 # gated by the cheap fast lane in planning.yml, whose `paths:` set is the exact
 # mirror of the `paths-ignore` below. Keep the two lists identical; they are
-# guarded by TestWorkflowPathLanesAreExactMirrors. Mutation testing lives in
-# mutation.yml (nightly), never here. release.yml (tags-only) is unaffected.
+# guarded by TestWorkflowPathLanesAreExactMirrors. Full mutation testing lives in
+# mutation.yml (weekly), never here. release.yml (tags-only) is unaffected.
 on:
   # Manual trigger to run the full pipeline on demand — e.g. to force CI on a
   # branch whose changes are all in the paths-ignore set below.

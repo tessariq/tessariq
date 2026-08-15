@@ -1,7 +1,7 @@
 # Release verification — the human-only residue
 
 The automated suites prove the mechanics of a release: `task test`,
-`task test:integration`, `task test:e2e`, the nightly mutation gate,
+`task test:integration`, `task test:e2e`, the weekly mutation gate,
 `task licenses:check` and `task release:check` all run in CI. Every e2e test
 drives a **fake agent binary** inside a container
 (`internal/testutil/containers.StartRunEnv`), so no real agent — Claude Code or

@@ -218,17 +218,15 @@ func TestE2E_AttachReconcilesExitedOrphanedRun(t *testing.T) {
 	containerName := "tessariq-" + runID
 	execCmd(t, env, ctx, "kill -9 $(cat /work/orphan-run.pid)", "kill host tessariq process")
 
-	var (
-		attachCode   int
-		attachOutput string
-	)
 	require.Eventually(t, func() bool {
-		var err error
-		attachCode, attachOutput, err = env.Exec(context.Background(), []string{"sh", "-c", fmt.Sprintf("cd %s && HOME=%s %s attach last", repoPath, homeDir, binPath)})
-		return err == nil && attachCode != 0 &&
-			strings.Contains(attachOutput, "run "+runID+" is not live") &&
-			strings.Contains(attachOutput, "state success")
-	}, 45*time.Second, 500*time.Millisecond, "attach should eventually reconcile the orphaned run; last output: %s", attachOutput)
+		code, output, err := env.Exec(context.Background(), []string{"docker", "inspect", "--format", "{{.State.Status}}", containerName})
+		return err == nil && code == 0 && output == "exited"
+	}, 30*time.Second, 250*time.Millisecond, "agent container should exit after its process completes")
+
+	attachCode, attachOutput := runAttachInEnv(t, env, repoPath, homeDir, binPath, "last", "")
+	require.NotEqual(t, 0, attachCode)
+	require.Contains(t, attachOutput, "run "+runID+" is not live")
+	require.Contains(t, attachOutput, "state success")
 
 	evidencePath := filepath.Join(repoPath, ".tessariq", "runs", runID)
 	statusCode, statusData, err := env.Exec(ctx, []string{"cat", filepath.Join(evidencePath, "status.json")})

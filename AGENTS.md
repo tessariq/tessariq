@@ -15,7 +15,7 @@ Guidance for coding agents working in the Tessariq repository.
 - Pinned developer toolchain: `mise.toml`.
 - Commands and local workflows: `Taskfile.yml`.
 - CI checks and required validations: `.github/workflows/ci.yml` (code lane) and `.github/workflows/planning.yml` (planning/docs lane). The two lanes carry mirrored path lists — see "CI lanes" below.
-- Nightly mutation gate: `.github/workflows/mutation.yml`.
+- Weekly mutation gate: `.github/workflows/mutation.yml`.
 - Release pipeline: `.goreleaser.yml` and `.github/workflows/release.yml`.
 - Product overview: `README.md`.
 - Detailed user-facing command behavior: `docs/commands.md`.
@@ -25,7 +25,7 @@ Guidance for coding agents working in the Tessariq repository.
 
 ## Toolchain and environment
 - Go version: `1.26` (`go.mod`).
-- The developer toolchain is pinned in `mise.toml` (go, task, goreleaser, trivy, lefthook, and the `go:`-backed gremlins/go-licenses/taskrail). It is the single source of truth for versions and is consumed identically in CI via the shared `.github/actions/setup` composite action, which wraps `jdx/mise-action` (pinned to a commit SHA) and restores the Go module and build caches. No workflow may call `jdx/mise-action` or `actions/setup-go` directly.
+- The developer toolchain is pinned in `mise.toml` (go, task, goreleaser, trivy, lefthook, and the `go:`-backed go-licenses/taskrail). It is the single source of truth for versions and is consumed identically in CI via the shared `.github/actions/setup` composite action, which wraps `jdx/mise-action` (pinned to a commit SHA) and restores the Go module and build caches. No workflow may call `jdx/mise-action` or `actions/setup-go` directly.
 - Provision a fresh clone with `mise install` (or `mise run setup` to also build `tessariq` onto PATH and install the opt-in git hooks). Install mise from https://mise.jdx.dev if needed.
 - `mise` and `task` are optional convenience; direct Go commands remain the source of truth and work without mise. CI-facing operations have `task <name>` wrappers.
 - Prefer commands that mirror CI.
@@ -89,10 +89,10 @@ Use these defaults unless a task requires otherwise.
 - `go run ./cmd/tessariq --help` (or `task run:help`)
 
 ### Mutation tests
-Mutation testing runs **nightly in CI** (`.github/workflows/mutation.yml`, plus manual dispatch), not on pull requests and not as part of routine local work. Run it locally only when investigating a nightly failure.
-- Run mutation testing: `gremlins unleash` (or `task test:mutate`)
-- With the nightly quality gate: `task test:mutate:gate` (`gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70`)
-- gremlins is pinned in `mise.toml`; `mise install` provides it.
+Full mutation testing runs **weekly in CI** (`.github/workflows/mutation.yml`, plus manual dispatch), not on pull requests and not as part of routine local work. CI retains a JSON report and maintains one `github_actions` issue while the gate is failing.
+- Run differential mutation testing against `main`: `task test:mutate` (override with `BASE=<ref>`).
+- Run the full weekly quality gate: `task test:mutate:gate`.
+- The Taskfile pins Gremlins and installs it on demand through `go run`; normal `mise install` does not install it.
 
 ### Tracked-work tooling
 Tracked work is managed by the external `taskrail` binary (`github.com/tessariq/taskrail`), pinned in `mise.toml` and provided by `mise install`. Use the pinned CLI and vendored skills for task selection, transitions, recovery, verification, and spec operations.
@@ -267,7 +267,7 @@ When tessariq itself creates Docker containers (via `docker create` / `docker st
 - Run full `task test` (`go test ./...`) before handing off broad changes.
 - If integration paths changed, run `task test:integration` (`go test -tags=integration ./...`).
 - If e2e paths changed, run `task test:e2e` (`go test -tags=e2e ./...`).
-- Do not run mutation testing as part of routine work; it runs nightly in CI.
+- Do not run the full mutation gate as part of routine work; it runs weekly in CI. Use differential `task test:mutate` deliberately for logic-heavy changes.
 - If tracked-work tooling or skills changed, run `task workflow:validate`, `task workflow:check-skills`, and `task workflow:verify:spec`.
 - Never hand-edit a file under `.agents/skills/` or `.claude/skills/`; change the upstream Taskrail package instead.
 - Update `README.md` for installation, quickstart, core workflow, and product-overview changes; update `docs/commands.md` for detailed command behavior and edge cases; update `docs/runtime-images.md` for runtime-image behavior.
