@@ -289,6 +289,7 @@ When tessariq itself creates Docker containers (via `docker create` / `docker st
 - Do include a clear PR summary with why, what changed, and test evidence.
 - Do keep commits small and descriptive, using imperative commit subjects.
 - Do use conventional commit messages.
+- Do end tracked-task commit subjects with only the short task key, for example `feat: add copy workspace mode (T-124)`. Never use the full slugged task identifier or put the key at the start; non-tracked commits may omit a task reference.
 - Do keep each tracked task to a single commit that includes both implementation changes and any required workflow/planning metadata updates; do not commit files under `planning/artifacts/`.
 - Do mention user-visible CLI changes in the PR body.
 - Don't mix unrelated refactors or formatting-only churn into feature/fix PRs.

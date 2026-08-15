@@ -31,6 +31,9 @@ pre-commit:
       # the same check, so editing any of them alone must still run it.
       glob: "{.agents/skills/**,.claude/skills/**,docs/workflow/skills-manifest.yml,scripts/vendor-skills.sh,mise.toml}"
       run: task workflow:check-skills
+    commit-message-checker:
+      glob: "{lefthook.yml,Taskfile.yml,scripts/check-commit-msg.sh,scripts/check-commit-msg-test.sh}"
+      run: task test:commit-msg
 
 commit-msg:
   commands:

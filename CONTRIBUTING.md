@@ -39,8 +39,11 @@ the opt-in Git hooks. Direct `go` commands work without mise.
 - Run `task test:integration` when subsystem boundaries or real collaborators
   change, and `task test:e2e` when critical CLI flows change. These suites need
   Docker; see [`docs/workflow/development-workflow.md`](docs/workflow/development-workflow.md).
-- Use a Conventional Commit subject. For a tracked implementation task, keep
-  the implementation, tests, and required planning metadata in one commit.
+- Use a Conventional Commit subject. End tracked-task subjects with only the
+  short key, for example `feat: add copy workspace mode (T-124)`. Do not use a
+  task-key prefix or the full slugged identifier; non-tracked commits may omit
+  the reference. Keep a tracked task's implementation, tests, and required
+  planning metadata in one commit.
 - Update `CHANGELOG.md` under `## [Unreleased]` for user-visible changes only.
   Keep entries concise and skip internal refactors.
 - Update `README.md` when commands, flags, or user-visible behavior change.

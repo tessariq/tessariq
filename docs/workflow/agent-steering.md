@@ -12,7 +12,8 @@ Prompt guidance for deterministic tracked-work execution in Tessariq.
 - Use Testcontainers for Go for integration and e2e collaborators; do not create custom local servers.
 - Do not run mutation testing as part of routine work; it runs nightly in CI against a 70% threshold.
 - Treat `planning/artifacts/` as local-only gitignored workflow evidence.
-- For implementation tasks, produce one conventional-commit commit per task that includes both code changes and required workflow/planning metadata updates.
+- For implementation tasks, produce one conventional-commit commit per task that includes both code changes and required workflow/planning metadata updates, and end its subject with the short task key `(T-NNN)`.
+- Never use a full slugged task identifier or task-key prefix in a commit subject. Non-tracked commits may omit a task reference.
 - Do not split a task into separate implementation and chore/workflow-update commits.
 
 ## Autonomous Backlog

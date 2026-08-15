@@ -53,5 +53,5 @@ Rules:
 - Keep workflow commands non-interactive and scriptable.
 - Completion notes must point to concrete evidence.
 - Code-changing work must follow TDD and repository testing rules.
-- For implementation tasks, commit all task-related changes (product code, tests, and required planning/workflow metadata updates) in a single conventional-commit commit; never commit files under `planning/artifacts/`.
+- For implementation tasks, commit all task-related changes (product code, tests, and required planning/workflow metadata updates) in a single conventional-commit commit whose subject ends with the short task key `(T-NNN)`; never use a full slugged identifier or task-key prefix, and never commit files under `planning/artifacts/`.
 - Do not create a second commit only for task/workflow/verification metadata updates.

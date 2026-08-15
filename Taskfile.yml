@@ -78,6 +78,11 @@ tasks:
     cmds:
       - go test ./...
 
+  test:commit-msg:
+    desc: Test commit-message policy checks
+    cmds:
+      - scripts/check-commit-msg-test.sh
+
   test:images:pull:integration:
     desc: Pre-pull the third-party images the integration suite needs (retries on registry failure)
     cmds:

@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# commit-msg hook: enforce a Conventional Commit subject and reject
-# automated-attribution trailers.
+# commit-msg hook: enforce a Conventional Commit subject, normalize task
+# references, and reject automated-attribution trailers.
 #
 # Usage: scripts/check-commit-msg.sh <commit-msg-file>
 #
 # Mirrors the repo commit conventions (see AGENTS.md): the subject is a
-# Conventional Commit, and the message carries no automated-attribution lines
-# (attribution is disabled for this project). Exits non-zero with a clear,
-# quotable message on failure.
+# Conventional Commit, task references use short-key suffixes, and the message
+# carries no automated-attribution lines (attribution is disabled for this
+# project). Exits non-zero with a clear, quotable message on failure.
 set -euo pipefail
 
 msg_file="${1:-}"
@@ -28,6 +28,13 @@ case "$subject" in
       echo "check-commit-msg: subject must be a Conventional Commit:" >&2
       echo "  <type>: <description>   (types: feat fix refactor docs test chore perf ci)" >&2
       echo "got: ${subject:-<empty>}" >&2
+      exit 1
+    fi
+    if printf '%s' "$subject" | grep -qE 'T-[0-9]+' \
+      && ! printf '%s' "$subject" | grep -qE '\(T-[0-9]+\)$'; then
+      echo "check-commit-msg: task references must use the short key as a subject suffix:" >&2
+      echo "  feat: add copy mode (T-124)" >&2
+      echo "not a prefix, misplaced key, or full slugged task identifier" >&2
       exit 1
     fi
     ;;

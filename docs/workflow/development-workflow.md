@@ -182,6 +182,7 @@ Notes:
 
 - Use exactly one commit per tracked implementation task.
 - The commit must use a conventional commit message.
+- End the subject with only the short task key, for example `feat: add copy workspace mode (T-124)`. Never use the full slugged task identifier or put the key at the start. Non-tracked commits may omit a task reference.
 - Include implementation changes, tests, and required workflow/planning metadata updates in that same commit, but do not commit files under `planning/artifacts/`.
 - Do not create a separate follow-up commit only for verification/planning/task metadata updates.
 
