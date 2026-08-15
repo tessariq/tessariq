@@ -21,16 +21,24 @@ import (
 // The invariant is easy to break silently. `taskrail init --with-skills` never
 // overwrites an existing file, so a stale tree survives a version bump without a
 // word; with --force it writes SKILL.md.bak.<timestamp> siblings into *both*
-// mirrors, which the `diff -rq` parity check cannot see because they land in both
-// trees symmetrically. These tests are what makes either failure loud.
+// mirrors. These tests keep local drift loud under plain `go test ./...`, while
+// task workflow:check-skills also compares both trees with the pinned package.
 var (
 	skillTrees   = []string{filepath.Join(repoRoot, ".agents", "skills"), filepath.Join(repoRoot, ".claude", "skills")}
 	skillFile    = "SKILL.md"
 	skillsMani   = filepath.Join(repoRoot, "docs", "workflow", "skills-manifest.yml")
 	miseConfig   = filepath.Join(repoRoot, "mise.toml")
+	taskfile     = filepath.Join(repoRoot, "Taskfile.yml")
 	taskrailPin  = regexp.MustCompile(`"go:github\.com/tessariq/taskrail/cmd/taskrail"\s*=\s*"([^"]+)"`)
 	skillNameKey = regexp.MustCompile(`(?m)^name:\s*(\S+)\s*$`)
 )
+
+func TestSkillsCheckComparesPinnedPackage(t *testing.T) {
+	t.Parallel()
+
+	require.Contains(t, readFile(t, taskfile), "./scripts/vendor-skills.sh --check",
+		"workflow:check-skills must compare the vendored trees with the pinned taskrail package")
+}
 
 // skillsManifest is the generated provenance record read by these tests.
 type skillsManifest struct {
@@ -42,10 +50,9 @@ type skillsManifest struct {
 	} `yaml:"skills"`
 }
 
-// TestSkillsMirrorsAreByteIdentical is the Go twin of the `diff -rq` in
-// task workflow:check-skills. Duplicating it here means the invariant also holds
-// under a plain `go test ./...` and on the macOS matrix, without depending on a
-// diff binary being present.
+// TestSkillsMirrorsAreByteIdentical keeps the mirror invariant under a plain
+// `go test ./...`, without requiring the package download used by the workflow
+// check.
 func TestSkillsMirrorsAreByteIdentical(t *testing.T) {
 	t.Parallel()
 
@@ -129,12 +136,9 @@ func TestSkillsFrontmatterNameMatchesDirectory(t *testing.T) {
 	}
 }
 
-// TestSkillsHaveNoBackupSiblings is the one check `diff -rq` structurally cannot
-// make. `taskrail init --with-skills --force` backs a modified skill up to a
-// SKILL.md.bak.<timestamp> sibling before overwriting, and it does so in every
-// target tree, so the mirrors stay byte-identical while the litter accumulates in
-// both. The backups are deliberately not gitignored: a loud failure here is the
-// point.
+// TestSkillsHaveNoBackupSiblings gives a focused failure when taskrail init
+// --with-skills --force leaves backups in both otherwise-identical mirrors. The
+// backups are deliberately not gitignored.
 func TestSkillsHaveNoBackupSiblings(t *testing.T) {
 	t.Parallel()
 

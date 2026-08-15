@@ -2,20 +2,11 @@
 
 Contributor and coding-agent workflow for tracked work in Tessariq.
 
-## Source Of Truth
-
-- `mise.toml`
-- `Taskfile.yml`
-- `.github/workflows/ci.yml` (code lane), `.github/workflows/planning.yml` (planning/docs lane), `.github/workflows/mutation.yml` (nightly)
-- `docs/workflow/`
-- `planning/STATE.md`
-- `planning/tasks/`
-
 ## Build And Validation
 
 The developer toolchain is pinned in `mise.toml`; `mise install` (or `mise run
-setup`) provisions it, and CI runs the same `task` targets via `jdx/mise-action`.
-Direct `go` commands remain canonical.
+setup`) provisions it, and CI runs the same `task` targets after provisioning
+through the repository's shared setup action. Direct `go` commands remain canonical.
 
 - Build: `task build` (`go build ./cmd/tessariq`)
 - Product tests: `task test` (`go test ./...`)
@@ -23,19 +14,8 @@ Direct `go` commands remain canonical.
 - End-to-end tests: `task test:e2e` (`go test -tags=e2e ./...`)
 - Mutation tests (nightly CI only; local runs are for investigating a nightly failure): `task test:mutate:gate` (`gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70`)
 - Workflow validation: `task workflow:validate` (`taskrail validate`)
-- Workflow validation bundle: `task workflow:check`
-- Skill parity: `task workflow:check-skills` (`diff -rq .agents/skills .claude/skills`)
+- Skill provenance and parity: `task workflow:check-skills`
 - Spec verification: `task workflow:verify:spec` (`taskrail coverage --json`, active milestone spec only)
-
-## TDD Default
-
-For any code change:
-
-1. Write the smallest failing test that captures the behavior.
-2. Make that test pass with the minimal implementation.
-3. Refactor while keeping the test suite green.
-
-If a unit test cannot express the behavior safely, move one level up the testing pyramid.
 
 ## Testing Pyramid
 
@@ -161,23 +141,6 @@ Cleanup (critical):
 
 Manual testing is required before running verification and before finishing a task as `completed`.
 
-## Tracked-Work Commands
-
-- `taskrail validate`
-- `taskrail next --json`
-- `taskrail start <task-id>`
-- `taskrail complete --note "<evidence>" <task-id>`
-- `taskrail block --reason "<reason>" <task-id>`
-- `taskrail repair --apply`
-- `taskrail verify <task-id> --result pass|fail --summary "<s>" [--details "<d>"]`
-- `taskrail coverage --json`
-- `taskrail verify <task-id> --create-followup --followup-title "<t>" --followup-description "<d>" [--followup-priority high|medium|low]`
-
-Notes:
-
-- `taskrail coverage` is read-only advisory spec coverage; gate on `--min <pct>` only when a threshold is required.
-- Follow-up items are created inline as part of `taskrail verify <task-id> --create-followup`.
-
 ## Commit Policy For Tracked Tasks
 
 - Use exactly one commit per tracked implementation task.
@@ -188,10 +151,10 @@ Notes:
 
 ## Change-Type Matrix
 
-- Docs-only changes:
-  no code validation unless runnable examples changed; CI enforces this by routing
-  planning, spec, doc, and agent-skill paths to the planning lane
-  (`.github/workflows/planning.yml`) instead of the full pipeline
+- Planning-lane-only changes:
+  run workflow validation, skill verification, and advisory spec coverage; the
+  exact routed paths are mirrored between `.github/workflows/planning.yml` and
+  `.github/workflows/ci.yml`
 - Small code changes:
   TDD plus targeted unit tests
 - Cross-package logic changes:
@@ -202,6 +165,6 @@ Notes:
 - Tracked-work system changes:
   workflow validation, skill parity check, and spec verification
 - Spec or planning edits:
-  `taskrail validate` and `taskrail coverage --min <pct>` are hard failure gates in CI; any violation or coverage below threshold causes a non-zero exit and blocks the pipeline
+  `taskrail validate` is a hard CI gate; spec coverage is advisory
 - All code changes:
   manual testing against task acceptance criteria before verification

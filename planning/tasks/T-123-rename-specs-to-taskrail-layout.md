@@ -57,8 +57,8 @@ changes, so the normative content is untouched.
   frontmatter.
 - Prose references to the old filenames are updated in: `README.md`, `AGENTS.md`,
   `specs/README.md`, `planning/README.md`, `planning/BUGS.md`,
-  `docs/workflow/autonomous-contract.md`, and `docs/release-verification.md`.
-  133 files reference the old names in total; `.github/workflows/*.yml` use
+  and `docs/release-verification.md`.
+  130 files reference the old names in total; `.github/workflows/*.yml` use
   `specs/**` globs and need no change.
 - `taskrail validate` returns `state valid`.
 - `taskrail spec list` lists all three specs and marks `v0.1.0` active.

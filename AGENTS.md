@@ -18,14 +18,14 @@ Guidance for coding agents working in the Tessariq repository.
 - Nightly mutation gate: `.github/workflows/mutation.yml`.
 - Release pipeline: `.goreleaser.yml` and `.github/workflows/release.yml`.
 - Product overview: `README.md`.
-- Tracked-work workflow and testing policy: `docs/workflow/`.
-- Mirrored agent skills: `.agents/skills/` and `.claude/skills/`. Every skill is vendored verbatim from the pinned taskrail release and must never be hand-edited; provenance is recorded in `docs/workflow/skills-manifest.yml`. See `docs/workflow/skills-overview.md`.
+- Tessariq-specific testing and tracked-task policy: `docs/workflow/development-workflow.md`.
+- Mirrored agent skills: `.agents/skills/` and `.claude/skills/`. Every skill is vendored verbatim from the pinned taskrail release and must never be hand-edited; provenance is recorded in `docs/workflow/skills-manifest.yml`.
 
 ## Toolchain and environment
 - Go version: `1.26` (`go.mod`).
 - The developer toolchain is pinned in `mise.toml` (go, task, goreleaser, trivy, lefthook, and the `go:`-backed gremlins/go-licenses/taskrail). It is the single source of truth for versions and is consumed identically in CI via the shared `.github/actions/setup` composite action, which wraps `jdx/mise-action` (pinned to a commit SHA) and restores the Go module and build caches. No workflow may call `jdx/mise-action` or `actions/setup-go` directly.
 - Provision a fresh clone with `mise install` (or `mise run setup` to also build `tessariq` onto PATH and install the opt-in git hooks). Install mise from https://mise.jdx.dev if needed.
-- `mise` and `task` are optional convenience; direct Go commands remain the source of truth and work without mise. Every operation has a `task <name>` wrapper, and CI runs those wrappers.
+- `mise` and `task` are optional convenience; direct Go commands remain the source of truth and work without mise. CI-facing operations have `task <name>` wrappers.
 - Prefer commands that mirror CI.
 - Docker is a runtime dependency for `tessariq run` and for `task images:*`; it is not needed for building or testing the CLI itself.
 
@@ -92,19 +92,10 @@ Mutation testing runs **nightly in CI** (`.github/workflows/mutation.yml`, plus 
 - With the nightly quality gate: `task test:mutate:gate` (`gremlins unleash --exclude-files 'cmd/.*|internal/testutil/.*' --threshold-efficacy 70`)
 - gremlins is pinned in `mise.toml`; `mise install` provides it.
 
-### Tracked-work workflow commands
-Tracked work is managed by the external `taskrail` binary (`github.com/tessariq/taskrail`), pinned in `mise.toml` and provided by `mise install`. (Outside mise: `go install github.com/tessariq/taskrail/cmd/taskrail@v0.4.0` or `brew install tessariq/tap/taskrail`.) The former in-repo `cmd/tessariq-workflow` tool has been removed.
-- Validate state: `taskrail validate`
-- Select next task: `taskrail next --json`
-- Start task: `taskrail start <task-id>`
-- Finish task: `taskrail complete --note "<evidence>" <task-id>`
-- Block task: `taskrail block --reason "<reason>" <task-id>` (return to todo with `taskrail unblock <task-id>`)
-- Refresh state: `taskrail repair --apply` (conservatively repairs mechanical STATE.md drift; dry-run without `--apply`)
-- Record task verification: `taskrail verify <task-id> --result pass|fail --summary "<summary>"`
-- Report spec coverage (advisory): `taskrail coverage --json`
+### Tracked-work tooling
+Tracked work is managed by the external `taskrail` binary (`github.com/tessariq/taskrail`), pinned in `mise.toml` and provided by `mise install`. Use the pinned CLI and vendored skills for task selection, transitions, recovery, verification, and spec operations.
 - Check mirrored skills and vendored provenance: `task workflow:check-skills`
 - Re-vendor skills after bumping the taskrail pin: `task workflow:skills:vendor` (never `taskrail init --with-skills --force`; it stamps a version marker and writes `.bak` siblings into both parity-checked trees)
-- See `docs/workflow/` for the full deterministic workflow contract.
 
 ### License compliance check used in CI
 - Check allowed licenses: `task licenses:check` (`go-licenses check ./cmd/tessariq --allowed_licenses=Apache-2.0,MIT,BSD-3-Clause,ISC,AGPL-3.0`)
@@ -276,11 +267,11 @@ When tessariq itself creates Docker containers (via `docker create` / `docker st
 - If e2e paths changed, run `task test:e2e` (`go test -tags=e2e ./...`).
 - Do not run mutation testing as part of routine work; it runs nightly in CI.
 - If tracked-work tooling or skills changed, run `task workflow:validate`, `task workflow:check-skills`, and `task workflow:verify:spec`.
-- Never hand-edit a file under `.agents/skills/` or `.claude/skills/`; they are vendored copies of the pinned taskrail release. Change the upstream package, or put the repository-specific rule in `docs/workflow/` and this file. After bumping the taskrail pin in `mise.toml`, run `task workflow:skills:vendor`.
+- Never hand-edit a file under `.agents/skills/` or `.claude/skills/`; change the upstream Taskrail package instead.
 - Update `README.md` when CLI flags/commands/behavior change.
 - Update `CHANGELOG.md` for user-visible behavior changes; keep entries user-facing and skip internal-only maintenance noise.
 - Verify evidence file contracts are maintained when changing run or promote logic.
-- Run manual testing against the task's acceptance criteria before verification; local artifacts must exist under `planning/artifacts/manual-test/<task-id>/` before finishing as `done`.
+- Run manual testing against the task's acceptance criteria before verification; local artifacts must exist under `planning/artifacts/manual-test/<task-id>/` before finishing as `completed`.
 - After manual testing, delete all manual test code (`_manual_test.go` files and `cmd/manual-test-*/` directories); keep only the local-only `plan.md` and `report.md` artifacts on disk and never commit files under `planning/artifacts/`.
 - Update specs in `specs/` only when explicitly requested; specs are normative.
 

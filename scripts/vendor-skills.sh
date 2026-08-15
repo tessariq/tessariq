@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Re-vendor the agent skills from the taskrail release pinned in mise.toml.
 #
-# Usage: scripts/vendor-skills.sh
+# Usage: scripts/vendor-skills.sh [--check]
 #
 # Every skill under .agents/skills/ and .claude/skills/ is a byte-exact copy of
 # the skill package embedded in the pinned taskrail release. Nothing here is
@@ -17,9 +17,9 @@
 #      and byte-identical to the package the running binary embeds — see
 #      isPackageParityCopy in taskrail's internal/taskrail/skills_skew.go. Copying
 #      the package source is the supported way to land in that state.
-#   3. `--force` writes SKILL.md.bak.<timestamp> siblings into both trees, which
-#      the parity check cannot see (they land in both mirrors symmetrically).
-#      Never run it in this repository.
+#   3. `--force` writes SKILL.md.bak.<timestamp> siblings into both trees. The
+#      pinned-package check rejects those extra files, but they should never be
+#      created in this repository.
 #
 # The digest manifest is regenerated here so it can never drift from the trees.
 set -euo pipefail
@@ -30,6 +30,12 @@ cd "$repo_root"
 manifest="docs/workflow/skills-manifest.yml"
 module="github.com/tessariq/taskrail"
 trees=(.agents/skills .claude/skills)
+
+mode="${1:-vendor}"
+if [[ "$mode" != "vendor" && "$mode" != "--check" ]] || [[ $# -gt 1 ]]; then
+  echo "usage: scripts/vendor-skills.sh [--check]" >&2
+  exit 2
+fi
 
 # mise.toml is the single source of truth for the version; reading it here keeps
 # the vendored trees and the toolchain pin from drifting apart.
@@ -43,6 +49,17 @@ src="$(go mod download -json "${module}@v${version}" | sed -n 's/^[[:space:]]*"D
 if [[ ! -d "$src" ]]; then
   echo "vendor-skills: embedded skill package not found at ${src}" >&2
   exit 1
+fi
+
+if [[ "$mode" == "--check" ]]; then
+  for tree in "${trees[@]}"; do
+    if ! diff -rq "$src" "$tree"; then
+      echo "vendor-skills: ${tree} does not match ${module}@v${version}" >&2
+      exit 1
+    fi
+  done
+  echo "vendored skill trees match ${module}@v${version}"
+  exit 0
 fi
 
 for tree in "${trees[@]}"; do

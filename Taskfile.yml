@@ -128,23 +128,6 @@ tasks:
     cmds:
       - taskrail validate
 
-  workflow:check:
-    desc: Run Taskrail validation, advisory spec coverage, and skill parity checks
-    cmds:
-      - taskrail validate
-      - taskrail coverage --json
-      - task: workflow:check-skills
-
-  workflow:next:
-    desc: Select the next eligible tracked task
-    cmds:
-      - taskrail next --json
-
-  workflow:refresh:
-    desc: Refresh derived tracked-work state (repair mechanical STATE.md drift)
-    cmds:
-      - taskrail repair --apply
-
   workflow:verify:spec:
     desc: Report advisory tracked-work coverage against the active milestone spec
     cmds:
@@ -159,7 +142,7 @@ tasks:
     # this target, so wiring it here is what puts the guard on the pull requests
     # that can actually break it.
     cmds:
-      - diff -rq .agents/skills .claude/skills
+      - ./scripts/vendor-skills.sh --check
       - go test ./internal/toolchain -run '^TestSkills' -count=1
 
   workflow:skills:vendor:
