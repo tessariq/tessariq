@@ -18,7 +18,9 @@ Guidance for coding agents working in the Tessariq repository.
 - Nightly mutation gate: `.github/workflows/mutation.yml`.
 - Release pipeline: `.goreleaser.yml` and `.github/workflows/release.yml`.
 - Product overview: `README.md`.
+- Detailed user-facing command behavior: `docs/commands.md`.
 - Tessariq-specific testing and tracked-task policy: `docs/workflow/development-workflow.md`.
+- Changelog authoring policy: `docs/workflow/changelog.md`.
 - Mirrored agent skills: `.agents/skills/` and `.claude/skills/`. Every skill is vendored verbatim from the pinned taskrail release and must never be hand-edited; provenance is recorded in `docs/workflow/skills-manifest.yml`.
 
 ## Toolchain and environment
@@ -111,7 +113,7 @@ Tracked work is managed by the external `taskrail` binary (`github.com/tessariq/
 - Build/test/scan/push runtime images: `task images:build`, `task images:test`, `task images:scan`, `task images:push` (requires Docker; trivy is pinned in `mise.toml`). The image tag defaults to `v0.1.0` via the `IMAGE_VERSION` Taskfile var. CI runs these in `.github/workflows/images.yml`.
 
 ### Git hooks (opt-in)
-- Install: `task hooks:install` (lefthook, pinned in `mise.toml`). Hooks mirror CI's fast checks (gofmt/vet/`taskrail validate`/skill parity on pre-commit, tests on pre-push, Conventional Commit + no-attribution on commit-msg). CI remains authoritative.
+- Install: `task hooks:install` (lefthook, pinned in `mise.toml`). Hooks mirror CI's fast checks (gofmt/vet/`taskrail validate`/skill parity on pre-commit, tests on pre-push, Conventional Commit with a descriptive body + no-attribution on commit-msg). CI remains authoritative.
 
 ## Coding style guidelines
 Follow existing conventions and keep CLI UX stable.
@@ -186,7 +188,7 @@ Rules:
 - When a new process or service collaborator is needed, add a new `Start*` helper to `internal/testutil/containers/` rather than creating ad-hoc local fakes.
 - Wait strategies: use `wait.ForExec` for process-based containers, `wait.ForHTTP` for service containers.
 - Build CLI binaries with `CGO_ENABLED=0` when they run inside Alpine containers (glibc vs musl).
-- Run test containers as the current user (`user.Current()`) when bind-mounting host dirs, or fix ownership in cleanup to avoid `t.TempDir()` permission errors. This applies to test infrastructure containers, not to production agent containers (see "Container user and bind-mount permissions" above).
+- Run test containers as the current user (`user.Current()`) when bind-mounting host dirs, or fix ownership in cleanup to avoid `t.TempDir()` permission errors. This applies to test infrastructure containers, not to production agent containers (see "Container user and bind-mount permissions" below).
 - For e2e tests where tessariq creates Docker containers, see "E2e tests with sibling containers" below.
 
 ### Integration test checklist
@@ -236,7 +238,7 @@ When tessariq itself creates Docker containers (via `docker create` / `docker st
 - These chmod operations are safe because worktrees are disposable, single-run directories under `~/.tessariq/worktrees/`.
 
 #### Mount write scope
-- The runner (host-side tessariq process) writes all evidence artifacts: status.json, manifest.json, agent.json, runtime.json, workspace.json, run.log, runner.log, task.md, and timeout.flag. It writes directly to the host filesystem, not through the container.
+- The runner writes evidence directly to the host filesystem; the agent never writes evidence.
 - The agent (inside the container) writes only to `/work` (the worktree mount). It modifies source code and creates new files as part of the coding task.
 - The evidence mount (`/evidence`) must be read-only from the container's perspective because the agent has no need to write there.
 - Auth and config mounts are always read-only per the spec.
@@ -255,7 +257,7 @@ When tessariq itself creates Docker containers (via `docker create` / `docker st
 - Every run must emit the required evidence files per the spec.
 - Evidence paths are deterministic: `<repo>/.tessariq/runs/<run_id>/`.
 - Status, manifest, and workspace JSON must be valid even when a run fails.
-- Evidence is written by the host-side runner process, not by the agent inside the container. The evidence mount inside the container is read-only.
+- Keep the user-facing artifact inventory and ownership explanation in `docs/commands.md`; keep implementation invariants here.
 
 ## Change checklist for agents
 - Run `task fmt` (`gofmt -w`) on edited Go files.
@@ -268,8 +270,8 @@ When tessariq itself creates Docker containers (via `docker create` / `docker st
 - Do not run mutation testing as part of routine work; it runs nightly in CI.
 - If tracked-work tooling or skills changed, run `task workflow:validate`, `task workflow:check-skills`, and `task workflow:verify:spec`.
 - Never hand-edit a file under `.agents/skills/` or `.claude/skills/`; change the upstream Taskrail package instead.
-- Update `README.md` when CLI flags/commands/behavior change.
-- Update `CHANGELOG.md` for user-visible behavior changes; keep entries user-facing and skip internal-only maintenance noise.
+- Update `README.md` for installation, quickstart, core workflow, and product-overview changes; update `docs/commands.md` for detailed command behavior and edge cases; update `docs/runtime-images.md` for runtime-image behavior.
+- Update `CHANGELOG.md` for user-visible behavior changes under `## [Unreleased]`; follow `docs/workflow/changelog.md`.
 - Verify evidence file contracts are maintained when changing run or promote logic.
 - Run manual testing against the task's acceptance criteria before verification; local artifacts must exist under `planning/artifacts/manual-test/<task-id>/` before finishing as `completed`.
 - After manual testing, delete all manual test code (`_manual_test.go` files and `cmd/manual-test-*/` directories); keep only the local-only `plan.md` and `report.md` artifacts on disk and never commit files under `planning/artifacts/`.
@@ -281,6 +283,7 @@ When tessariq itself creates Docker containers (via `docker create` / `docker st
 - Do keep commits small and descriptive, using imperative commit subjects.
 - Do use conventional commit messages.
 - Do end tracked-task commit subjects with only the short task key, for example `feat: add copy workspace mode (T-124)`. Never use the full slugged task identifier or put the key at the start; non-tracked commits may omit a task reference.
+- Do include a body after the subject and blank line for every ordinary commit. Explain intent, context, and non-obvious decisions rather than restating the diff, and wrap body lines at 72 characters. Generated merge, revert, fixup, and squash commits are exempt.
 - Do keep each tracked task to a single commit that includes both implementation changes and any required workflow/planning metadata updates; do not commit files under `planning/artifacts/`.
 - Do mention user-visible CLI changes in the PR body.
 - Don't mix unrelated refactors or formatting-only churn into feature/fix PRs.
@@ -288,9 +291,3 @@ When tessariq itself creates Docker containers (via `docker create` / `docker st
 - Don't rewrite the shared branch history unless explicitly requested.
 - Don't bypass CI-equivalent checks before asking for review.
 - Don't modify spec files unless the change is explicitly about spec updates.
-
-## Notes on repository behavior
-- Default CLI flow is `run -> attach if needed -> promote`.
-- Tessariq refuses to start a run on a dirty repository.
-- Evidence artifacts are written even when a run fails.
-- Runtime state under `.tessariq/` is never committed.

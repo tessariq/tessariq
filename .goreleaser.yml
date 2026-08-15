@@ -36,6 +36,10 @@ archives:
         dst: LICENSE
       - src: README.md
         dst: README.md
+      - src: docs/commands.md
+        dst: docs/commands.md
+      - src: docs/runtime-images.md
+        dst: docs/runtime-images.md
 
 checksum:
   name_template: checksums.txt

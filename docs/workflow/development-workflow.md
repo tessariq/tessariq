@@ -146,8 +146,15 @@ Manual testing is required before running verification and before finishing a ta
 - Use exactly one commit per tracked implementation task.
 - The commit must use a conventional commit message.
 - End the subject with only the short task key, for example `feat: add copy workspace mode (T-124)`. Never use the full slugged task identifier or put the key at the start. Non-tracked commits may omit a task reference.
+- Include a body after the subject and blank line that explains intent, context, and non-obvious decisions rather than restating the diff. Wrap body lines at 72 characters. Generated merge, revert, fixup, and squash commits are exempt.
 - Include implementation changes, tests, and required workflow/planning metadata updates in that same commit, but do not commit files under `planning/artifacts/`.
 - Do not create a separate follow-up commit only for verification/planning/task metadata updates.
+
+## Documentation And Changelog Policy
+
+- Keep installation, quickstart, the core workflow, and the product overview in `README.md`.
+- Put detailed command behavior and edge cases in `docs/commands.md`, and runtime-image behavior in `docs/runtime-images.md`.
+- Record user-visible changes under `## [Unreleased]` in `CHANGELOG.md` according to `docs/workflow/changelog.md`; skip internal-only work.
 
 ## Change-Type Matrix
 

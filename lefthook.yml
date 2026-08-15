@@ -37,7 +37,7 @@ pre-commit:
 
 commit-msg:
   commands:
-    conventional:
+    message-policy:
       run: bash scripts/check-commit-msg.sh {1}
 
 pre-push:

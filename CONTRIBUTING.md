@@ -44,9 +44,16 @@ the opt-in Git hooks. Direct `go` commands work without mise.
   task-key prefix or the full slugged identifier; non-tracked commits may omit
   the reference. Keep a tracked task's implementation, tests, and required
   planning metadata in one commit.
+- After the subject and a blank line, include a concise body explaining the
+  commit's intent, context, and non-obvious decisions rather than restating the
+  diff. Wrap body lines at 72 characters. The `commit-msg` hook requires this
+  body and line limit for ordinary commits.
 - Update `CHANGELOG.md` under `## [Unreleased]` for user-visible changes only.
-  Keep entries concise and skip internal refactors.
-- Update `README.md` when commands, flags, or user-visible behavior change.
+  Follow the [changelog policy](docs/workflow/changelog.md).
+- Update `README.md` for installation, quickstart, core workflow, or overview
+  changes; update [`docs/commands.md`](docs/commands.md) for detailed command
+  behavior and [`docs/runtime-images.md`](docs/runtime-images.md) for image
+  behavior.
 - Do not add bot-attribution trailers.
 
 CI remains authoritative and selects additional validation based on the paths

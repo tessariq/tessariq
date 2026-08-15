@@ -54,6 +54,9 @@ Current v0.1.0 scope:
 - auth model: supported agent auth reused through read-only mounts
 - promotion model: one reviewable Git commit, or a clean failure if there is no diff
 
+See the [command reference](docs/commands.md) for detailed output, evidence,
+isolation, promotion, and egress contracts.
+
 ## Prerequisites
 
 To run Tessariq locally, you need:
@@ -116,14 +119,10 @@ without them.
 
 ## Runtime Images
 
-Tessariq runs agents inside Docker containers. When `--image` is omitted it pulls
-a published quickstart image for the selected agent —
-`ghcr.io/tessariq/claude-code:v0.1.0` or `ghcr.io/tessariq/opencode:v0.1.0` — so
-you can start without building anything. These images exist for onboarding and
-experimentation; for production, build your own from the reference runtime as
-shown [below](#bring-your-own-image-recommended-for-production).
-
-For more on runtime images, supported auth mounts, and OpenCode setup, see [`docs/runtime-images.md`](docs/runtime-images.md).
+When `--image` is omitted, Tessariq pulls a published quickstart image for the
+selected agent so a first run needs no image build. For production images,
+supported auth mounts, and OpenCode setup, see
+[`docs/runtime-images.md`](docs/runtime-images.md).
 
 ## Quickstart
 
@@ -173,54 +172,15 @@ Typical flow:
 4. Attach if you want to observe or interact with the live session.
 5. Promote the result into one branch and one commit when it is ready.
 
-### Bring Your Own Image (recommended for production)
-
-The published quickstart images track the agent versions baked in at release
-time. For production use, derive your own image from the official reference
-runtime, which includes a broad development toolchain but bundles no third-party
-agent binaries.
-
-Example for Claude Code:
-
-```dockerfile
-FROM ghcr.io/tessariq/reference-runtime:v0.1.0
-
-USER root
-RUN npm install -g @anthropic-ai/claude-code@latest
-USER tessariq
-```
-
-Build it and point a run at it:
-
-```sh
-docker build -t my-claude-runtime:v1 .
-tessariq run tasks/improve-readme.md --image my-claude-runtime:v1
-```
-
 ## What a Run Leaves Behind
 
-Every run writes repo-local evidence under `.tessariq/runs/<run_id>/`.
+Every allocated run writes owner-only evidence under
+`.tessariq/runs/<run_id>/`: resolved settings, lifecycle status, logs, the exact
+task, workspace metadata, and conditional diff and egress artifacts. They remain
+plain JSON, YAML, Markdown, and text with no database or proprietary format.
 
-```text
-.tessariq/
-  runs/
-    index.jsonl
-    <run_id>/
-      manifest.json        # run metadata and resolved execution settings
-      status.json          # lifecycle state, timing, exit code
-      agent.json           # requested vs supported agent options
-      runtime.json         # image identity and mount-policy metadata
-      workspace.json       # workspace path, base SHA, reproducibility metadata
-      task.md              # exact task file copied into evidence
-      diff.patch           # patch output when the run changed code
-      diffstat.txt         # change summary when the run changed code
-      run.log              # captured agent output
-      runner.log           # host-side runner and hook output
-      egress.compiled.yaml # resolved allowlist in proxy mode
-      egress.events.jsonl  # blocked egress attempts in proxy mode
-```
-
-These artifacts are plain files. No proprietary formats. No database required.
+See [Evidence left by a run](docs/commands.md#evidence-left-by-a-run) for the
+artifact inventory and ownership model.
 
 ## Safety and Portability
 
@@ -230,6 +190,9 @@ These artifacts are plain files. No proprietary formats. No database required.
 - Read-only auth reuse: supported auth state is mounted read-only; Tessariq does not expose host `HOME` inside the container.
 - Controlled egress: proxy mode records resolved destinations and blocked egress attempts for auditability.
 - Open artifacts: evidence stays in Markdown, JSON, YAML, and text, so it remains inspectable and portable outside any single product.
+
+See the [command reference](docs/commands.md) for the detailed runtime and safety
+contracts.
 
 ## Status
 
@@ -242,6 +205,7 @@ Tessariq is an in-progress open-source project with the current implementation c
 
 ## Read Next
 
+- [`docs/commands.md`](docs/commands.md)
 - [`docs/runtime-images.md`](docs/runtime-images.md)
 - [`specs/tessariq-v0.1.0.md`](specs/tessariq-v0.1.0.md)
 - [`specs/tessariq-v0.2.0.md`](specs/tessariq-v0.2.0.md)
