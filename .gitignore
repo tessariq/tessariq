@@ -37,6 +37,9 @@ go.work.sum
 # Tessariq runtime state
 .tessariq/
 
+# Amp orb runtime state
+.amp/portals/*
+
 # Local agent state
 .superpowers/
 docs/superpowers/

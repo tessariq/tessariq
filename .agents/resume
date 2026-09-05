@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Tessariq has no persistent services or authentication to restore on wake.
+printf 'No orb resume work required.\n'
