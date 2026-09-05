@@ -10,6 +10,7 @@
 # clear, quotable message on failure.
 set -euo pipefail
 
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 msg_file="${1:-}"
 if [ -z "$msg_file" ] || [ ! -f "$msg_file" ]; then
   echo "check-commit-msg: missing commit message file argument" >&2
@@ -75,11 +76,11 @@ if [[ "$require_body" == true ]]; then
   fi
 fi
 
-# Reject automated-attribution lines.
-if grep -qiE '^[[:space:]]*((co-authored-by|assisted-by):|generated with[[:space:]])' "$msg_file" \
-  || grep -qF '🤖' "$msg_file"; then
+# Reject automated attribution, including a wrapped trailer whose URL lands on
+# a separate line.
+if ! bash "$script_dir/check-attribution.sh" "$msg_file"; then
   echo "check-commit-msg: remove automated-attribution lines" >&2
-  echo "  (Co-authored-by: / Assisted-by: / 'Generated with ...' / bot marker) - attribution is disabled for this repo." >&2
+  echo "  attribution and agent session references are disabled for this repo" >&2
   exit 1
 fi
 

@@ -8,6 +8,9 @@
 pre-commit:
   parallel: true
   commands:
+    # Identity has no staged file to key off, so enforce it on every commit.
+    author-identity:
+      run: bash scripts/check-author.sh
     gofmt:
       glob: "*.go"
       run: |
@@ -32,8 +35,14 @@ pre-commit:
       glob: "{.agents/skills/**,.claude/skills/**,docs/workflow/skills-manifest.yml,scripts/vendor-skills.sh,mise.toml}"
       run: task workflow:check-skills
     commit-message-checker:
-      glob: "{lefthook.yml,Taskfile.yml,scripts/check-commit-msg.sh,scripts/check-commit-msg-test.sh}"
+      glob: "{lefthook.yml,Taskfile.yml,scripts/check-commit-msg.sh,scripts/check-attribution.sh,scripts/check-commit-msg-test.sh}"
       run: task test:commit-msg
+    author-checker:
+      glob: "{lefthook.yml,Taskfile.yml,scripts/check-author.sh,scripts/check-author-test.sh}"
+      run: task test:author
+    push-message-checker:
+      glob: "{lefthook.yml,Taskfile.yml,scripts/check-push-messages.sh,scripts/check-attribution.sh,scripts/check-author.sh,scripts/check-push-messages-test.sh}"
+      run: task test:push-messages
 
 commit-msg:
   commands:
@@ -42,5 +51,9 @@ commit-msg:
 
 pre-push:
   commands:
+    message-policy:
+      priority: 1
+      run: bash scripts/check-push-messages.sh
     tests:
+      priority: 2
       run: task test

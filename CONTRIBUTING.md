@@ -13,9 +13,10 @@ AI-generated and AI-assisted pull requests are welcome. Two rules apply:
 
 1. **You own the diff.** Whoever opens the pull request is accountable for every
    line, whether written by a human or a tool.
-2. **No bot attribution.** Do not add `Co-Authored-By: <bot>`, `Generated with
-   ...`, or similar trailers. The `commit-msg` hook rejects them. The AI is a
-   tool, not a co-author.
+2. **Human authorship, no bot attribution.** Configure Git with a person's name
+   and email, and do not add `Co-Authored-By: <bot>`, `Generated with ...`, or
+   similar trailers. The hooks reject agent identities and attribution. The AI
+   is a tool, not an author or co-author.
 
 The same quality gate applies regardless of how the code was produced.
 
@@ -54,7 +55,7 @@ the opt-in Git hooks. Direct `go` commands work without mise.
   changes; update [`docs/commands.md`](docs/commands.md) for detailed command
   behavior and [`docs/runtime-images.md`](docs/runtime-images.md) for image
   behavior.
-- Do not add bot-attribution trailers.
+- Use a person's Git author identity and do not add bot-attribution trailers.
 
 CI remains authoritative and selects additional validation based on the paths
 changed.

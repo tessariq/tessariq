@@ -174,6 +174,23 @@ func TestSetupActionPinsMiseActionBySHA(t *testing.T) {
 	require.True(t, found, "the setup action must provision the toolchain via jdx/mise-action")
 }
 
+func TestOrbSetupProvisionsRepositoryTooling(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(repoRoot, ".agents", "setup")
+	info, err := os.Stat(path)
+	require.NoError(t, err)
+	require.NotZero(t, info.Mode().Perm()&0o111, ".agents/setup must be executable")
+
+	setup, err := os.ReadFile(path)
+	require.NoError(t, err)
+	contents := string(setup)
+	require.Contains(t, contents, `install --yes`)
+	require.Contains(t, contents, `task install`)
+	require.Contains(t, contents, `git config --local core.hooksPath`)
+	require.Contains(t, contents, `lefthook install`)
+}
+
 // --- YAML helpers ---------------------------------------------------------
 //
 // Traversal works on yaml.Node rather than a decoded map because GitHub's `on:`

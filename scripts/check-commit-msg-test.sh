@@ -66,6 +66,9 @@ assert_rejects multiple-task-suffixes $'feat: add copy mode (T-124) (T-125)\n\nE
 assert_rejects invalid-conventional $'add copy mode (T-124)\n\nExplain the copy-mode change.' 'Conventional Commit'
 assert_rejects coauthor-attribution $'feat: add copy mode (T-124)\n\nExplain the copy-mode change.\n\nCo-Authored-By: Example Bot <bot@example.com>' 'automated-attribution'
 assert_rejects assisted-attribution $'docs: reject assisted attribution\n\nExplain the documentation change.\n\nAssisted-by: Example Tool' 'automated-attribution'
+assert_rejects generated-by-attribution $'docs: reject generated attribution\n\nExplain the documentation change.\n\nGenerated-by: Example Tool' 'automated-attribution'
 assert_rejects generated-attribution $'docs: reject generated attribution\n\nExplain the documentation change.\n\nGenerated with Example Tool' 'automated-attribution'
+assert_rejects amp-thread-attribution $'docs: reject thread attribution\n\nExplain the documentation change.\n\nAmp-Thread: T-01234567-89ab-cdef-0123-456789abcdef' 'automated-attribution'
+assert_rejects wrapped-amp-thread-link $'docs: reject thread link attribution\n\nExplain the documentation change.\n\nhttps://ampcode.com/threads/T-01234567-89ab-cdef-0123-456789abcdef' 'automated-attribution'
 
 printf 'commit message checks passed\n'

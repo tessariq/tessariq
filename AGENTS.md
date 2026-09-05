@@ -288,6 +288,7 @@ When tessariq itself creates Docker containers (via `docker create` / `docker st
 - Do mention user-visible CLI changes in the PR body.
 - Don't mix unrelated refactors or formatting-only churn into feature/fix PRs.
 - Don't split one tracked task into separate "implementation" and "chore/workflow/verification-update" commits.
+- Don't record an agent as the commit author or committer, or add agent-attribution trailers.
 - Don't rewrite the shared branch history unless explicitly requested.
 - Don't bypass CI-equivalent checks before asking for review.
 - Don't modify spec files unless the change is explicitly about spec updates.
