@@ -605,27 +605,40 @@ func runWithAttach(ctx context.Context, r *runner.Runner, sessionName string, at
 	sessionReady := make(chan struct{})
 	r.SessionReady = sessionReady
 
-	var runErr error
-	runDone := make(chan struct{})
+	runDone := make(chan error, 1)
 	go func() {
-		runErr = r.Run(ctx)
-		close(runDone)
+		runDone <- r.Run(ctx)
 	}()
+	return attachWhenSessionReady(ctx, sessionName, attachFn, sessionReady, runDone)
+}
 
+func attachWhenSessionReady(ctx context.Context, sessionName string, attachFn func(context.Context, string) error, sessionReady <-chan struct{}, runDone <-chan error) error {
+	var runErr error
+	runCompleted := false
 	select {
 	case <-sessionReady:
-		attachErr := attachFn(ctx, sessionName)
-		<-runDone
-		if runErr != nil {
+	case runErr = <-runDone:
+		runCompleted = true
+		// A fast run can finish after creating the session but before this
+		// goroutine is scheduled. Prefer the ready session in that case.
+		select {
+		case <-sessionReady:
+		default:
 			return runErr
 		}
-		if attachErr != nil {
-			return fmt.Errorf("attach to run session: %w", attachErr)
-		}
-		return nil
-	case <-runDone:
+	}
+
+	attachErr := attachFn(ctx, sessionName)
+	if !runCompleted {
+		runErr = <-runDone
+	}
+	if runErr != nil {
 		return runErr
 	}
+	if attachErr != nil {
+		return fmt.Errorf("attach to run session: %w", attachErr)
+	}
+	return nil
 }
 
 // printBlockedDestinations reads egress events and prints guidance for blocked destinations.

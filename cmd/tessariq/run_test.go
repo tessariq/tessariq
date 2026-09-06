@@ -152,6 +152,27 @@ func TestRunWithAttach_AttachesAfterSessionReady(t *testing.T) {
 	require.True(t, attachCalled, "attach function must be called when session is ready")
 }
 
+func TestAttachWhenSessionReady_AttachesWhenRunAlreadyCompleted(t *testing.T) {
+	t.Parallel()
+
+	for range 100 {
+		sessionReady := make(chan struct{})
+		close(sessionReady)
+		runDone := make(chan error, 1)
+		runDone <- nil
+
+		attachCalled := false
+		attachFn := func(context.Context, string) error {
+			attachCalled = true
+			return nil
+		}
+
+		err := attachWhenSessionReady(context.Background(), "test-session", attachFn, sessionReady, runDone)
+		require.NoError(t, err)
+		require.True(t, attachCalled, "a ready session must win when the run is also complete")
+	}
+}
+
 func TestRunWithAttach_RunErrorReturnedOverAttachError(t *testing.T) {
 	t.Parallel()
 
