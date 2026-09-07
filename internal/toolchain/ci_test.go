@@ -94,7 +94,7 @@ func TestMutationWorkflowIsWeeklyAndActionable(t *testing.T) {
 		"mutation failures must be tracked through a GitHub issue")
 
 	uses := stepValues(t, workflow, "uses")
-	require.Contains(t, uses, "actions/upload-artifact@v6",
+	require.Contains(t, uses, "actions/upload-artifact@v7",
 		"mutation results must be retained as an artifact")
 }
 
