@@ -238,4 +238,8 @@ tasks:
           echo "  # or: go install github.com/evilmartians/lefthook@v1.13.6" >&2
           exit 1
         fi
+        # Override inherited hooks only for this repository. Linked worktrees
+        # have a .git file, so use the absolute common directory for all checkouts.
+        hooks_dir="$(cd "$(git rev-parse --git-common-dir)" && pwd)/hooks"
+        git config --local core.hooksPath "$hooks_dir"
         lefthook install

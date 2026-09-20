@@ -187,8 +187,7 @@ func TestOrbSetupProvisionsRepositoryTooling(t *testing.T) {
 	contents := string(setup)
 	require.Contains(t, contents, `install --yes`)
 	require.Contains(t, contents, `task install`)
-	require.Contains(t, contents, `git config --local core.hooksPath`)
-	require.Contains(t, contents, `lefthook install`)
+	require.Contains(t, contents, `task hooks:install`)
 }
 
 // --- YAML helpers ---------------------------------------------------------

@@ -117,6 +117,10 @@ task test        # run the unit suite (see `task --list` for all targets)
 mise and Task are optional convenience — the direct `go` commands above work
 without them.
 
+`task hooks:install` installs the hooks in the repository's shared Git directory,
+so they work in both the main checkout and linked worktrees. Installation sets a
+repository-local absolute `core.hooksPath`; rerun it if you move the repository.
+
 ## Runtime Images
 
 When `--image` is omitted, Tessariq pulls a published quickstart image for the

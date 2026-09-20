@@ -46,11 +46,7 @@ eval "$("$mise_bin" env -s bash)"
 step "download Go modules" go mod download
 step "build tessariq" task install
 
-# Amp supplies a shared hooksPath for its own generic hook. Override it only in
-# this checkout so Lefthook installs and runs this repository's policy instead
-# of changing hooks shared by unrelated repositories.
-step "configure repository hooks" git config --local core.hooksPath .git/hooks
-step "install repository hooks" lefthook install
+step "install repository hooks" task hooks:install
 
 # Amp and supervised services start in clean non-interactive login shells.
 # Activate this repository's tools and mise.toml environment in those shells.

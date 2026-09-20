@@ -29,5 +29,5 @@ description = "Provision the pinned toolchain, build tessariq onto PATH, and ins
 run = [
   "mise install",
   "task install",
-  "lefthook install",
+  "task hooks:install",
 ]
