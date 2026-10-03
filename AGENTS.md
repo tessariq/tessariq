@@ -71,17 +71,17 @@ Use these defaults unless a task requires otherwise.
 
 ### Run a single test
 - Single test in one package:
-  `go test ./internal/cli -run '^TestRootCommandShowsHelp$'`
+  `go test ./cmd/tessariq -run '^TestRootHelpIncludesVersionCommand$'`
 - Single test by pattern:
-  `go test ./internal/cli -run '^TestRootCommand'`
+  `go test ./cmd/tessariq -run '^TestRoot'`
 - Single integration test:
-  `go test -tags=integration ./internal/workspace -run '^TestWorktreeCreation$'`
+  `go test -tags=integration ./internal/workspace -run '^TestProvision_Integration_CreatesWorktree$'`
 - Single test with verbose output:
-  `go test -v ./cmd/tessariq -run '^TestHelpOutput$'`
+  `go test -v ./cmd/tessariq -run '^TestVersionCommandHelpIsCommandLocal$'`
 
 ### Helpful test variants
 - Disable cache while iterating:
-  `go test ./internal/cli -run '^TestName$' -count=1`
+  `go test ./cmd/tessariq -run '^TestName$' -count=1`
 - Run one package only:
   `go test ./internal/workspace`
 
@@ -132,7 +132,7 @@ Follow existing conventions and keep CLI UX stable.
 - Exported names: `PascalCase`; unexported names: `camelCase`.
 - Sentinel errors should use `ErrXxx` naming (for example `ErrDirtyRepo`).
 - Exported constructors should use `NewXxx`.
-- Use explicit config structs (for example `run.Config`, `workspace.Options`).
+- Use explicit config structs (for example `run.Config`).
 - Prefer typed structs for core flows instead of `map[string]any`.
 
 ### Naming conventions
@@ -154,10 +154,8 @@ Follow existing conventions and keep CLI UX stable.
 - Prefer `filepath` (not `path`) for filesystem operations.
 - Normalize user-provided paths with `filepath.Clean` when appropriate.
 
-### Logging and user output
-- Use structured logging with `zap` for diagnostics.
+### User output
 - Write user-facing command output via command writers (`cmd.OutOrStdout()` / stderr).
-- Log Docker and git operations at debug level; surface failures at error level.
 - Evidence-path and run-id output should go to stdout for scripting.
 
 ### Testing conventions
